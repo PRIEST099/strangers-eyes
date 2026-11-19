@@ -1,0 +1,36 @@
+# dependencies and builds
+node_modules/
+web/dist/
+web/public/vendor/
+web/dev-dist/
+.firebase/
+*-debug.log
+npm-debug.log*
+.DS_Store
+coverage/
+playwright-report/
+test-results/
+
+# secrets (never commit)
+.env
+.env.*
+!.env.example
+!web/.env.e2e
+*.local
+ios/.appcheck-debug-token
+ios/Config/Secrets.xcconfig
+*.secret*
+
+# private-data backstop (real data lives in PRIV, outside the repo)
+benchmark/private/
+
+# scratch and third-party copies
+.scratch/
+research/_vendor-docs/
+
+# iOS
+ios/build/
+ios/.spm/
+DerivedData/
+**/xcuserdata/
+*.xcuserstate
