@@ -1,0 +1,58 @@
+⚠  emulators: You are not currently authenticated so some features may not work correctly. Please run firebase login to authenticate the CLI.
+i  emulators: Starting emulators: firestore
+i  emulators: Detected demo project ID "demo-se", emulated services will use a demo configuration and attempts to access non-emulated services for this project will fail.
+i  firestore: Firestore Emulator logging to firestore-debug.log
+✔  firestore: Firestore Emulator UI websocket is running on 9150.
+i  Running script: node test.mjs
+[2026-11-19T18:54:13.672Z]  @firebase/firestore: Firestore (13.4.0): GrpcConnection RPC 'Write' stream 0x5efb27ea error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L25:24 for 'update' @ L25, false for 'update' @ L28, false for 'update' @ L25, false for 'update' @ L28
+[2026-11-19T18:54:13.683Z]  @firebase/firestore: Firestore (13.4.0): GrpcConnection RPC 'Write' stream 0x5efb27eb error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L25:24 for 'update' @ L25, false for 'update' @ L28, false for 'update' @ L25, false for 'update' @ L28
+[2026-11-19T18:54:13.696Z]  @firebase/firestore: Firestore (13.4.0): GrpcConnection RPC 'Write' stream 0x5efb27ec error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L24, false for 'create' @ L28, evaluation error at L25:24 for 'update' @ L25, false for 'update' @ L28, false for 'update' @ L25, false for 'update' @ L28
+[2026-11-19T18:54:13.706Z]  @firebase/firestore: Firestore (13.4.0): GrpcConnection RPC 'Write' stream 0x5efb27ed error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L25:24 for 'update' @ L25, false for 'update' @ L28, false for 'update' @ L25, false for 'update' @ L28
+[2026-11-19T18:54:13.717Z]  @firebase/firestore: Firestore (13.4.0): GrpcConnection RPC 'Write' stream 0x5efb27ee error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L24, false for 'create' @ L28, false for 'update' @ L25, false for 'update' @ L28
+[2026-11-19T18:54:13.814Z]  @firebase/firestore: Firestore (13.4.0): GrpcConnection RPC 'Write' stream 0x5efb27ef error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L24, false for 'create' @ L28, false for 'update' @ L25, false for 'update' @ L28
+[2026-11-19T18:54:13.832Z]  @firebase/firestore: Firestore (13.4.0): GrpcConnection RPC 'Write' stream 0x5efb27f0 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L24, false for 'create' @ L28, false for 'update' @ L25, false for 'update' @ L28
+[2026-11-19T18:54:13.837Z]  @firebase/firestore: Firestore (13.4.0): GrpcConnection RPC 'Write' stream 0x5efb27f1 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'delete' @ L26, false for 'delete' @ L28
+[2026-11-19T18:54:13.901Z]  @firebase/firestore: Firestore (13.4.0): GrpcConnection RPC 'Write' stream 0x5efb27f3 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L28, false for 'update' @ L28
+[2026-11-19T18:54:13.906Z]  @firebase/firestore: Firestore (13.4.0): GrpcConnection RPC 'Write' stream 0x5efb27f4 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L28, false for 'update' @ L28
+[2026-11-19T18:54:13.913Z]  @firebase/firestore: Firestore (13.4.0): GrpcConnection RPC 'Write' stream 0x5efb27f5 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L24, false for 'create' @ L28, false for 'update' @ L25, false for 'update' @ L28
+[2026-11-19T18:54:13.918Z]  @firebase/firestore: Firestore (13.4.0): GrpcConnection RPC 'Write' stream 0x5efb27f6 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L28, false for 'update' @ L28
+[2026-11-19T18:54:13.927Z]  @firebase/firestore: Firestore (13.4.0): GrpcConnection RPC 'Write' stream 0x5efb27f7 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L28, false for 'update' @ L28
+PASS | clue create via merge increment(1)
+PASS | clue update via merge increment(1)
+PASS | clue update via updateDoc increment(1)
+PASS | clue increment(2) rejected
+PASS | clue increment(-1) rejected
+PASS | clue literal n=99 rejected
+PASS | clue extra field rejected
+PASS | clue unknown type rejected
+PASS | clue all 18 types accepted
+PASS | bad week rejected
+PASS | unauth rejected
+PASS | delete rejected
+PASS | public read doc
+PASS | public list clues
+PASS | outcomes collection create rejected
+PASS | band outcome doc rejected
+PASS | band type as clue rejected
+PASS | other collection write rejected
+PASS | other collection read rejected
+PASS | week doc itself write rejected
+final transit_sign undefined pass 20 / 20
+✔  Script exited successfully (code 0)
+i  emulators: Shutting down emulators.
+i  firestore: Stopping Firestore Emulator
+i  hub: Stopping emulator hub
+i  logging: Stopping Logging Emulator

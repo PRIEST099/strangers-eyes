@@ -1,0 +1,57 @@
+⚠  emulators: You are not currently authenticated so some features may not work correctly. Please run firebase login to authenticate the CLI.
+i  emulators: Starting emulators: firestore
+i  emulators: Detected demo project ID "demo-se", emulated services will use a demo configuration and attempts to access non-emulated services for this project will fail.
+i  firestore: Firestore Emulator logging to firestore-debug.log
+✔  firestore: Firestore Emulator UI websocket is running on 9150.
+i  Running script: node test.mjs
+[2026-11-19T18:18:32.713Z]  @firebase/firestore: Firestore (13.4.0): GrpcConnection RPC 'Write' stream 0x107e16fc error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L27:24 for 'update' @ L27, false for 'update' @ L36, false for 'update' @ L27, false for 'update' @ L36
+[2026-11-19T18:18:32.724Z]  @firebase/firestore: Firestore (13.4.0): GrpcConnection RPC 'Write' stream 0x107e16fd error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L27:24 for 'update' @ L27, false for 'update' @ L36, false for 'update' @ L27, false for 'update' @ L36
+[2026-11-19T18:18:32.739Z]  @firebase/firestore: Firestore (13.4.0): GrpcConnection RPC 'Write' stream 0x107e16fe error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L26, false for 'create' @ L36, evaluation error at L27:24 for 'update' @ L27, false for 'update' @ L36, false for 'update' @ L27, false for 'update' @ L36
+[2026-11-19T18:18:32.749Z]  @firebase/firestore: Firestore (13.4.0): GrpcConnection RPC 'Write' stream 0x107e16ff error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L27:24 for 'update' @ L27, false for 'update' @ L36, false for 'update' @ L27, false for 'update' @ L36
+[2026-11-19T18:18:32.756Z]  @firebase/firestore: Firestore (13.4.0): GrpcConnection RPC 'Write' stream 0x107e1700 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L26, false for 'create' @ L36, false for 'update' @ L27, false for 'update' @ L36
+[2026-11-19T18:18:32.855Z]  @firebase/firestore: Firestore (13.4.0): GrpcConnection RPC 'Write' stream 0x107e1701 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L26, false for 'create' @ L36, false for 'update' @ L27, false for 'update' @ L36
+[2026-11-19T18:18:32.874Z]  @firebase/firestore: Firestore (13.4.0): GrpcConnection RPC 'Write' stream 0x107e1702 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L26, false for 'create' @ L36, false for 'update' @ L27, false for 'update' @ L36
+[2026-11-19T18:18:32.879Z]  @firebase/firestore: Firestore (13.4.0): GrpcConnection RPC 'Write' stream 0x107e1703 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'delete' @ L28, false for 'delete' @ L36
+[2026-11-19T18:18:32.957Z]  @firebase/firestore: Firestore (13.4.0): GrpcConnection RPC 'Write' stream 0x107e1705 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L32, false for 'create' @ L36, false for 'update' @ L33, false for 'update' @ L36
+[2026-11-19T18:18:32.964Z]  @firebase/firestore: Firestore (13.4.0): GrpcConnection RPC 'Write' stream 0x107e1706 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L33:24 for 'update' @ L33, false for 'update' @ L36, false for 'update' @ L33, false for 'update' @ L36
+[2026-11-19T18:18:32.970Z]  @firebase/firestore: Firestore (13.4.0): GrpcConnection RPC 'Write' stream 0x107e1707 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L36, false for 'update' @ L36
+[2026-11-19T18:18:32.979Z]  @firebase/firestore: Firestore (13.4.0): GrpcConnection RPC 'Write' stream 0x107e1708 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L36, false for 'update' @ L36
+PASS | clue create via merge increment(1)
+PASS | clue update via merge increment(1)
+PASS | clue update via updateDoc increment(1)
+PASS | clue increment(2) rejected
+PASS | clue increment(-1) rejected
+PASS | clue literal n=99 rejected
+PASS | clue extra field rejected
+PASS | clue unknown type rejected
+PASS | clue all 18 types accepted
+PASS | bad week rejected
+PASS | unauth rejected
+PASS | delete rejected
+PASS | public read doc
+PASS | public list clues
+PASS | outcome create
+PASS | outcome update
+PASS | outcome unknown rejected
+PASS | outcome +3 rejected
+PASS | other collection write rejected
+PASS | other collection read rejected
+PASS | week doc itself write rejected
+final transit_sign undefined pass 21 / 21
+✔  Script exited successfully (code 0)
+i  emulators: Shutting down emulators.
+i  firestore: Stopping Firestore Emulator
+i  hub: Stopping emulator hub
+i  logging: Stopping Logging Emulator

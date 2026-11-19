@@ -1,0 +1,3 @@
+{ "compilerOptions": { "target": "es2023", "lib": ["ES2023","DOM","DOM.Iterable"], "module": "esnext", "moduleResolution": "bundler",
+  "strict": true, "noEmit": true, "verbatimModuleSyntax": true, "erasableSyntaxOnly": true, "skipLibCheck": true, "resolveJsonModule": true,
+  "noUnusedLocals": false, "noUncheckedIndexedAccess": false }, "include": ["src"] }

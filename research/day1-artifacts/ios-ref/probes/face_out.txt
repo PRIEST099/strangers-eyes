@@ -1,0 +1,5 @@
+supported: [Vision.ComputeStage.main: [<MLGPUComputeDevice: 0x100a60940> Apple iOS simulator GPU, <MLCPUComputeDevice: 0x100a60950>]]
+default error: internalError("Could not create inference context")
+cpu faces: 0
+legacy faces: 0
+legacy text ok: 0

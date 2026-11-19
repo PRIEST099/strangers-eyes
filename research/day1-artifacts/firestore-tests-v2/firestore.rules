@@ -1,0 +1,38 @@
+rules_version = '2';
+// Strangers' Eyes — Firestore holds ONLY the opt-in anonymous "Leak Atlas" counters.
+// Nothing here is vault data, coordinates, images or per-photo documents.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function validWeek(w) { return w.matches('^[0-9]{4}-W[0-9]{2}$'); }
+    // Must equal CLUE_TYPES in shared/prompts/enums.v1.json (pass-B clue types only).
+    function clueTypes() {
+      return ['name_text', 'house_number', 'plate', 'street_sign', 'transit_sign', 'storefront_text',
+              'uniform_or_lanyard', 'crest_or_logo', 'mail_or_document', 'screen', 'window_view', 'reflection',
+              'landmark', 'architecture', 'road_or_street_furniture', 'vegetation_or_terrain',
+              'language_or_script', 'other'];
+    }
+    // Adversary's own precision before vs after the fix (cloud-known; never vault-derived).
+    function outcomes() { return ['precision_dropped', 'precision_same', 'precision_rose', 'declined']; }
+    function isCreatePlusOne() {
+      return request.resource.data.keys().hasOnly(['n']) && request.resource.data.n == 1;
+    }
+    function isUpdatePlusOne() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['n'])
+        && request.resource.data.n == resource.data.n + 1;
+    }
+    match /atlas/{weekId}/clues/{clueType} {
+      allow read: if true;
+      allow create: if signedIn() && validWeek(weekId) && clueType in clueTypes() && isCreatePlusOne();
+      allow update: if signedIn() && validWeek(weekId) && clueType in clueTypes() && isUpdatePlusOne();
+      allow delete: if false;
+    }
+    match /atlas/{weekId}/outcomes/{outcome} {
+      allow read: if true;
+      allow create: if signedIn() && validWeek(weekId) && outcome in outcomes() && isCreatePlusOne();
+      allow update: if signedIn() && validWeek(weekId) && outcome in outcomes() && isUpdatePlusOne();
+      allow delete: if false;
+    }
+    match /{document=**} { allow read, write: if false; }
+  }
+}

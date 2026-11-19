@@ -1,0 +1,542 @@
+[
+ {
+  "doc": "docs/PROGRESS.md (missing) + docs/TASKS.md + CLAUDE.md",
+  "severity": "high",
+  "issue": "None of the drafts is a docs/PROGRESS.md, yet CLAUDE.md's session-start protocol, TASKS \u00a71/\u00a72 and RUNBOOK all read or write it first: Key values table, Decisions log, WIP and 'Now:/Next:'. A fresh session has nowhere to resume from. Decision IDs also come in three clashing namespaces: SPEC D-01..D-25, ARCH AD-01..AD-20, and TASKS RN-01..RN-23. TASKS T-022 then copies the RN entries into PROGRESS as 'D-001 onwards', which looks like a renumbering of SPEC's D-01.. but means something different.",
+  "fix": "Create docs/PROGRESS.md now with these sections: (1) Status (current day, gate, 'Now: T-0xx', 'Next: T-0xx'); (2) WIP state; (3) Key values, non-secret only (PROJECT_ID, WEB_APP_ID, IOS_APP_ID, BUNDLE_ID, SITE_KEY, Firestore location, HOSTED_URL, REPO_URL, YOUTUBE_URL, Devpost draft URL, chosen adversary model, iOS Path A/B); (4) USER pending (IDs and due dates); (5) Day-1 gate results table G1\u2013G3, with blank rows for availability, refusals, within-5 km and latency; (6) Decisions log. Keep SPEC's D-01..D-25 as product decisions and ARCH's AD-01..AD-20 as architecture decisions, and add each RN-xx as a cross-reference to the matching D/AD (for example RN-05 \u2192 D-02/AD-03), not as new D-001 IDs. (7) Session log. Edit T-022 so it says 'link RN-xx to existing D-/AD- IDs; new decisions continue at D-26 / AD-21'."
+ },
+ {
+  "doc": "docs/TASKS.md",
+  "severity": "high",
+  "issue": "The \u00a76 AC index invents AC-01..AC-33 with its own meanings. SPEC uses AC-001..AC-364 in feature ranges (for example AC-040\u2013059 Egress Gate, AC-240\u2013249 Judge Mode). Every task line cites the two-digit IDs, so 'AC: AC-25' in T-105 points to nothing in SPEC. T-022 postpones the fix, but each session will read the wrong IDs until then.",
+  "fix": "Replace \u00a76 with SPEC \u00a718's range table and rewrite each task's AC field to SPEC IDs now. For example: T-062 \u2192 AC-020..AC-025, AC-040..AC-046; T-069 \u2192 AC-130..AC-133; T-070/T-071 \u2192 AC-140..AC-148; T-076 \u2192 AC-160..AC-166; T-080 \u2192 AC-190..AC-197; T-085 \u2192 AC-002, AC-041, AC-211, AC-300; T-105 \u2192 AC-240..AC-245; T-084/T-106 \u2192 AC-250..AC-252; T-104 \u2192 AC-280..AC-282; M4 \u2192 AC-320..AC-332; M5 \u2192 AC-350..AC-354; T-188 \u2192 AC-360..AC-364. Delete the sentence 'If the numbering in SPEC differs, SPEC wins; fix the references here (task T-022)'."
+ },
+ {
+  "doc": "docs/SPEC.md \u00a716, docs/ARCHITECTURE.md \u00a713, docs/TASKS.md T-102, docs/RUNBOOK.md \u00a74.4, docs/API-NOTES.md \u00a72.4",
+  "severity": "high",
+  "issue": "Remote Config keys disagree across four docs. Adversary model: SPEC/ARCH `adversary_model`, TASKS/RUNBOOK `model_adversary`. Explainer model: SPEC `explainer_model`, ARCH `explain_cloud_model`, TASKS/RUNBOOK `model_hybrid_cloud`. Thinking level: `thinking_level` / `adversary_thinking_level` / `thinking_level_adversary`. Daily cap: `daily_cap` = 20 per local day (SPEC, RUNBOOK) vs `daily_adversary_cap` = 25 per UTC day (ARCH) vs `adversary_daily_cap` = 20 (TASKS). Bands: `distance_bands_m` vs `bands_m`. Matching threshold: `ocr_match_threshold` 0.8 vs `fuzzy_threshold` 0.82. Other pairs: `mask_padding` vs `mask_pad_ratio`; `adversary_image_max_px` vs `cloud_image_max_px`; `leak_atlas_enabled` vs `atlas_enabled`. `prompt_versions` values are 'advA.v1' in SPEC and 'v1' in ARCH. `routing_policy` is a flat lowercase map in SPEC/RUNBOOK and a nested {classes, jobs} map with uppercase values in ARCH. `data_tier`, `max_fix_rounds`, `request_timeout_ms` and `judge_autoplay_default` exist only in SPEC. ARCH adds `clue_types`, which SPEC D-13 forbids (no enums in RC).",
+  "fix": "Make ARCH \u00a713 the single canonical table and template (CLAUDE.md already says ARCH owns key names), and replace SPEC \u00a716, TASKS T-102 and RUNBOOK \u00a74.4 with a pointer to it. The canonical set should be: ARCH's keys plus `data_tier` (STRING paid|free; 'free' forces grounding off and switches the consent copy), `max_fix_rounds` = 3 and `judge_autoplay_default` = true; per-job timeouts instead of a single `request_timeout_ms`; drop `clue_types`, or record a decision that it is display-only, superseding D-13. Pick one daily-cap name, one default and one reset rule (recommend `daily_adversary_cap`, 20, local day, with the A+B pair counting as 1). Pick one threshold (0.8) and one `prompt_versions` value format (full IDs, 'advA.v1'). Pick one `routing_policy` shape (ARCH's nested shape) and update the SPEC AC-020 wording. Regenerate archcheck/json/remoteconfig.template.json to match."
+ },
+ {
+  "doc": "docs/TASKS.md T-080, T-104; docs/RUNBOOK.md \u00a74.3; docs/ARCHITECTURE.md AD-08/\u00a714",
+  "severity": "high",
+  "issue": "Leak Atlas contents contradict SPEC D-11/SR-17/AC-282, which say only pass-B clue types, never band outcomes or fix choices. TASKS T-080 says 'record whether the band moved, for the Leak Atlas', and T-104 adds `fix_moved_band`/`fix_same_band` to the clue-type whitelist. RUNBOOK \u00a74.3 rules add `outcomes()` = band_moved/band_same. Bands are measured against the user's vault pins, so writing them to Firestore breaks invariant 1 and tells Google whether the attacker was right. ARCH instead adds a fourth design: precision_dropped/same/rose/declined outcomes written after the re-attack, a 21/21-tested ruleset in scratchpad/rulestest2. SPEC writes after pass B; ARCH writes once after the re-attack.",
+  "fix": "Decide and log one design. Recommended: SPEC D-11 (pass-B clue types only, written after pass B). Remove band_moved/fix_moved_band from TASKS T-080/T-104 and RUNBOOK \u00a74.3, delete the `outcomes` match block from the ARCH rules, and re-run the emulator suite (20+ cases). If the ARCH precision outcome is kept, add a decision D-26 that amends D-11, update SPEC SCR-21/AC-282, and state that it derives from pass-B levels only and never imports verdict, referee or vault modules. In both cases TASKS T-080 must not write anything to the Atlas."
+ },
+ {
+  "doc": "docs/SPEC.md \u00a710.5\u201310.6, docs/ARCHITECTURE.md \u00a712.3, docs/TASKS.md T-076/T-080",
+  "severity": "high",
+  "issue": "There are three rules for the demo's headline 'Risk reduced' and for verdict colours. SPEC: after.level < before.level, OR (same level AND worst pin band coarser AND fewer HIGH lines); GREEN is used only for 'Risk reduced'; a city band is grey INFO; country is not shown; the overall level is RED/AMBER/LOW/PARTIAL. ARCH: (#red_after < #red_before) OR (any pin band rank increased AND no line got worse); city/country/none bands are GREEN; caught lines are green shields; there is a green initial headline 'Low risk found'; street/neighbourhood is amber when confidence is low. TASKS T-080: no exact/likely matches remain AND the closest home/work/school band is city or coarser; T-076 makes country/none green. AC-194 cannot pass all three.",
+  "fix": "Adopt SPEC \u00a710 verbatim as the single algorithm. Rewrite ARCH \u00a712.3 (line table, colours, headline copy taken from SPEC \u00a711 copy.verdict.*, teal for caught lines, no green except for Risk reduced) and change ARCH's VerdictColor/Verdict types to SPEC's levels RED|AMBER|LOW|PARTIAL plus riskReduced. Change TASKS T-076/T-080 to say 'implement SPEC \u00a710.1\u201310.6; tests = AC-160, AC-194'. Put the shared vectors in shared/testvectors/verdict.json and use them for both Vitest and XCTest."
+ },
+ {
+  "doc": "docs/SPEC.md \u00a717.2, docs/ARCHITECTURE.md \u00a76 (VaultKind) + \u00a710.3 VAULT_PROMPT_KINDS, docs/TASKS.md T-051",
+  "severity": "high",
+  "issue": "The vault kind enums differ. SPEC: home_pin, work_pin, school_pin, place_pin, child_name, person_name, employer, school_name, area_name, street_name, plate, house_number, phone, descriptor, other_text. ARCH: other_pin, self_name, home_label, uniform_descriptor, custom_text, with no street_name. TASKS: self_name, home_label, uniform_descriptor, with no person_name, phone or place_pin. The kind-compatibility table (SPEC \u00a717.4 vs ARCH \u00a712.1), the KIND display names, the prompts' VAULT_JSON kinds and the Judge fake vault all depend on this.",
+  "fix": "Choose one enum in SPEC \u00a717.2, add self_name if it is wanted, and copy it into ARCH \u00a76 types.ts, enums.v1.json (a VAULT_KINDS list plus a prompt-kind map), ARCH \u00a712.1 kindCompatible and TASKS T-051. Make SPEC \u00a717.3/\u00a717.4 the source for display names and compatibility, and have ARCH reference them instead of restating a different table."
+ },
+ {
+  "doc": "docs/ARCHITECTURE.md \u00a710.3, \u00a710.9, \u00a712.1",
+  "severity": "high",
+  "issue": "ARCH says '*_pin kinds never appear in any prompt' and gives the deterministic referee only non-pin items. SPEC's Judge vault (SCR-17), however, stores the workplace as `work_pin` 'City General Hospital', and SPEC SCR-09/\u00a717.4 sends pins to the referee as kind+label (no coordinates), skipping only unlabeled home_pins. Under ARCH's rules the demo's red line 'Identified your WORKPLACE by name' can never fire for the Judge vault or for any user who pins their workplace.",
+  "fix": "Change ARCH \u00a710.3/\u00a710.9 to: pin items are sent as {id, kind, label} with no coordinates; drop home_pin items whose label is empty or generic ('Home'). Restore the nanoRef.v1 line about home_pin from API-NOTES \u00a76.9, or replace it with 'labels of places; distances are checked separately'. Include labelled pins in deterministicReferee (SPEC \u00a717.4 'pin labels'). Add a referee test vector: claim 'hospital staff lanyard logo' (workplace) vs work_pin 'City General Hospital' \u2192 likely."
+ },
+ {
+  "doc": "docs/ARCHITECTURE.md \u00a78.2 (gate) and \u00a78.3 (tripwire)",
+  "severity": "high",
+  "issue": "In Judge Mode, ARCH's gate logic breaks the demo. (1) For S4 it OCR-scans images and prompts against terms(JUDGE_VAULT). Sample originals show 'LUCAS', and the S4 referee and vault-text prompts carry the fake labels by design, so every S4 cloud-fallback call is BLOCKED; SPEC \u00a77.1 says S4 replaces those checks with the allowlist. (2) For S3 in Judge Mode it uses `vaultStore.current()` (the real vault, which is empty for judges) instead of JUDGE_VAULT. An unmasked LUCAS tag would therefore be sent to the cloud, and the forced-leak step in ARCH's own smoke test (\u00a720.2 step 5) cannot block. (3) The tripwire scans real-vault terms. RUNBOOK Beat 3 enters the same fictional 'Lucas'/'City General' into the real vault, so the tripwire will kill Judge Mode S4 calls during filming and testing.",
+  "fix": "Rewrite \u00a78.2 step 1\u20133 term selection. scanTerms = judgeSession ? terms(JUDGE_VAULT) \u222a realTerms : realTerms. For S4, skip VAULT_TEXT_IN_IMAGE and VAULT_TEXT_IN_PROMPT against JUDGE_VAULT terms (the allowlist proof replaces them), but still scan against realTerms minus any term that is also a JUDGE_VAULT term. For S3 in Judge Mode, scan images against JUDGE_VAULT \u222a real. In the tripwire, exempt requests made under an S4 permit from matches on JUDGE_VAULT-equal terms. Add gate-matrix vectors for all three cases. RUNBOOK \u00a76.2: burn or clear the real vault before switching to Judge Mode during filming."
+ },
+ {
+  "doc": "docs/TASKS.md T-068",
+  "severity": "high",
+  "issue": "T-068 says 'Strict mode is ON by default and masks every flagged clue'. SPEC D-16 makes Standard the default and Strict optional, ARCH AD-10 sets `strict_mode_default` false, and the storyboard and RUNBOOK Beat 3 rely on the lanyard being flagged amber, not masked. With Strict on, the lanyard is masked before the cloud sees it, the attacker cannot produce 'Identified your WORKPLACE', and the demo verdict collapses.",
+  "fix": "Rewrite T-068: 'Standard mode is the default and pre-ticks exactly per SPEC SCR-06 table (AC-112). Strict is a toggle (RC strict_mode_default=false) that masks every flagged clue after confirmation.' Add an Add-mask drag tool (AC-116), optional crop (P1), the grid-cell removal confirmation (AC-115) and a 'Just clean and export' action."
+ },
+ {
+  "doc": "docs/TASKS.md (all Files: lines), docs/ARCHITECTURE.md \u00a73, docs/RUNBOOK.md \u00a72",
+  "severity": "high",
+  "issue": "File paths disagree, so each session will build a different tree. ARCH: web/src/ai/jobs.ts (one file), core/geo.ts, core/verdict.ts, core/referee.ts, tier0/exif.ts, tier0/fuzzy.ts, vault/vaultStore.ts, core/routing.ts, core/ledger.ts, scripts/check-boundaries.mjs, web/tests/rules/atlas.rules.mjs, shared/prompts/fixtures, shared/testvectors, public/vendor/mediapipe-1.2.3 and public/vendor/tesseract-7.0.0. TASKS: web/src/ai/jobs/*.ts, ai/fallback/*, geo/bands.ts, image/{intake,exif,masks}.ts, vault/store.ts, tier0/vaultMatch.ts, ai/policy.ts, ai/ledger.ts, verdict/verdict.ts, web/src/types.ts, web/scripts/guard-ai-calls.mjs, firestore-tests/test.mjs, shared/fixtures/, /mediapipe/wasm and /tesseract/*. RUNBOOK: web/src/lib/*, tests/rules/atlas.rules.test.mjs, /dev/spike and /dev/bench. RUNBOOK \u00a74.6 curls /mediapipe/wasm/..., which ARCH never serves.",
+  "fix": "Declare ARCH \u00a73 canonical and do one pass that rewrites every TASKS 'Files:' line and RUNBOOK path to it: the guard is scripts/check-boundaries.mjs; rules tests live in one place; fixtures go in shared/prompts/fixtures plus shared/testvectors; assets go in public/vendor/<lib>-<ver>/ (update API-NOTES \u00a75.1\u20135.2 snippets, copy-assets.mjs, the gitignore and the RUNBOOK \u00a74.6 curl paths). Rename the npm scripts to one set (check = typecheck + boundaries + vitest). Add a line to TASKS \u00a70: 'If a Files: path differs from ARCH \u00a73, ARCH wins; fix this file.'"
+ },
+ {
+  "doc": "docs/TASKS.md (PRIV), docs/RUNBOOK.md \u00a71.14/\u00a75.2, docs/SPEC.md \u00a715.1, docs/ARCHITECTURE.md \u00a721",
+  "severity": "medium",
+  "issue": "The private-data location is contradictory. TASKS uses PRIV=/Users/mac/StrangersEyes-private/ outside the repo, with truth.csv and labels.json. RUNBOOK, SPEC and ARCH use the gitignored benchmark/private/ inside the repo, with truth.csv, truth.json or labels.json respectively. Spike photos go to PRIV/spike in TASKS and to benchmark/private/spike in RUNBOOK. A wrong guess here either leaks true coordinates into git or loses the files.",
+  "fix": "Choose one location. Recommended: PRIV outside the repo, which is safer because a later `git add -A` cannot sweep it in. Use one file format (truth.csv with columns id,lat,lng,place_type,clues) and update SPEC \u00a715.1/\u00a715.4, ARCH \u00a721 and RUNBOOK \u00a71.14/\u00a75.2/\u00a75.6. Keep `benchmark/private/` in .gitignore anyway as a belt-and-braces guard."
+ },
+ {
+  "doc": "docs/TASKS.md T-020, docs/RUNBOOK.md \u00a72.1",
+  "severity": "high",
+  "issue": "The scratchpad rescue list leaves out two directories that ARCH cites as evidence. scratchpad/rulestest2/ holds the 21/21-tested rules with all 18 clue types and outcomes, plus run.log. scratchpad/archcheck/ holds the [compiled] src/types.ts, tripwire.ts, models.ts and geo.ts, plus json/advB.v1.schema.json and json/remoteconfig.template.json. T-020 copies only rulestest/ (4-type placeholder rules). The scratchpad can be wiped at any time.",
+  "fix": "Add to T-020 and to the RUNBOOK \u00a72.1 cp block: rulestest2/{firestore.rules,test.mjs,firebase.json,run.log} \u2192 research/day1-artifacts/firestore-tests-v2/; archcheck/{src/*.ts,json/*.json,tsconfig.json} \u2192 research/day1-artifacts/arch-ref/. Raise the verify count accordingly. Run T-020 as the very first action of the next session."
+ },
+ {
+  "doc": "docs/ARCHITECTURE.md \u00a78.4, \u00a712.1 vs docs/SPEC.md SCR-06/\u00a710.3/AC-042/AC-110/AC-165",
+  "severity": "high",
+  "issue": "The deterministic matchers in ARCH would fail SPEC's P0 tests. (1) ARCH's normalisation has no OCR-confusable folding (0/O, 1/I/l, 5/S, 8/B) and does not join spaced letters, so 'LUCA5' and 'L U C A S' (AC-042) do not match. (2) ARCH matches by an n-token window or a whole-term substring, so 'CITY GENERAL' never matches 'City General Hospital' (AC-110 needs SPEC's distinctive-token / two-consecutive-token rule with a generic-word list). (3) The ARCH rules referee has no synonym classes, so 'hospital staff lanyard logo' vs 'City General Hospital' comes out 'possible', not 'likely' (AC-165). That turns the red workplace line amber for every no-Nano user outside Judge Mode. The thresholds also conflict: SPEC 0.8 and exact \u22650.85; ARCH 0.82, exact \u22650.92, likely \u22650.75; tokens of \u22643 characters exact in SPEC vs \u22644 in TASKS.",
+  "fix": "Replace ARCH \u00a78.4 and \u00a712.1 with SPEC's algorithms: confusable folding, spaced-letter run joining, distinctive tokens of \u22654 characters with the generic-word list, the two-consecutive-token phrase rule, exact matching for digits, and synonym classes (hospital~clinic/medical/nurse/scrubs, school~primary/academy/crest/uniform). Use one set of thresholds, read from RC. Encode AC-042/AC-110/AC-165 as rows in shared/testvectors/fuzzy.json and referee.json, and run them in both Vitest and XCTest."
+ },
+ {
+  "doc": "docs/ARCHITECTURE.md \u00a79.1/\u00a78.2, docs/TASKS.md T-083",
+  "severity": "medium",
+  "issue": "SCR-16 requires 'Explain' on pre-screen clues as well, sending type plus 3\u00d73 region only and never the device-read text (AC-235), and requires a vault-string hit to reclassify the call to S0 with a 'RECLASSIFIED S2\u2192S0' HUD line (D-15, AC-024, AC-238). ARCH's `explain(ctx, clue: AdversaryClue)` only accepts pass-B clues, and the ARCH gate BLOCKs on VAULT_TEXT_IN_PROMPT for S2 instead of reclassifying. TASKS T-083 likewise only covers pass-B evidence.",
+  "fix": "Change the signature to `explain(ctx, input: {kind:'prescreen', type, region} | {kind:'adversary', clue})` and change explain.v1.user.md to allow an empty EVIDENCE. In gate step 3, for S2: if the scan hits, rerun the job as S0 (device if ready, otherwise the explain-fallback template), log RECLASSIFIED and do not block. Update T-083 to match and add AC-235/AC-238 to its verify step."
+ },
+ {
+  "doc": "docs/ARCHITECTURE.md \u00a79.3 (capabilities)",
+  "severity": "medium",
+  "issue": "ARCH caches `deviceReady` results for 30 s and re-checks on visibilitychange. SPEC AC-007 says capability must be re-evaluated right before every S0/S1 call and never cached across calls (D-03).",
+  "fix": "Remove the cache for the gate path and call `LanguageModel.availability(sameCreateOptions)` inside every S0/S1 gate call. Keep a cached value only for UI chips, the capability panel and the HUD, and say so in the text."
+ },
+ {
+  "doc": "docs/ARCHITECTURE.md \u00a75.1/\u00a711 vs docs/SPEC.md D-20, docs/TASKS.md T-053, docs/API-NOTES.md \u00a75.3",
+  "severity": "medium",
+  "issue": "The working-image size conflicts. SPEC D-20, TASKS and the verified reencodeClean use a longest side of \u22642048 px for the single oriented working image that all boxes refer to. ARCH uses a 'master' of \u22643072 px with a separate OCR frame at 1600 px.",
+  "fix": "Pick one and log it. Recommended: \u22642048 master per D-20 (verified code path, less memory on 8 GB). Update the ARCH \u00a711 frame table and \u00a718 memory budget; keep ocr_max_px as a downscale of the master."
+ },
+ {
+  "doc": "docs/ARCHITECTURE.md \u00a78.2 step 2",
+  "severity": "medium",
+  "issue": "SPEC \u00a77.1 re-runs face detection on the outgoing bytes at minDetectionConfidence 0.3, a stricter safety threshold. The ARCH gate calls `detectFaces(bmp,'full')`, which reuses the 0.5 singleton detector.",
+  "fix": "Add a second cached detector, or call setOptions, with minDetectionConfidence 0.3 used only by the gate re-check. Add a gate-matrix vector for it. Note the risk that solid black masks false-trigger, and test it on the mask fixtures."
+ },
+ {
+  "doc": "docs/TASKS.md (missing tasks for ARCH components)",
+  "severity": "medium",
+  "issue": "Several ARCH safety and verification components have no task: the fetch tripwire (AD-05, ai/tripwire.ts, BREACH handling), the interlock (AD-18), the device single-flight queue (AD-19), vaultScan PIN_IN_PROMPT, check-prompts.mjs (manifest sha256 and immutability), check-images.mjs, fakeTransport plus the Playwright smoke.spec/offline.spec, shared/testvectors cross-platform parity, the NOTICE file, and a strings/copy file. TASKS T-062 implements only the inferenceSource alarm. These are 'never cut' gate pieces, and without tasks they will be forgotten.",
+  "fix": "Add M2 tasks. T-086: tripwire, interlock and deviceQueue, with tests per ARCH \u00a720.1. T-087: check-prompts.mjs and check-images.mjs wired into `npm run check`. T-088: fakeTransport plus Playwright smoke and offline specs (pin the Playwright/Vitest versions after `npm view`). T-089: shared/testvectors JSON files, consumed by Vitest now and XCTest in T-121. Add NOTICE to T-021 and T-164."
+ },
+ {
+  "doc": "docs/TASKS.md (missing tasks for SPEC P0/P1 features)",
+  "severity": "medium",
+  "issue": "SPEC P0 behaviour with no task or acceptance step: the SCR-01 first-run 18+ and 'own photos only' checkbox gate (AC-070/071; T-061 only shows a notice); the SCR-20 Settings/About screen (Use-Nano toggle AC-277, Developer 'simulate no Nano/offline' AC-006, About copy including copy.about.reattackDisclosure D-24 and support line, third-party list incl. reCAPTCHA, AC-275/276); SCR-04 vault limits (20 items, 40-character labels, AC-082) and manual coordinates (AC-084); SCR-10 toast 'Show me'; SCR-11 max_fix_rounds (AC-195) and the 40% crop cap; SCR-12 export check plus random filename (AC-262) and share-card allowlist test (AC-261); SCR-13 receipt copy/download (AC-212) and the 500-entry cap; SCR-14 HUD Policy tab (AC-026); SCR-17 autoplay, coach marks, 'Run all' and `?judge=1` (AC-240/071); SCR-18 queue cap of 5 and 7-day purge (AC-252); SCR-22 unsupported-browser and auth-failure banners (AC-290); AC-291 init-order test; SR-15 no vault strings in console logs. P1 items without tasks: recent checks (AC-075) and the GPS-found warning (AC-102).",
+  "fix": "Add tasks in free M2/M3 IDs: T-090 Welcome/18+ gate; T-091 Settings and About; T-092 vault limits and manual coordinates (fold into T-055); T-093 Judge autoplay and coach marks (fold into T-105); T-094 system banners and the unsupported-browser page; T-095 export check, filename and share-card allowlist test (fold into T-081); T-096 HUD Policy tab (fold into T-064); T-097 init-order and log-scrub tests. Mark recent checks and the GPS warning as P1, cut before Leak Atlas, matching SPEC \u00a70.3 cut order."
+ },
+ {
+  "doc": "docs/RUNBOOK.md \u00a71.10, docs/ARCHITECTURE.md \u00a715.2/\u00a717, docs/TASKS.md T-103/T-111",
+  "severity": "medium",
+  "issue": "The AI Logic per-user quota is set three ways. RUNBOOK lowers it to about 30 RPM, ARCH to about 10 RPM, and TASKS leaves the default of 100. At 10 RPM the benchmark pacing (~2 s between calls, ~30 RPM in RUNBOOK \u00a75.5) and Judge Mode 'Run all' (A+B, re-attack and S4 cloud fallbacks within a minute) will hit 429s.",
+  "fix": "Use one value. Recommended: 30 RPM per user, with the reasoning written down: the benchmark runs at \u226420 RPM, and Judge Mode peaks at about 8 requests per minute. Add a USER task to the TASKS board (fold it into T-111) with the exact RUNBOOK \u00a71.10 steps, and make ARCH \u00a715.2 and \u00a717 cite the same value."
+ },
+ {
+  "doc": "docs/TASKS.md T-011/T-030 and USER board vs docs/RUNBOOK.md \u00a71.0/\u00a71.6b",
+  "severity": "medium",
+  "issue": "TASKS makes the reCAPTCHA Enterprise key (T-011) due Nov 20 and a dependency of spike T-030. RUNBOOK schedules it for Day 6 (Nov 25). The verified notes say debug-only use needs no production provider registration, so T-030 can run on localhost with the debug token alone. As written, the Day-1 plumbing spike is blocked by an unnecessary human step.",
+  "fix": "Remove T-011 from T-030's Deps. Construct ReCaptchaEnterpriseProvider with a placeholder site key in DEV until T-011 is done, or skip initializing the provider. Move T-011 to 'Due: Nov 25, before T-100'. Align the RUNBOOK \u00a71.0 table and the TASKS \u00a74 board."
+ },
+ {
+  "doc": "docs/TASKS.md T-025/T-027/T-012, docs/RUNBOOK.md \u00a71.11/\u00a72.7, docs/ARCHITECTURE.md \u00a719.2/\u00a719.4",
+  "severity": "medium",
+  "issue": "iOS identifiers and the debug-token mechanism conflict. Bundle ID is `app.strangerseyes.ios` in TASKS and `dev.strangerseyes.app` in RUNBOOK. The plist path is ios/StrangersEyes/GoogleService-Info.plist in TASKS/RUNBOOK and ios/StrangersEyes/Resources/ in ARCH. There are three debug-token approaches: an xcconfig `APPCHECK_DEBUG_TOKEN` expanded into a scheme env var (TASKS; build-setting expansion in scheme env vars is unverified, and scheme env vars do not apply when Claude launches with `simctl launch`), SIMCTL_CHILD_AppCheckDebugToken from a gitignored file (RUNBOOK), and a non-shared scheme (ARCH). The bundle ID must be fixed before T-025 registers the iOS app, because the plist is bound to it.",
+  "fix": "Add a USER decision to the board, due Nov 20 before T-025: the bundle ID (recommend `dev.strangerseyes.app`). Use one plist path (the ARCH one). Make RUNBOOK's mechanism canonical: write the token to the gitignored `ios/.appcheck-debug-token` and launch with `SIMCTL_CHILD_AppCheckDebugToken`, with an optional non-shared scheme env var for Xcode runs. Drop the xcconfig expansion from T-012/T-027, or tag it [UNVERIFIED]."
+ },
+ {
+  "doc": "docs/ARCHITECTURE.md \u00a73.1 (test:rules) and \u00a715.4 firebase.json",
+  "severity": "medium",
+  "issue": "ARCH runs the rules test from the repo root with firebase-tools@13.35.1 against the root firebase.json. That file contains `auth.providers` and `remoteconfig` keys that the old CLI may reject. RUNBOOK deliberately uses a separate tests/rules/firebase.json for exactly this reason. ARCH also puts `emulators` in the production root config.",
+  "fix": "Adopt RUNBOOK's separate test config, e.g. web/tests/rules/firebase.json with only firestore rules and the 8181 emulator, and run `cd web/tests/rules && npx -y firebase-tools@13.35.1 emulators:exec --only firestore --project demo-strangers-eyes \"node atlas.rules.mjs\"`. Remove `emulators` from the root firebase.json, or keep it and verify once that 13.35.1 accepts the root file."
+ },
+ {
+  "doc": "docs/SPEC.md \u00a715, docs/ARCHITECTURE.md \u00a721, docs/RUNBOOK.md \u00a75, docs/TASKS.md T-009/T-031/T-150/T-151",
+  "severity": "medium",
+  "issue": "The benchmark is defined inconsistently. Distance: SPEC M1 uses e=max(d, radius) with a majority of 2 of 3 runs plus 'any of 3'; ARCH uses the closest hypothesis centre over (photo, run) pairs; RUNBOOK uses centre distance with the mean over 3 runs (min\u2013max). The after-fix condition is the rules-only fix in SPEC and 'Nano planner if available' in TASKS. Labels: SPEC wants types plus boxes (IoU \u22650.3); TASKS T-150 labels {type, region} only, so IoU is impossible. The M6 gate test set (10 prop images) has no USER or CLAUDE task. T-009 asks for 'residential streets', which contradicts SPEC \u00a715.1 and invariant 8 (public places only, no real homes). The Day-1 G1 'placed within 5 km' does not say whether that is centre distance or e.",
+  "fix": "Write one metric spec in SPEC \u00a715.3 and reference it from ARCH and RUNBOOK. Use centre distance d for G1 and M8, and e for M1/M2, reporting both majority-of-3 and any-of-3. Use the rules-only fix for the 'after' condition (deterministic), with Nano as a secondary row. Labels: type plus 3\u00d73 region for recall (drop IoU), or require boxes in T-150. Add a USER task (due Nov 25) to shoot the 10 gate-test prop images, and a CLAUDE task for the M6 harness. Change T-009's mix to SPEC's (5 transit, 5 street corners with signs, 5 shop fronts, 5 public interiors with window views, 5 generic) with no residential housing."
+ },
+ {
+  "doc": "docs/TASKS.md T-031 / T-003",
+  "severity": "medium",
+  "issue": "The go/no-go spike T-031 hard-depends on Blaze (T-003). If the user delays billing, Day 1 stalls. RUNBOOK \u00a75.1 allows a pass-B-only spike without Blaze, but on the free tier the user's own city photos may be used for training and read by human reviewers, and no doc asks the user to accept that.",
+  "fix": "Split T-031 into T-031a (pass B only; allowed on the free tier ONLY after the user explicitly OKs sending these 10 EXIF-stripped photos under free-tier terms; record the consent in PROGRESS) and T-031b (grounded pass A, after T-003). Add the consent question to USER task T-008."
+ },
+ {
+  "doc": "docs/SPEC.md \u00a70.3 vs docs/TASKS.md \u00a73 and docs/RUNBOOK.md \u00a71.15/\u00a77.1",
+  "severity": "medium",
+  "issue": "The final-days schedule conflicts. SPEC Day 11 (Nov 30) says 'Film the remaining beats, edit, submit' and Day 10 says 'upload ... if possible'. TASKS films Nov 28\u201329, uploads by Nov 29 23:00 and submits by Nov 30 12:00 GMT+2. RUNBOOK makes the repo public on Nov 28; TASKS T-170 says Nov 29. TASKS also labels Nov 19 'Wed'; it is a Thursday.",
+  "fix": "Update the SPEC \u00a70.3 rows to match TASKS: web filming from Nov 28, iOS filming plus VO plus edit plus Public YouTube upload Nov 29, Nov 30 for pre-submit checks, tag and submit by 12:00 GMT+2. Choose one repo-public date (Nov 29 after T-168) and fix RUNBOOK \u00a71.15/\u00a77.1. Change 'Nov 19 (Wed' to 'Nov 19 (Thu'."
+ },
+ {
+  "doc": "PLAN.md, CLAUDE.md",
+  "severity": "medium",
+  "issue": "PLAN.md is still listed as the overview and contains superseded instructions a fresh session may follow: 'temperature 0', 'firebase-ios-sdk \u226512.13', pass B reading pass A ('grounding plus a JSON schema in one call is flaky'), Firestore holding Judge Mode sample metadata, a Day-1 iOS tool-call spike, filming on Nov 30, and 'Spark works'. CLAUDE.md also lacks pointers to the scratchpad-rescue-first rule and to the PRIV data folder.",
+  "fix": "Add a banner at the top of PLAN.md: 'Historical overview. Superseded where docs differ: see SPEC \u00a70.4 (D-01..D-25) and ARCH \u00a72 (AD-01..AD-20); notably no temperature, iOS SDK pinned 12.19.3, pass B independent of pass A, Judge samples static, filming Nov 28\u201329.' Add to CLAUDE.md: 'First session: run T-020 (scratchpad rescue) before anything else' and 'Private photos and coordinates live only in <PRIV path>; never in git'."
+ },
+ {
+  "doc": "docs/TASKS.md USER board (\u00a74)",
+  "severity": "medium",
+  "issue": "Several human-only actions that the docs depend on are missing from the USER board. Firestore database creation and location choice (RUNBOOK \u00a71.8; T-104 assumes CLI creation is possible, which is UNVERIFIED). An explicit go-ahead for Claude to create the GitHub repo (RUNBOOK \u00a71.15 treats it as a [DECISION]; T-026 only depends on gh auth). The bundle-ID decision. Prompt API origin-trial registration if T-109 finds it is needed. Installing a video editor (iMovie or DaVinci; RUNBOOK \u00a76.2). Shooting the M6 gate-test props. Choosing the primary Devpost platform / Best-of category. Approving the filming-date change (RUNBOOK flags RN-20 as a [DECISION], while TASKS treats it as decided). Enabling macOS Location Services for Chrome if a real web 'Pin this place' is used.",
+  "fix": "Add USER rows with IDs and dues: T-017 Firestore DB + location (Nov 24); T-018 approve repo creation name/visibility (Nov 20, merge into T-006); T-019 bundle ID (Nov 20); T-112 origin-trial token (Nov 25, only if T-109 fails); T-180a install video editor (Nov 27); T-009a gate-test props (Nov 25); T-172 Devpost primary platform/category (Nov 29); confirm filming dates (Nov 21)."
+ },
+ {
+  "doc": "docs/TASKS.md T-010/T-105/T-110, docs/SPEC.md SCR-17, docs/RUNBOOK.md \u00a76",
+  "severity": "medium",
+  "issue": "The demo necessarily reveals where the builder lives or works. Judge Mode ships samples/manifest.json with fake home and work pins next to the public building where the scenes were shot, and cached pass-B JSON with lat/lng hypotheses; all of this is committed to a public repo and served from Hosting. The pins have to be near the real scene for the live attacker to produce a red band. The video shows grounded notes naming the neighbourhood or city. T-110's coordinate scan will flag these files, but no doc decides whether they are acceptable. The org rule says PII is included only when the Primary Owner asks.",
+  "fix": "Add a USER decision before T-105/T-182: 'I accept that the shoot location's city/neighbourhood becomes public via samples and video; shoot \u2265 a few km from home/work.' Record it in PROGRESS. In T-110 and AC-351, allowlist exactly web/public/samples/*.json for coordinates. Optionally round sample pins to 3 decimals (about 100 m), which still yields a street/neighbourhood band."
+ },
+ {
+  "doc": "docs/ARCHITECTURE.md \u00a73.1 main.tsx / \u00a78.3",
+  "severity": "medium",
+  "issue": "ARCH says installTripwire() is 'the FIRST statement of main.tsx, before any firebase import runs'. ES module imports are hoisted: every `import` in main.tsx (App \u2192 firebase/init) is evaluated before main.tsx's body, so the tripwire is not installed first. installTripwire(scan) also needs the vault terms, which are only available after the vault is unsealed, so they can't be ready at install time.",
+  "fix": "Make it a side-effect module imported first: `import './ai/tripwire-install'` as line 1 of main.tsx. Install with a mutable scanner (`setVaultScanner(fn)`) that vaultStore updates after unseal and that defaults to fail-closed (any AI-host fetch before the scanner is set requires a permit). Add a Vitest check that tripwire-install is main.tsx's first import."
+ },
+ {
+  "doc": "docs/TASKS.md T-023/T-051/T-070 vs docs/ARCHITECTURE.md AD-12/\u00a73.1 ui/markdown.ts",
+  "severity": "medium",
+  "issue": "TASKS installs zod and react-markdown and parses with zod. ARCH AD-12 forbids zod ('hand-written validators') and uses a minimal escaped Markdown renderer. API-NOTES says zod is not a pinned dependency.",
+  "fix": "Choose one. Recommended: ARCH's (fewer dependencies, already designed). Remove zod, react-markdown and fake-indexeddb from T-023 unless they are needed for tests (fake-indexeddb as a devDependency is fine), and change T-051/T-071 to the 'hand-written validators in ai/parse.ts'. If zod is kept instead, update AD-12 and pin an exact version."
+ },
+ {
+  "doc": "docs/TASKS.md T-012/T-023, docs/ARCHITECTURE.md \u00a73.1, docs/RUNBOOK.md \u00a71.6a/\u00a72.3",
+  "severity": "low",
+  "issue": "The debug-token env file is `web/.env.local` in TASKS and ARCH and `web/.env.development.local` in RUNBOOK. Vite loads `.env.local` in every mode, including `vite build`. The DEV guard should dead-code-eliminate the token, but RUNBOOK's choice is safer and the user is told to write a different file than Claude reads.",
+  "fix": "Standardise on `web/.env.development.local` in TASKS T-012/T-023 and ARCH \u00a73.1/\u00a715.3. Keep the T-100 dist grep, extended to grep for the actual token value as well."
+ },
+ {
+  "doc": "docs/TASKS.md T-065/T-105",
+  "severity": "medium",
+  "issue": "TASKS defines S4 models only for the Judge referee and fix (judgeReferee/judgeFix). SPEC SCR-17 and ARCH \u00a75.4/\u00a79.2 also route pre-screen, vault-text match and explainer as S4 in Judge Mode. Without judgeJsonModel for pre-screen, judges without Nano see the pre-screen as RULES_ONLY instead of an honest IN_CLOUD fallback, which weakens the hybrid story in exactly the path judges use.",
+  "fix": "In T-065, add a generic `judgeJsonModel(io, schema, cloudModel)` used by preScreen, vaultTextMatch, referee and fixPlan when ctx.judge is set, plus explain as S4. In T-105, list all five jobs and verify that each shows IN_CLOUD in a no-Nano guest profile."
+ },
+ {
+  "doc": "docs/TASKS.md T-125 vs docs/SPEC.md \u00a714.2 I3 / docs/ARCHITECTURE.md \u00a710.12",
+  "severity": "low",
+  "issue": "TASKS feeds vault labels into the iOS FM pre-screen (I3, S1). SPEC says vault labels are not in this prompt and are matched by code plus I4, and fmPre.v1 in ARCH has no VAULT section.",
+  "fix": "Remove 'and the vault labels' from T-125. Vault matching on iOS is the FuzzyMatcher plus the nanoVaultText.v1 S0 session (shared prompt), as in ARCH \u00a710.8."
+ },
+ {
+  "doc": "docs/TASKS.md T-024 vs docs/ARCHITECTURE.md \u00a73/\u00a710.2 vs docs/SPEC.md \u00a76.2",
+  "severity": "medium",
+  "issue": "Prompt filenames and IDs differ. TASKS: AUDIT_RULES.v1.md, nanoPre.v1.md, explainer.v1.md, schemas/{advB.v1.json,prescreen.v1.json}, enums.json. ARCH: audit-rules.v1.md, nanoPre.v1.user.md, nanoPre.v1.schema.json, advB.v1.schema.json at the root, enums.v1.json, explain.v1.{system,user}.md, explain-fallback.v1.json, fmPre.v1.user.md and manifest.json with hashes. SPEC uses the ID `explain.v1` with different prompt text ('In \u226460 words') from ARCH (two sentences, \u226445 words). TASKS omits fmPre and nanoVaultText schemas.",
+  "fix": "Rewrite T-024's Files: as ARCH \u00a73's shared/prompts list, including manifest.json, fixtures/, explain-fallback and fmPre. Take the prompt text from ARCH \u00a710 rather than API-NOTES \u00a76.9. Align SPEC SCR-16 to ARCH's explain.v1 text and its 45-word limit, or change ARCH to 60 words; one value everywhere."
+ },
+ {
+  "doc": "docs/TASKS.md T-063 vs docs/ARCHITECTURE.md \u00a78.5/\u00a716",
+  "severity": "low",
+  "issue": "TASKS stores the Ledger in an unencrypted IndexedDB `se-ledger/entries`. ARCH seals it as `ledger:<sessionId>` inside `se-vault-data`. ARCH's Burn vault deletes only se-vault-keys and se-vault-data, so the TASKS DB would survive SPEC SCR-19's 'also delete history, queue and ledger'.",
+  "fix": "Follow ARCH (sealed, in se-vault-data, last 500 entries). Otherwise add se-ledger to burnVault() and AC-270's test."
+ },
+ {
+  "doc": "docs/SPEC.md AC-148 / SCR-03 vs docs/ARCHITECTURE.md \u00a76/\u00a710.5",
+  "severity": "low",
+  "issue": "SPEC keeps pass-A notes in the user's encrypted local session history; reopening recent checks needs them. ARCH says pass A is memory-only and never stored beyond the in-memory session.",
+  "fix": "Choose one and log it. Recommended: memory-only (simpler, safest under the grounding terms). Change AC-148 to 'never persisted; reopening a recent check shows pass B results and a note that live notes are not stored'."
+ },
+ {
+  "doc": "docs/SPEC.md SCR-11/\u00a710.4 vs docs/ARCHITECTURE.md \u00a711/\u00a712.4",
+  "severity": "low",
+  "issue": "The crop logic conflicts. SPEC uses the minimal crop from the chosen side that removes the cited boxes, capped at 40%, and the rules-only plan uses crop 'none'. ARCH removes the outer 33% or up to the far edge of the targeted boxes, and its deterministic fix picks a crop side when the cited clues are non-removable and the centroid lies in the outer 30%.",
+  "fix": "Pick one rule (recommended: SPEC's minimal crop with the 40% cap; deterministic plan may suggest a crop only when every cited clue is non-removable) and make ARCH \u00a711/\u00a712.4 and SPEC \u00a710.4 identical. Add a vector to shared/testvectors/box2d.json."
+ },
+ {
+  "doc": "docs/ARCHITECTURE.md \u00a76 (Route), docs/TASKS.md T-051",
+  "severity": "low",
+  "issue": "SPEC ROUTE includes QUEUED, which appears in the HUD and Ledger for offline S3 (SCR-13/14/18). The ARCH Route type and the TASKS T-051 Route omit it. The SPEC gate block codes (lowercase class/metadata/face/...) and copy.gate.* toasts differ from ARCH GateBlockReason and the \u00a78.6 toast texts.",
+  "fix": "Add 'QUEUED' to Route in ARCH and TASKS. Map ARCH GateBlockReason to the SPEC copy IDs in one table, and replace the ARCH \u00a78.6 texts with SPEC \u00a711 copy.gate.* strings (SPEC is the copy authority)."
+ },
+ {
+  "doc": "docs/ARCHITECTURE.md \u00a79.3 explainModel",
+  "severity": "low",
+  "issue": "explainModel puts the system text in `onDeviceParams.createOptions.initialPrompts` with role 'system'. Whether that is honoured at runtime is UNVERIFIED (U-44). SPEC D-04, ARCH \u00a71.7 'our convention' and TASKS T-065 all say device instructions go in the user turn.",
+  "fix": "For the device path, put the explain instructions in the first user-turn text part. Keep systemInstruction only under inCloudParams. Mark the initialPrompts variant as an optional U-44 experiment."
+ },
+ {
+  "doc": "docs/ARCHITECTURE.md \u00a73.1 (routes) vs docs/SPEC.md \u00a78.1",
+  "severity": "low",
+  "issue": "SPEC defines path routes (/vault, /check/:sessionId, /ledger, /settings, /judge, /bench). ARCH uses hash routes (#/vault, #/check, #/judge, #/atlas, #/about, #/bench) with no ledger or settings route. TASKS and RUNBOOK use /dev/spike and /dev/bench.",
+  "fix": "Choose one scheme (hash routes are simplest with the SW and Hosting) and update SPEC \u00a78.1 and AC-065/AC-071 (`/?judge=1` vs `#/judge`). Add ledger and settings routes to ARCH, or record that they are sheets rather than routes."
+ },
+ {
+  "doc": "docs/ARCHITECTURE.md \u00a77 (S4 iOS = NONE) vs docs/SPEC.md \u00a714.2",
+  "severity": "low",
+  "issue": "ARCH's default policy sets S4 ios to 'NONE'. SPEC \u00a714.2 has iOS sample scenes (P1) routed S4 via HybridModel, and winner-spec S4 iOS is PREFER_ON_DEVICE.",
+  "fix": "Set S4 ios to 'HYBRID_MODEL' in ARCH \u00a77 and the RC template, or record that iOS sample scenes are cut (then also remove them from the SPEC \u00a70.3 cut list)."
+ },
+ {
+  "doc": "docs/ARCHITECTURE.md (strings file) vs docs/SPEC.md \u00a711",
+  "severity": "low",
+  "issue": "SPEC \u00a711 says all copy strings live in 'one shared English strings file (path set in ARCHITECTURE.md)', and that copy.explain.template.* is 'written in ARCHITECTURE.md's strings file'. ARCH defines no such path, and iOS needs the same strings.",
+  "fix": "Add `shared/strings/en.json`, keyed by the SPEC copy IDs, to ARCH \u00a73, loaded by the web through @prompts-style aliasing and bundled into iOS as a folder resource. Point copy.explain.template.* at shared/prompts/explain-fallback.v1.json. Add the copy-audit test (no 'safe' outside the copy.about.notGuarantee allowlist) to ARCH \u00a720.1."
+ },
+ {
+  "doc": "docs/TASKS.md T-161",
+  "severity": "low",
+  "issue": "The safety grep `grep -rniE \"\\bsafe\\b\" web/src ios/StrangersEyes` will hit legitimate text, such as ARCH's 'HMR-safe' comment in init.ts and copy.about.notGuarantee ('can't promise a photo is safe'), so the audit either fails or gets ignored.",
+  "fix": "Scan only user-facing strings (shared/strings/en.json and any rendered template output), with an explicit allowlist for copy.about.notGuarantee, matching SPEC AC-304."
+ },
+ {
+  "doc": "docs/TASKS.md T-204, docs/RUNBOOK.md \u00a73.2",
+  "severity": "low",
+  "issue": "The 'Gemini Nano 4' (Gemma 4 flag) experiment is scheduled as a Nov 29 stretch task, the day before filming. It triggers a new multi-GB component download on an 8 GB machine and may break v3Nano right before the web beats are recorded.",
+  "fix": "Move it to an optional Day-2 task right after T-032 passes, with explicit revert steps. If it hasn't run by Nov 24, mark it CUT, and in the README phrase it as 'Gemini Nano via Chrome built-in AI (v3Nano)'."
+ },
+ {
+  "doc": "docs/TASKS.md T-162 / docs/RUNBOOK.md \u00a77.6",
+  "severity": "low",
+  "issue": "The README outline in T-162 omits items that SPEC requires in the README: the re-attack disclosure (D-24/SR-19/AC-302), the data-tier statement and the EEA note if free (SR-08), W8 in the job table (it lists W1\u2013W7 only), the benchmark limitations (public places, one region), the iOS 'bring your own Firebase project' plist swap, and the fact that Firestore claims disappear if the Atlas is cut.",
+  "fix": "Add to T-162's section list: re-attack disclosure, data tier, a W8 row, benchmark limitations (E5), iOS steps to replace GoogleService-Info.plist and register a debug token in the reader's own project, and the condition 'drop Firestore from Other products if T-104 is cut'. Make AC-302 the Verify line."
+ },
+ {
+  "doc": "docs/API-NOTES.md \u00a70 row 14, \u00a72.5; register gaps",
+  "severity": "low",
+  "issue": "Cross-references point to 'CLUE_TYPES list from \u00a76.9', but the enums are in \u00a76.7 (\u00a76.9 holds the prompts). The UNVERIFIED register skips U-43 and U-50, which looks like lost items to a fresh session.",
+  "fix": "Change the references to \u00a76.7. Add 'U-43, U-50: unused IDs' to the \u00a710 header, or renumber."
+ },
+ {
+  "doc": "docs/SPEC.md \u00a718 / docs/ARCHITECTURE.md",
+  "severity": "low",
+  "issue": "Several verified risks have no acceptance criterion: (1) the fetch-level tripwire, i.e. no request to firebasevertexai.googleapis.com while an S0/S1 call is in flight; (2) no debug token in the web/dist build; (3) Hosting serves sw.js/index.html with no-cache and .wasm/.tflite/.gz with working MIME types (U-20/U-21); (4) prompt files immutable and matching manifest hashes; (5) Firestore rules whitelist equals CLUE_TYPES; (6) the Search Suggestion is rendered with webSearchQueries visible and links open directly with no interstitial or click tracking (SPEC AC-141 checks only byte-identity and width).",
+  "fix": "Add AC-047 (tripwire), AC-365 (dist has no debug token, by grep for the flag name and the value), AC-366 (Hosting headers/MIME via curl -I), AC-305 (check-prompts passes), AC-283 (rules whitelist equals enums.v1.json CLUE_TYPES, tested), and extend AC-141 with the queries and no-tracking link rules."
+ },
+ {
+  "doc": "docs/TASKS.md T-103 vs docs/SPEC.md SCR-17/\u00a7SCR-22",
+  "severity": "low",
+  "issue": "TASKS gives Judge Mode its own daily-cap counter so judges are never locked out. SPEC instead says that when the cap, kill switch or quota blocks, Judge Mode uses the CACHED pass-B fixture with a badge. Two different behaviours for the same condition.",
+  "fix": "Choose one: one counter, with Judge Mode falling back to CACHED as in SPEC, or a separate judge counter recorded as D-26 and reflected in SPEC SCR-17/AC-243. Note that pass A is never cached, so a cap-hit judge sees copy.judge.notesNeedLive."
+ },
+ {
+  "doc": "docs/TASKS.md T-166/T-171, docs/RUNBOOK.md \u00a77.5",
+  "severity": "low",
+  "issue": "The Devpost gallery tasks cover 6\u20138 images but no project thumbnail (Devpost shows it on the gallery card, usually 3:2). There is also no step to check that the elevator pitch fits; it is 165 characters, which is within the 200 limit.",
+  "fix": "Add `docs/img/thumbnail.png` (3:2, no third-party logos) to T-166. Record the pitch length (165 characters) and any field limits found in T-167 in DEVPOST.md."
+ },
+ {
+  "doc": "docs/TASKS.md T-021 vs docs/RUNBOOK.md \u00a72.1",
+  "severity": "low",
+  "issue": "The LICENSE source differs: TASKS uses `curl https://www.apache.org/licenses/LICENSE-2.0.txt` and RUNBOOK uses `gh api /licenses/apache-2.0 --jq .body`. Both should be detected, but the two docs should give one command. The GitHub body is the one guaranteed to match GitHub's licensee detector.",
+  "fix": "Use `gh api /licenses/apache-2.0 --jq .body > LICENSE` in both places (gh is installed). Verify detection with `gh repo view --json licenseInfo` right after T-026, not only at T-170."
+ },
+ {
+  "doc": "docs/TASKS.md (\u00a76 and every task's AC: line) vs docs/SPEC.md \u00a718",
+  "severity": "high",
+  "issue": "Two incompatible AC numbering schemes. TASKS uses AC-01..AC-33, each with its own meaning. SPEC uses AC-001..AC-364. A fresh session reading 'T-062 \u2026 AC: AC-05' will open SPEC AC-005 ('downloadable \u2192 deterministic') rather than the intended 'gate scans prompt text', and will verify the wrong thing without noticing. TASKS defers the fix to T-022, which means the first coding session inherits the error.",
+  "fix": "Delete TASKS \u00a76 and rewrite every task's AC refs to SPEC IDs before any coding starts, using this map: 01\u2192AC-045/162/300; 02\u2192AC-130/300; 03\u2192AC-005/007/021/022; 04\u2192AC-040/043; 05\u2192AC-024/041; 06\u2192AC-025; 07\u2192AC-210..213; 08\u2192AC-220..222; 09\u2192AC-072..074; 10\u2192AC-080..085, AC-270/271; 11\u2192AC-100..103; 12\u2192AC-101, AC-110..113; 13\u2192AC-111..117; 14\u2192AC-130..133; 15\u2192AC-141/143/148; 16\u2192AC-142/147; 17\u2192AC-144/145/303; 18\u2192AC-161/162/165; 19\u2192AC-146/160; 20\u2192AC-160/164/304; 21\u2192AC-190..197; 22\u2192AC-193/194; 23\u2192AC-260..263; 24\u2192AC-235..238; 25\u2192AC-240..245; 26\u2192AC-250..252; 27\u2192AC-290..292; 28\u2192AC-020/293/294; 29\u2192AC-280..282; 30\u2192AC-070/276/302/304; 31\u2192AC-320..332; 32\u2192AC-350..353; 33\u2192AC-360/363. Add one line to CLAUDE.md: 'AC IDs are SPEC's three-digit AC-xxx only.'"
+ },
+ {
+  "doc": "docs/SPEC.md \u00a716, docs/ARCHITECTURE.md \u00a713, docs/TASKS.md T-102, docs/RUNBOOK.md \u00a74.4, docs/API-NOTES.md \u00a72.4",
+  "severity": "high",
+  "issue": "Remote Config keys, value shapes and defaults differ across five docs. Each of these is baked into code, the RC template and the iOS defaults, so drift means the defaults never match the template and AC-293 fails. Examples: adversary_model / model_adversary; daily_cap / daily_adversary_cap / adversary_daily_cap (20 vs 25); explainer_model / explain_cloud_model / model_hybrid_cloud; thinking_level / adversary_thinking_level / thinking_level_adversary; distance_bands_m / bands_m; ocr_match_threshold 0.8 / fuzzy_threshold 0.82; mask_padding / mask_pad_ratio; leak_atlas_enabled / atlas_enabled; adversary_image_max_px / cloud_image_max_px; prompt_versions values 'advA.v1' vs 'v1'. routing_policy is a flat {S0:'only_on_device'} in SPEC/RUNBOOK but nested {version,classes,jobs} in ARCH. data_tier, max_fix_rounds, request_timeout_ms and judge_autoplay_default exist only in SPEC.",
+  "fix": "Make ARCH \u00a713 the only key list, since it holds the compiled template (scratchpad archcheck/json/remoteconfig.template.json). Add SPEC's data_tier, max_fix_rounds, request_timeout_ms and judge_autoplay_default to it. Pick daily cap 20 and fuzzy_threshold 0.8. Then replace SPEC \u00a716's table with behaviour-only text that uses ARCH names, and change TASKS T-102 'Keys:' to 'exactly ARCH \u00a713'. Replace RUNBOOK \u00a74.4's template body with 'see /remoteconfig.template.json'. Once remoteconfig.template.json exists in the repo, it is the source of truth, and docs only point to it."
+ },
+ {
+  "doc": "docs/TASKS.md T-080 and T-104; docs/RUNBOOK.md \u00a74.3; docs/ARCHITECTURE.md AD-08/\u00a714",
+  "severity": "high",
+  "issue": "This is an invariant-level contradiction. SPEC D-11 says the Leak Atlas records only pass-B clue types, and that a 'fix moved the band' bit tells Google the attacker was right ('breaks the headline promise'). TASKS T-080 says 'Record whether the band moved, for the Leak Atlas'. T-104 adds fix_moved_band/fix_same_band to the clueTypes whitelist, and RUNBOOK's rules add band_moved/band_same outcomes. Bands are computed against the vault pins, so this is vault-derived data going to Firestore (invariant 1). ARCH AD-08 has a third variant (precision_* outcomes derived from the adversary's own levels).",
+  "fix": "Adopt SPEC D-11: clue-type counters only. In T-080, delete 'Record whether the band moved'. In T-104, use the 18 CLUE_TYPES only. Delete the outcomes match block from RUNBOOK \u00a74.3 and ARCH \u00a714.1/14.3, and drop AD-08's outcome part or mark it as superseded by D-11. Base firestore.rules on scratchpad rulestest2/firestore.rules minus the outcomes block, and rerun the emulator test. Add an AC-282-style static test that firebase/atlas.ts imports nothing from core/verdict, core/geo or vault/."
+ },
+ {
+  "doc": "docs/ARCHITECTURE.md \u00a78.2 (gate steps 2\u20133)",
+  "severity": "high",
+  "issue": "As written, the gate algorithm blocks every Judge Mode S4 call that can reach the cloud, which is the judges' no-Nano path and is never-cut. Step 2 OCR-checks S4 images against realTerms \u222a terms(JUDGE_VAULT), but the sample originals contain the 'LUCAS' tag on purpose, so the result is BLOCK(VAULT_TEXT_IN_IMAGE). Step 3 scans S4 dynamic prompt segments against terms(JUDGE_VAULT), but the S4 referee and vault-text prompts contain fake-vault labels by design, so the result is BLOCK(VAULT_TEXT_IN_PROMPT). SPEC \u00a77.1 already has the correct S4 exception; ARCH does not implement it.",
+  "fix": "Amend \u00a78.2: 'if cls = S4: skip the image vault-text OCR check (the manifest sha256 allowlist replaces it) and scan dynamic segments against realTerms only; metadata and face checks still run. For S3 in Judge Mode, scan images and prompts against terms(JUDGE_VAULT) \u222a realTerms.' Add rows to shared/testvectors/gate-matrix.json: S4 referee with JUDGE_VAULT labels \u2192 allowed; S4 prompt containing a real-vault label \u2192 VAULT_TEXT_IN_PROMPT; S3 judge image with an unmasked LUCAS \u2192 VAULT_TEXT_IN_IMAGE."
+ },
+ {
+  "doc": "docs/TASKS.md T-020; docs/RUNBOOK.md \u00a72.1",
+  "severity": "high",
+  "issue": "The scratchpad (/private/tmp/\u2026/scratchpad, 2.8 GB) holds the only copies of verified artifacts and can be wiped at any time. T-020's rescue list misses two of them. rulestest2/ holds the 21/21-tested rules with the full CLUE_TYPES list, which ARCH \u00a714.3 cites. archcheck/ holds the '[compiled]' types.ts, tripwire.ts, models.ts and geo.ts, plus advB.v1.schema.json and remoteconfig.template.json. RUNBOOK \u00a72.1 copies the older rulestest/ (20 cases, placeholder whitelist) instead. T-020 also copies harness/ wholesale, which includes a Chrome profile/ directory and logs.",
+  "fix": "Run T-020 tonight (Nov 19), before scaffolding. Add rulestest2/{firestore.rules,test.mjs,firebase.json} \u2192 research/day1-artifacts/firestore-tests/ (primary) and archcheck/{src/*.ts,json/*.json,tsconfig.json} \u2192 research/day1-artifacts/archcheck/. Copy only the harness/*.mjs files and skip harness/profile and *.log. Change RUNBOOK \u00a72.1 to copy rulestest2, not rulestest. Afterwards, replace every scratchpad path in API-NOTES and RUNBOOK with the research/day1-artifacts/ path."
+ },
+ {
+  "doc": "docs/TASKS.md (Files: lines) vs docs/ARCHITECTURE.md \u00a73",
+  "severity": "high",
+  "issue": "About 15 module paths in TASKS differ from the ARCH layout. Under the rule 'ARCH wins, edit the task text', every session has to reconcile them again, and duplicate modules will appear. Examples: geo/bands.ts vs core/geo.ts; image/intake.ts and image/exif.ts vs tier0/decode.ts and tier0/exif.ts; vault/store.ts vs vault/vaultStore.ts + crypto.ts; tier0/vaultMatch.ts vs tier0/fuzzy.ts; image/masks.ts vs core/mask.ts + boxes.ts; ai/policy.ts vs core/routing.ts; ai/ledger.ts in DB se-ledger vs core/ledger.ts sealed in se-vault-data; ai/jobs/*.ts vs ai/jobs.ts; ai/fallback/ruleReferee.ts vs core/referee.ts; verdict/verdict.ts vs core/verdict.ts; web/scripts/guard-ai-calls.mjs vs scripts/check-boundaries.mjs. Prompt files also differ: AUDIT_RULES.v1.md vs audit-rules.v1.md, nanoPre.v1.md vs nanoPre.v1.user.md, explainer.v1 vs explain.v1, schemas/advB.v1.json vs advB.v1.schema.json, enums.json vs enums.v1.json. The rules test lives in three places (firestore-tests/test.mjs, web/tests/rules/atlas.rules.mjs, tests/rules/atlas.rules.test.mjs), and asset paths conflict (/vendor/mediapipe-1.2.3/wasm vs /mediapipe/wasm; the verified copy-assets.mjs writes the latter).",
+  "fix": "Before the first code commit, rewrite every TASKS 'Files:' line and the DoD/appendix commands to ARCH \u00a73 paths. Pick one rules-test path (tests/rules/ with its own firebase.json, as in RUNBOOK; root firebase.json has auth/remoteconfig keys that CLI 13.35.1 may reject). Pick one asset path: keep the verified /mediapipe and /tesseract, or update copy-assets.mjs, .gitignore and the Hosting immutable header together. Then replace the TASKS rule 'If ARCH names a different path, ARCH wins' with 'Paths here already match ARCH \u00a73; if you change one, change both in the same commit.'"
+ },
+ {
+  "doc": "docs/TASKS.md T-012/T-023/T-100; docs/ARCHITECTURE.md \u00a73.1/\u00a715; docs/RUNBOOK.md \u00a71.6a/\u00a71.11",
+  "severity": "high",
+  "issue": "Secret handling is inconsistent and the leak check cannot find a leak. TASKS and ARCH put VITE_APPCHECK_DEBUG_TOKEN in web/.env.local, which Vite also loads during `vite build`. RUNBOOK uses web/.env.development.local, which loads in dev only. The T-100 and RUNBOOK \u00a72.4 checks grep dist for the variable name, but Vite inlines the value, so a leaked token would never match. iOS has two mechanisms: TASKS uses Secrets.xcconfig plus a scheme env var, which only applies to Xcode runs, while RUNBOOK uses ios/.appcheck-debug-token with SIMCTL_CHILD_, which is what Claude's `simctl launch` path actually uses.",
+  "fix": "Standardise on web/.env.development.local (gitignore '*.local' plus '.env*.local'). Change T-012 so the user writes the token with `printf 'VITE_APPCHECK_DEBUG_TOKEN=%s\\n' \"$(pbpaste)\" > web/.env.development.local`. Replace the T-100/T-110/DoD verify with `T=$(sed -n 's/^VITE_APPCHECK_DEBUG_TOKEN=//p' web/.env.development.local); [ -n \"$T\" ] && grep -rF \"$T\" web/dist && echo LEAK || echo clean`, plus the same grep over `git log -p`. For iOS, make ios/.appcheck-debug-token with SIMCTL_CHILD_AppCheckDebugToken primary, and Secrets.xcconfig optional for Xcode GUI runs."
+ },
+ {
+  "doc": "docs/TASKS.md T-025/T-013; docs/RUNBOOK.md \u00a71.0, \u00a71.11, \u00a72.6, \u00a72.7",
+  "severity": "high",
+  "issue": "The bundle ID conflicts: app.strangerseyes.ios in TASKS (registered by Claude on Nov 20) vs dev.strangerseyes.app in RUNBOOK (registered by the user on Day 7). The Firebase iOS app registration, GoogleService-Info.plist, XcodeGen PRODUCT_BUNDLE_IDENTIFIER, `simctl privacy/launch` and the Keychain scope all depend on it. RUNBOOK also schedules iOS registration and the iOS debug token for Day 7, but the G3 spike (T-033, Nov 20) needs both.",
+  "fix": "Decide the bundle ID now (recommend app.strangerseyes.ios) and record it in PROGRESS Key values. Edit RUNBOOK \u00a71.0 and \u00a71.11 to move iOS registration and the iOS debug token to the Day-1 USER sitting, and update the \u00a72.6 project.yml and \u00a72.7 commands to the chosen ID."
+ },
+ {
+  "doc": "docs/TASKS.md T-030/T-031/T-011; docs/RUNBOOK.md \u00a71.0/\u00a71.6b",
+  "severity": "high",
+  "issue": "The critical path to the pivot gate (G1) is longer than it needs to be: T-002\u2192T-005\u2192T-023\u2192T-025\u2192T-011\u2192T-012\u2192T-030\u2192T-031, and T-031 also waits on T-003 (Blaze/prepayment). The G1 pass criterion uses pass B only, so grounding and Blaze are not required for the decision. RUNBOOK puts reCAPTCHA on Day 6 while TASKS makes T-030 depend on it on Nov 20, so a session following RUNBOOK would wait.",
+  "fix": "Put reCAPTCHA Enterprise key creation in the Day-1 USER sitting: domains are known as soon as the project ID exists, and it removes a Day-6 user dependency. Change T-030 Deps to T-004, T-012, T-025 (T-011 if done; whether debug mode works with a placeholder site key is [UNVERIFIED]). Split T-031: the pass-B go/no-go runs on whatever tier is active, but only after the user explicitly chooses in chat whether spike photos may go to the free tier (training risk). Pass A and grounding wait for T-003."
+ },
+ {
+  "doc": "docs/TASKS.md T-031; docs/SPEC.md \u00a70.3 G1",
+  "severity": "high",
+  "issue": "No Day-1 test checks whether fixing works. G1 measures whether the attacker can locate photos, never whether masking removable clues pushes it out. The headline demo ('Risk reduced', AC-193), the benchmark's 'after' column and the video beat 6 all depend on that. If location signal comes mostly from architecture or vegetation (removable:false), the product's core claim fails on Nov 24, too late to change course. D-10 adds a related risk: a red 'HOME: within 1 km' line needs the model's own radius_km to be \u22641, which is also untested.",
+  "fix": "Add to T-031: for each photo located within 5 km, apply the deterministic fix (mask every removable pass-B clue box with 15% padding), rerun pass B once, and record whether the closest band moved outward. Also record the radius_km and level distribution. Add a G1b line (informational) to T-034: 'fix moves \u22651 band on \u226550% of located photos; median radius_km \u22641 on located photos.' If it fails, log a D-entry before Nov 22: choose text-rich demo scenes and/or revise D-10, for example use d instead of max(d,r) when level \u2208 {street, neighbourhood}."
+ },
+ {
+  "doc": "docs/TASKS.md M2 ordering; \u00a73 checkpoints",
+  "severity": "high",
+  "issue": "There is no vertical slice. M2 builds the shell, tokens, vault UI, capability panel and HUD (T-050..T-069) before the first end-to-end adversary call. The riskiest integration (pass B \u2192 referee \u2192 bands \u2192 verdict \u2192 fix \u2192 re-attack) lands on Nov 23\u201324, the same day as the gate. The Nov 21\u201322 checkpoint has no end-to-end criterion.",
+  "fix": "Add T-086 'Thin vertical slice' with Due Nov 22 and Deps T-031, T-051..T-054, T-059. It runs: import \u2192 reencodeClean \u2192 minimal gate (EXIF, consent hash, ledger) \u2192 pass B \u2192 parseAdvB \u2192 rules referee \u2192 bands \u2192 verdict text \u2192 deterministic fix \u2192 masks \u2192 pass B again, all on a plain page. Make 'slice green' the Nov 22 checkpoint, and build T-062's full gate and the screens around it afterwards."
+ },
+ {
+  "doc": "docs/TASKS.md M3 (T-107/T-108/T-109); docs/ARCHITECTURE.md \u00a722",
+  "severity": "high",
+  "issue": "The judges' hosted path is first exercised on Nov 25, but it holds many [UNVERIFIED] items: reCAPTCHA Enterprise App Check, Hosting MIME/encoding for .wasm/.tflite/.gz (U-21), the /@(\u2026) header glob (U-20), whether a Prompt API origin trial is needed on the hosted origin (U-10), service-worker caching, cold-load time and auth/remoteconfig deploys (U-17). A failure found with 5 days left competes with iOS work.",
+  "fix": "Add T-038 'Walking-skeleton deploy', Due Nov 21. Deploy the scaffold to PROJECT_ID.web.app, make one ONLY_IN_CLOUD text call under reCAPTCHA Enterprise, run `curl -I` on a .wasm, .tflite and .gz file, run `LanguageModel.availability()` on the hosted origin in the user's Chrome, and deploy auth and remoteconfig once. After that, redeploy at every milestone checkpoint so T-107 becomes a routine redeploy."
+ },
+ {
+  "doc": "CLAUDE.md; docs/TASKS.md \u00a71 step 7; all docs",
+  "severity": "high",
+  "issue": "The context budget will not fit. SPEC alone is 130 KB on disk; all six docs come to roughly 500 KB, about 130k tokens. The session-start protocol says to read PROGRESS, TASKS, then API-NOTES, SPEC, ARCH and RUNBOOK 'for the task' without limiting scope. A fresh session that reads whole files will use most of its window before writing code and will compact mid-task, which is exactly the memory loss these docs are meant to prevent.",
+  "fix": "Add to CLAUDE.md: 'Never Read a whole doc. Grep for the task ID or \u00a7 number and Read with offset/limit.' Add a 'Read:' line to every TASKS task listing exact sections, e.g. 'T-062 Read: SPEC \u00a77, AC-040..046; ARCH \u00a78.1\u20138.4; API-NOTES \u00a71.4\u20131.5, \u00a75.3.' and 'T-074 Read: SPEC SCR-09, \u00a710.3, \u00a717.4; ARCH \u00a710.9, \u00a712.1; API-NOTES \u00a71.7, \u00a76.9.' Put a doc map in CLAUDE.md giving each file's purpose and the \u00a7 numbers of its key sections."
+ },
+ {
+  "doc": "docs/PROGRESS.md (missing); CLAUDE.md",
+  "severity": "high",
+  "issue": "PROGRESS.md does not exist and has no template, yet both protocols start with 'read PROGRESS'. On disk, docs/ contains only SPEC.md, so CLAUDE.md currently points at five missing files. An append-only log will also grow without limit, and nothing marks gate results, the last green commit or key values in a fixed place.",
+  "fix": "Write all docs to disk tonight and create PROGRESS.md from this template. Top: a '## STATE' block, overwritten each session and at most 60 lines, containing: 'Updated: <date time GMT+2> \u00b7 Day N/11 \u00b7 Milestone' / 'Now: T-0xx (session started HH:MM)' / 'Next: T-\u2026, T-\u2026' / 'Last green: <sha> (web check \u2713 / iOS build \u2713)' / 'Known broken:' / 'Gates: G1 \u00b7 G1b \u00b7 G2 \u00b7 G3 \u00b7 Slice(Nov22) \u00b7 Loop(Nov24) \u00b7 Hosted \u00b7 iOS loop(Nov27) \u00b7 Bench \u00b7 Video' with result and date for each / 'USER waiting: ID, due, reminded?' / 'Key values (non-secret): PROJECT_ID, WEB_APP_ID, IOS_APP_ID, BUNDLE_ID, SITE_KEY, HOSTED_URL, REPO_URL, YOUTUBE_URL, Firestore location, data tier, adversary model, iOS path A/B' / 'WIP:'. Below it: '## Decisions log' and an append-only '## Session log'. Entries older than 3 days move to docs/progress-archive.md. Sessions read STATE plus the last 2 log entries only."
+ },
+ {
+  "doc": "docs/SPEC.md, docs/ARCHITECTURE.md, docs/TASKS.md, docs/RUNBOOK.md (behaviour values)",
+  "severity": "high",
+  "issue": "Contradictory behaviour specs will produce contradictory code and tests:\n- Pre-mask default: SPEC D-16 says Standard; TASKS T-068 says 'Strict mode is ON by default'; ARCH AD-10 and the RC template say strict off.\n- 'Risk reduced' has three rules: SPEC \u00a710.6, ARCH \u00a712.3 and TASKS T-080.\n- Verdict colours: SPEC uses GREEN only for 'Risk reduced', with city grey and country hidden; ARCH makes city/country/none green.\n- Capability caching: SPEC AC-007 says never cached for S0/S1; ARCH \u00a79.3 caches deviceReady for 30 s.\n- Vault kinds: three different lists (SPEC \u00a717.2, ARCH VaultKind, TASKS T-051).\n- Validators: ARCH AD-12 forbids zod and uses its own markdown.ts; TASKS T-023/T-051/T-066 install and use zod and react-markdown.\n- Routes: SPEC \u00a78.1 uses path routes (/check/:sessionId); ARCH uses hash routes.\n- BREACH: SPEC makes S0/S1 rules-only; ARCH disables cloud until reload.\n- Pass A persistence: SPEC AC-148 keeps it in an encrypted local session; ARCH and TASKS keep it in memory only.\n- Judge target: \u226460 s vs \u226490 s.\n- Cut order: SPEC \u00a70.3 has 6 steps (P2, I5, iOS samples, recent checks, Atlas, pass A); TASKS, ARCH and PLAN use a different list.",
+  "fix": "Expand T-022 into a 1-hour reconciliation pass done before coding, and log each item as one D-entry. Recommended choices:\n- Standard default; Strict is P1.\n- SPEC \u00a710.6 for 'Risk reduced'.\n- SPEC colours.\n- The gate never caches; the UI chip may cache for 30 s.\n- SPEC \u00a717.2 vault kinds; edit ARCH types.ts and enums.v1.json to match.\n- AD-12 hand-written validators; remove zod and react-markdown from T-023.\n- Hash routes (simplest with SPA rewrites); update SPEC \u00a78.1 and AC-071 to '#/judge'.\n- Pass A in memory only; demote AC-148.\n- Judge Mode: accept \u226490 s, goal 60 s.\n- One cut-order list in TASKS, with SPEC \u00a70.3 pointing to it.\nThen grep the docs for each old value."
+ },
+ {
+  "doc": "CLAUDE.md; PLAN.md; research/winner-spec.md; docs/* precedence statements",
+  "severity": "high",
+  "issue": "No single precedence rule exists. SPEC says CLAUDE.md > SPEC > ARCH. TASKS says ARCH wins for paths, SPEC wins for ACs, and the 'newer logged decision wins' (meaningless when everything was written the same day). RUNBOOK says ARCH wins for keys. ARCH says 'fix whichever is wrong'. Meanwhile PLAN.md, which is listed in the CLAUDE.md repo map, still says temperature 0, 'Vertex backend', iOS '\u226512.13 select latest', pass B reads pass A notes, Firestore holds Judge metadata, and Day-1 iOS 'a tool call'. All of these are now wrong.",
+  "fix": "Add an 'Authority' section to CLAUDE.md: 'Invariants > PROGRESS Decisions log (dated) > API-NOTES (SDK facts) > SPEC (behaviour, copy, ACs) > ARCHITECTURE (paths, names, types, RC keys, prompts) > TASKS (sequencing) > RUNBOOK (procedures) > PLAN.md, research/* (background; stale). Once a config file exists in the repo (firebase.json, firestore.rules, remoteconfig.template.json, shared/prompts/*), the file wins over any doc copy.' Prepend to PLAN.md and winner-spec.md: '> SUPERSEDED where it conflicts with docs/API-NOTES.md \u00a70 and docs/SPEC.md \u00a70.4 (temperature, backend, iOS SDK pin, pass A/B coupling, tool calls, Firestore Judge data). Do not build from this file.'"
+ },
+ {
+  "doc": "docs/TASKS.md \u00a75 and T-022; docs/ARCHITECTURE.md \u00a72; docs/SPEC.md \u00a70.4",
+  "severity": "medium",
+  "issue": "Decision IDs collide. SPEC uses D-01..D-25, ARCH uses AD-01..AD-20, and TASKS RN-01..RN-23 are copied into PROGRESS as 'D-001 onwards'. So D-01 and D-001 mean different things, and one decision carries three IDs (pass A/B independence = D-02 = AD-03 = RN-05). Later sessions will log new decisions with conflicting numbers.",
+  "fix": "Seed the PROGRESS Decisions log with SPEC D-01..D-25 verbatim as the canonical IDs. Map each AD-xx and RN-xx to a D-ID as an alias (e.g. 'D-02 (=AD-03, RN-05)'), and add only genuinely new ones as D-26+. Change T-022 step 3 to match, and add to CLAUDE.md: 'New decisions take the next free D-number.'"
+ },
+ {
+  "doc": "docs/TASKS.md \u00a71 step 6; CLAUDE.md protocol step 2",
+  "severity": "medium",
+  "issue": "The task picker is 'first unchecked task in ID order whose deps are done'. Any task added later at the end of an ID range (e.g. the slice, walking-skeleton or prop-OCR spike above, or T-085 itself) is scheduled after everything else in that milestone, even when its due date is earlier. CLAUDE.md and TASKS \u00a71 also differ: CLAUDE.md lacks the date and cut-order check, the 'Now:' marker and the USER reminder.",
+  "fix": "Change the rule to: 'Pick the unchecked [CLAUDE] task with the earliest Due date whose Deps are [x]; break ties by ID.' Replace CLAUDE.md's protocol with 'Follow docs/TASKS.md \u00a71 (start) and \u00a72 (end) exactly.' so only one copy exists."
+ },
+ {
+  "doc": "docs/TASKS.md \u00a71 and \u00a72",
+  "severity": "medium",
+  "issue": "There is no regression baseline or crash recovery. A session that dies mid-task leaves a red tree, and the next session builds on top of it. TASKS \u00a71 checks git status but never runs the checks first. Nothing defines WIP commits or what to do when 'Now:' is set but no summary was written. If two sessions run, both pick the same task.",
+  "fix": "Add to \u00a71:\n- 'Run cd web && npm run check (and the iOS build for iOS tasks) BEFORE starting. If red, fix it or `git restore`/revert to PROGRESS Last green.'\n- 'If STATE.Now names a task but the session log has no matching entry, treat it as a crashed session: inspect `git diff --stat` and continue that task.'\n- 'The Now line is a lock; a second concurrent session must pick a different task.'\nAdd to \u00a72: 'Before long builds or when context feels heavy: `git commit -m \"WIP T-0xx: <exact next step>\"`.' Optionally, with user approval via update-config, add a SessionStart hook that prints the STATE block, `git status -s` and `date`, and a PreCompact hook that reminds the session to write WIP."
+ },
+ {
+  "doc": "docs/SPEC.md \u00a77.1 vs docs/ARCHITECTURE.md \u00a711/\u00a78.2; docs/API-NOTES.md \u00a75.1",
+  "severity": "medium",
+  "issue": "Gate thresholds don't match Tier-0, which guarantees blocks with no auto-mask:\n- Faces: SPEC re-checks at minDetectionConfidence 0.3, but Tier-0 auto-masks at 0.5. A face scored 0.3\u20130.5 (posters, statues, ads) is never masked yet blocks every send.\n- OCR: Tier-0 reads the 1600\u20132000 px master, but the gate reads the 1536 px outgoing frame, so the gate can find vault hits that Tier-0 missed.\nJudge Mode autoplay and AC-240 would stall on these blocks.",
+  "fix": "Use the same thresholds: Tier-0 auto-masks faces at the gate threshold (0.3). Specify that the consent dry run (SCR-07) runs the exact gate checks on the exact outgoing bytes. Any new face or vault hit is auto-masked and the bytes are re-encoded, up to 2 rounds, before Send is enabled. Only a hit that persists disables Send. Add a unit test: a face at 0.4 confidence is masked before consent and does not block."
+ },
+ {
+  "doc": "docs/TASKS.md T-010, T-105; docs/ARCHITECTURE.md \u00a75.5; docs/RUNBOOK.md \u00a71.14",
+  "severity": "medium",
+  "issue": "The props arrive late and their design undermines the scripted verdict.\n- Timing: T-010 is due Nov 24 20:00, but ARCH \u00a75.5 needs Tesseract to read the real prop tag by 'Day 3'. T-105 (Nov 25) then needs EXIF-free scenes, 10\u00d7 pre-tests and recorded pass-B fixtures, which leaves one day of slack on a never-cut feature.\n- Design: TASKS says the lanyard has 'City General' text, while RUNBOOK says 'fictional logo, no text'. With vault text on it, Tier-0 masks it and the attacker never sees it. Without text, a fictional logo can't be identified by name. Either way 'Identified your WORKPLACE by name' is structurally unlikely.",
+  "fix": "Move T-010 to Nov 22 (a Sunday) and add T-037 'prop OCR and face spike' on Nov 21 using 2 phone shots of the printed tag. Specify the props: the 'LUCAS' tag (vault, expected to be caught on device); a lanyard with a generic medical cross and the word 'STAFF', with no vault text, so the attacker infers 'hospital staff' and the referee rates it 'likely' (red, per SPEC \u00a710.2); a street sign and transit stop for the home band. Change the scripted lines in SPEC/RUNBOOK beat 4 to 'Linked to your WORKPLACE'. Fallback that needs no user: Claude composites a canvas-drawn 'LUCAS' tag and lanyard graphic onto people-free spike photos."
+ },
+ {
+  "doc": "docs/TASKS.md \u00a73 (Nov 20) and T-034",
+  "severity": "medium",
+  "issue": "Day 1 is overloaded for one agent. Nov 20 holds T-023, T-024, T-025, T-027 (including a ~1 GB SPM resolve and build), T-030, T-031 (about 50 cloud calls), T-032 (Nano, needs the Simulator off), T-033 (FM, needs Chrome Nano off) and T-034. G3 (iOS) doesn't affect the pivot decision, and iOS work starts Nov 26.",
+  "fix": "Make the Nov 20 checkpoint 'G1 (+G1b) and G2 recorded; decision made'. Move T-027/T-033 (G3) to 'by Nov 22', starting the SPM resolve and build in the background on Nov 20 night. Change T-034 Deps to T-030..T-032, with G3 appended when it is done."
+ },
+ {
+  "doc": "docs/TASKS.md T-034",
+  "severity": "medium",
+  "issue": "The decision gate says 'ask the user' for borderline or FAIL, with no default. If the user doesn't answer, the session stalls, and the cost of pivoting grows every day.",
+  "fix": "Add: 'If the user hasn't answered by Nov 21 10:00 GMT+2: on borderline, continue Strangers' Eyes with text-rich scenes; on FAIL, keep building pivot-neutral infrastructure (T-051 types, T-054 vault crypto, T-060 policy, T-062 gate, T-063 ledger, T-064 HUD) and remind the user at the top of every reply. Never pivot without a yes.'"
+ },
+ {
+  "doc": "docs/TASKS.md M4; docs/SPEC.md \u00a714",
+  "severity": "medium",
+  "issue": "iOS is over-scoped for Nov 26\u201328. That window holds 13 tasks, at 18\u201330 s per FM call, on the same days as the benchmark, the rehearsal and video prep. The cut order also removes the iOS HybridModel explainer (I5) second, but I5 is the only place iOS uses Firebase's hybrid API and costs about one session. Bigger, less differentiating work survives longer: the iOS pass A WKWebView grounding, re-attack, export and save, and a full capability panel.",
+  "fix": "Make TASKS emergency cut 7 the plan of record. iOS MVP: Keychain vault; Vision Tier-0; FM pre-screen (I3); FM referee (I4) plus the rules fix; consent; cloud pass B; verdict; I5 HybridModel explainer; a minimal gate, Ledger and HUD. Mark T-127's pass-A part and T-128's re-attack, save and share as stretch. Move I5 after the Leak Atlas in the cut order. Start T-121 (pure Swift ports against shared/testvectors) on Nov 25 evening or as filler while blocked on the user."
+ },
+ {
+  "doc": "docs/SPEC.md (P0 set) and \u00a715",
+  "severity": "medium",
+  "issue": "The web is over-scoped: there are 135 P0 ACs for about 6 web build days. Several P0 items are not demo-critical: encrypted persistent offline queue with a 5-item limit and 7-day purge (AC-252), share card (AC-261), Strict mode, the 'What the cloud saw' earlier-send selector, the SCR-10 'Show me' action, most Settings toggles, the developer simulation, and the tripwire interlock with FIFO byte attribution. Benchmark M4 needs IoU boxes hand-labelled on 25 photos.",
+  "fix": "Demote to P1:\n- AC-252: keep an in-memory queue plus the reconnect banner, which is all beat 3 shows.\n- AC-261 / share card.\n- Strict mode.\n- The earlier-send selector.\n- 'Show me'.\n- The Settings toggles except Nano on/off, Atlas opt-in and Burn vault.\n- The developer simulation.\n- The interlock: keep a simple tripwire that throws when a local lock or no permit is held.\nM4: score same-or-adjacent 3\u00d73 region only. Add a 'demo-critical P0' list to verify first: AC-002, 021, 022, 025, 041, 043, 045, 130, 140, 144, 146, 163, 193, 211, 221, 236, 240, 250, 290\u2013292, 320, 324, 327, 350, 360\u2013364."
+ },
+ {
+  "doc": "docs/TASKS.md (missing tasks vs ARCHITECTURE)",
+  "severity": "medium",
+  "issue": "ARCH components have no task, so sessions will either skip them or invent them ad hoc:\n- ai/tripwire.ts (ARCH D1);\n- interlock and deviceQueue;\n- scripts/check-prompts.mjs and check-images.mjs;\n- the shared/prompts manifest sha256;\n- shared/testvectors/*.json, which the iOS parity tests need;\n- fakeTransport plus the Playwright smoke and offline specs (ARCH \u00a720.2);\n- the English strings file for SPEC \u00a711's copy catalogue and the 18 explain-fallback templates;\n- the SCR-01 Welcome/18+ screen and the About page;\n- the iOS Swift tripwire equivalent.",
+  "fix": "Add tasks in free ID ranges with Due and Deps:\n- T-039 tripwire plus tests (Nov 21).\n- T-087 strings file plus explain-fallback.v1.json (Nov 22).\n- T-088 shared/testvectors (bands, box2d, fuzzy, referee, verdict, gate-matrix) written alongside the web units (Nov 22\u201323).\n- T-089 fakeTransport plus the Playwright smoke spec, added to `npm run check` (Nov 23). This gives every later session an offline regression test of the whole loop.\n- T-090 check-prompts and check-images.\n- T-091 Welcome/18+ and About."
+ },
+ {
+  "doc": "CLAUDE.md",
+  "severity": "medium",
+  "issue": "CLAUDE.md is missing several things a zero-memory session needs:\n- The grounding-terms rule as an invariant (pass A display-only: never parsed, cached, persisted, or fed to the referee, Atlas or benchmark), even though code can easily break it.\n- The 'no URL input' dual-use rule.\n- Where the private photos live and the 'never `git add -A`' rule.\n- Where secrets live.\n- Where the verified typings are.\n- The repo map entries for scripts/, .claude/launch.json and research/day1-artifacts/.",
+  "fix": "Add invariant 11: 'Pass A (grounded) output is display-only: never parsed by code or Nano, never cached across users, never persisted, never fed to pass B, the referee, the Atlas or the benchmark.' Add invariant 12: 'Local files only; no URL input.' Add a 'Where things live' block:\n- private photos and truth: ~/StrangersEyes-private/ (outside the repo);\n- web debug token: web/.env.development.local;\n- iOS debug token: ios/.appcheck-debug-token;\n- SDK typings: web/node_modules/@firebase/ai/dist/ai-public.d.ts and ios/.spm/checkouts/firebase-ios-sdk/FirebaseAI/Sources;\n- verified reference code: research/day1-artifacts/.\nAdd the rule 'stage files by explicit path; never `git add -A`.'"
+ },
+ {
+  "doc": "docs/TASKS.md (PRIV) vs docs/SPEC.md \u00a715.1, docs/ARCHITECTURE.md \u00a721, docs/RUNBOOK.md \u00a71.14/\u00a72.1/\u00a75.2",
+  "severity": "medium",
+  "issue": "The private data location conflicts. TASKS uses PRIV=~/StrangersEyes-private/, outside the repo. SPEC, ARCH and RUNBOOK use benchmark/private/ inside the repo (gitignored). RUNBOOK \u00a72.1 tells the session to `git add -A && git commit`, so a single .gitignore typo would commit real photos with GPS and true coordinates of the user's city (invariant 8, AC-364).",
+  "fix": "Use PRIV outside the repo everywhere (spike/, bench/, scenes/, truth.csv, raw results). Replace benchmark/private/ in SPEC \u00a715.1, ARCH \u00a721 and RUNBOOK \u00a71.14/\u00a75 with PRIV, and keep benchmark/private/ in .gitignore only as a backstop. Replace `git add -A` in RUNBOOK \u00a72.1 with explicit pathspecs. Add a pre-commit check (scripts/check-images.mjs plus a coordinate regex) to `npm run check`."
+ },
+ {
+  "doc": "docs/RUNBOOK.md \u00a72.5, \u00a72.8, \u00a74.4; docs/API-NOTES.md header table",
+  "severity": "medium",
+  "issue": "Commands hard-code this session's scratchpad path (/private/tmp/claude-501/\u2026/6fdd96ee\u2026/scratchpad): the headless Chrome --user-data-dir, the rc-live.json output and the simctl screenshot. A new session has a different scratchpad, and the old path may be wiped or blocked by the sandbox.",
+  "fix": "Use a project-local gitignored .scratch/ (add it to .gitignore), or write '$SCRATCHPAD (your session's scratchpad directory)'. After T-020, keep the old path only inside T-020."
+ },
+ {
+  "doc": "docs/API-NOTES.md, docs/ARCHITECTURE.md, docs/RUNBOOK.md (duplicated config blocks)",
+  "severity": "medium",
+  "issue": "The same artifacts are written out several times and already differ:\n- firebase.json, three versions (API-NOTES \u00a72.6, ARCH \u00a715.4, RUNBOOK \u00a74.2), differing in public dir, predeploy, headers and emulators.\n- firestore.rules, three versions.\n- The RC template, five versions.\n- The PWA config, two versions.\n- Version pins, three tables (API-NOTES \u00a711, ARCH \u00a71, RUNBOOK \u00a70.2).\nEvery copy will drift a little more each time a session updates one.",
+  "fix": "Keep one canonical copy, in ARCH, until the real file exists. Then the repo file is canonical, and the doc says 'see /firebase.json'. Remove the file bodies from RUNBOOK \u00a74.2\u20134.4 and API-NOTES \u00a72.5\u20132.6, keeping their verified-behaviour notes. Keep pins only in API-NOTES \u00a711, with the other docs linking to it."
+ },
+ {
+  "doc": "docs/TASKS.md \u00a74 USER board; docs/RUNBOOK.md \u00a71.0",
+  "severity": "medium",
+  "issue": "USER actions are spread across Nov 20 morning, Nov 20\u201321, Day 6 and Day 7, with hidden ordering dependencies (project \u2192 login \u2192 Blaze \u2192 AI Logic \u2192 [Claude registers apps] \u2192 reCAPTCHA \u2192 debug tokens). Photos are requested twice (10 now, 25 on Nov 25). The board has no status column, so a fresh session can't tell what is done without scanning M0.",
+  "fix": "Add a 'Tonight, Nov 19 (\u224845 min)' sitting at the top of \u00a74: (1) T-002 project \u2192 paste ID; (2) T-005/T-006 logins; (3) T-003 Blaze, budget and paid-tier choice (also answer: may spike photos use the free tier?); (4) T-004 AI Logic; (5) T-013 approve xcodegen; (6) T-007 Chrome settings and flag, and connect the Claude-in-Chrome extension if available; (7) drop ALL 25 photos in PRIV (spike = first 10, including 2\u20133 public-building doorsteps). Then a 15-min sitting after Claude registers the apps: T-011 reCAPTCHA and T-012 web and iOS debug tokens. Further sittings: Nov 22 (props/scenes T-010, Devpost draft T-014, Discord T-015), Nov 28 (record), Nov 29 (upload, Devpost, public). Add a Status column mirrored in PROGRESS STATE."
+ },
+ {
+  "doc": "docs/TASKS.md T-151/T-152; docs/SPEC.md \u00a715.2; docs/RUNBOOK.md \u00a75.3",
+  "severity": "medium",
+  "issue": "The benchmark is scheduled as a 150-call run in the user's Chrome with Nano, during the iOS days. That clashes with the Nano/FM memory rule and needs the user present. Pass-B metrics don't need Nano. TASKS T-151 also uses 'the Nano planner if available', which makes the 'after' condition nondeterministic, whereas SPEC \u00a715.2 specifies the deterministic rules fix.",
+  "fix": "Run passes B before and after unattended through the gate, in headless Chrome with a fixed debug token and the CDP harness, overnight Nov 26 or while Claude does Swift ports. Run the 25-call Nano pre-screen recall set separately in the user's Chrome with the Simulator shut down. In T-151 the fix is always deterministic (SPEC \u00a715.2); report the Nano fix separately if time allows. Use one definition of 'located' in SPEC M1/M2, ARCH \u00a721, RUNBOOK \u00a75.4 and T-031 (recommend the closest hypothesis centre d \u2264 X in \u22652 of 3 runs, with e=max(d,r) reported alongside)."
+ },
+ {
+  "doc": "docs/TASKS.md T-183..T-187, T-160; docs/RUNBOOK.md \u00a76",
+  "severity": "medium",
+  "issue": "Web beats are filmed on Nov 28, before design polish (T-160, Nov 29), so the video shows unpolished UI. The user's Nov 29 is overloaded: iOS beats, voice-over, a full edit, a YouTube upload by 23:00, the Devpost paste and the approval to go public.",
+  "fix": "Add T-159 'Polish storyboard screens' (Nov 27, during the iOS days; Chrome work in its own runtime block). The user records web beats on Nov 28 morning, iOS beats and voice-over on Nov 28 evening. Claude builds an ffmpeg rough cut from an edit decision list (docs/VIDEO.md) early on Nov 29. The user reviews, trims and uploads by Nov 29 18:00, leaving YouTube processing slack. T-160 then covers only screens not in the video."
+ },
+ {
+  "doc": "docs/TASKS.md T-032/\u00a71 step 8; CLAUDE.md invariant 10; docs/RUNBOOK.md \u00a76.3",
+  "severity": "medium",
+  "issue": "'Quit Chrome before Simulator FM work' conflicts with the user's daily browsing and with the Claude-in-Chrome tools this environment offers, which need the user's Chrome running. Chrome probably loads the 4 GB model only while a page is using it [UNVERIFIED]. Separately, whether Claude can drive Nano checks in the user's own Chrome profile (rather than the user pasting snippets) is untested, yet several manual ACs depend on it (AC-003, AC-117, T-032, T-085).",
+  "fix": "Add Day-1 T-032 step 0. Connect Claude-in-Chrome to the user's Nano-enabled profile and run `LanguageModel.availability()` through javascript_tool. After a Nano call, idle 5 min and record Chrome's memory and chrome://on-device-internals. If the model unloads, relax invariant 10 to 'no concurrent Nano and FM inference; close Nano tabs before FM', and record it as a D-entry."
+ },
+ {
+  "doc": "docs/TASKS.md T-108; docs/SPEC.md AC-002/AC-240",
+  "severity": "medium",
+  "issue": "Judges are likely to use Safari or Chrome without Nano, yet Tier-0 has only been verified in headless Chrome 157. Safari lacks relaxed SIMD (Tesseract has to fall back to the simd core), MediaPipe needs WebGL in Safari, and Firefox has its own IndexedDB/CryptoKey behaviour. The first cross-browser check is Nov 25. Cold load is also unmeasured: about 22 MB of wasm and models is needed before Tier-0 can run on a first visit, and the \u226490 s Judge budget ignores the judge's network.",
+  "fix": "Add to T-057's Verify (Nov 21): run the selftest page in Safari and Firefox (the user opens the URL, or enables Safari 'Allow Remote Automation' for safaridriver). In T-038 (walking-skeleton deploy), measure a cold Judge Mode start with DevTools 'Fast 4G' throttling and record it. If it is slow, preload only the Tesseract core the browser will use and show a loading-assets progress row (SCR-02 row 2)."
+ },
+ {
+  "doc": "docs/TASKS.md T-031 (photo selection); docs/SPEC.md G1",
+  "severity": "medium",
+  "issue": "G1's 10 photos are street corners, shop fronts and transit stops, but the demo and Judge scenes are doorstep and home-like, carry a child's name tag, and have a vault 'home'. Refusal (SPII/safety) and how Gemini handles home-like scenes may differ from street scenes, so G1 can pass while the hero scene is declined.",
+  "fix": "Require 2\u20133 of the 10 spike photos to be doorstep-style entrances of public buildings with a printed fictional name card (masked before sending, as in the product). Report their refusal rate separately in T-034, and pre-test the actual hero scene 10\u00d7 as soon as T-010 lands (target Nov 23, not T-182's Nov 28)."
+ },
+ {
+  "doc": "docs/TASKS.md T-015; docs/API-NOTES.md U-39",
+  "severity": "low",
+  "issue": "The Discord question about whether MediaPipe/Tesseract are acceptable next to 'all AI inference through Firebase AI Logic' is due Nov 24. A negative answer would affect Tier-0, which is core to the privacy promise, with no time left to react.",
+  "fix": "Move T-015 to the Nov 20 USER sitting. Pre-write the README framing now ('deterministic CV/OCR privacy filters; all generative inference via Firebase AI Logic') so it can be adjusted if the answer comes back negative."
+ },
+ {
+  "doc": "docs/ARCHITECTURE.md \u00a73.1 main.tsx and \u00a78.3",
+  "severity": "low",
+  "issue": "'installTripwire() as the FIRST LINE of main.tsx, before any firebase import runs' is wrong under ESM: all static imports, including firebase/init.ts reached through App, are evaluated before main.tsx's body runs. installTripwire(scan) also needs the vault scanner, which only exists after async decryption.",
+  "fix": "Install the tripwire from a side-effect module imported first: `import './ai/tripwire-install';` as the first import in main.tsx. Expose `setVaultScanner(fn)` for later, and default to fail-closed (no permit means the AI host throws). Add a test asserting that fetch is wrapped before firebase/init evaluates."
+ },
+ {
+  "doc": "docs/TASKS.md \u00a73; docs/RUNBOOK.md \u00a70.1",
+  "severity": "low",
+  "issue": "TASKS calls Nov 19 '(Wed)'; Nov 19 2026 is a Thursday (`cal` on this Mac). Fresh sessions reason about weekdays when reminding the user. The weekends (Nov 21\u201322, 28\u201329) are not called out, although they are the natural slots for prop shooting and filming.",
+  "fix": "Correct it to 'Nov 19 (Thu)'. Add a weekday column to \u00a73, and note 'Sat/Sun Nov 21\u201322: props and scenes; Sat/Sun Nov 28\u201329: filming'."
+ }
+]

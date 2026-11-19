@@ -1,0 +1,8 @@
+contextSize: 0
+warm text: OK. 18.011757969856262
+image error: Error Domain=FoundationModels.LanguageModelError Code=-1 "The operation couldn’t be completed. (ModelManagerServices.ModelManagerError error 1001.)" UserInfo={NSMultipleUnderlyingErrorsKey=(
+    "Error Domain=ModelManagerServices.ModelManagerError Code=1001 \"(null)\" UserInfo={NSMultipleUnderlyingErrorsKey=(\n)}"
+), NSLocalizedDescription=The operation couldn’t be completed. (ModelManagerServices.ModelManagerError error 1001.)}
+guided: ST MARY PRIMARY true 25.924896001815796
+tool error: Model Catalog error: Error Domain=com.apple.UnifiedAssetFramework Code=5000 "There are no underlying assets (neither atomic instance nor asset roots) for consistency token for asset set com.apple.modelcatalog" UserInfo={NSLocalizedFailureReason=There are no underlying assets (neither atomic instance nor asset roots) for consistency token for asset set com.apple.modelcatalog}
+tokenCount: 9

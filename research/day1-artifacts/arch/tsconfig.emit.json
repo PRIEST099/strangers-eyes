@@ -1,0 +1,1 @@
+{ "extends": "./tsconfig.json", "compilerOptions": { "noEmit": false, "outDir": "out", "rewriteRelativeImportExtensions": true, "allowImportingTsExtensions": true }, "include": ["src/fuzzy.ts", "src/fuzzy.check.ts", "src/types.ts"] }

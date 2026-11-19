@@ -1,0 +1,242 @@
+# PROGRESS: Strangers' Eyes
+
+> Read this first in every session (CLAUDE.md, then this file, then `docs/TASKS.md` §1).
+> Template: TASKS Appendix A.
+> **Never Read a whole doc.** Grep for the task ID, AC ID or § heading, then Read with offset/limit.
+
+## STATE (overwrite in place; never append here)
+- Today: Thu Nov 19 2026 (Day 1, late evening)
+- Now: none            <- lock: "T-0xx (started HH:MM)" while a task is in progress
+- Next: **T-024** (versioned prompts, schemas, fixtures; needs no Firebase). Then T-050 app shell, T-087 strings, T-093 interlock/device queue (the tripwire part is done). T-025 onwards waits for Sitting A.
+- Blocked: T-021's commit (waiting on T-018d). The repo exists; nothing is committed yet.
+- Last green commit: none. The working tree is green: `npm --prefix web run check` passes after `npm ci` (45 planted boundary cases caught, 56 tests), and the build and check-dist pass.
+- Checkpoints: G1 – | G1b – | G2 – | G3 – | slice Nov 22 – | loop Nov 24 – | hosted Nov 25 –
+- Adversary model: gemini-3.8-flash (pending T-031 A/B against gemini-4-hydrogen) | iOS path: A (firebase-ios-sdk 12.19.3)
+- Cuts applied: none
+
+## WIP (exact next step if a task is half-done)
+- None half-done.
+- **Everything is uncommitted.** First commit after T-018d (explicit pathspecs, never `git add -A`):
+
+  ```
+  git add .gitignore LICENSE NOTICE README.md THIRD_PARTY_NOTICES.md CLAUDE.md PLAN.md package.json \
+    .claude/launch.json docs research scripts web/package.json web/package-lock.json web/index.html \
+    web/vite.config.ts web/vitest.config.ts web/tsconfig.json web/tsconfig.app.json web/tsconfig.node.json \
+    web/.oxlintrc.json web/.env.example web/.env.e2e web/scripts web/src web/public/models web/public/icons
+  ```
+
+  Check `git status --short` first: `research/_vendor-docs/` and `web/public/vendor/` must show as ignored.
+
+## USER pending (mirror of TASKS §4: ID · due · status)
+Sitting A is due tonight or Fri Nov 20 morning, in this order:
+- T-002 Create the Firebase project (Analytics OFF), send the project ID · Fri Nov 20 09:00 · open
+- T-005 `firebase login` in your own terminal · Fri Nov 20 · open
+- T-006 `gh auth login` · Fri Nov 20 · **gh is already signed in on this Mac**: confirm the account and the repo name to use
+- T-018 Day-1 decisions a–d (filming dates, free-tier spike consent, demo-location exposure, **d = routine commits**) · Fri Nov 20 · open
+- T-003 Blaze + $25 budget alert + paid Gemini tier · Fri Nov 20 · open
+- T-004 AI Logic "Get started" → Gemini Developer API · Fri Nov 20 · open
+- T-013 Approve `brew install xcodegen` · Fri Nov 20 · open
+- T-019 iOS bundle ID · Fri Nov 20 · open
+- T-007 Chrome on-device AI flag; connect Claude-in-Chrome · Fri Nov 20 · open
+- T-008 10 people-free outdoor spike photos → `/Users/mac/StrangersEyes-private/spike/` · Fri Nov 20 12:00 · open
+- T-015 (optional) Discord questions · Fri Nov 20 · open
+
+Later: Sitting B (T-012, T-011) after T-025; Sitting C (T-010, T-014, T-017) Nov 21–22; the rest per TASKS §4.
+
+## Key values (non-secret only)
+| Key | Value |
+|---|---|
+| PROJECT_ID | |
+| WEB_APP_ID / IOS_APP_ID | |
+| BUNDLE_ID | |
+| RECAPTCHA_SITE_KEY | |
+| Firestore location | |
+| HOSTED_URL | |
+| REPO_URL | |
+| YOUTUBE_URL | |
+| Devpost draft URL | |
+| submission-v1 SHA | |
+
+Never record here: debug tokens, the CLI token, passwords, billing details, real coordinates.
+
+## Day-1 gate results
+| Gate | Metric | Result | Evidence |
+|---|---|---|---|
+| G1 | refused / 10; located (d ≤5 km, ≥2 of 3) / 10; doorstep subset refusals | | |
+| G1b | band moved after fix / located; median radius_km | | |
+| G2 | availability; valid on_device JSON image/text (x/5); median latency; memory | | |
+| G3 | @Generable on-device; HybridModel modelVersion; cloud via debug token; latency | | |
+
+Pre-gate facts already verified on Nov 19:
+- Chrome v3Nano is downloaded on this Mac.
+- `@Generable` works on-device in the iOS 27.0 Simulator.
+- The firebase-ios-sdk 12.19.3 probe builds.
+- The `firebase/ai` snippet passes `tsc --strict`.
+- The Firestore rules emulator run passes 20/20.
+- **Tier-0 in the app (T-023):** EXIF/GPS strip, MediaPipe faces, Tesseract OCR, vault crypto and solid masks all pass in Chrome 156 (Browser pane).
+
+## Decisions log
+Canonical IDs:
+- **D-01..D-39** are in SPEC §0.4 (read them there).
+- **AD-xx** are in ARCH §2. Where an AD duplicates a D, the D wins.
+- **The next free number is D-59.**
+
+- D-00 (Nov 19) Idea: **Strangers' Eyes**, chosen by a 29-agent tournament (score 8.18) and approved by the user. **Blindfill** is the Day-1 fallback, *only* with the user's OK if G1 fails (TASKS T-034). Health/Rwanda "Muganga" was rejected (the user wants a global idea).
+- D-00a (Nov 19) Platforms: Web PWA (primary) + iOS. **Android cut**: no physical device, and the emulator has no Nano.
+- D-00b (Nov 19) Docs produced by the verify → draft → critique → revise workflow (18 agents). Raw notes: `research/workflow-planning/`.
+- D-00c (Nov 19) SPEC §0.4 already uses D-26..D-39, so new decisions start at D-40.
+- D-40 (R-01) **Remote Config:** ARCH §13.2/§13.3 (then the root `remoteconfig.template.json`) is the only key list, 27 keys. There is no `clue_types`, no `temperature` and no `request_timeout_ms` (`timeouts_ms` per job). `ocr_max_px` 1600; `auto_mask_types` is SPEC SCR-06's 5 types; `daily_adversary_cap` is 20 per local day (an A+B pair = 1). Defaults are read from the template itself.
+- D-41 (R-02) **Leak Atlas** = +1 counters per distinct pass-B clue type of the first attack only. No outcome, band, precision or fix counters (this amends SPEC D-11). Rules = `research/day1-artifacts/firestore-tests/` (20/20).
+- D-42 (R-08) **Paths:**
+  - assets in `web/public/vendor/{mediapipe-1.2.3/wasm, tesseract-7.0.0/{worker.min.js,core,lang}}` (gitignored, versioned);
+  - models in `web/public/models/blaze_face_{full,short}_range.tflite`;
+  - rules tests in root `tests/rules/` (own firebase.json, port 8181);
+  - DEV code in `web/src/dev/{spikes,selftest,slice,bench}`; only `spikes/` may call the SDK directly.
+- D-43 (R-17) **BREACH** (AC-022): a LOCAL_LOCK trip, or an S0/S1 response reporting in_cloud, marks the page session compromised. S0/S1 then run RULES_ONLY, cloud calls are off until reload, S3 is BLOCKED (TRIPWIRE), and a persistent banner shows. Other trips refuse only that request.
+- D-44 (R-18) **One cut order:** TASKS § Cut order (planned 1–6, emergency 7–11 with the user's OK).
+- D-45 (R-19) **Schedule:** film every beat Sat Nov 28; Public YouTube upload Sun Nov 29 by 18:00; repo public Nov 29 after the scan and the user's yes; submit Mon Nov 30 12:00 GMT+2. Needs T-018a.
+- D-46 (R-21) All private data lives in PRIV, outside the repo; explicit pathspecs only. *Folder list superseded by D-53.*
+- D-47 (R-23) **Per-user quota:** AI Logic per-user Generate-content quota is 30 RPM (USER sets it in T-111).
+- D-48 (R-26) **Prompt IDs** follow ARCH §3/§10.2. explain.v1 = `explain.v1.rules.md` + `explain.v1.user.md` (no system file) + `explain-fallback.v1.json`. Output ≤2 sentences and ≤45 words.
+- D-49 (R-29) **Decision IDs:** SPEC D-01..D-39 canonical; AD-xx never renumbered; RN-xx retired (alias table in TASKS §5); new decisions D-40+.
+- D-50 (R-32) **Ledger:** unsealed, own IndexedDB `se-ledger/entries` (newest 500), holding IDs/kinds/hashes/numbers only. Burn vault still deletes it (D-31).
+- D-51 (X-08) **Fix plan `expected_residual`** = the finest `reveals` level among clues left unmasked (venue_or_organisation counts as street), or country if none remain.
+- D-52 (X-11) **Benchmark pacing:** cloud calls ≥3 s apart (≤20 RPM), leaving headroom under the 30 RPM quota for judges.
+- D-53 (X-12) **PRIV layout** (flat): `/Users/mac/StrangersEyes-private/{spike,bench,scenes,gate-test,test,raw,video}/`. Raw run JSON goes in `raw/` (`spike-<date>.json`, `bench-<date>.json`). Folders created Nov 19.
+- D-54 (T-023 review boundary-fp-1) **The pass-A notes UI component is `NotesView`** (`ui/components/NotesView.tsx`, matching iOS `NotesView.swift`). `AdversaryNotes` remains the type name only. Edited: ARCH §3.1, §4.1, §4.2.
+- D-55 (T-023 review privacy-correctness-1/2/7) **Vault concurrency:**
+  - every vault add/update/remove, every sealed write and Burn run under `withVaultLock()` (a tab queue plus `navigator.locks` `se-vault`);
+  - `ensureVaultKey()` is single-flight and add-if-absent;
+  - `seal(value, key)` never creates a key;
+  - stores use `vault/idb.ts` `closableStore`, so `deleteDatabase` is immediate;
+  - `addItems()` writes a pin and its area item atomically.
+  - Edited: ARCH §3.1, §16.4.
+- D-56 (T-023 review privacy-correctness-4/12 + rejected-but-cheap hardening) **Tripwire:**
+  - `isAiHost()` (case-insensitive, regional prefixes);
+  - new TripReason `UNSCANNABLE_BODY` (non-string or `Request` bodies);
+  - every string value in the body is scanned except `inlineData.data`;
+  - `observe()` unsubscribe is idempotent;
+  - R-14 `Permit {id, scanText}` adopted.
+  - ARCH §8.5 now mirrors `web/src/ai/tripwire.ts`.
+- D-57 (T-023 review boundary-evasion-1..6, fp-2/3) **check-boundaries R1–R20** (ARCH §4.2):
+  - R1 bans the identifiers generateContent*, startChat, sendMessage*, countTokens, in any form;
+  - R2 covers all model factories;
+  - R17 bans raw egress (sendBeacon/XHR/WebSocket/EventSource/googleapis.com);
+  - R18 requires literal dynamic imports;
+  - R19 restricts import.meta.glob;
+  - R14 accepts only DEV-guarded forms in App.tsx;
+  - R20 requires a DEV marker, checked in `web/dist` by `scripts/check-dist.mjs` (web `postbuild`);
+  - iOS Dev/ spikes must start with `#if DEBUG`.
+  - Edited: ARCH §3, §3.3, §4.2.
+- D-58 (T-023 review build-config-1/2/3) **PWA and licenses:**
+  - Workbox `skipWaiting` + `clientsClaim` (otherwise autoUpdate stalls with `injectRegister:false`);
+  - `build.license` emits `dist/third-party-licenses.md`;
+  - `THIRD_PARTY_NOTICES.md` lists the runtime Workbox/Tailwind code and the libraries statically linked into the wasm, and ships as `/vendor/third-party-notices.md`.
+  - Edited: ARCH §16.1. Follow-up: link both from About (T-092).
+
+### Reconciliation items (T-022, done Nov 19)
+How T-022 ran:
+- Workflow wf_a7c14f46-79f: 6 analysts, 5 per-doc editors, 2 verification rounds and 1 fix round.
+- 529 + 30 edits applied. One was skipped on purpose (X-12 vs R-21; resolved as D-53).
+- Verifier round 2 left 11 one-line residuals (V2-01..V2-11). The orchestrator applied all 11 by hand.
+- Full analysis: the workflow output (session scratchpad, not kept).
+
+- R-01 → D-40; edited: API-NOTES, ARCH, RUNBOOK, SPEC, TASKS (27 edits). ARCH §13.2/§13.3 (then the repo-root remoteconfig.template.json) is the only RC key list: 27 keys.
+- R-02 → D-41; edited: API-NOTES, RUNBOOK, SPEC, TASKS (23 edits). The Leak Atlas holds only +1 counters at /atlas/{weekId}/clues/{clueType}, one per distinct clue type that pass B reported in the first attack (r1), written on…
+- R-03; edited: ARCH (2 edits). Verdict = SPEC §10 verbatim: levels RED/AMBER/LOW/PARTIAL;
+- R-04; edited: ARCH (7 edits). Vault kinds are exactly SPEC §17.2 (4 pin kinds + 12 text kinds, including self_name, D-36).
+- R-05; edited: SPEC, TASKS (3 edits). Pins reach on-device prompts (referee VAULT, vault-text VAULT) only as {id, kind, label}, never coordinates.
+- R-06; edited: ARCH, TASKS (4 edits). Standard is the default pre-mask mode (D-16, RC strict_mode_default=false);
+- R-07; edited: API-NOTES, ARCH, SPEC (9 edits). One oriented, EXIF-free working image ('master'), longest side ≤2048 px (D-20).
+- R-08 → D-42; edited: API-NOTES, ARCH, RUNBOOK, TASKS (52 edits). ARCH §3 is the canonical path list, with these R-08 changes.
+- R-09; edited: ARCH, SPEC, TASKS (7 edits). SPEC D-27 settles this, and SPEC §8.1 is the route table.
+- R-10: consistent
+- R-11; edited: API-NOTES, TASKS (5 edits). The gate never caches on-device availability: every S0/S1 gate call (and every device-readiness check inside the gate, e.g.
+- R-12; edited: API-NOTES (1 edits). Pass A notes live in memory only, for the current session (SPEC D-28, AC-148;
+- R-13; edited: ARCH, TASKS (3 edits). Judge Mode targets red → green in ≤90 s per sample (goal about 60 s) on a laptop without Nano.
+- R-14; edited: API-NOTES, ARCH, RUNBOOK, SPEC, TASKS (35 edits). Judge Mode never unseals or loads the real vault (D-37, AC-241).
+- R-15; edited: ARCH, SPEC, TASKS (24 edits). One vault matcher (D-38) = SPEC SCR-06 step 3 + §10.3.
+- R-16; edited: ARCH, RUNBOOK, SPEC, TASKS (18 edits). One face threshold, face_min_confidence 0.3, for Tier-0 auto-masking, the consent dry run and the gate re-check (D-30).
+- R-17 → D-43; edited: ARCH, TASKS (9 edits). BREACH = SPEC AC-022: a tripwire LOCAL_LOCK trip or an S0/S1 response reporting in_cloud sets page-lifetime gateState.compromised;
+- R-18 → D-44; edited: ARCH, SPEC, TASKS (5 edits). TASKS § Cut order is the only cut order: planned cuts 1–6, emergency cuts 7–11 (each needs the user's OK), the triggers and the never-cut list, which now names…
+- R-19 → D-45; edited: ARCH, RUNBOOK, SPEC, TASKS (20 edits). TASKS §3 is the schedule of record (the user still has to confirm it in T-018a): every beat is filmed Sat Nov 28 (web in the morning;
+- R-20; edited: ARCH, RUNBOOK, SPEC, TASKS (6 edits). SPEC §15.3 is the only definition of the benchmark metrics (D-34).
+- R-21 → D-46; edited: ARCH, RUNBOOK, SPEC, TASKS (12 edits). All private data lives in PRIV outside the repo (D-29); folder list superseded by D-53 (flat layout).
+- R-22; edited: API-NOTES, ARCH, RUNBOOK, SPEC, TASKS (14 edits). The web App Check debug token lives only in web/.env.development.local, which Vite loads in dev only and the *.local rule gitignores.
+- R-23 → D-47; edited: API-NOTES, ARCH, RUNBOOK, SPEC, TASKS (7 edits). The Firebase AI Logic per-user quota (Generate content requests) is set from 100 to 30 RPM.
+- R-24; edited: ARCH, SPEC, TASKS (15 edits). explain() takes ExplainInput (ARCH §9.1): a pre-screen clue {kind:'prescreen', type, region} (never device-read text) or a pass-B clue {kind:'adversary', clue,…
+- R-25; edited: ARCH, TASKS (12 edits). Route = ON_DEVICE | IN_CLOUD | RULES_ONLY | BLOCKED | QUEUED | CACHED (SPEC §17.1;
+- R-26 → D-48; edited: API-NOTES, ARCH, TASKS (7 edits). Prompt files and IDs follow ARCH §3/§10.2.
+- R-27; edited: RUNBOOK, TASKS (4 edits). shared/strings/en.json holds every SPEC §11 copy ID, keyed by ID, and serves both platforms.
+- R-28; edited: API-NOTES, RUNBOOK, TASKS (8 edits). The fetch tripwire is installed by the side-effect module web/src/ai/tripwire-install.ts, imported as LINE 1 of main.tsx (`import './ai/tripwire-install';`), b…
+- R-29 → D-49; edited: API-NOTES, ARCH, RUNBOOK, SPEC, TASKS (9 edits). Decision IDs: SPEC D-01..D-39 are canonical.
+- R-30: consistent
+- R-31; edited: API-NOTES, ARCH, RUNBOOK (3 edits). RC routing_policy S4 has ios = HYBRID_MODEL (not NONE): iOS Judge Mode sample scenes (P2, SPEC §14.2, D-32) run S4 through HybridModel over synthetic sample te…
+- R-32 → D-50; edited: API-NOTES, ARCH, SPEC, TASKS (14 edits). The ledger is unsealed, in its own IndexedDB database se-ledger/entries, keeping the newest 500 entries.
+- R-SP; edited: API-NOTES, ARCH, RUNBOOK, TASKS (36 edits). The Day-1 scratchpad rescue is done (TASKS T-020, Nov 19).
+- X-00: consistent
+- X-01; edited: API-NOTES, ARCH, RUNBOOK, TASKS (19 edits). The current Day-1 reference artifacts are research/day1-artifacts/arch/ (copied from arch2: src/*.ts, remoteconfig.template.json, gen.mjs, advB.v1.schema.json)…
+- X-02; edited: API-NOTES, RUNBOOK, TASKS (6 edits). Remote Config client defaults come from remoteconfig.template.json itself (ARCH AD-28, §13.4).
+- X-03; edited: API-NOTES, ARCH, RUNBOOK (4 edits). AC-365 (SPEC wins): web/dist must contain neither the registered debug-token value nor the string VITE_APPCHECK_DEBUG_TOKEN.
+- X-04; edited: RUNBOOK, TASKS (3 edits). Demo lanyard prop = SPEC D-39: a fictional logo plus the generic printed words "HOSPITAL STAFF", no vault text and no real logo.
+- X-05; edited: ARCH, RUNBOOK, TASKS (12 edits). SPEC D-33 web demotions apply in the tasks.
+- X-06; edited: TASKS (6 edits). iOS task priorities follow SPEC D-32 and §14.2.
+- X-07; edited: ARCH, SPEC, TASKS (6 edits). Crop rule = SPEC D-35 and §10.4. A plan crops minimally from one side, capped at 40%.
+- X-08 → D-51; edited: ARCH, SPEC (3 edits). The fix plan's expected_residual is the finest (most precise) reveals level among the clues left unmasked (venue_or_organisation counts as street), or country …
+- X-09; edited: API-NOTES, ARCH, SPEC, TASKS (35 edits). Every § cross-reference points at the current heading.
+- X-10; edited: ARCH, RUNBOOK (2 edits). Every doc states the same authority chain: CLAUDE.md invariants > PROGRESS Decisions log (until the affected doc is edited in the same session) > SPEC > ARCHIT…
+- X-11 → D-52; edited: API-NOTES, SPEC, TASKS (3 edits). Benchmark cloud calls are paced at least 3 s apart (≤20 RPM).
+- X-12 → D-53; edited: ARCH, RUNBOOK, SPEC, TASKS (10 edits). PRIV (outside the repo, D-29/AD-25) has one sub-layout: PRIV/{spike,bench,scenes,gate-test,test,raw,video}/.
+- X-13; edited: ARCH, RUNBOOK, SPEC, TASKS (12 edits). TASKS owns dates and the USER sittings. Other docs follow TASKS §3–§4.
+- X-14; edited: ARCH (2 edits). [UNVERIFIED] tags stay honest. API-NOTES closed U-42 (the iOS 12.19.3 grounding path) by a source read (§3.7, [VERIFIED: src 12.19.3]), so ARCH must not list i…
+- X-15; edited: ARCH, TASKS (6 edits). ARCH §3 lists three repo scripts: check-boundaries.mjs, check-prompts.mjs and check-images.mjs.
+- V2-01..V2-11: applied by hand. They fixed:
+  - the API-NOTES 21/21 → 20/20 rules count;
+  - the coordinate-scan allowlist wording (SPEC AC-351, RUNBOOK §1.14);
+  - stale § pointers inside T-022;
+  - RUNBOOK sitting names A/B/C;
+  - the iOS debug-token timing;
+  - the ARCH precedence line;
+  - AC-283 marked as defined, not proposed.
+
+## Session log (newest last; keep ~15, move older to docs/progress-archive.md)
+
+### 2026-11-19 evening: planning session (no app code yet)
+- **Done:**
+  - Idea tournament; PLAN.md v2; CLAUDE.md.
+  - Verification + docs workflow: the five docs.
+  - **T-020** artifacts rescued (77 files).
+  - PROGRESS.md created.
+  - TASKS decision numbering fixed (D-40+).
+  - CLAUDE.md protocols point to TASKS §1/§2.
+  - PLAN.md banner added.
+- **Verified:** 77 artifact files; no personal data or keys in docs/research (grep); iOS build-log summaries show 12.19.3 and 13.2.0 SUCCEEDED.
+- **Next:** T-021.
+
+### 2026-11-19 late: repo, scaffold, reconciliation, review
+- **Done:**
+  - **T-021** (all but the commit): git init, `.gitignore`, Apache LICENSE (via gh), NOTICE, README stub, root package.json, PRIV folders.
+  - **T-023** web scaffold: Vite 8.3.8 + React 19.3.1 + TS 7.0.2 + Tailwind 4.3.5 + vite-plugin-pwa 2.0.0 + vitest 5.1.1, exact pins.
+  - Ported into ARCH paths: `tier0/{decode,exif,faces,ocr}`, `core/{types,geo,boxes,mask}`, `vault/{idb,crypto,vaultStore}` and `ai/{tripwire,tripwire-install}`. Also the DEV selftest, `scripts/check-boundaries.mjs`, `scripts/check-dist.mjs`, PWA icons, THIRD_PARTY_NOTICES.md and `.claude/launch.json`.
+  - **T-022** reconciliation: the workflow plus 11 manual residuals. PROGRESS decisions are D-40..D-58.
+  - Independent 3-lens review of the scaffold (workflow wf_80c7f7b1-2ef): 18 confirmed findings, **all fixed** (D-54..D-58); 6 rejected by the skeptics.
+- **Verified:**
+  - `npm ci && npm run build && npm run check` exit 0:
+    - check-boundaries self-test 45/45, repo ok;
+    - Vitest 56/56;
+    - check-dist ok;
+    - precache 19 entries / 30.6 MB;
+    - `dist/sw.js` has skipWaiting() and clientsClaim().
+  - DEV selftest `#/dev/selftest` ALL PASS in Chrome 156 (Browser pane):
+    - exif: APP0+APP2 only, no GPS, orientation 6 → 100×200;
+    - faces_none: 0/0;
+    - ocr: CITY/GENERAL/Ella/4B at 95–96%;
+    - vaultCrypto: non-extractable, export blocked, fresh IV;
+    - masks: solid #000;
+    - geo: 877 km.
+  - The reviewers' own race repros now pass: Burn race always ends `[] key=false`; concurrent first adds keep both items. Their evasion fixture gives 0 → 8 violations.
+  - Tailwind 4.3.5 with Vite 8: verified by build. The TASKS/API-NOTES `[UNVERIFIED]` note can flip.
+- **Waiting on USER:** Sitting A, especially **T-018d** (commits) and T-002/T-005 (Firebase). gh is already signed in.
+- **Decisions:** D-40..D-58 (docs edited in the same session).
+- **WIP:** none, but nothing is committed (see WIP for the first-commit pathspecs).
+- **Next:** **T-024** prompts/schemas/fixtures (ARCH §10 is now reconciled).

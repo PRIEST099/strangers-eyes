@@ -1,0 +1,6 @@
+availability: available
+isAvailable: true
+contextSize: 0
+variant: AFM 3 Core
+caps vision: true tools: true guided: true reasoning: false
+response: Hello! My name is AI and I am happy to help. One color is blue. latency: 29.449831008911133

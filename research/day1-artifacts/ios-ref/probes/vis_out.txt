@@ -1,0 +1,9 @@
+text: ST MARY PRIMARY conf: 1.0 rect(upperLeft px): (60.34481484976658, 96.77419261579905, 672.413818359375, 58.22580718994139)
+  word MARY box: (168.75, 96.99999999999997, 217.49999999999997, 58.00000000000001)
+text: Rua Augusta 21 conf: 1.0 rect(upperLeft px): (62.16297435768985, 265.4325982247374, 532.9563598632812, 73.99057006835936)
+vision error: internalError("Could not create inference context")
+jpeg finalize: true 38534
+has GPS: false has Exif: true keys: ["ColorModel", "Depth", "PixelHeight", "PixelWidth", "ProfileName", "{Exif}", "{JFIF}"]
+keychain add: -34018
+keychain read: -34018 nil
+CL auth: 0

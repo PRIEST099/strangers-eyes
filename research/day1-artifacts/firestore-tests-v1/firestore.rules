@@ -1,0 +1,47 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function validWeek(w) { return w.matches('^[0-9]{4}-W[0-9]{2}$'); }
+    function clueTypes() {
+      return ['street_sign', 'house_number', 'school_logo', 'landmark'];
+    }
+
+    // Design A: one doc per (week, clueType), single field `n`.
+    match /atlas/{weekId}/clues/{clueType} {
+      allow read: if true;
+      allow create: if signedIn() && validWeek(weekId) && clueType in clueTypes()
+        && request.resource.data.keys().hasOnly(['n'])
+        && request.resource.data.n == 1;
+      allow update: if signedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['n'])
+        && request.resource.data.n == resource.data.n + 1;
+      allow delete: if false;
+    }
+
+    // Design B: one doc per week, whitelisted counter fields, exactly one +1 per write.
+    function incOrSame(f) {
+      return request.resource.data.get(f, 0) == resource.data.get(f, 0)
+          || request.resource.data.get(f, 0) == resource.data.get(f, 0) + 1;
+    }
+    match /atlasWeekly/{weekId} {
+      allow read: if true;
+      allow create: if signedIn() && validWeek(weekId)
+        && request.resource.data.keys().hasOnly(clueTypes())
+        && request.resource.data.keys().size() == 1
+        && request.resource.data.get('street_sign', 1) == 1
+        && request.resource.data.get('house_number', 1) == 1
+        && request.resource.data.get('school_logo', 1) == 1
+        && request.resource.data.get('landmark', 1) == 1;
+      allow update: if signedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(clueTypes())
+        && request.resource.data.diff(resource.data).affectedKeys().size() == 1
+        && incOrSame('street_sign') && incOrSame('house_number')
+        && incOrSame('school_logo') && incOrSame('landmark');
+      allow delete: if false;
+    }
+
+    match /{document=**} { allow read, write: if false; }
+  }
+}
