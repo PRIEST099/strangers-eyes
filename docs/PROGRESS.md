@@ -8,31 +8,21 @@
 - Today: Thu Nov 19 2026 (Day 1, late evening)
 - Now: none            <- lock: "T-0xx (started HH:MM)" while a task is in progress
 - Next: **T-024** (versioned prompts, schemas, fixtures; needs no Firebase). Then T-050 app shell, T-087 strings, T-093 interlock/device queue (the tripwire part is done). T-025 onwards waits for Sitting A.
-- Blocked: T-021's commit (waiting on T-018d). The repo exists; nothing is committed yet.
-- Last green commit: none. The working tree is green: `npm --prefix web run check` passes after `npm ci` (45 planted boundary cases caught, 56 tests), and the build and check-dist pass.
+- Blocked: nothing on the CLAUDE side for T-024 and the other no-Firebase tasks. Firebase work (T-025+) waits for Sitting A.
+- Last green commit: `3e07f4b` (T-023). `npm --prefix web run check` and `npm run build` are green (45 boundary cases, 56 tests, check-dist ok).
 - Checkpoints: G1 – | G1b – | G2 – | G3 – | slice Nov 22 – | loop Nov 24 – | hosted Nov 25 –
 - Adversary model: gemini-3.8-flash (pending T-031 A/B against gemini-4-hydrogen) | iOS path: A (firebase-ios-sdk 12.19.3)
 - Cuts applied: none
 
 ## WIP (exact next step if a task is half-done)
-- None half-done.
-- **Everything is uncommitted.** First commit after T-018d (explicit pathspecs, never `git add -A`):
-
-  ```
-  git add .gitignore LICENSE NOTICE README.md THIRD_PARTY_NOTICES.md CLAUDE.md PLAN.md package.json \
-    .claude/launch.json docs research scripts web/package.json web/package-lock.json web/index.html \
-    web/vite.config.ts web/vitest.config.ts web/tsconfig.json web/tsconfig.app.json web/tsconfig.node.json \
-    web/.oxlintrc.json web/.env.example web/.env.e2e web/scripts web/src web/public/models web/public/icons
-  ```
-
-  Check `git status --short` first: `research/_vendor-docs/` and `web/public/vendor/` must show as ignored.
+none
 
 ## USER pending (mirror of TASKS §4: ID · due · status)
 Sitting A is due tonight or Fri Nov 20 morning, in this order:
 - T-002 Create the Firebase project (Analytics OFF), send the project ID · Fri Nov 20 09:00 · open
 - T-005 `firebase login` in your own terminal · Fri Nov 20 · open
 - T-006 `gh auth login` · Fri Nov 20 · **gh is already signed in on this Mac**: confirm the account and the repo name to use
-- T-018 Day-1 decisions a–d (filming dates, free-tier spike consent, demo-location exposure, **d = routine commits**) · Fri Nov 20 · open
+- T-018 Day-1 decisions a–c (filming dates, free-tier spike consent, demo-location exposure) · Fri Nov 20 · open. **d answered Nov 19** (local commits yes, D-59)
 - T-003 Blaze + $25 budget alert + paid Gemini tier · Fri Nov 20 · open
 - T-004 AI Logic "Get started" → Gemini Developer API · Fri Nov 20 · open
 - T-013 Approve `brew install xcodegen` · Fri Nov 20 · open
@@ -79,7 +69,7 @@ Pre-gate facts already verified on Nov 19:
 Canonical IDs:
 - **D-01..D-39** are in SPEC §0.4 (read them there).
 - **AD-xx** are in ARCH §2. Where an AD duplicates a D, the D wins.
-- **The next free number is D-59.**
+- **The next free number is D-60.**
 
 - D-00 (Nov 19) Idea: **Strangers' Eyes**, chosen by a 29-agent tournament (score 8.18) and approved by the user. **Blindfill** is the Day-1 fallback, *only* with the user's OK if G1 fails (TASKS T-034). Health/Rwanda "Muganga" was rejected (the user wants a global idea).
 - D-00a (Nov 19) Platforms: Web PWA (primary) + iOS. **Android cut**: no physical device, and the emulator has no Nano.
@@ -133,6 +123,7 @@ Canonical IDs:
   - `build.license` emits `dist/third-party-licenses.md`;
   - `THIRD_PARTY_NOTICES.md` lists the runtime Workbox/Tailwind code and the libraries statically linked into the wasm, and ships as `/vendor/third-party-notices.md`.
   - Edited: ARCH §16.1. Follow-up: link both from About (T-092).
+- D-59 (T-018d, user, Nov 19) **Commits:** the user answered "Yes, commit": Claude makes local commits as it works (explicit pathspecs, task-ID messages). **Pushing is not yet approved.** Ask at T-026, when the private GitHub repo is created.
 
 ### Reconciliation items (T-022, done Nov 19)
 How T-022 ran:
@@ -240,3 +231,16 @@ How T-022 ran:
 - **Decisions:** D-40..D-58 (docs edited in the same session).
 - **WIP:** none, but nothing is committed (see WIP for the first-commit pathspecs).
 - **Next:** **T-024** prompts/schemas/fixtures (ARCH §10 is now reconciled).
+
+### 2026-11-19 late (cont.): first commits
+- **Done:** T-018d answered (D-59). **T-021** ticked. Three commits, all with explicit pathspecs:
+  - `e567fd0` T-021: bootstrap files, CLAUDE.md, PLAN.md, notices, launch.json.
+  - `01ac7d9` T-020/T-022: docs and research (89 files).
+  - `3e07f4b` T-023: web scaffold and scripts.
+- **Verified before committing:**
+  - The coordinate-like scan over all 140 files found only version numbers, DOIs, timings, pixel boxes and the public Berlin→Paris test vector.
+  - The PNG icons carry only IHDR/IDAT/IEND chunks.
+  - No keys or personal data in the files.
+  - `research/_vendor-docs/`, `web/public/vendor/`, `web/dist/` and `node_modules` are ignored.
+- **Next:** **T-024**.
+

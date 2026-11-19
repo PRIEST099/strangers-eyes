@@ -216,7 +216,7 @@ Filming on Nov 28 and uploading on Nov 29 replaces PLAN.md's "film Nov 30", beca
 | T-002 | Create the Firebase project; send the project ID | Fri Nov 20 09:00 | T-025, all Firebase work | open |
 | T-005 | `firebase login` in your own terminal | Fri Nov 20 | T-025 | open |
 | T-006 | `gh auth login`; tell Claude the account and repo name | Fri Nov 20 | T-026 | open |
-| T-018 | Day-1 decisions (filming dates, free-tier spike consent, demo-location exposure, routine commits) | Fri Nov 20 (c: before Nov 22 shoot) | T-021 commits, T-031, T-105, T-183 | open |
+| T-018 | Day-1 decisions (filming dates, free-tier spike consent, demo-location exposure, routine commits) | Fri Nov 20 (c: before Nov 22 shoot) | T-021 commits, T-031, T-105, T-183 | d answered Nov 19: local commits yes (D-59); push still to be asked at T-026. a, b, c open |
 | T-019 | Bundle ID | Fri Nov 20 | T-025, T-027 | open |
 | T-003 | Blaze, budget alert, paid Gemini tier (and prepayment if asked) | Fri Nov 20 | grounding (T-039, T-070), privacy claims | open |
 | T-004 | AI Logic "Get started" → Gemini Developer API; confirm App Check is Enforced | Fri Nov 20 | T-030 | open |
@@ -452,7 +452,7 @@ AC IDs are SPEC's `AC-xxx` only. **SPEC §18** holds the index and traceability 
   - The CLI alternative is `[UNVERIFIED]` (U-18).
   - Verify: `$FB firestore:databases:list` shows it.
 
-- [ ] T-018 [USER] Day-1 decisions. Answer in chat; Claude logs each as a D-entry. Due: Fri Nov 20 (item c before the Nov 22 shoot)
+- [ ] T-018 [USER] Day-1 decisions. Answer in chat; Claude logs each as a D-entry. Due: Fri Nov 20 (item c before the Nov 22 shoot) · d answered Nov 19: "Yes, commit" = local commits approved (D-59); pushing is asked again at T-026
   - **a. Filming dates.** Record web beats Sat Nov 28 morning, iOS beats and voice-over Sat Nov 28 evening, upload Public by Sun Nov 29 18:00. This replaces PLAN.md's Nov 30. Yes/no?
   - **b. Spike photos on the free tier.** If the paid tier isn't active when T-031 is ready, may Claude send the 10 EXIF-stripped, people-free spike photos under free-tier terms? Google may use them to improve its products, and human reviewers may read them. "No" means T-031 waits for T-003.
   - **c. Demo-location exposure.** The Judge Mode samples, their cached pass-B JSON (lat/lng hypotheses, pins rounded to about 100 m) and the video will publicly reveal the city or neighbourhood where the scenes were shot. Do you accept this, if you shoot several km from home and work?
@@ -487,7 +487,7 @@ AC IDs are SPEC's `AC-xxx` only. **SPEC §18** holds the index and traceability 
   - Done when: everything above exists (met Nov 19).
   - Verify: `find research/day1-artifacts -type f | wc -l` gives ≥30; `shasum` matches for 3 sampled files.
 
-- [ ] T-021 [CLAUDE] Repo bootstrap. Due: Thu Nov 19 / Fri Nov 20 · Deps: T-020 (commit after T-018d) BLOCKED: T-018 (only step 7, the commit). Steps 1–6 done Nov 19: `git check-ignore -v` matches the secret/private paths; `head -3 LICENSE` shows Apache 2.0.
+- [x] T-021 [CLAUDE] Repo bootstrap. Due: Thu Nov 19 / Fri Nov 20 · Deps: T-020 (commit after T-018d) (done Nov 19; verified: `git status` clean after commits e567fd0, 01ac7d9, 3e07f4b; `git check-ignore -v` matches the secret and private paths; `head -3 LICENSE` shows Apache License 2.0)
   - Read: RUNBOOK §2.2
   - Do:
     1. `git init -b main`.
