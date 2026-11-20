@@ -214,7 +214,7 @@ Filming on Nov 28 and uploading on Nov 29 replaces PLAN.md's "film Nov 30", beca
 |---|---|---|---|---|
 | T-001 | Go-ahead on Strangers' Eyes | done Nov 19 | everything | done |
 | T-002 | Create the Firebase project; send the project ID | Fri Nov 20 09:00 | T-025, all Firebase work | done Nov 20 (`strangers-eyes`) |
-| T-005 | `firebase login` in your own terminal | Fri Nov 20 | T-025 | open |
+| T-005 | `firebase login` in your own terminal | Fri Nov 20 | T-025 | done Nov 20 |
 | T-006 | `gh auth login`; tell Claude the account and repo name | Fri Nov 20 | T-026 | done Nov 20 (gh already signed in; the user asked for a new repo; default name `strangers-eyes`) |
 | T-018 | Day-1 decisions (filming dates, free-tier spike consent, demo-location exposure, routine commits) | Fri Nov 20 (c: before Nov 22 shoot) | T-031, T-105, T-183 | done Nov 20 (D-59, D-60, D-66, D-67, D-68) |
 | T-019 | Bundle ID | Fri Nov 20 | T-025, T-027 | open |
@@ -340,7 +340,7 @@ AC IDs are SPEC's `AC-xxx` only. **SPEC §18** holds the index and traceability 
     3. Do **not** create or paste any Gemini API key.
   - Verify: T-030's call succeeds with the debug token and fails without it.
 
-- [ ] T-005 [USER] Log the Firebase CLI in. Due: Fri Nov 20 · Deps: T-002
+- [x] T-005 [USER] Log the Firebase CLI in. Due: Fri Nov 20 · Deps: T-002 (done Nov 20 in the Terminal panel; `projects:list` shows strangers-eyes)
   - Read: RUNBOOK §1.1
   - Do: in your own terminal: `cd "/Users/mac/Documents/firebase buildathon" && npx -y firebase-tools@15.37.0 login`. If it offers to install agent skills or AI tools, answer **No**.
   - Verify: `npx -y firebase-tools@15.37.0 projects:list` lists the project.
@@ -645,7 +645,7 @@ AC IDs are SPEC's `AC-xxx` only. **SPEC §18** holds the index and traceability 
     - the schemas parse and pass a hand-written structural check;
     - `ADV_B_SCHEMA` typechecks as `responseJsonSchema` (U-45 tsc half).
 
-- [ ] T-025 [CLAUDE] Wire the Firebase project. Due: Fri Nov 20 · Deps: T-002, T-005, T-019, T-023
+- [ ] T-025 [CLAUDE] Wire the Firebase project. Due: Fri Nov 20 · Deps: T-002, T-005, T-019, T-023 · **Partly done Nov 20:** steps 1, 2, 4 and 5 (web app `1:320898500558:web:a71a1817cde2f1775f0d9f`, `config.ts`, `.firebaserc`, `firebase.json`). BLOCKED: T-019, for step 3 (iOS app).
   - Read: RUNBOOK §1.5, §1.6, §4.1–4.2; ARCH §15.4
   - Do (never run interactive `firebase init`):
     1. Write `.firebaserc` by hand: `{ "projects": { "default": "<PROJECT_ID>" } }`.

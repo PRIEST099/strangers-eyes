@@ -7,7 +7,7 @@
 ## STATE (overwrite in place; never append here)
 - Today: Fri Nov 20 2026 (Day 2)
 - Now: none            <- lock: "T-0xx (started HH:MM)" while a task is in progress
-- Next: **T-050** app shell (needs no Firebase), then T-051 types/fixtures, T-087 strings, T-093 interlock/device queue (the tripwire part is done), T-058 matcher + vaultScan. T-025 onwards waits for Sitting A.
+- Next: **T-050** app shell, then T-051, T-087, T-093, T-058 (no Firebase needed). T-025 is done except iOS registration (needs T-019). T-030 Spike A needs T-004 (AI Logic "Get started") and T-012 (web debug token).
 - Blocked: nothing on the CLAUDE side for T-024 and the other no-Firebase tasks. Firebase work (T-025+) waits for Sitting A.
 - Last green commit: `03cc1f4` (T-024). `npm --prefix web run check` and `npm run build` are green (45 boundary cases, prompt hashes with every prompt still a draft, 92 tests, check-dist ok).
 - Checkpoints: G1 – | G1b – | G2 – | G3 – | slice Nov 22 – | loop Nov 24 – | hosted Nov 25 –
@@ -19,7 +19,6 @@ none
 
 ## USER pending (mirror of TASKS §4: ID · due · status)
 Sitting A is due tonight or Fri Nov 20 morning, in this order:
-- T-005 `firebase login`: started in the Terminal panel tab "firebase login" (`npx -y firebase-tools@15.37.0 login`); the user answers its prompts and signs in in their browser · Fri Nov 20 · in progress
 - T-003 Blaze + $25 budget alert + paid Gemini tier · Fri Nov 20 · open
 - T-004 AI Logic "Get started" → Gemini Developer API · Fri Nov 20 · open
 - T-013 Approve `brew install xcodegen` · Fri Nov 20 · open
@@ -33,8 +32,8 @@ Later: Sitting B (T-012, T-011) after T-025; Sitting C (T-010, T-014, T-017) Nov
 ## Key values (non-secret only)
 | Key | Value |
 |---|---|
-| PROJECT_ID | `strangers-eyes` (created Nov 20 by Claude in the console at the user's request; Google Analytics OFF, Gemini in Firebase console assistant OFF; Spark plan until T-003) |
-| WEB_APP_ID / IOS_APP_ID | |
+| PROJECT_ID | `strangers-eyes`, project number 320898500558 (created Nov 20 by Claude in the console at the user's request; Google Analytics OFF, Gemini in Firebase console assistant OFF; Spark plan until T-003) |
+| WEB_APP_ID / IOS_APP_ID | web `1:320898500558:web:a71a1817cde2f1775f0d9f` (`strangers-eyes-web`) / iOS: pending T-019 bundle ID |
 | BUNDLE_ID | |
 | RECAPTCHA_SITE_KEY | |
 | Firestore location | |
@@ -324,4 +323,23 @@ How T-022 ran:
   - USER: finish the CLI login.
   - USER: T-003 Blaze + paid tier; T-004 AI Logic "Get started" (Claude can open the page); T-019 bundle ID; T-007 Chrome flags; T-008 photos.
   - CLAUDE: T-050 app shell (no Firebase needed), and T-025 once T-005/T-019 are done.
+
+### 2026-11-20: CLI login and T-025 (web side)
+- **Done:**
+  - **T-005**: the user finished `npx -y firebase-tools@15.37.0 login` in the Terminal panel, declining Gemini and usage collection. `projects:list --json` shows `strangers-eyes` (project number 320898500558).
+  - **T-025, web part**:
+    - `.firebaserc` (default `strangers-eyes`);
+    - `apps:create WEB strangers-eyes-web` → `1:320898500558:web:a71a1817cde2f1775f0d9f`;
+    - `apps:sdkconfig` → `web/src/firebase/config.ts`, committed; not secret per invariant 10. `RECAPTCHA_ENTERPRISE_SITE_KEY` stays empty until T-011;
+    - root `firebase.json`, verbatim ARCH §15.4, no emulators block.
+  - The Hosting site `strangers-eyes` already exists (created with the project).
+- **Verified:**
+  - `apps:list` shows the web app.
+  - `firebase use` resolves `strangers-eyes`, so the CLI parses `firebase.json` and `.firebaserc`.
+  - `npm run check` (92 tests) and the build are green.
+- **Remaining in T-025:** iOS app registration (`apps:create IOS … --bundle-id`), once the USER picks the bundle ID (T-019).
+- **Note:** `firebase.json` references `firestore.rules`, `firestore.indexes.json` and `remoteconfig.template.json`, which arrive in T-104/T-102. Until then, deploy only `--only hosting`.
+- **Next:**
+  - USER: T-019 bundle ID, T-003 Blaze + paid tier, T-004 AI Logic "Get started", T-012 web debug token, T-007 Chrome flags, T-008 photos.
+  - CLAUDE: **T-050**.
 
