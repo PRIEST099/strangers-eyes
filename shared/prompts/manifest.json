@@ -1,0 +1,86 @@
+{
+  "manifestVersion": 1,
+  "note": "A prompt is a DRAFT (released:false) until its first recorded run (D-62); then set released:true and its files are immutable.",
+  "files": {
+    "advA.v1.system.md": "2a152a22ea9aa8a96cf7a7ecdf3a3e3c5879a48089ceeef93b716f16b0acb490",
+    "advA.v1.user.md": "9fe9bff6c6ea72d54e8215d425f438bbfb90fd9dc0ac4874b740d57113c1489e",
+    "advB.v1.schema.json": "fdeacfef855985588a370d7e1bc8d1b2ee8c81c5aad12592f264d7d96b9d3546",
+    "advB.v1.system.md": "c6b285ce91bca45545a56cbcee14bbac6e6cbd3ec8efccc398f52ddc3b032d7e",
+    "advB.v1.user.md": "b7ff33d3739bab5b3e5f1f0ca7412a8d92202252cdd4557f90eefafe31ecbd6b",
+    "audit-rules.v1.md": "da5092db93a6c2dc9fbdbf84bb42fa3c4ada4d2ee2dd8092337b70de826c5e49",
+    "enums.v1.json": "75f63fbec196033741ccc6f04ed4427c36261594d8482dd77355e85b258971e6",
+    "explain-fallback.v1.json": "fd2fc6f052021be2c458459c96e3b062bd1d59f0114b3778299a4c92804d5b7f",
+    "explain.v1.rules.md": "573f137638ec4ec2549e5083cde29d0c45c35b6e1fcc38565bad465c9d91222c",
+    "explain.v1.user.md": "a2dc6f7b955bf7f8deede8de6309f3b109ecffa87e6e8de9dd79f44dca860e70",
+    "fixtures/advB.v1.bad_ids.json": "949ab0879286016e9ecdb3874e2393a238cb434c572a7ebd9c2544774836810a",
+    "fixtures/advB.v1.declined.json": "0682c22ceb77adcf5f484e150c44211ac20b25c280fe6df23c65d5c04c54e724",
+    "fixtures/advB.v1.no_signal.json": "1d7c15632187847e6cda6227038f8b93659b040f23ab44e18aaa9a050368c308",
+    "fixtures/advB.v1.ok.json": "5be0c2049751d839e2757866cf1c22bca874b4a149b625d2116ce478599551ab",
+    "fixtures/advB.v1.swapped_boxes.json": "67c61ec04d0836992b7497092e02760d76a148aa3f87506cced4ef92b71e3b9c",
+    "fixtures/advB.v1.truncated.json": "7b6d4651aadae0173b5bf6e18fffcbbf3f3da165f591cbaff17ad76283d8160e",
+    "fixtures/nanoFix.v1.non_removable.json": "f084fa2c8f71af33f0482923525c92a21100515310831b1c32edcfb374fc20c7",
+    "fixtures/nanoFix.v1.ok.json": "e527a77663482a82de2306184f3174bba5136ea04ae51b581edd8f4c0286501a",
+    "fixtures/nanoPre.v1.ok.json": "6bdacc264dff43aca4d52c0f982585f316cb496b37c642ec8296cd0b9a130f1c",
+    "fixtures/nanoRef.v1.ok.json": "60d7a35d4650cd57415aa90ecd999bd2285b8603ccb8959e9f5f608a7a33622b",
+    "fixtures/nanoRef.v1.unknown_ids.json": "ac987e13d6504a5e9aa10715460b34b82da1a018d75e47c9a12b4a91095d72a3",
+    "fixtures/nanoVaultText.v1.ok.json": "6dc2c58b6f9200280e83a158f968d74308c00720bb558493eb85783082076021",
+    "fmPre.v1.user.md": "c2087a04ddb6ed53a62d82fda1afef907d9590dbf0c42e5f159f00fe8076c0a0",
+    "nanoFix.v1.user.md": "9ad059fcba6b682fa2fbf82b0a163169d8e1801726498d8cb660abc243cd4414",
+    "nanoPre.v1.schema.json": "bbca38933c9b0d0f0c5b710cf0200c21ecee45c4afde257a5ced339a65bc5303",
+    "nanoPre.v1.user.md": "1ff6165e4938c2427189af98d560f5a615e8d1640a65b941e80b157c0fcf860e",
+    "nanoRef.v1.user.md": "4955c9ee60fdfaa97c185d8765bc7881039e28cdf01a1d40e5bb4c4aa8245c34",
+    "nanoVaultText.v1.user.md": "9e0e5cb47d187d20e0b933a4351eafa1066e2e84ab22907b5140b1ab4f053c2d"
+  },
+  "prompts": {
+    "advA.v1": {
+      "system": [
+        "audit-rules.v1.md",
+        "advA.v1.system.md"
+      ],
+      "user": "advA.v1.user.md",
+      "released": false
+    },
+    "advB.v1": {
+      "system": [
+        "audit-rules.v1.md",
+        "advB.v1.system.md"
+      ],
+      "user": "advB.v1.user.md",
+      "schema": "advB.v1.schema.json",
+      "released": false
+    },
+    "nanoPre.v1": {
+      "user": "nanoPre.v1.user.md",
+      "schema": "nanoPre.v1.schema.json",
+      "released": false
+    },
+    "nanoVaultText.v1": {
+      "user": "nanoVaultText.v1.user.md",
+      "schemaBuilder": "vaultTextSchema",
+      "released": false
+    },
+    "nanoRef.v1": {
+      "user": "nanoRef.v1.user.md",
+      "schemaBuilder": "refereeSchema",
+      "released": false
+    },
+    "nanoFix.v1": {
+      "user": "nanoFix.v1.user.md",
+      "schemaBuilder": "fixSchema",
+      "released": false
+    },
+    "explain.v1": {
+      "user": [
+        "explain.v1.rules.md",
+        "explain.v1.user.md"
+      ],
+      "fallback": "explain-fallback.v1.json",
+      "released": false
+    },
+    "fmPre.v1": {
+      "user": "fmPre.v1.user.md",
+      "generable": "FMPreScreen",
+      "released": false
+    }
+  }
+}

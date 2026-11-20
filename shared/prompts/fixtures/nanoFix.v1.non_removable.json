@@ -1,0 +1,8 @@
+{
+  "mask": [
+    "c4"
+  ],
+  "crop": "none",
+  "explanation": "Hiding the building style removes the clue.",
+  "expected_residual": "city"
+}

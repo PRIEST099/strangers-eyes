@@ -1,0 +1,68 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "clues": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "name_text",
+              "house_number",
+              "plate",
+              "street_sign",
+              "transit_sign",
+              "storefront_text",
+              "uniform_or_lanyard",
+              "crest_or_logo",
+              "mail_or_document",
+              "screen",
+              "window_view",
+              "reflection",
+              "landmark"
+            ]
+          },
+          "text": {
+            "type": "string"
+          },
+          "region": {
+            "type": "string",
+            "enum": [
+              "top_left",
+              "top_center",
+              "top_right",
+              "middle_left",
+              "middle_center",
+              "middle_right",
+              "bottom_left",
+              "bottom_center",
+              "bottom_right"
+            ]
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ]
+          }
+        },
+        "required": [
+          "type",
+          "text",
+          "region",
+          "severity"
+        ]
+      }
+    }
+  },
+  "required": [
+    "clues"
+  ]
+}

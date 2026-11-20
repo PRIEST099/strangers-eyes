@@ -7,7 +7,7 @@
 ## STATE (overwrite in place; never append here)
 - Today: Fri Nov 20 2026 (Day 2)
 - Now: none            <- lock: "T-0xx (started HH:MM)" while a task is in progress
-- Next: **T-024** (versioned prompts, schemas, fixtures; needs no Firebase). Then T-050 app shell, T-087 strings, T-093 interlock/device queue (the tripwire part is done). T-025 onwards waits for Sitting A.
+- Next: **T-050** app shell (needs no Firebase), then T-051 types/fixtures, T-087 strings, T-093 interlock/device queue (the tripwire part is done), T-058 matcher + vaultScan. T-025 onwards waits for Sitting A.
 - Blocked: nothing on the CLAUDE side for T-024 and the other no-Firebase tasks. Firebase work (T-025+) waits for Sitting A.
 - Last green commit: `3e07f4b` (T-023). `npm --prefix web run check` and `npm run build` are green (45 boundary cases, 56 tests, check-dist ok).
 - Checkpoints: G1 – | G1b – | G2 – | G3 – | slice Nov 22 – | loop Nov 24 – | hosted Nov 25 –
@@ -68,7 +68,7 @@ Pre-gate facts already verified on Nov 19:
 Canonical IDs:
 - **D-01..D-39** are in SPEC §0.4 (read them there).
 - **AD-xx** are in ARCH §2. Where an AD duplicates a D, the D wins.
-- **The next free number is D-61.**
+- **The next free number is D-66.**
 
 - D-00 (Nov 19) Idea: **Strangers' Eyes**, chosen by a 29-agent tournament (score 8.18) and approved by the user. **Blindfill** is the Day-1 fallback, *only* with the user's OK if G1 fails (TASKS T-034). Health/Rwanda "Muganga" was rejected (the user wants a global idea).
 - D-00a (Nov 19) Platforms: Web PWA (primary) + iOS. **Android cut**: no physical device, and the emulator has no Nano.
@@ -124,6 +124,32 @@ Canonical IDs:
   - Edited: ARCH §16.1. Follow-up: link both from About (T-092).
 - D-59 (T-018d, user, Nov 19) **Commits:** the user answered "Yes, commit": Claude makes local commits as it works (explicit pathspecs, task-ID messages).
 - D-60 (T-018d, user, Nov 20) **Pushes:** the user asked to "push on a new repo". Claude created the PRIVATE repo `strangers-eyes` (T-026) and pushes routine commits to `origin/main`. Making it **public** still needs the §7.2 scan and the user's explicit yes (T-170, Nov 29).
+- D-61 (T-024) `WORD_FOLDS` in `enums.v1.json` gained `"&": "and"`, to equal SPEC SCR-06's fold list (SPEC wins on product enums). Edited: ARCH §10.3.
+- D-62 (T-024 review code-2) **Prompts are drafts until their first recorded run.**
+  - `manifest.json` gives every prompt `"released": true|false`.
+  - `check-prompts --write` re-hashes drafts only and refuses changes to released files.
+  - A git-HEAD guard stops released→draft flips and edits to files locked at HEAD.
+  - The release tasks are T-031 (advB), T-039 (advA), T-032/T-066 (Nano), T-033 (fmPre) and T-083 (explain).
+  - This replaces ARCH §10.1's "committed with fixtures = released", because these drafts have never met a real model (U-13/U-45). Edited: ARCH §10.1/§10.2, README, TASKS.
+- D-63 (T-024 review fidelity-6) The area name is offered for **Home pins only**. The Add-detail kinds are labelled "Home area" / "Home street". The school phrase is neutral: "a school on your list". Edited: SPEC SCR-04, enums `KIND_PHRASE`.
+- D-64 (T-024 review) **Draft prompt and schema changes before the first commit:**
+  - advA forbids coordinates, plus codes, map links and numbered addresses (SR-06);
+  - advB orders clues before hypotheses (rules 7/8 and schema key order), and hypotheses list every clue they rely on;
+  - the advB schema keeps bounds in descriptions only and drops the clue_ids maxItems (U-45 grammar size); the parser enforces the bounds;
+  - nanoVaultText: "likely" needs a distinctive part of the name, and a shared common word is at most "possible";
+  - nanoFix gets region and reveals plus the cited non-removable clues; the crop uses regions; the residual follows D-51 and code recomputes it;
+  - explain forbids "safe" and guarantees, its label is "What was noticed:", and AC-239 checks the output before display;
+  - nanoPre and nanoFix gain the data-not-instructions line;
+  - the device schemas use additionalProperties:false;
+  - the nanoFix ok fixture masks c1, c2, c3 (residual "city").
+  - Edited: ARCH §10.x/§12.5/§19.4, SPEC SCR-11/SCR-16/AC-190/AC-239.
+- D-65 (T-024 review code-1 + verification) **Tripwire and echo scanning:**
+  - skip string values that exactly equal `prompts.nonContentStrings()` (the cloud schemas' strings plus SDK protocol values);
+  - strip `staticSegments()` of the cloud-scanned families (advA, advB, explain; derived from the manifest, so a v2 is included);
+  - non-cloud template text in a cloud body is a canary hit (T-058);
+  - the pass-B echo scan reads free-text fields only;
+  - explain's enum-valued variables may reclassify S2 calls; this is accepted.
+  - Edited: ARCH §8.2/§8.4, SPEC §10 echo line, TASKS T-058.
 
 ### Reconciliation items (T-022, done Nov 19)
 How T-022 ran:
@@ -254,4 +280,32 @@ How T-022 ran:
   - The remote commit list equals the local log (4 commits; HEAD f4368e2 before this entry).
   - Topics and homepage are deferred to Nov 29 (RUNBOOK §1.15).
 - **Next:** **T-024**.
+
+### 2026-11-20: T-024 prompts, schemas and fixtures
+- **Done:**
+  - **T-024**. `shared/prompts/` holds 15 prompt and schema files extracted verbatim from ARCH §10, the full 18-entry `explain-fallback.v1.json` and 12 fixtures (one shared synthetic scenario), with a README and a sha256 `manifest.json`.
+  - `web/src/ai/prompts.ts`: `render`, `systemText`, `staticSegments`, `nonContentStrings`, `verifyFiles`, `verifyManifest`.
+  - `web/src/ai/schemas.ts`: static schemas `satisfies` the firebase/ai types; runtime builders throw `EmptyEnumError`; `assertSchemaShape`.
+  - `scripts/check-prompts.mjs` is wired into `check`: the draft/released lock and the git-HEAD guard.
+  - The DEV selftest gained a prompts step.
+- **Reviews:**
+  - Independent 3-lens review: 16 confirmed findings (2 medium), all fixed before the first commit (D-61..D-65).
+  - A follow-up independent verification: 14/16 resolved, 1 partial and 12 new (mostly doc) items. All addressed:
+    - echo scan restricted to free-text fields;
+    - cloud prompt families derived from the manifest;
+    - canary specified for T-058;
+    - release steps added to TASKS;
+    - stale quotes and API-NOTES pointer fixed;
+    - Add-detail labels;
+    - truncated fixture reordered;
+    - git-HEAD guard against released→draft flips;
+    - AC-239;
+    - iOS propertyOrdering note.
+- **Verified:**
+  - `npm --prefix web run check` and the build are green.
+  - The ARCH §10 blocks are byte-identical to the files (17/17, verifier).
+  - `check-prompts` refuses edits to released files and released→draft flips (tested in a scratch git repo).
+  - The selftest prompts step finds 0 mismatches in Chrome 156.
+- **Not done here:** nothing has met a real model yet, so every prompt stays a draft (D-62). Runtime acceptance of the schemas is checked in T-031 (U-45) and T-032 (U-04).
+- **Next:** **T-050**.
 

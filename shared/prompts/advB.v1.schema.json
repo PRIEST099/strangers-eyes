@@ -1,0 +1,226 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "audit_status": {
+      "type": "string",
+      "enum": [
+        "ok",
+        "no_location_signal",
+        "declined"
+      ]
+    },
+    "decline_reason": {
+      "type": "string",
+      "description": "Only when declined; max 20 words."
+    },
+    "scene_summary": {
+      "type": "string",
+      "description": "Max 25 words; scene only, no people."
+    },
+    "clues": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "name_text",
+              "house_number",
+              "plate",
+              "street_sign",
+              "transit_sign",
+              "storefront_text",
+              "uniform_or_lanyard",
+              "crest_or_logo",
+              "mail_or_document",
+              "screen",
+              "window_view",
+              "reflection",
+              "landmark",
+              "architecture",
+              "road_or_street_furniture",
+              "vegetation_or_terrain",
+              "language_or_script",
+              "other"
+            ]
+          },
+          "box_2d": {
+            "type": "array",
+            "description": "[ymin, xmin, ymax, xmax], integers 0-1000 relative to this image.",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {
+              "type": "integer"
+            }
+          },
+          "evidence": {
+            "type": "string",
+            "description": "Max 20 words; no personal names, plates or house numbers."
+          },
+          "reveals": {
+            "type": "string",
+            "enum": [
+              "street",
+              "neighbourhood",
+              "district",
+              "city",
+              "region",
+              "country",
+              "venue_or_organisation"
+            ]
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "removable": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "box_2d",
+          "evidence",
+          "reveals",
+          "severity",
+          "removable"
+        ]
+      }
+    },
+    "hypotheses": {
+      "type": "array",
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string",
+            "description": "Area name at justified precision; never a private address."
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "street",
+              "neighbourhood",
+              "district",
+              "city",
+              "region",
+              "country"
+            ]
+          },
+          "lat": {
+            "type": "number",
+            "description": "Degrees, -90 to 90: centre of the area."
+          },
+          "lng": {
+            "type": "number",
+            "description": "Degrees, -180 to 180: centre of the area."
+          },
+          "radius_km": {
+            "type": "number",
+            "description": "Kilometres, at least 0.1."
+          },
+          "confidence": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "clue_ids": {
+            "type": "array",
+            "description": "Every clue id (c1, c2, ...) this hypothesis relies on.",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "level",
+          "lat",
+          "lng",
+          "radius_km",
+          "confidence",
+          "clue_ids"
+        ]
+      }
+    },
+    "inferences": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "workplace",
+              "school",
+              "home_area",
+              "routine",
+              "transit_line",
+              "venue",
+              "other"
+            ]
+          },
+          "value": {
+            "type": "string",
+            "description": "Organisation, place, line or area; never a person."
+          },
+          "confidence": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "clue_ids": {
+            "type": "array",
+            "description": "Every clue id this inference relies on.",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "value",
+          "confidence",
+          "clue_ids"
+        ]
+      }
+    }
+  },
+  "required": [
+    "audit_status",
+    "scene_summary",
+    "clues",
+    "hypotheses",
+    "inferences"
+  ]
+}

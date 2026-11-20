@@ -1,0 +1,10 @@
+{
+  "mask": [
+    "c3",
+    "c1",
+    "c2"
+  ],
+  "crop": "none",
+  "explanation": "Covering the lanyard logo breaks the link to your workplace, and hiding the bus stop and cafe sign pushes your home area out to city level.",
+  "expected_residual": "city"
+}

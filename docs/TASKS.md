@@ -621,7 +621,7 @@ AC IDs are SPEC's `AC-xxx` only. **SPEC §18** holds the index and traceability 
   - Done when: the dev server runs, and the selftest passes EXIF, faces (no-face image), OCR and the vault round trip.
   - Verify: `cd web && npm ci && npm run build && npm run check`; `npm run dev` → `#/dev/selftest`.
 
-- [ ] T-024 [CLAUDE] Versioned prompts, schemas and fixtures. Due: Fri Nov 20 · Deps: T-021
+- [x] T-024 [CLAUDE] Versioned prompts, schemas and fixtures. Due: Fri Nov 20 · Deps: T-021 (done Nov 20; verified: `npm --prefix web run check` passes (check-prompts: 28 files, 8 prompts, all drafts), with 7 files / 92+ tests covering loading, sha256, render, schemas, fixtures, enums vs types.ts/SPEC §17.5/Firestore whitelist, and `satisfies` against firebase/ai types (U-45 tsc half); `#/dev/selftest` prompts step: 0 manifest mismatches in Chrome. An independent review found 16 issues, all fixed and re-verified (D-61..D-65).)
   - Read: ARCH §3 (`shared/`), §10 (all); API-NOTES §6.7–6.9
   - Files (ARCH §3):
     - `shared/prompts/README.md` (versioning rules);
@@ -696,6 +696,7 @@ AC IDs are SPEC's `AC-xxx` only. **SPEC §18** holds the index and traceability 
   - Verify: network evidence (DevTools or the rescued CDP harness) recorded in PROGRESS.
 
 - [ ] T-031 [CLAUDE] Spike B: adversary pass-B go/no-go and fix test (G1, G1b). **Pivot gate.** Due: Fri Nov 20 · Deps: T-008, T-024, T-030, and (T-003 or T-018b = yes)
+  - **Release (D-62):** once this run is recorded in PROGRESS, set `"released": true` for advB.v1 in `shared/prompts/manifest.json` and run `node scripts/check-prompts.mjs`. From then on those files are frozen; any change needs a `*.v2.*` file.
   - Read: SPEC §0.3 (G1); API-NOTES §1.7, §1.10, §1.11, §6.1–6.5, §6.8–6.9; RUNBOOK §5.1
   - Files:
     - `web/src/dev/spikes/AdversarySpike.tsx`;
@@ -724,6 +725,7 @@ AC IDs are SPEC's `AC-xxx` only. **SPEC §18** holds the index and traceability 
   - Verify: the aggregate file is committed; raw JSON is in PRIV; the numbers are in the PROGRESS gate table.
 
 - [ ] T-032 [CLAUDE] Spike C: Chrome Nano through the hybrid SDK on this 8 GB M1 (G2). Due: Fri Nov 20 · Deps: T-007, T-023
+  - **Release (D-62):** once this run is recorded in PROGRESS, set `"released": true` for nanoPre.v1 (and any other Nano prompt it runs) in `shared/prompts/manifest.json` and run `node scripts/check-prompts.mjs`. From then on those files are frozen; any change needs a `*.v2.*` file.
   - Read: API-NOTES §1.3–1.7, §1.16; ARCH §9.3; RUNBOOK §3.1
   - Files: `web/src/dev/spikes/NanoSpike.tsx`.
   - Do, in the **user's Chrome 157**, with the Simulator shut down. Claude's Browser pane and headless Chrome are assumed to have no Nano `[UNVERIFIED]`.
@@ -745,6 +747,7 @@ AC IDs are SPEC's `AC-xxx` only. **SPEC §18** holds the index and traceability 
   - Verify: the results table is in PROGRESS; the related API-NOTES items are flipped.
 
 - [ ] T-033 [CLAUDE] Spike D: iOS FirebaseAILogic 12.19.3 in SIM (G3). Due: Sun Nov 22 · Deps: T-012 (iOS), T-025, T-027
+  - **Release (D-62):** once this run is recorded in PROGRESS, set `"released": true` for fmPre.v1 in `shared/prompts/manifest.json` and run `node scripts/check-prompts.mjs`. From then on those files are frozen; any change needs a `*.v2.*` file.
   - Read: API-NOTES §3.4–3.5, §3.9–3.10; RUNBOOK §3.5
   - Files: `ios/StrangersEyes/Dev/Spike.swift` (debug-only screen).
   - Do, with Chrome quit:
@@ -812,6 +815,7 @@ AC IDs are SPEC's `AC-xxx` only. **SPEC §18** holds the index and traceability 
   - Verify: the results are in the RUNBOOK §4.6 results table and in PROGRESS.
 
 - [ ] T-039 [CLAUDE] Spike B2: grounded pass A. Due: Sat Nov 21 · Deps: T-003, T-031
+  - **Release (D-62):** once this run is recorded in PROGRESS, set `"released": true` for advA.v1 in `shared/prompts/manifest.json` and run `node scripts/check-prompts.mjs`. From then on those files are frozen; any change needs a `*.v2.*` file.
   - Read: API-NOTES §1.13; ARCH §10.5; SPEC SCR-08
   - Do: run advA.v1 (`ONLY_IN_CLOUD` + `googleSearch`, streamed) on 5 spike photos. Capture `groundingMetadata` **per chunk**. Render `renderedContent` in a shadow root. **Record only the status, latency and search-query count, never the text** (grounding terms).
   - Verify: grounding metadata is present on the paid tier; the counts are in PROGRESS.
@@ -940,6 +944,13 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
     - Port from ARCH §8.4 as fixed by R-15, **not** from `research/day1-artifacts/arch/src/fuzzy.ts`. That file predates R-15: it strips possessive 's, uses extra word folds, matches digits as substrings and has no artefact rule.
     - Regexes for plates, phones and house numbers (SPEC SCR-06 step 4).
     - `coordinatesNearPins` for PIN_IN_PROMPT.
+    - Tripwire scanner order (ARCH §8.4, D-65):
+      1. skip string values that **exactly** equal `prompts.nonContentStrings()`;
+      2. strip `prompts.staticSegments()`;
+      3. scan.
+      - **Canary:** static text of a non-cloud prompt (nano*, fmPre) found in a scanned cloud body is a hit (`template-canary`).
+      - The pass-B echo scan reads free-text fields only (`scene_summary`, `decline_reason`, `evidence`, `label`, `value`).
+      - Tests: a vault label "Medium" or "Landmark Road" does not trip on an advB request body built as firebase/ai builds it, nor on the `advB.v1.ok` fixture's echo scan; "Lucas" in a user text part does.
     - `vaultScan` keeps one **active** index (ARCH §8.4, R-14): the real vault outside Judge Mode, JUDGE_VAULT in Judge Mode (the real vault is then never loaded); `activeTerms()`, `activePins()`, `useJudge()`, `useReal()`; every switch re-registers the tripwire scanner.
   - Verify: tests for `LUCAS`, `Lucas`, `LUCA5`, `L U C A S` and `LUCAS'S` → Lucas; `LOCAL`, `LUCKY` and `PARIS` → no match (AC-042); "CITY GENERAL" → "City General Hospital"; "CITY" alone and "HOSPITAL STAFF" → no match (AC-110); `SE 1234` and `SE-1234` → plate "SE 1234", `SE 1235` → no match.
 
@@ -1035,6 +1046,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
   - Verify: `tsc`; a unit spy asserts that model, tools and generationConfig sit under `inCloudParams` and that there is no `temperature` key.
 
 - [ ] T-066 [CLAUDE] Nano pre-screen (S1) and the two readers. Due: Mon Nov 23 · Deps: T-057, T-058, T-062, T-065 · AC: AC-111, AC-114, AC-117
+  - **Release (D-62):** once this run is recorded in PROGRESS, set `"released": true` for nanoPre.v1, nanoVaultText.v1 (if not already released by T-032) in `shared/prompts/manifest.json` and run `node scripts/check-prompts.mjs`. From then on those files are frozen; any change needs a `*.v2.*` file.
   - Read: SPEC SCR-06; ARCH §9.1, §10.7
   - Files: `web/src/ai/jobs.ts` (`preScreen`), `web/src/ai/parse.ts` (`parsePreScreen`).
   - Do:
@@ -1211,6 +1223,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
   - Verify: covered in T-085 (zero network requests during the attempt).
 
 - [ ] T-083 [CLAUDE] S2 explainer, "Why does this reveal location?". Due: Tue Nov 24 · Deps: T-062, T-065, T-071 · AC: AC-024, AC-235, AC-236, AC-237, AC-238
+  - **Release (D-62):** once this run is recorded in PROGRESS, set `"released": true` for explain.v1 in `shared/prompts/manifest.json` and run `node scripts/check-prompts.mjs`. From then on those files are frozen; any change needs a `*.v2.*` file.
   - Read: SPEC SCR-16, D-15; ARCH §8.2 (step 3 and RECLASSIFY), §9.1 (`ExplainInput`), §10.11, AD-32 (with R-24, R-26)
   - Do:
     - `explain(ctx, input)` takes `ExplainInput` (ARCH §9.1): either `{kind:'prescreen', type, region}` (**never** device-read text) or `{kind:'adversary', clue, region}` (pass-B type, `evidence` and `reveals`).
@@ -1283,6 +1296,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
   - Verify: `npm run test:e2e` green. Once green, it joins the §2 session-end check for web tasks.
 
 - [ ] T-090 [CLAUDE] Repo checks wired into `npm run check`. Due: Mon Nov 23 · Deps: T-024 · AC: AC-244 (EXIF part), AC-351, AC-364 (pre-check)
+  - **Already done in T-024:** `scripts/check-prompts.mjs` (hashes, the draft/released lock, the git-HEAD release guard, RC `prompt_versions`) runs in `check`. What remains here is `check-images.mjs` and wiring it in.
   - Read: ARCH §3 (`scripts/`); SPEC SR-15
   - Files:
     - `scripts/check-prompts.mjs`: manifest sha256 matches; released files immutable; every RC-selectable version exists.

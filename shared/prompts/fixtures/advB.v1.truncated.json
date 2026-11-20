@@ -1,0 +1,5 @@
+{
+  "_fixture": "truncated",
+  "finishReason": "MAX_TOKENS",
+  "raw": "{\"audit_status\":\"ok\",\"scene_summary\":\"A street corner with a bus stop\",\"clues\":[{\"id\":\"c1\",\"type\":\"transit_sign\",\"box_2d\":[120,610,380,760],\"evidence\":\"Bus stop sign with a route"
+}

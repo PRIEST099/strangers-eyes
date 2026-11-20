@@ -1,0 +1,65 @@
+{
+  "audit_status": "ok",
+  "scene_summary": "A bus stop and a shop front.",
+  "clues": [
+    {
+      "id": "c1",
+      "type": "transit_sign",
+      "box_2d": [
+        500,
+        800,
+        100,
+        200
+      ],
+      "evidence": "Corners given in the wrong order.",
+      "reveals": "street",
+      "severity": "high",
+      "removable": true
+    },
+    {
+      "id": "c2",
+      "type": "storefront_text",
+      "box_2d": [
+        -20,
+        100,
+        1200,
+        300
+      ],
+      "evidence": "Values outside 0 to 1000.",
+      "reveals": "neighbourhood",
+      "severity": "medium",
+      "removable": true
+    },
+    {
+      "id": "c3",
+      "type": "street_sign",
+      "box_2d": [
+        300,
+        300,
+        300,
+        600
+      ],
+      "evidence": "Zero height: the clue must be dropped.",
+      "reveals": "street",
+      "severity": "high",
+      "removable": true
+    }
+  ],
+  "hypotheses": [
+    {
+      "id": "h1",
+      "label": "Paris",
+      "level": "city",
+      "lat": 48.857,
+      "lng": 2.352,
+      "radius_km": 0.01,
+      "confidence": "medium",
+      "clue_ids": [
+        "c1",
+        "c2",
+        "c3"
+      ]
+    }
+  ],
+  "inferences": []
+}

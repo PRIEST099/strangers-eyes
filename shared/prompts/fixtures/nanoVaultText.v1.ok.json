@@ -1,0 +1,14 @@
+{
+  "hits": [
+    {
+      "text_id": "w1",
+      "vault_id": "v1",
+      "strength": "exact"
+    },
+    {
+      "text_id": "p1",
+      "vault_id": "v2",
+      "strength": "possible"
+    }
+  ]
+}

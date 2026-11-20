@@ -1,0 +1,82 @@
+{
+  "audit_status": "ok",
+  "scene_summary": "A bus stop on a street corner.",
+  "clues": [
+    {
+      "id": "c1",
+      "type": "transit_sign",
+      "box_2d": [
+        120,
+        610,
+        380,
+        760
+      ],
+      "evidence": "Bus stop sign with a stop code.",
+      "reveals": "street",
+      "severity": "high",
+      "removable": true
+    },
+    {
+      "id": "c1",
+      "type": "storefront_text",
+      "box_2d": [
+        60,
+        40,
+        180,
+        420
+      ],
+      "evidence": "Cafe awning with a chain name.",
+      "reveals": "neighbourhood",
+      "severity": "medium",
+      "removable": true
+    }
+  ],
+  "hypotheses": [
+    {
+      "id": "h1",
+      "label": "Paris",
+      "level": "city",
+      "lat": 48.857,
+      "lng": 2.352,
+      "radius_km": 8,
+      "confidence": "high",
+      "clue_ids": [
+        "c1",
+        "c9"
+      ]
+    },
+    {
+      "id": "h1",
+      "label": "Paris 10th arrondissement",
+      "level": "district",
+      "lat": 48.876,
+      "lng": 2.36,
+      "radius_km": 2,
+      "confidence": "low",
+      "clue_ids": [
+        "c1"
+      ]
+    }
+  ],
+  "inferences": [
+    {
+      "id": "i1",
+      "kind": "transit_line",
+      "value": "A bus route through the 10th arrondissement",
+      "confidence": "medium",
+      "clue_ids": [
+        "c1",
+        "c7"
+      ]
+    },
+    {
+      "id": "i1",
+      "kind": "venue",
+      "value": "A cafe chain branch",
+      "confidence": "low",
+      "clue_ids": [
+        "c8"
+      ]
+    }
+  ]
+}

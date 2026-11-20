@@ -660,8 +660,8 @@ Each screen lists its purpose, layout, behaviour, states (a)–(e), copy IDs and
 - **Item kinds:** §17.2.
 - **Add place flow:**
   1. Choose a kind: Home, Work, School or Other (`home_pin`, `work_pin`, `school_pin`, `place_pin`).
-  2. Enter an optional label (≤40 characters, for example "City General Hospital") and an optional area name (for example the neighbourhood).
-     - The area name becomes a separate `area_name` item linked to the pin.
+  2. Enter an optional label (≤40 characters, for example "City General Hospital"). For **Home** pins only, also an optional area name (for example the neighbourhood) (D-63).
+     - The area name becomes a separate `area_name` item linked to the pin. It means "your home area" everywhere (§17.3 display HOME; `KIND_PHRASE` in `shared/prompts/enums.v1.json`), which is why only Home pins offer it.
      - An empty label, or a generic label (Home, Work, School, Place), is display-only and is never matched or sent to the referee (D-36). Show the hint `copy.vault.genericLabel`.
   3. **Pin this place** (`copy.vault.pinHelp`): `navigator.geolocation.getCurrentPosition` with `enableHighAccuracy: true, timeout: 15000, maximumAge: 0`.
      - Show the accuracy.
@@ -669,7 +669,7 @@ Each screen lists its purpose, layout, behaviour, states (a)–(e), copy IDs and
   4. Fallback link **Enter coordinates I know**: a validated "lat, lng" field (`copy.vault.manualCoords`).
      - **No map, no address search, no reverse geocoding, no tile server.** Any of these would leak the pin.
   5. Save.
-- **Add detail flow:** choose the kind, then the value (≤40 characters). Show format hints for plates, phones and house numbers.
+- **Add detail flow:** choose the kind, then the value (≤40 characters). Show format hints for plates, phones and house numbers. The kind picker labels `area_name` and `street_name` **"Home area"** and **"Home street"**, because both mean the home everywhere (§17.3, D-63).
 - **Edit and delete:** per item; deleting asks for confirmation.
 - **Storage:**
   - AES-GCM 256 with a **non-extractable** WebCrypto key.
@@ -962,7 +962,7 @@ Each screen lists its purpose, layout, behaviour, states (a)–(e), copy IDs and
 - **Fix:**
   - **Fix it on this device** runs the fix planner (S0).
   - **Input:**
-    - removable clues `{id, type, evidence, severity, removable}`;
+    - clues `{id, type, region, reveals, evidence, severity, removable}`: every removable clue, plus the non-removable clues cited by a match or by the closest-band hypothesis, so the planner can pick a crop side (D-64);
     - matches `{claim, what it points to (generic phrase), strength, clue_ids}`;
     - the closest band per pin, computed in code.
     - No private labels go into the planner prompt.
@@ -1001,7 +1001,7 @@ Each screen lists its purpose, layout, behaviour, states (a)–(e), copy IDs and
     - mask IDs ⊆ removable IDs;
     - `crop` is in its enum;
     - the explanation contains no vault string (scanned; on failure, the template explanation is used);
-    - `expected_residual` is in its enum;
+    - `expected_residual` is in its enum, then recomputed in code (D-51) from the masks actually applied; the code value is the one shown (D-64);
     - if an exact or likely target has none of its removable clues masked, the rules masks for that target are added and the HUD shows "rules added k masks";
     - an empty plan while red lines exist is replaced by the rules plan.
   - **AC-191 (P0) [unit]** The rules plan masks exactly the removable clues cited by matched claims, or by the hypothesis that gives the closest pin band (district or closer).
@@ -1112,6 +1112,7 @@ Each screen lists its purpose, layout, behaviour, states (a)–(e), copy IDs and
   - **AC-236 (P0) [manual] [video]** The same click shows `ON-DEVICE` in state (a) and `IN CLOUD` in state (c), the SDK's real fallback.
   - **AC-237 (P0) [unit]** Offline and without Nano, the template is used and no SDK call is made.
   - **AC-238 (P0) [unit]** An evidence string that contains a vault label gives `RECLASSIFIED S2→S0`: Nano if it is available, otherwise the template. No cloud call.
+  - **AC-239 (P0) [unit]** The model's explanation is shown only after it completes and passes the copy check (no "safe", no guarantee words: ARCHITECTURE §10.11). Otherwise the template is shown.
 
 ### SCR-17 Judge Mode · P0
 - **Entry:** the Home card, the SCR-02 button, `#/judge`, or `?judge=1`.
@@ -1302,7 +1303,7 @@ The city and country thresholds are placeholders; winner-spec only said "same ci
 
 - A pin item with both a match and a band gets one combined line ("{match wording} · {band words}"). Its severity is the higher of the two.
 - **Caught:** a vault item masked before upload (by Tier-0 or Nano) gives a TEAL line, `copy.verdict.caught`. Caught lines do not count toward risk.
-- **Echo:** a vault string found in pass B's text gives a HIGH line, `copy.verdict.echo`.
+- **Echo:** a vault string found in pass B's free-text fields (`scene_summary`, `decline_reason`, clue `evidence`, hypothesis `label`, inference `value`; never enum values or IDs, D-65) gives a HIGH line, `copy.verdict.echo`.
 - **Not linked:** text items with no match and pins in band `country` or `none` are summarised in one grey line, `copy.verdict.notLinked`.
 - KIND display names are in §17.3.
 
@@ -1336,7 +1337,7 @@ The generic-word list, synonym classes, artefact terms and word folds live in `s
   - If there are no targets, mask every removable clue with severity high.
 - **Crop (D-35):** `none`, unless every clue cited by some exact or likely target (or by the closest-band hypothesis) is non-removable. In that case, pick the side where the minimal crop removes all of those boxes within the 40% cap. If no side fits, use `none` and show `copy.fix.unremovable`.
 - **Explanation:** from a template, using generic phrases only.
-- **`expected_residual`:** the **finest** (most precise) `reveals` level among the clues left unmasked (`venue_or_organisation` counts as `street`), or `country` if none remain. This matches the nanoFix definition, "the most precise level a stranger could still reach" (D-51).
+- **`expected_residual`:** the **finest** (most precise) `reveals` level among the clues left unmasked (`venue_or_organisation` counts as `street`), or `country` if none remain. nanoFix.v1 is given the same rule, and code recomputes it from the masks actually applied (D-51, D-64).
 
 ### 10.5 Overall level
 - **RED** if any line is HIGH, otherwise **AMBER** if any is MEDIUM, otherwise **LOW** (`copy.verdict.low`).

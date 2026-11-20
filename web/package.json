@@ -15,7 +15,7 @@
     "preview": "vite preview --port 4173",
     "typecheck": "tsc -b",
     "test": "vitest run",
-    "check": "tsc -b && node ../scripts/check-boundaries.mjs && vitest run",
+    "check": "tsc -b && node ../scripts/check-boundaries.mjs && node ../scripts/check-prompts.mjs && vitest run",
     "lint": "oxlint"
   },
   "dependencies": {

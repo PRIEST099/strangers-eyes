@@ -9,6 +9,8 @@ import { seal, unseal } from '../../vault/crypto';
 import { haversineMeters, bandFor } from '../../core/geo';
 import { box2dToPx } from '../../core/boxes';
 import { applyMasks } from '../../core/mask';
+import { render, segmentsText, verifyManifest, PROMPT_IDS } from '../../ai/prompts';
+import { ADV_B_SCHEMA, assertSchemaShape } from '../../ai/schemas';
 
 /** DEV-only marker: scripts/check-dist.mjs fails the build if this string reaches web/dist. */
 export const DEV_ONLY_MARKER = '__SE_DEV_ONLY__';
@@ -127,6 +129,13 @@ export async function runSelfTest(): Promise<SelfTestReport> {
     const text = words.map((w) => w.text.toUpperCase()).join(' ');
     const ok = text.includes('CITY') && text.includes('GENERAL') && words.every((w) => w.box.w > 0 && w.box.h > 0);
     return { ok, detail: { words: words.map((w) => ({ text: w.text, conf: Math.round(w.conf), box: w.box })) } };
+  });
+
+  await step('prompts', steps, async () => {
+    const mismatches = await verifyManifest(); // WebCrypto sha256 of the bundled ?raw texts vs manifest.json
+    const text = segmentsText(render('explain.v1', { CLUE_TYPE: 'transit_sign', REGION: 'top_right', EVIDENCE: '', REVEALS: '' }));
+    assertSchemaShape(ADV_B_SCHEMA);
+    return { ok: mismatches.length === 0 && text.includes('Clue type: transit_sign'), detail: { mismatches, prompts: PROMPT_IDS.length, chars: text.length } };
   });
 
   await step('faces_none', steps, async () => {

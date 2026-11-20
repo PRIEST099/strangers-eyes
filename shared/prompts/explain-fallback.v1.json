@@ -1,0 +1,24 @@
+{
+  "version": "explain-fallback.v1",
+  "note": "Static explanations used when no model answers (RULES_ONLY), keyed by clue type. Each resolves as copy.explain.template.<type>. At most two sentences and 45 words; never the word 'safe'.",
+  "templates": {
+    "name_text": "A readable name can be searched online and linked to a school, club, workplace or street. Cover it with a solid box or crop it out.",
+    "house_number": "A house number narrows a street down to a single door once anyone guesses the street. Cover the number or crop it out.",
+    "plate": "A car plate can tie the photo to a vehicle that is often parked near home or work. Cover the whole plate or crop it out.",
+    "street_sign": "A street sign names the exact street, and often its district. Cover the sign, crop it out or reshoot from another angle.",
+    "transit_sign": "Stop signs and stop codes are unique to a city's network and often to a single street. Cover the code or crop it out.",
+    "storefront_text": "Shop names and signs can be searched to find their branches, sometimes down to a single street. Cover the sign or crop it out.",
+    "uniform_or_lanyard": "A uniform, lanyard or badge can reveal a workplace or school, and so a place visited every day. Cover the logo and text, or reshoot without it.",
+    "crest_or_logo": "A crest or logo can be matched to one school, club or employer, which points to a known location. Cover it with a solid box or crop it out.",
+    "mail_or_document": "Letters, parcels and documents often show a name or a full address. Remove them from the shot or cover all of the text.",
+    "screen": "Screens can show messages, maps or accounts that reveal places and names. Cover the screen or reshoot with it switched off.",
+    "window_view": "A view through a window can be matched to the buildings or skyline outside, which narrows down where it was taken. Cover the window or reshoot with the blinds closed.",
+    "reflection": "Reflections in glass, mirrors or sunglasses can show street scenes and signs behind the camera. Cover the reflection or reshoot from another angle.",
+    "landmark": "A recognisable landmark places the photo within a short distance of it. Crop it out or reshoot so it is not in the frame.",
+    "architecture": "Building styles, materials and roof shapes are typical of a country or region. They are hard to hide, so crop tightly or choose a plainer background.",
+    "road_or_street_furniture": "Road markings, kerbs, bollards and street lights follow national and local designs. Crop them out or reshoot with less of the street in the frame.",
+    "vegetation_or_terrain": "Plants, hills and coastlines narrow a photo down to a climate zone or region. This is hard to hide, so crop tightly if the location matters.",
+    "language_or_script": "The language or alphabet on signs shows which country or region the photo is from. Cover the text or crop it out.",
+    "other": "This detail can help narrow down where the photo was taken. Cover it with a solid box, crop it out or reshoot."
+  }
+}

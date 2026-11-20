@@ -1,0 +1,22 @@
+{
+  "clues": [
+    {
+      "type": "uniform_or_lanyard",
+      "text": "HOSPITAL STAFF",
+      "region": "bottom_center",
+      "severity": "high"
+    },
+    {
+      "type": "transit_sign",
+      "text": "38",
+      "region": "top_right",
+      "severity": "high"
+    },
+    {
+      "type": "storefront_text",
+      "text": "CAFE DU COIN",
+      "region": "top_left",
+      "severity": "medium"
+    }
+  ]
+}
