@@ -1,0 +1,71 @@
+# ios/project.yml: XcodeGen spec (T-027; RUNBOOK §2.7, ARCH §19.2). Regenerate with `cd ios && xcodegen generate`.
+# Never hand-edit StrangersEyes.xcodeproj: change this file and regenerate.
+name: StrangersEyes
+options:
+  deploymentTarget:
+    iOS: "27.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    TARGETED_DEVICE_FAMILY: "1"
+packages:
+  Firebase:
+    url: https://github.com/firebase/firebase-ios-sdk
+    exactVersion: 12.19.3 # pinned exactly (D-05, API-NOTES §3.1, §11)
+targets:
+  StrangersEyes:
+    type: application
+    platform: iOS
+    sources:
+      - path: StrangersEyes
+      - path: ../shared/prompts # versioned prompt files + manifest (folder reference → Bundle.main/prompts)
+        type: folder
+        buildPhase: resources
+      - path: ../shared/strings # UI copy (en.json), never inline
+        type: folder
+        buildPhase: resources
+      # ../remoteconfig.template.json (file resource) is added by T-038 when the stub exists. XcodeGen's
+      # `optional: true` still adds a dangling reference and the build fails, so it stays out until then.
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.strangerseyes.app # T-019, D-69
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: "Strangers' Eyes"
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+        INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "Pin a place in your private vault. Coordinates never leave this device."
+        INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription: "Save the cleaned photo to your library."
+    dependencies: # NO FirebaseFirestore on iOS (RUNBOOK §2.7)
+      - package: Firebase
+        product: FirebaseAILogic
+      - package: Firebase
+        product: FirebaseAppCheck
+      - package: Firebase
+        product: FirebaseAuth
+      - package: Firebase
+        product: FirebaseRemoteConfig
+  StrangersEyesTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: StrangersEyesTests
+      # ../shared/testvectors (folder resource, AC-168) is added when the vectors exist (same reason as above).
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.strangerseyes.app.tests
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: StrangersEyes
+schemes:
+  StrangersEyes:
+    build:
+      targets:
+        StrangersEyes: all
+        StrangersEyesTests: [test]
+    test:
+      targets:
+        - StrangersEyesTests

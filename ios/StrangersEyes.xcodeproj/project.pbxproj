@@ -1,0 +1,527 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		06562FC66E10094817039CBF /* FirebaseAILogic in Frameworks */ = {isa = PBXBuildFile; productRef = EDEDB0BA147ABA396EE7AE5A /* FirebaseAILogic */; };
+		0850DDAE9DDCBF9E38773CF9 /* FirebaseAppCheck in Frameworks */ = {isa = PBXBuildFile; productRef = 720C5939F8F1B7A058C23E4A /* FirebaseAppCheck */; };
+		3A3281D7F26629BA43CD775D /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 404CB8537CD6A08E70C8620B /* GoogleService-Info.plist */; };
+		4EE81AF51C99DE3D0525E141 /* BundleResourcesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8A748692F4D7F3447D89A93 /* BundleResourcesTests.swift */; };
+		56481E8043998DADDD856A17 /* strings in Resources */ = {isa = PBXBuildFile; fileRef = 0245E645A8C092E2F90E6AAC /* strings */; };
+		5A8A3074F77F654F2D08D41E /* Strings.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF971138E8E97F332A0C93F7 /* Strings.swift */; };
+		731CC2F40764FF0598233DE6 /* StrangersEyesApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51379D8501083B55D1669F3C /* StrangersEyesApp.swift */; };
+		991A51865982BBEE0D15EB62 /* prompts in Resources */ = {isa = PBXBuildFile; fileRef = 8270A0AA799604672292571F /* prompts */; };
+		A09299289B0CC08498E79FDB /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 929507E282FD6939FBCC0DAB /* FirebaseAuth */; };
+		D652D24A5EBEB92BDD91546F /* FirebaseRemoteConfig in Frameworks */ = {isa = PBXBuildFile; productRef = 122C87FFD674776A6AB45614 /* FirebaseRemoteConfig */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		FBEE63ABCA671B14FCEF8F24 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 74467C7C9DDC102A6CAF875F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B11EA12CE1D2A35D27029430;
+			remoteInfo = StrangersEyes;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		0245E645A8C092E2F90E6AAC /* strings */ = {isa = PBXFileReference; lastKnownFileType = folder; name = strings; path = ../shared/strings; sourceTree = SOURCE_ROOT; };
+		0B636D70BF26DC725BFB9F2C /* StrangersEyesTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = StrangersEyesTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		404CB8537CD6A08E70C8620B /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		51379D8501083B55D1669F3C /* StrangersEyesApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StrangersEyesApp.swift; sourceTree = "<group>"; };
+		8270A0AA799604672292571F /* prompts */ = {isa = PBXFileReference; lastKnownFileType = folder; name = prompts; path = ../shared/prompts; sourceTree = SOURCE_ROOT; };
+		AC2658BF9E9014B48154A6F2 /* StrangersEyes.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = StrangersEyes.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D8A748692F4D7F3447D89A93 /* BundleResourcesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundleResourcesTests.swift; sourceTree = "<group>"; };
+		EF971138E8E97F332A0C93F7 /* Strings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Strings.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		DBA248F407ED619BCEFDE4D2 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				06562FC66E10094817039CBF /* FirebaseAILogic in Frameworks */,
+				0850DDAE9DDCBF9E38773CF9 /* FirebaseAppCheck in Frameworks */,
+				A09299289B0CC08498E79FDB /* FirebaseAuth in Frameworks */,
+				D652D24A5EBEB92BDD91546F /* FirebaseRemoteConfig in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		11CB52852E23586C1288CFB0 /* shared */ = {
+			isa = PBXGroup;
+			children = (
+				8270A0AA799604672292571F /* prompts */,
+				0245E645A8C092E2F90E6AAC /* strings */,
+			);
+			path = shared;
+			sourceTree = "<group>";
+		};
+		4009417EB7DA5143A1B761DB /* StrangersEyes */ = {
+			isa = PBXGroup;
+			children = (
+				4841FD2130A6F29DDB5FCA0A /* App */,
+				F3DFE348D43B7B1B5FAEE20C /* Core */,
+				AF41338B2B28616E6E1AE216 /* Resources */,
+			);
+			path = StrangersEyes;
+			sourceTree = "<group>";
+		};
+		4841FD2130A6F29DDB5FCA0A /* App */ = {
+			isa = PBXGroup;
+			children = (
+				51379D8501083B55D1669F3C /* StrangersEyesApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		543B358AACBA4B0EA015BF30 /* StrangersEyesTests */ = {
+			isa = PBXGroup;
+			children = (
+				D8A748692F4D7F3447D89A93 /* BundleResourcesTests.swift */,
+			);
+			path = StrangersEyesTests;
+			sourceTree = "<group>";
+		};
+		72D05B7D255CB974A0394A93 = {
+			isa = PBXGroup;
+			children = (
+				A3C6AAD0D8A9A2B12E43048F /* firebase buildathon */,
+				4009417EB7DA5143A1B761DB /* StrangersEyes */,
+				543B358AACBA4B0EA015BF30 /* StrangersEyesTests */,
+				FD89ADDC29EBB0F21BB7083C /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A3C6AAD0D8A9A2B12E43048F /* firebase buildathon */ = {
+			isa = PBXGroup;
+			children = (
+				11CB52852E23586C1288CFB0 /* shared */,
+			);
+			name = "firebase buildathon";
+			path = ..;
+			sourceTree = "<group>";
+		};
+		AF41338B2B28616E6E1AE216 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				404CB8537CD6A08E70C8620B /* GoogleService-Info.plist */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		F3DFE348D43B7B1B5FAEE20C /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				EF971138E8E97F332A0C93F7 /* Strings.swift */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		FD89ADDC29EBB0F21BB7083C /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				AC2658BF9E9014B48154A6F2 /* StrangersEyes.app */,
+				0B636D70BF26DC725BFB9F2C /* StrangersEyesTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		7E00BA837E3248958940411C /* StrangersEyesTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D983DA6B0C4152AC87EC2F48 /* Build configuration list for PBXNativeTarget "StrangersEyesTests" */;
+			buildPhases = (
+				665289FF727B7D70CD9FA52E /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				5712755DE3C152E0AA2072F2 /* PBXTargetDependency */,
+			);
+			name = StrangersEyesTests;
+			packageProductDependencies = (
+			);
+			productName = StrangersEyesTests;
+			productReference = 0B636D70BF26DC725BFB9F2C /* StrangersEyesTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		B11EA12CE1D2A35D27029430 /* StrangersEyes */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1C1F7035F2DFDCB24D29F763 /* Build configuration list for PBXNativeTarget "StrangersEyes" */;
+			buildPhases = (
+				C0F3974EE99846D913C7CEBE /* Sources */,
+				F2DCDBE9CBEC888B58B6E270 /* Resources */,
+				DBA248F407ED619BCEFDE4D2 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = StrangersEyes;
+			packageProductDependencies = (
+				EDEDB0BA147ABA396EE7AE5A /* FirebaseAILogic */,
+				720C5939F8F1B7A058C23E4A /* FirebaseAppCheck */,
+				929507E282FD6939FBCC0DAB /* FirebaseAuth */,
+				122C87FFD674776A6AB45614 /* FirebaseRemoteConfig */,
+			);
+			productName = StrangersEyes;
+			productReference = AC2658BF9E9014B48154A6F2 /* StrangersEyes.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		74467C7C9DDC102A6CAF875F /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+				};
+			};
+			buildConfigurationList = 961641E8AEDF7BDA6C63AA4A /* Build configuration list for PBXProject "StrangersEyes" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 72D05B7D255CB974A0394A93;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				A6ABB9112F15CEF0BC39FAA8 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = FD89ADDC29EBB0F21BB7083C /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				B11EA12CE1D2A35D27029430 /* StrangersEyes */,
+				7E00BA837E3248958940411C /* StrangersEyesTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		F2DCDBE9CBEC888B58B6E270 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3A3281D7F26629BA43CD775D /* GoogleService-Info.plist in Resources */,
+				991A51865982BBEE0D15EB62 /* prompts in Resources */,
+				56481E8043998DADDD856A17 /* strings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		665289FF727B7D70CD9FA52E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4EE81AF51C99DE3D0525E141 /* BundleResourcesTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C0F3974EE99846D913C7CEBE /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				731CC2F40764FF0598233DE6 /* StrangersEyesApp.swift in Sources */,
+				5A8A3074F77F654F2D08D41E /* Strings.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		5712755DE3C152E0AA2072F2 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B11EA12CE1D2A35D27029430 /* StrangersEyes */;
+			targetProxy = FBEE63ABCA671B14FCEF8F24 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		395FE72C6890C10441FC257D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Strangers' Eyes";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Pin a place in your private vault. Coordinates never leave this device.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Save the cleaned photo to your library.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.strangerseyes.app;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		3D5DDEBDBB9488B3197C57B1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		453067FCA236FEF9F0918970 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		4E66F79B01F53B3D6E429A52 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.strangerseyes.app.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/StrangersEyes.app/StrangersEyes";
+			};
+			name = Release;
+		};
+		F65022F60DB066CDB52C6493 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.strangerseyes.app.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/StrangersEyes.app/StrangersEyes";
+			};
+			name = Debug;
+		};
+		F6D68DCCA412C3253EF4384F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Strangers' Eyes";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Pin a place in your private vault. Coordinates never leave this device.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Save the cleaned photo to your library.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.strangerseyes.app;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		1C1F7035F2DFDCB24D29F763 /* Build configuration list for PBXNativeTarget "StrangersEyes" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				395FE72C6890C10441FC257D /* Debug */,
+				F6D68DCCA412C3253EF4384F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		961641E8AEDF7BDA6C63AA4A /* Build configuration list for PBXProject "StrangersEyes" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3D5DDEBDBB9488B3197C57B1 /* Debug */,
+				453067FCA236FEF9F0918970 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		D983DA6B0C4152AC87EC2F48 /* Build configuration list for PBXNativeTarget "StrangersEyesTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F65022F60DB066CDB52C6493 /* Debug */,
+				4E66F79B01F53B3D6E429A52 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		A6ABB9112F15CEF0BC39FAA8 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = exactVersion;
+				version = 12.19.3;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		122C87FFD674776A6AB45614 /* FirebaseRemoteConfig */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A6ABB9112F15CEF0BC39FAA8 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseRemoteConfig;
+		};
+		720C5939F8F1B7A058C23E4A /* FirebaseAppCheck */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A6ABB9112F15CEF0BC39FAA8 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAppCheck;
+		};
+		929507E282FD6939FBCC0DAB /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A6ABB9112F15CEF0BC39FAA8 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
+		EDEDB0BA147ABA396EE7AE5A /* FirebaseAILogic */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A6ABB9112F15CEF0BC39FAA8 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAILogic;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 74467C7C9DDC102A6CAF875F /* Project object */;
+}

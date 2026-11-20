@@ -660,7 +660,7 @@ AC IDs are SPEC's `AC-xxx` only. **SPEC §18** holds the index and traceability 
   - Do: `gh repo create <name> --private --source . --remote origin --push --description "See your photo the way a stalker's AI would, before you post it."` It stays **private** until T-170.
   - Verify: `gh repo view --json name,visibility,licenseInfo` shows PRIVATE and `apache-2.0`. Detection may lag; re-check at T-170.
 
-- [ ] T-027 [CLAUDE] iOS project skeleton. Due: Sat Nov 21 (start the SPM resolve in the background on Fri night) · Deps: T-013, T-019, T-021, T-025
+- [x] T-027 [CLAUDE] iOS project skeleton. Due: Sat Nov 21 (start the SPM resolve in the background on Fri night) · Deps: T-013, T-019, T-021, T-025 (done Nov 20: `xcodegen generate` + `xcodebuild … ARCHS=arm64 build` → **BUILD SUCCEEDED** on the iPhone 18 Pro simulator (iOS 27.0, Xcode 27.2). First build 72 s including the SPM resolve of firebase-ios-sdk 12.19.3 (seeded with the Day-1 probe's `Package.resolved`; 1.2 GB in `ios/.spm`), incremental 12 s. `xcodebuild test`: 2/2 smoke tests pass (prompts/manifest.json and strings/en.json bundled as folder resources; `Strings.t` reads en.json). The generated `StrangersEyes.xcodeproj` is committed, so the repo opens in Xcode without xcodegen. `remoteconfig.template.json` and `shared/testvectors` are NOT in project.yml yet: XcodeGen's `optional: true` still adds a dangling reference that fails the build. T-038 and the first testvectors task add them back.)
   - Read: RUNBOOK §2.7–2.8; ARCH §19.2, §19.4; API-NOTES §3.1–3.3
   - Files: `ios/project.yml`, `ios/StrangersEyes/App/StrangersEyesApp.swift`, `ios/StrangersEyes/Resources/GoogleService-Info.plist`.
   - Do:
@@ -806,6 +806,7 @@ AC IDs are SPEC's `AC-xxx` only. **SPEC §18** holds the index and traceability 
   - Verify: the results table is in PROGRESS. If the tag isn't read, change the prop design (bigger, higher contrast) before T-010.
 
 - [ ] T-038 [CLAUDE] Walking-skeleton deploy. Due: Sat Nov 21 · Deps: T-023, T-025 (T-011 for the hosted AI call) · AC: AC-366
+  - **iOS (from T-027):** once `remoteconfig.template.json` exists, add it back to `ios/project.yml` as a file resource of the app target (`- path: ../remoteconfig.template.json` with `buildPhase: resources`), run `cd ios && xcodegen generate` and rebuild.
   - Read: RUNBOOK §4.2, §4.6, §3.4; API-NOTES §2.6; ARCH §15.4
   - Do:
     1. Run `$FB deploy --only hosting,auth,remoteconfig` with the scaffold and a stub `remoteconfig.template.json`. This is the first test of U-17.
@@ -854,6 +855,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
   - Verify: `tsc -b`; the fixtures parse as JSON.
 
 - [ ] T-052 [CLAUDE] Distance bands. Due: Sat Nov 21 · Deps: T-051 · AC: AC-160 (bands part), AC-352
+  - **iOS (from T-027):** this task creates the first file in `shared/testvectors/`, so add the folder to the `StrangersEyesTests` target in `ios/project.yml` (`- path: ../shared/testvectors`, `type: folder`, `buildPhase: resources`), then `xcodegen generate`.
   - Read: SPEC §10.1; ARCH §12.2; API-NOTES §5.6
   - Files: `web/src/core/geo.ts`, `geo.test.ts`, `shared/testvectors/bands.json`.
   - Do:
