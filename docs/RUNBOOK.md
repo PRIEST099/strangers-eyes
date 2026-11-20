@@ -837,6 +837,7 @@ Check with `$FB projects:list`; the active project is marked.
 - Operational notes:
   - `hosting.public` is `web/dist`. Build before deploying; a `predeploy` hook is optional.
   - Header matching runs **before** rewrites and uses the request URL.
+  - **There is no SPA rewrite** (T-038, D-82). Routes are hash-based (ARCH §3.4), so the old `** → /index.html` rewrite served no route. It only turned a missing file (a wrong `/vendor/…` path) into `200 text/html` with a 1-hour cache, which MediaPipe or Tesseract would then try to parse. A missing file is now a real 404. The service worker's `navigateFallback` still covers offline navigations.
   - `/assets/**` and `/vendor/**` are immutable: Vite hashes the asset names, and the vendor folder names carry the package versions. `/models/**` keeps Hosting's default cache because its file names are unversioned (ARCH §15.4). `/`, `index.html`, `sw.js`, `registerSW.js` and `manifest.webmanifest` are `no-cache`. The `/@(…)` glob is [UNVERIFIED, U-20]; if `curl -I` shows it doesn't match, use one header entry per file.
   - Each deploy clears the CDN.
   - The root file doesn't need an `emulators` block, because the rules tests use their own config (§2.6).
@@ -941,6 +942,25 @@ $FB deploy --only hosting,firestore,auth,remoteconfig -m "Day 6: first full host
 8. **Layout** works at 375 px wide.
 9. **Nano on the hosted origin** (§3.4).
 10. **Kill switch** tested once (§4.4).
+
+**First hosted deploy: T-038, Nov 20** (`deploy --only hosting`, commit 701ed29 plus the no-rewrite fix, https://strangers-eyes.web.app):
+
+| Check | Result |
+|---|---|
+| `/`, `/index.html`, `/sw.js`, `/manifest.webmanifest` | 200, `Cache-Control: no-cache`; one entry per file works (U-20 moot) |
+| `/vendor/mediapipe-1.2.3/wasm/vision_wasm_internal.wasm` | 200, `application/wasm`, `public, max-age=31536000, immutable`, 14.67 MB |
+| `/vendor/tesseract-7.0.0/core/tesseract-core-relaxedsimd-lstm.wasm.js` | 200, `text/javascript`, immutable, 3.91 MB |
+| `/vendor/tesseract-7.0.0/lang/eng.traineddata.gz` | 200, `application/gzip`, no `Content-Encoding` (served raw), immutable, 2.95 MB |
+| `/models/blaze_face_full_range.tflite` | 200, `application/octet-stream`, `max-age=3600` (as designed), 1.08 MB |
+| Every response | `Permissions-Policy: geolocation=(self), camera=(), microphone=()`, `X-Content-Type-Options: nosniff` |
+| A missing file | Before the fix: **200 `text/html`** (the SPA rewrite). After removing the rewrite (D-82): 404. A 404 under `/vendor/**` also carries the `immutable` header, because header rules match the request URL; harmless, since vendor folder names are versioned |
+| Debug-token leak | The token lives only in `web/.env.development.local`, which a production build never loads. It is referenced only under `import.meta.env.DEV`. Neither the variable name nor the `appcheck-debug` switch appears in `web/dist`. The by-value grep (step 2) is the user's to run, because Claude never reads the token |
+| Shell load (Browser pane, Chromium 156, no throttling) | DOMContentLoaded 2.7 s. JS 110 KB and CSS 5 KB transferred. No Tier-0 assets on first load |
+| Import on the hosted origin | A 3000×2000 JPEG dropped on Check → "Photo ready: 2048 × 1365 px, metadata removed". A dropped link → `copy.import.noUrl`. **Zero network requests** besides the app's own assets |
+| Layout at 375 px | Home and Check render correctly |
+| Nano (U-10) | `LanguageModel` is present without an origin-trial token; `availability()` = `unavailable` in the Browser pane (no model). The user's Chrome is still to check (T-007) |
+| Service worker | Not registered yet: `injectRegister: false`, and `useRegisterSW()` arrives with T-106 |
+| Not yet possible | Hosted AI call (needs T-011); `--only remoteconfig` (needs `remoteconfig.template.json`, T-060/T-102); cold "Tier-0 ready" under Fast 4G (Tier-0 is not wired into Check until T-056/T-057). Estimate: about 22.6 MB of wasm, traineddata and model, ≈ 20 s at 9 Mbit/s plus latency. Measure it in T-107/T-108 |
 
 **Hosted verification matrix** (TASKS T-108; fill on Day 6 and again before submission):
 | Browser | Nano | Capability panel honest | Tier-0 faces + OCR work | Judge Mode red→green (s) | App Check 200 | Cold first visit (s) | Notes |

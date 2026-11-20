@@ -808,6 +808,14 @@ AC IDs are SPEC's `AC-xxx` only. **SPEC §18** holds the index and traceability 
   - **Steps 1–2 done Nov 20** (results table in PROGRESS "T-037 prop OCR"; D-81): the default canvas composite (a white "LUCAS" tag, 4° tilt, on 3 people-free spike photos at 2 positions × 5 cap heights, built in memory from code, nothing saved) is read by Tesseract's default global-Otsu binarisation in only **14/30** placements, and a bigger tag does **not** help (96–160 px caps are read worse than 20–36 px). Leptonica adaptive Otsu reads 26/30 and the union with a Sauvola pass reads 30/30, so the fix is in OCR (T-057), not the prop. Prop rule for T-010: plain dark letters on a light tag, no border hugging the letters. **Step 3 (faces, U-31) is open:** `PRIV/test/` has no face or mannequin image yet; it needs a builder-owned photo of a consenting adult, a mannequin, or a synthetic face from the user.
 
 - [ ] T-038 [CLAUDE] Walking-skeleton deploy. Due: Sat Nov 21 · Deps: T-023, T-025 (T-011 for the hosted AI call) · AC: AC-366
+  - **Partly done Nov 20** (the user approved the public deploy; D-82; results in RUNBOOK §4.6):
+    - Step 1 ran as `--only hosting` → https://strangers-eyes.web.app. Auth was already deployed by T-030, and Remote Config waits for the template (T-060).
+    - Step 2 done: headers and MIME recorded (U-20 moot, U-21 headers verified). A missing file returned 200 `text/html`, so the SPA rewrite was removed (missing files now 404).
+    - Step 3 partial: `LanguageModel` is present on the hosted origin without a token; it still needs checking in the user's Chrome (T-007).
+    - Step 4 waits for T-011.
+    - Step 5 waits for Tier-0 being wired into Check (T-056/T-057). The estimate is in RUNBOOK §4.6.
+    - Also checked: the import on the hosted origin works with zero network requests, and the layout works at 375 px.
+    - Still to do: the iOS `project.yml` resource line once the template exists.
   - **iOS (from T-027):** once `remoteconfig.template.json` exists, add it back to `ios/project.yml` as a file resource of the app target (`- path: ../remoteconfig.template.json` with `buildPhase: resources`), run `cd ios && xcodegen generate` and rebuild.
   - Read: RUNBOOK §4.2, §4.6, §3.4; API-NOTES §2.6; ARCH §15.4
   - Do:

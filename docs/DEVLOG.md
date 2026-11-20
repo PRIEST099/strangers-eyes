@@ -99,6 +99,7 @@ How a flaw was found:
 | F-72 | Nov 20 | T-053/T-054 | review | minor | Globs in DEV files or with `exhaustive` could still reach `node_modules`, and an escaped specifier (`'idb-keyv\\x61l'`) hid a package from the name rules. A Date-based pin passed validation and was then sealed as a date string, which blocked every later write | R19 now covers every file and every route out of `web/src`. Backslashes are banned in specifiers. Validation runs on exactly what is sealed (a JSON round trip). 106 planted violations |
 | F-73 | Nov 20 | T-054 | mistake | minor | While mutation-checking, the orchestrator restored a backup taken BEFORE its edit, which silently undid the fix while the tests stayed in place | Noticed at once from the count of `asSealed` call sites, and reapplied. A backup is now always taken right before the mutation |
 | F-74 | Nov 20 | T-053 | review | minor | The first TIFF cut (64 KiB) dropped GPS from real Apple ImageIO HEIC/PNG files with a large UserComment, whose GPS IFD sits past 100 KB. Each of the two new HEIF walks also lacked a test on its own (final verifier) | The cut is 1 MiB, plus a test with the GPS IFD at 100 KB and one overflow test per walk. Remaining minors (R19 as an allowlist, escaped identifiers) move to T-090 |
+| F-75 | Nov 20 | T-038 | live | minor | On the live site, a missing file (a wrong `/vendor/…` path, for example) returned `200 text/html` with a 1-hour cache, because of the catch-all SPA rewrite, which a hash-routed app never needed. MediaPipe or Tesseract would have tried to parse a web page as wasm | Rewrite removed: a missing file is now a real 404 (D-82) |
 
 ---
 
@@ -184,6 +185,11 @@ How a flaw was found:
   - F-55: the orchestrator's prompts silently dropped 6 findings by truncating them.
   - F-56: a fixer left a mutated file in the shared tree.
 - check: 657 tests, 106 planted boundary violations. Eight review/fix rounds in all; the last verifier found nothing major. Rounds 5–7 were applied by hand and verified independently (`wf_0660c067-fab`, `wf_6a8e7fe5-09a`, plus a final verifier). The import path took the most rounds, because each fix moved the cost to the next unbounded parser.
+
+### Nov 20 (night): the site is live (T-038)
+- With the user's OK, the walking skeleton went up on Firebase Hosting: https://strangers-eyes.web.app.
+- Headers, file types and caching were checked with `curl` on every asset class. A photo import on the live site makes zero network requests. The debug token cannot reach a production build. The layout works at phone width.
+- One live finding (F-75): the catch-all rewrite served a web page for a missing file. Removed.
 
 ### Nov 20: this log (D-76)
 - The user asked for one place that records every flaw and improvement. This file was backfilled from the session logs and review reports, and updating it is now part of the end-of-task protocol (TASKS §2, CLAUDE.md).

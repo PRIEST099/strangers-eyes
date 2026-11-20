@@ -16,10 +16,10 @@
     - T-061: capabilities;
     - T-055: vault UI;
     - T-059: masks;
-    - T-038: deploy, waiting for the user's OK to publish the public Hosting site.
+    - T-038 remainder: Remote Config once `remoteconfig.template.json` exists (T-060), a hosted AI call once T-011 is done, a Nano check in the user's Chrome (T-007), and cold load once Tier-0 is wired.
 - Blocked: T-031 on the gemini-4-hydrogen free quota (20 requests/day/model); gemini-3.8-flash unusable today (503 timeouts).
 - Last green commit: see git log (T-053/T-054). `npm --prefix web run check` green: 657 tests, 106 planted boundary violations, prompt hashes (all drafts); `npm run build` + check-dist ok. iOS: BUILD SUCCEEDED, 2/2 tests.
-- Checkpoints: G1 in progress (3/10 photos) | G1b – | G2 – | G3 – | slice Nov 22 – | loop Nov 24 – | hosted Nov 25 –
+- Checkpoints: G1 in progress (3/10 photos) | G1b – | G2 – | G3 – | slice Nov 22 – | loop Nov 24 – | hosted Nov 25 – (skeleton live Nov 20)
 - Adversary model: **gemini-4-hydrogen for T-031** (D-73; flash unusable on Nov 20; re-test flash before the RC default) | iOS path: A (firebase-ios-sdk 12.19.3)
 - Cuts applied: none
 
@@ -33,7 +33,6 @@ Sitting A is due tonight or Fri Nov 20 morning, in this order:
 - T-007 Chrome on-device AI flag; connect Claude-in-Chrome · Fri Nov 20 · open
 - T-015 (optional) Discord questions · Fri Nov 20 · open
 - **New, from T-037:** a face or mannequin test image for the face-recall spike (U-31), kept in `PRIV/test/`, never committed. It must be a builder-owned photo of a consenting adult, a mannequin, or a synthetic face · Sat Nov 21 · open
-- **New, T-038:** OK to publish the walking-skeleton site on Firebase Hosting (public at strangers-eyes.web.app) · Sat Nov 21 · ask
 - Copy review of the 7 `copy.judge.coach.*` texts (D-77) · before T-105 · open
 
 Later: Sitting B (T-012, T-011) after T-025; Sitting C (T-010, T-014, T-017) Nov 21–22; the rest per TASKS §4.
@@ -46,7 +45,7 @@ Later: Sitting B (T-012, T-011) after T-025; Sitting C (T-010, T-014, T-017) Nov
 | BUNDLE_ID | `dev.strangerseyes.app` (D-69) |
 | RECAPTCHA_SITE_KEY | `6LdCXCkuAAAAANlqU9u7c_5qzN-HniVZn-kyN78a` (public; key `strangers-eyes-web`, score-based) |
 | Firestore location | |
-| HOSTED_URL | |
+| HOSTED_URL | https://strangers-eyes.web.app (first deployed Nov 20, T-038, Hosting only) |
 | REPO_URL | https://github.com/PRIEST099/strangers-eyes (PRIVATE until T-170, Nov 29) |
 | YOUTUBE_URL | |
 | Devpost draft URL | |
@@ -99,7 +98,7 @@ Test image: a white "LUCAS" tag with dark letters, tilted 4°, composited in mem
 Canonical IDs:
 - **D-01..D-39** are in SPEC §0.4 (read them there).
 - **AD-xx** are in ARCH §2. Where an AD duplicates a D, the D wins.
-- **The next free number is D-82.**
+- **The next free number is D-83.**
 
 - D-00 (Nov 19) Idea: **Strangers' Eyes**, chosen by a 29-agent tournament (score 8.18) and approved by the user. **Blindfill** is the Day-1 fallback, *only* with the user's OK if G1 fails (TASKS T-034). Health/Rwanda "Muganga" was rejected (the user wants a global idea).
 - D-00a (Nov 19) Platforms: Web PWA (primary) + iOS. **Android cut**: no physical device, and the emulator has no Nano.
@@ -273,6 +272,11 @@ Canonical IDs:
   - Wherever a missed word fails open (the vault-word match, the gate's OCR of the outgoing frame, the export check), a second Sauvola pass (`'2'`) runs and the words are unioned (30/30). This costs about +1 s per check on the M1.
   - The prop design stays: plain dark letters on a light tag, no border hugging the letters.
   - Edited: API-NOTES §5.2 (verified numbers); TASKS T-037 and T-057; PROGRESS "T-037 prop OCR".
+
+- D-82 (user + Claude, Nov 20; T-038) **Public Hosting is live; Hosting only until the RC template exists; no SPA rewrite.**
+  - The user approved publishing the walking-skeleton site ("Yes, deploy it"). It is deployed `--only hosting`: Auth was deployed on Nov 20 (T-030), and Remote Config waits for `remoteconfig.template.json` (T-060/T-102).
+  - The `** → /index.html` rewrite is removed. Routes are hash-based (ARCH §3.4), so it served no route; it only turned a missing file (e.g. a wrong `/vendor/…` path) into `200 text/html` with a 1-hour cache. A missing file is now a real 404, and the service worker's `navigateFallback` still covers offline navigations.
+  - Edited: `firebase.json`, ARCH §15.4, RUNBOOK §4.2 and §4.6 (results), API-NOTES U-10/U-20/U-21.
 
 ### Reconciliation items (T-022, done Nov 19)
 How T-022 ran:
@@ -586,3 +590,17 @@ How T-022 ran:
   - D-81: OCR binarisation.
 - **Docs edited:** SPEC D-23, SCR-05 and AC-241; ARCH §3, §4.2 (R9, R19, R21, R22), §8.4, §15.1 and §16.4; API-NOTES §5.2, §5.3 and §5.4; TASKS T-037, T-055, T-057, T-062, T-068, T-089 and T-121.
 - **Next:** T-031 resumes after 10:00 GMT+2. Meanwhile T-057 (OCR with D-81), T-056, T-060, T-061.
+
+### 2026-11-20 (night): T-038 walking-skeleton deploy (user-approved); D-82
+- **Deployed:** `deploy --only hosting` → https://strangers-eyes.web.app (commit 701ed29, then a redeploy without the SPA rewrite).
+- **Checks** (details in RUNBOOK §4.6):
+  - headers and MIME are correct;
+  - the debug token cannot reach a production build;
+  - the shell loads (110 KB JS);
+  - a hosted import works (3000×2000 → 2048 master) with zero network requests;
+  - a dropped link is refused;
+  - the layout works at 375 px;
+  - `LanguageModel` exists without an origin-trial token (unavailable in the Browser pane, which has no model).
+- **Found live:** a missing file returned `200 text/html` → rewrite removed (D-82, DEVLOG F-75).
+- **Open within T-038:** Remote Config deploy (T-060), hosted AI call (T-011), Nano in the user's Chrome (T-007), cold Tier-0 load (T-056/T-057).
+

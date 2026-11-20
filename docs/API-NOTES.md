@@ -715,9 +715,13 @@ The `firebase.json` body lives only in ARCH §15.4, and then in `/firebase.json`
 - **Don't** send COEP `require-corp`; it would probably break reCAPTCHA (inferred).
 
 **Unverified:**
-- U-20: the root-level glob `/@(a|b)`; the docs only show `**/*.@(...)`.
-- U-21: Content-Type and encoding for `.gz`, `.wasm` and `.tflite`. Tesseract handles both gzip and plain data.
-- U-10: if the origin-trial token turns out to be needed, add a meta tag or an `Origin-Trial` header.
+- U-20 `[MOOT, Nov 20]`: `firebase.json` uses one header entry per file (`/`, `/index.html`, `/sw.js`, `/registerSW.js`, `/manifest.webmanifest`), not a `/@(…)` glob. `curl -I` on the deployed site shows `no-cache` on each.
+- U-21 `[VERIFIED headers, Nov 20, T-038]`:
+  - `.wasm` is served as `application/wasm` with the `immutable` header (the `/vendor/**` rule);
+  - `.gz` is `application/gzip` with **no** `Content-Encoding` (served raw; Tesseract checks the gzip magic itself);
+  - `.tflite` is `application/octet-stream` with Hosting's default `max-age=3600`;
+  - OCR and faces on the hosted URL are still to run, once Tier-0 is wired into Check (T-056/T-057).
+- U-10: if the origin-trial token turns out to be needed, add a meta tag or an `Origin-Trial` header. `[PARTIAL, Nov 20, T-038]` On https://strangers-eyes.web.app with no origin-trial token, the Browser pane's Chromium 156 exposes `LanguageModel` and `availability()` answers `unavailable` (no model in that browser). The API is present on the hosted origin without a token. Whether it says `available` with Nano downloaded is checked in the user's Chrome (T-007, §3.4).
 
 **Do a throwaway Hosting deploy early (Day 2–3)** to close U-10, U-20 and U-21, rather than discovering them on Day 6.
 
@@ -1617,7 +1621,7 @@ Every row is still unconfirmed. **When** refers to the PLAN schedule:
 | U-07 | ONLY_ON_DEVICE with webp (docs: throws; code: decodes) | moot: we send JPEG | none |
 | U-08 | grounding + `responseJsonSchema` in one Firebase call | not needed (terms) | none |
 | U-09 | identity of the AI Logic "per user" quota (uid / App Check / IP) | docs or support; observe 429s | optional |
-| U-10 | Prompt API origin-trial token needed on a hosted origin in Chrome 157 | deploy, then call `availability()` on `PROJECT_ID.web.app` | first hosted deploy |
+| U-10 | Prompt API origin-trial token needed on a hosted origin in Chrome 157 | deploy, then call `availability()` on `PROJECT_ID.web.app` | PARTIAL Nov 20: the API is present without a token (Chromium 156, no model); `available` is still to check in the user's Chrome (T-007) |
 | U-11 | a cast `seed` in generationConfig is honoured | 3 runs with the same seed, compare | Day 1 (b), optional |
 | U-12 | thinking tokens count toward `maxOutputTokens` | small cap + MEDIUM thinking; inspect `usageMetadata` | Day 1 (b) |
 | U-13 | refusal rate and accuracy of gemini-3.8-flash / gemini-4-hydrogen on advA/advB | **Go/no-go G1:** 10 people-free photos; pass = ≤2 refusals and ≥4 within 5 km | **Day 1 (b)** |
@@ -1627,8 +1631,8 @@ Every row is still unconfirmed. **When** refers to the PLAN schedule:
 | U-17 | `firebase deploy --only auth` / `--only remoteconfig` on a fresh project | run once and check the console | first hosted deploy |
 | U-18 | ID of the default Firestore database for `firestore:databases:create` | console, or `firebase firestore:databases:list` | before Atlas work |
 | U-19 | creating a reCAPTCHA Enterprise key without billing | moot on Blaze | none |
-| U-20 | Hosting header glob `/@(index.html\|sw.js\|…)` | `curl -I` the deployed files | first hosted deploy |
-| U-21 | Hosting Content-Type/encoding for `.gz`, `.wasm`, `.tflite` | `curl -I`; run OCR and faces on the hosted URL | first hosted deploy |
+| U-20 | Hosting header glob `/@(index.html\|sw.js\|…)` | `curl -I` the deployed files | MOOT Nov 20 (one entry per file; verified) |
+| U-21 | Hosting Content-Type/encoding for `.gz`, `.wasm`, `.tflite` | `curl -I`; run OCR and faces on the hosted URL | headers VERIFIED Nov 20 (T-038); hosted OCR/faces after T-056/T-057 |
 | U-22 | CSP vs grounding `renderedContent` inline styles | only if a CSP is added | if CSP |
 | U-23 | iOS 12.19.3 HybridModel on-device request in the Simulator | run `s1.respond` with networking off → expect the FM answer | Day 1 (d) |
 | U-24 | iOS `rawResponse.modelVersion` runtime values | print it for device and cloud responses | Day 1 (d) |

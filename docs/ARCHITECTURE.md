@@ -2732,7 +2732,6 @@ grep -rlF "VITE_APPCHECK_DEBUG_TOKEN" web/dist && echo "LEAK: env var name in bu
     "public": "web/dist",
     "predeploy": ["npm --prefix web run build"],
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
-    "rewrites": [{ "source": "**", "destination": "/index.html" }],
     "headers": [
       { "source": "/assets/**", "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] },
       { "source": "/vendor/**", "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] },
