@@ -9,7 +9,7 @@
 - Now: none            <- lock: "T-0xx (started HH:MM)" while a task is in progress
 - Next: **T-050** app shell (needs no Firebase), then T-051 types/fixtures, T-087 strings, T-093 interlock/device queue (the tripwire part is done), T-058 matcher + vaultScan. T-025 onwards waits for Sitting A.
 - Blocked: nothing on the CLAUDE side for T-024 and the other no-Firebase tasks. Firebase work (T-025+) waits for Sitting A.
-- Last green commit: `3e07f4b` (T-023). `npm --prefix web run check` and `npm run build` are green (45 boundary cases, 56 tests, check-dist ok).
+- Last green commit: `03cc1f4` (T-024). `npm --prefix web run check` and `npm run build` are green (45 boundary cases, prompt hashes with every prompt still a draft, 92 tests, check-dist ok).
 - Checkpoints: G1 – | G1b – | G2 – | G3 – | slice Nov 22 – | loop Nov 24 – | hosted Nov 25 –
 - Adversary model: gemini-3.8-flash (pending T-031 A/B against gemini-4-hydrogen) | iOS path: A (firebase-ios-sdk 12.19.3)
 - Cuts applied: none
