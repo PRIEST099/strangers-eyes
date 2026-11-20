@@ -213,10 +213,10 @@ Filming on Nov 28 and uploading on Nov 29 replaces PLAN.md's "film Nov 30", beca
 | ID | What | Due (GMT+2) | Unblocks | Status |
 |---|---|---|---|---|
 | T-001 | Go-ahead on Strangers' Eyes | done Nov 19 | everything | done |
-| T-002 | Create the Firebase project; send the project ID | Fri Nov 20 09:00 | T-025, all Firebase work | open |
+| T-002 | Create the Firebase project; send the project ID | Fri Nov 20 09:00 | T-025, all Firebase work | done Nov 20 (`strangers-eyes`) |
 | T-005 | `firebase login` in your own terminal | Fri Nov 20 | T-025 | open |
 | T-006 | `gh auth login`; tell Claude the account and repo name | Fri Nov 20 | T-026 | done Nov 20 (gh already signed in; the user asked for a new repo; default name `strangers-eyes`) |
-| T-018 | Day-1 decisions (filming dates, free-tier spike consent, demo-location exposure, routine commits) | Fri Nov 20 (c: before Nov 22 shoot) | T-031, T-105, T-183 | d done: local commits (D-59) and pushes to the private repo (D-60). a, b, c open |
+| T-018 | Day-1 decisions (filming dates, free-tier spike consent, demo-location exposure, routine commits) | Fri Nov 20 (c: before Nov 22 shoot) | T-031, T-105, T-183 | done Nov 20 (D-59, D-60, D-66, D-67, D-68) |
 | T-019 | Bundle ID | Fri Nov 20 | T-025, T-027 | open |
 | T-003 | Blaze, budget alert, paid Gemini tier (and prepayment if asked) | Fri Nov 20 | grounding (T-039, T-070), privacy claims | open |
 | T-004 | AI Logic "Get started" → Gemini Developer API; confirm App Check is Enforced | Fri Nov 20 | T-030 | open |
@@ -314,7 +314,7 @@ AC IDs are SPEC's `AC-xxx` only. **SPEC §18** holds the index and traceability 
 
 - [x] T-001 [USER] Go-ahead on Strangers' Eyes. (done Nov 19: the user said "go with strangers eyes". Blindfill stays the Day-1 fallback.)
 
-- [ ] T-002 [USER] Create the Firebase project. Due: Fri Nov 20 09:00 · Deps: none
+- [x] T-002 [USER] Create the Firebase project. Due: Fri Nov 20 09:00 · Deps: none (done Nov 20: Claude created `strangers-eyes` in the console at the user's request; Analytics OFF. Verify via `$FB projects:list` after T-005)
   - Read: RUNBOOK §1.2
   - Do: console.firebase.google.com → **Create a project** → name `strangers-eyes` → **Google Analytics OFF** → Create. Send Claude the **project ID**.
   - Verify: after T-005, Claude runs `$FB projects:list` and sees the project.
@@ -452,7 +452,7 @@ AC IDs are SPEC's `AC-xxx` only. **SPEC §18** holds the index and traceability 
   - The CLI alternative is `[UNVERIFIED]` (U-18).
   - Verify: `$FB firestore:databases:list` shows it.
 
-- [ ] T-018 [USER] Day-1 decisions. Answer in chat; Claude logs each as a D-entry. Due: Fri Nov 20 (item c before the Nov 22 shoot) · d answered: local commits (D-59, Nov 19) and pushes to the private repo (D-60, Nov 20). a, b, c still open
+- [x] T-018 [USER] Day-1 decisions. Answer in chat; Claude logs each as a D-entry. Due: Fri Nov 20 (item c before the Nov 22 shoot) (done Nov 20: a = film Nov 28 / upload Nov 29 (D-66); b = free tier OK for the spike photos (D-67); c = demo location accepted (D-68); d = local commits (D-59) and pushes (D-60))
   - **a. Filming dates.** Record web beats Sat Nov 28 morning, iOS beats and voice-over Sat Nov 28 evening, upload Public by Sun Nov 29 18:00. This replaces PLAN.md's Nov 30. Yes/no?
   - **b. Spike photos on the free tier.** If the paid tier isn't active when T-031 is ready, may Claude send the 10 EXIF-stripped, people-free spike photos under free-tier terms? Google may use them to improve its products, and human reviewers may read them. "No" means T-031 waits for T-003.
   - **c. Demo-location exposure.** The Judge Mode samples, their cached pass-B JSON (lat/lng hypotheses, pins rounded to about 100 m) and the video will publicly reveal the city or neighbourhood where the scenes were shot. Do you accept this, if you shoot several km from home and work?

@@ -19,9 +19,7 @@ none
 
 ## USER pending (mirror of TASKS §4: ID · due · status)
 Sitting A is due tonight or Fri Nov 20 morning, in this order:
-- T-002 Create the Firebase project (Analytics OFF), send the project ID · Fri Nov 20 09:00 · open
-- T-005 `firebase login` in your own terminal · Fri Nov 20 · open
-- T-018 Day-1 decisions a–c (filming dates, free-tier spike consent, demo-location exposure) · Fri Nov 20 · open. **d answered Nov 19** (local commits yes, D-59)
+- T-005 `firebase login`: started in the Terminal panel tab "firebase login" (`npx -y firebase-tools@15.37.0 login`); the user answers its prompts and signs in in their browser · Fri Nov 20 · in progress
 - T-003 Blaze + $25 budget alert + paid Gemini tier · Fri Nov 20 · open
 - T-004 AI Logic "Get started" → Gemini Developer API · Fri Nov 20 · open
 - T-013 Approve `brew install xcodegen` · Fri Nov 20 · open
@@ -35,7 +33,7 @@ Later: Sitting B (T-012, T-011) after T-025; Sitting C (T-010, T-014, T-017) Nov
 ## Key values (non-secret only)
 | Key | Value |
 |---|---|
-| PROJECT_ID | |
+| PROJECT_ID | `strangers-eyes` (created Nov 20 by Claude in the console at the user's request; Google Analytics OFF, Gemini in Firebase console assistant OFF; Spark plan until T-003) |
 | WEB_APP_ID / IOS_APP_ID | |
 | BUNDLE_ID | |
 | RECAPTCHA_SITE_KEY | |
@@ -68,7 +66,7 @@ Pre-gate facts already verified on Nov 19:
 Canonical IDs:
 - **D-01..D-39** are in SPEC §0.4 (read them there).
 - **AD-xx** are in ARCH §2. Where an AD duplicates a D, the D wins.
-- **The next free number is D-66.**
+- **The next free number is D-69.**
 
 - D-00 (Nov 19) Idea: **Strangers' Eyes**, chosen by a 29-agent tournament (score 8.18) and approved by the user. **Blindfill** is the Day-1 fallback, *only* with the user's OK if G1 fails (TASKS T-034). Health/Rwanda "Muganga" was rejected (the user wants a global idea).
 - D-00a (Nov 19) Platforms: Web PWA (primary) + iOS. **Android cut**: no physical device, and the emulator has no Nano.
@@ -150,6 +148,12 @@ Canonical IDs:
   - the pass-B echo scan reads free-text fields only;
   - explain's enum-valued variables may reclassify S2 calls; this is accepted.
   - Edited: ARCH §8.2/§8.4, SPEC §10 echo line, TASKS T-058.
+- D-66 (T-018a, user, Nov 20) **Filming dates confirmed:** web beats Sat Nov 28 morning; iOS beats and voice-over Sat Nov 28 evening; Public YouTube upload by Sun Nov 29 18:00 (hard stop 23:00); submit Mon Nov 30 by 12:00 GMT+2. This confirms D-45 / R-19.
+- D-67 (T-018b, user, Nov 20) **Free-tier consent for the Day-1 spike:**
+  - If the paid Gemini tier is not active when T-031 is ready, the 10 EXIF-stripped, people-free spike photos may be sent under free-tier terms. The user accepted that Google may use them and human reviewers may read them.
+  - Applies to the T-031 spike photos only. Every other cloud call, and anything shown to judges, follows D-07 (paid tier).
+  - Grounding (pass A, T-039) still needs the paid tier.
+- D-68 (T-018c, user, Nov 20) **Demo location disclosure accepted (D-26):** the Judge Mode samples, their cached pass-B results (pins rounded to 3 decimals, about 100 m) and the video may reveal the city or neighbourhood of the shoot. Shoot at public places several km or more from home, work and any school.
 
 ### Reconciliation items (T-022, done Nov 19)
 How T-022 ran:
@@ -308,4 +312,16 @@ How T-022 ran:
   - The selftest prompts step finds 0 mismatches in Chrome 156.
 - **Not done here:** nothing has met a real model yet, so every prompt stays a draft (D-62). Runtime acceptance of the schemas is checked in T-031 (U-45) and T-032 (U-04).
 - **Next:** **T-050**.
+
+### 2026-11-20: T-018 decisions and the Firebase project
+- **Done:**
+  - **T-018** a–c answered via the question card (D-66 filming, D-67 free-tier spike consent, D-68 demo location). T-018 is complete.
+  - **T-002**: Claude created the Firebase project `strangers-eyes` in the browser pane, which is signed in to the user's Google account, at the user's request. Google Analytics is OFF and the Gemini in Firebase console assistant is OFF.
+- **Found:**
+  - The Firebase CLI had **no** saved login: `~/.config/configstore/firebase-tools.json` held only `motd`. The CLI isn't installed globally (we use pinned `npx`), so a bare `firebase login` likely never ran.
+  - Started `npx -y firebase-tools@15.37.0 login` in the Terminal panel for the user to finish (T-005).
+- **Next:**
+  - USER: finish the CLI login.
+  - USER: T-003 Blaze + paid tier; T-004 AI Logic "Get started" (Claude can open the page); T-019 bundle ID; T-007 Chrome flags; T-008 photos.
+  - CLAUDE: T-050 app shell (no Firebase needed), and T-025 once T-005/T-019 are done.
 
