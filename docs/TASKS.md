@@ -849,7 +849,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
     - the check stepper.
   - Verify: `npm run check`; Browser-pane screenshots at 375 and 1440 px, light and dark; no console errors.
 
-- [ ] T-051 [CLAUDE] Domain types and fixtures. Due: Sat Nov 21 · Deps: T-024
+- [x] T-051 [CLAUDE] Domain types and fixtures. Due: Sat Nov 21 · Deps: T-024 (done Nov 20, audit with independent verification (wf_6f443127-476): `web/src/core/types.ts` is byte-identical to ARCH §6 (lines 576-876) and complete against SPEC §17, R-03, R-04, R-25; all 12 ARCH §10.2 fixtures exist and parse; no change needed. `tsc -b` and check green.)
   - Read: ARCH §6; SPEC §17
   - Files: `web/src/core/types.ts` (from `research/day1-artifacts/arch/src/types.ts`, adjusted for R-03 verdict levels and R-04 vault kinds; `Route` already includes `QUEUED` (R-25)), `shared/prompts/fixtures/*.json` (the ARCH §10.2 list).
   - Verify: `tsc -b`; the fixtures parse as JSON.
@@ -1333,7 +1333,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
       - the repo link.
   - Verify: the app works when storage throws; About shows every listed item.
 
-- [ ] T-093 [CLAUDE] Tripwire, interlock, device queue. Due: Sat Nov 21 · Deps: T-023 · AC: AC-022 (tripwire side), AC-047
+- [x] T-093 [CLAUDE] Tripwire, interlock, device queue. Due: Sat Nov 21 · Deps: T-023 · AC: AC-022 (tripwire side), AC-047 (done Nov 20: `web/src/ai/interlock.ts` (`createInterlock` + singleton; one FIFO queue for both kinds; one pre-fetch cloud permit at a time, D-75) and `deviceQueue.ts` (single-flight FIFO), with `interlock.test.ts` (20 tests, incl. real-tripwire integration: an S3 fetch can never take an S4 permit) and `deviceQueue.test.ts` (3); new tripwire tests for other hosts, systemInstruction vault text, JUDGE_VAULT re-registration and NO_SCANNER on a fresh module. Every Verify item covered; a reviewer mutation check (5 mutations) failed 2–6 tests each. check: 195 tests green.)
   - Read: ARCH §8.5 (tripwire and interlock), §15.1 (boot order), §4.2, AD-05, AD-18, AD-19, AD-31 (with R-14, R-17, R-28); API-NOTES §1.17
   - Files:
     - `web/src/ai/tripwire.ts` (from `research/day1-artifacts/arch/src/tripwire.ts`, then apply ARCH §8.5's R-14 change: `Permit = { id, scanText }` with `scanText: false` for S4, and a `VaultScanner` that scans only the **active** vault);

@@ -1390,8 +1390,10 @@ installTripwire();
 
 **Interlock (`ai/interlock.ts`).**
 - State: `localHeld: number` and `cloudPrefetch: Set<id>`.
-- `enterLocal()` waits until `cloudPrefetch.size === 0`, then increments `localHeld` and calls `tripwire.enterLocal()`.
-- `enterCloud(id)` waits until `localHeld === 0`, then adds `id`.
+- `enterLocal(id)` waits until `cloudPrefetch.size === 0`, then increments `localHeld` and calls `tripwire.enterLocal()`.
+- `enterCloud(id)` waits until `localHeld === 0` **and `cloudPrefetch.size === 0`** (D-75: one pre-fetch permit at a time), then adds `id`. The tripwire consumes permits in grant order, so with two outstanding permits a fetch could take the other caller's permit (an S3 fetch could take an S4 `scanText:false` permit and skip the vault scan). One outstanding permit makes attribution exact; the wait is only the grant → fetch gap.
+- Waiters of both kinds share one FIFO queue (no starvation either way); duplicate ids are rejected; `exit` is idempotent and rejects a still-waiting caller (D-75).
+- **Callers (T-062):** never await another gate call while holding the interlock (it would deadlock behind a waiter of the other kind). Each cloud **retry** re-enters: `exit(id)` → `enterCloud(id)` → `grantCloud` → invoke, outside any `deviceQueue` slot. The device timeout wraps the invoke inside `deviceQueue.run(fn)`.
 - A tripwire observer removes an `id` from `cloudPrefetch` once its fetch is issued.
 - `exit(id)` cleans up: `exitLocal()`, or `revokeCloud(id)` if the permit was never consumed. Then it wakes any waiters.
 - An S2 call that runs on Nano never fetches, so it stays in `cloudPrefetch` until it finishes and local calls wait. That is acceptable, because the device queue serialises device calls anyway.

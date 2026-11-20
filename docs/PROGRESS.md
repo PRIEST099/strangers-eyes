@@ -7,9 +7,9 @@
 ## STATE (overwrite in place; never append here)
 - Today: Fri Nov 20 2026 (Day 2)
 - Now: **T-031 (started 08:20 GMT+2), paused**: free-tier daily quota for the adversary model is used up (see WIP).
-- Next: resume T-031 after 10:00 GMT+2 Sat Nov 21 (free quota reset; D-74; command in WIP), then T-034. Today: G1-independent tasks. Unblocked meanwhile: T-027 iOS skeleton, T-051, T-087, T-093, T-058.
+- Next: resume T-031 after 10:00 GMT+2 Sat Nov 21 (free quota reset; D-74; command in WIP), then T-034. Today: G1-independent tasks. Unblocked meanwhile: T-052, T-087, T-058, T-038 (deploy; needs T-011 for the hosted AI call).
 - Blocked: T-031 on the gemini-4-hydrogen free quota (20 requests/day/model); gemini-3.8-flash unusable today (503 timeouts).
-- Last green commit: see git log (T-031 WIP commit). `npm --prefix web run check` green: 169 tests, 45 boundary cases, prompt hashes (all drafts).
+- Last green commit: see git log (T-051/T-093). `npm --prefix web run check` green: 195 tests, 45 boundary cases, prompt hashes (all drafts). iOS: BUILD SUCCEEDED, 2/2 tests.
 - Checkpoints: G1 in progress (3/10 photos) | G1b – | G2 – | G3 – | slice Nov 22 – | loop Nov 24 – | hosted Nov 25 –
 - Adversary model: **gemini-4-hydrogen for T-031** (D-73; flash unusable on Nov 20; re-test flash before the RC default) | iOS path: A (firebase-ios-sdk 12.19.3)
 - Cuts applied: none
@@ -62,7 +62,7 @@ Pre-gate facts already verified on Nov 19:
 Canonical IDs:
 - **D-01..D-39** are in SPEC §0.4 (read them there).
 - **AD-xx** are in ARCH §2. Where an AD duplicates a D, the D wins.
-- **The next free number is D-75.**
+- **The next free number is D-76.**
 
 - D-00 (Nov 19) Idea: **Strangers' Eyes**, chosen by a 29-agent tournament (score 8.18) and approved by the user. **Blindfill** is the Day-1 fallback, *only* with the user's OK if G1 fails (TASKS T-034). Health/Rwanda "Muganga" was rejected (the user wants a global idea).
 - D-00a (Nov 19) Platforms: Web PWA (primary) + iOS. **Android cut**: no physical device, and the emulator has no Nano.
@@ -175,6 +175,10 @@ Canonical IDs:
   - The user chose to wait for the free quota (20 requests/day/model, reset at midnight Pacific = 10:00 GMT+2) rather than enable the paid tier early. G1 therefore finishes on Sat Nov 21 (Sun Nov 22 if needed), and T-034 moves with it.
   - To fit the budget, a photo's 3rd primary run is skipped when runs 1–2 already decide both classifications (2–0 or 0–2). The G1 counts are identical to 3 runs by construction; only informational metrics (any-of-3, spread) use fewer runs. The U-12 probe and the s03 fix rerun run only if quota remains.
   - Edited: SPEC §0.3 (G1 method), TASKS T-031.
+- D-75 (Claude, Nov 20; T-093 review) **Interlock: one pre-fetch cloud permit at a time.**
+  - The tripwire consumes permits in grant order. With two cloud permits outstanding, one call's fetch could take the other's permit: an S3 fetch could take an S4 `scanText:false` permit and go out without the vault-text scan, and the interlock could release a local call while a cloud call was still pending (reproduced by the T-093 reviewer). `enterCloud` now also waits for `cloudPrefetch` to be empty, so attribution is exact. The cost is a wait of the grant → fetch gap (ms); A ‖ B still run in parallel after their fetches.
+  - Also recorded for T-062: `enterLocal(id)` takes an id; one FIFO queue for both kinds; no nested gate calls while holding the interlock; each cloud retry re-enters the interlock; the device timeout goes inside `deviceQueue.run(fn)`.
+  - Edited: ARCH §8.5, `web/src/ai/interlock.ts`, `deviceQueue.ts`.
 
 ### Reconciliation items (T-022, done Nov 19)
 How T-022 ran:
@@ -445,4 +449,13 @@ How T-022 ran:
   - Hydrogen pass B took 88–179 s per call with an image; about 3k prompt, 0.6–1.2k output and 1.2–3k thinking tokens.
 - **Partial result (3 of 10 photos, hydrogen):** 0 refused; 2 located (s02 shopfront and s03 doorstep entrance, both at street level), 1 not located (s01). The s02 fix (6 masks) moved the band from street to country; the s03 fix rerun failed on quota.
 - **Next:** the user chooses: paid tier now, or resume after the quota reset (see WIP).
+
+### 2026-11-20 (cont.): D-74, T-027, T-051, T-093
+- **D-74:** the user chose to wait for the free quota. T-031 resumes after 10:00 GMT+2 Sat Nov 21 with `--adaptive` (the 3rd run only when it can change the classification); the command is in WIP.
+- **T-027 iOS skeleton:** XcodeGen project (iOS 27.0, `dev.strangerseyes.app`, firebase-ios-sdk exactly 12.19.3: AILogic, AppCheck, Auth, RemoteConfig; no Firestore). App Check debug factory set before `configure()`. Shared prompts and strings bundled; `Strings.t`. BUILD SUCCEEDED (first build 72 s including the SPM resolve, incremental 12 s); `xcodebuild test` 2/2. The generated .xcodeproj is committed. Simulator shut down afterwards.
+  - Gotcha: XcodeGen `optional: true` still adds a dangling file reference, so `remoteconfig.template.json` and `shared/testvectors` are added by T-038 and T-052.
+- **T-051 + T-093 via workflow wf_6f443127-476** (builder + skeptic per task):
+  - T-051 needed no change.
+  - T-093 added the interlock, the device queue and tests. The skeptic reproduced a permit-attribution flaw (an S3 fetch could take an S4 `scanText:false` permit), fixed by D-75 (one pre-fetch cloud permit at a time) with an integration test.
+- **Next:** resume T-031 tomorrow after 10:00 GMT+2; today T-052 (bands + first testvectors), T-087, T-058.
 
