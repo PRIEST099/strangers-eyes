@@ -62,7 +62,7 @@ Pre-gate facts already verified on Nov 19:
 Canonical IDs:
 - **D-01..D-39** are in SPEC §0.4 (read them there).
 - **AD-xx** are in ARCH §2. Where an AD duplicates a D, the D wins.
-- **The next free number is D-76.**
+- **The next free number is D-77.**
 
 - D-00 (Nov 19) Idea: **Strangers' Eyes**, chosen by a 29-agent tournament (score 8.18) and approved by the user. **Blindfill** is the Day-1 fallback, *only* with the user's OK if G1 fails (TASKS T-034). Health/Rwanda "Muganga" was rejected (the user wants a global idea).
 - D-00a (Nov 19) Platforms: Web PWA (primary) + iOS. **Android cut**: no physical device, and the emulator has no Nano.
@@ -179,6 +179,7 @@ Canonical IDs:
   - The tripwire consumes permits in grant order. With two cloud permits outstanding, one call's fetch could take the other's permit: an S3 fetch could take an S4 `scanText:false` permit and go out without the vault-text scan, and the interlock could release a local call while a cloud call was still pending (reproduced by the T-093 reviewer). `enterCloud` now also waits for `cloudPrefetch` to be empty, so attribution is exact. The cost is a wait of the grant → fetch gap (ms); A ‖ B still run in parallel after their fetches.
   - Also recorded for T-062: `enterLocal(id)` takes an id; one FIFO queue for both kinds; no nested gate calls while holding the interlock; each cloud retry re-enters the interlock; the device timeout goes inside `deviceQueue.run(fn)`.
   - Edited: ARCH §8.5, `web/src/ai/interlock.ts`, `deviceQueue.ts`.
+- D-76 (user, Nov 20) **A development log records everything that happens, including flaws and what improved.** `docs/DEVLOG.md`: a flaw ledger (`F-nn`: date, task, found by review/live/self/mistake, severity, flaw, fix), a dated narrative and lessons learned. Backfilled from Nov 19. Appending to it is now a session-end step. Public-safe: no secrets, coordinates, place names or private photos. Edited: TASKS §2, CLAUDE.md (protocol + file map).
 
 ### Reconciliation items (T-022, done Nov 19)
 How T-022 ran:

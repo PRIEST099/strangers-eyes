@@ -26,7 +26,8 @@
   2. Tick the task with its evidence.
   3. Update the PROGRESS STATE and session log.
   4. Log decisions as the next free D-number (the PROGRESS Decisions log says which; D-59 as of Nov 19) and edit the affected doc in the same session.
-  5. Commit with explicit pathspecs.
+  5. Append to `docs/DEVLOG.md`: a dated entry, plus an `F-nn` ledger row for every flaw found, including your own mistakes (D-76).
+  6. Commit with explicit pathspecs.
 - **Never Read a whole doc.** The docs total about 800 KB. Grep for the task ID (`T-0xx`), AC ID (`AC-xxx`), `D-nn`, `U-xx` or the § heading, then Read with offset/limit.
 - **Which doc wins:**
   1. These invariants.
@@ -62,6 +63,7 @@
 PLAN.md                    overview and the tournament (history; superseded where it conflicts with docs/)
 CLAUDE.md                  this file
 docs/PROGRESS.md           STATE, WIP, USER pending, key values, gate results, Decisions log, session log
+docs/DEVLOG.md             development log: dated narrative + flaw ledger (F-nn: found by, severity, fix) + lessons; public-safe
 docs/TASKS.md              every task (T-001..T-209) with Deps/Read/Files/Do/Verify; schedule; USER board; cut order
 docs/SPEC.md               product contract: D-01..D-39, screens SCR-xx, copy, safety SR-xx, AC-xxx
 docs/ARCHITECTURE.md       layout, types, gate algorithm, prompts, RC keys, Firestore rules, iOS module map

@@ -151,6 +151,7 @@ When two sources disagree, the higher one wins:
    - Append a session entry using the Appendix A template.
    - Keep only the last ~15 session entries in PROGRESS; move older ones to `docs/progress-archive.md`.
 4. **Decisions.** Log any decision that changes SPEC or ARCH under the next free `D-nn` (§5). Edit the affected doc in the same session.
+   - **DEVLOG (D-76):** append a dated entry to `docs/DEVLOG.md` (what was built, what went wrong, what improved). Add a ledger row (`F-nn`) for **every** flaw found: by review, live run, while building, or our own mistake (Claude's included), with how it was found, its severity and the fix. Keep it public-safe: no secrets, coordinates, place names or private photos.
 5. **UNVERIFIED items.** When one gets verified:
    - change the tag in `API-NOTES.md` to `[VERIFIED: ran YYYY-MM-DD, how]`;
    - delete its row from API-NOTES §10;
