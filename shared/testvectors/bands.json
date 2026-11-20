@@ -1,0 +1,1010 @@
+{
+  "description": "Distance bands (SPEC §10.1 / D-10, ARCH §12.2, API-NOTES §5.6). Single source of truth for web/src/core/geo.test.ts (Vitest) and GeoTests (XCTest, T-121): SPEC §10.7, AC-168, AC-352. Each case has an `fn` naming the function under test, a human `name`, its inputs and an `expect` object.",
+  "conventions": [
+    "Distances are metres; a key ending in Km is kilometres. Coordinates are decimal degrees.",
+    "A non-finite number is written as the string \"NaN\", \"Infinity\" or \"-Infinity\" (JSON has no literal for them).",
+    "haversine: expect.meters ± expect.tolM, and the same must hold with a and b swapped.",
+    "band, pinBand: a case without thresholdsM uses defaultThresholdsM. Upper bounds are inclusive.",
+    "thresholds: `raw` is the parsed RC `bands_m` value; anything that is not five finite, positive, strictly increasing numbers falls back to defaultThresholdsM. street, neighbourhood and district are locked to 250 / 1000 / 5000 because the band words name them (D-77): a table that changes one of them falls back. Only city and country are tunable. Extra keys are dropped.",
+    "effective: e = max(haversine(pin, centre), radiusKm × 1000).",
+    "pinBand: the hypothesis with the smallest e wins (ties keep the earlier one: the adversary's ranking, D-77); a hypothesis with a non-finite e is skipped; no usable hypothesis → band none with null hypothesisId and confidence.",
+    "words: the copy ID and the SPEC §10.1 'Verdict words' verbatim. The words are the only distance text the UI shows: never metres (SR-07)."
+  ],
+  "earthRadiusM": 6371008.8,
+  "defaultThresholdsM": {
+    "street": 250,
+    "neighbourhood": 1000,
+    "district": 5000,
+    "city": 30000,
+    "country": 500000
+  },
+  "cases": [
+    {
+      "fn": "haversine",
+      "name": "Berlin to Paris (API-NOTES §5.6)",
+      "a": {
+        "lat": 52.52,
+        "lng": 13.405
+      },
+      "b": {
+        "lat": 48.8566,
+        "lng": 2.3522
+      },
+      "expect": {
+        "meters": 877465,
+        "tolM": 1
+      }
+    },
+    {
+      "fn": "haversine",
+      "name": "same point is zero",
+      "a": {
+        "lat": 10,
+        "lng": 20
+      },
+      "b": {
+        "lat": 10,
+        "lng": 20
+      },
+      "expect": {
+        "meters": 0,
+        "tolM": 0
+      }
+    },
+    {
+      "fn": "haversine",
+      "name": "across the antimeridian is short",
+      "a": {
+        "lat": 0,
+        "lng": 179.9
+      },
+      "b": {
+        "lat": 0,
+        "lng": -179.9
+      },
+      "expect": {
+        "meters": 22239.016,
+        "tolM": 0.01
+      }
+    },
+    {
+      "fn": "haversine",
+      "name": "one degree of latitude is R·π/180",
+      "a": {
+        "lat": 0,
+        "lng": 0
+      },
+      "b": {
+        "lat": 1,
+        "lng": 0
+      },
+      "expect": {
+        "meters": 111195.08,
+        "tolM": 0.01
+      }
+    },
+    {
+      "fn": "haversine",
+      "name": "pole to pole is π·R (asin input clamped to 1)",
+      "a": {
+        "lat": 90,
+        "lng": 0
+      },
+      "b": {
+        "lat": -90,
+        "lng": 0
+      },
+      "expect": {
+        "meters": 20015114.442,
+        "tolM": 0.01
+      }
+    },
+    {
+      "fn": "haversine",
+      "name": "0.01° of latitude at 52.52° N",
+      "a": {
+        "lat": 52.52,
+        "lng": 13.405
+      },
+      "b": {
+        "lat": 52.53,
+        "lng": 13.405
+      },
+      "expect": {
+        "meters": 1111.951,
+        "tolM": 0.01
+      }
+    },
+    {
+      "fn": "band",
+      "name": "0 m is street",
+      "m": 0,
+      "expect": {
+        "band": "street"
+      }
+    },
+    {
+      "fn": "band",
+      "name": "street upper bound is inclusive",
+      "m": 250,
+      "expect": {
+        "band": "street"
+      }
+    },
+    {
+      "fn": "band",
+      "name": "just past street is neighbourhood (ARCH §20.1)",
+      "m": 250.01,
+      "expect": {
+        "band": "neighbourhood"
+      }
+    },
+    {
+      "fn": "band",
+      "name": "neighbourhood upper bound is inclusive",
+      "m": 1000,
+      "expect": {
+        "band": "neighbourhood"
+      }
+    },
+    {
+      "fn": "band",
+      "name": "just past neighbourhood is district",
+      "m": 1000.01,
+      "expect": {
+        "band": "district"
+      }
+    },
+    {
+      "fn": "band",
+      "name": "district upper bound is inclusive",
+      "m": 5000,
+      "expect": {
+        "band": "district"
+      }
+    },
+    {
+      "fn": "band",
+      "name": "just past district is city",
+      "m": 5000.01,
+      "expect": {
+        "band": "city"
+      }
+    },
+    {
+      "fn": "band",
+      "name": "city upper bound is inclusive (placeholder, U-35)",
+      "m": 30000,
+      "expect": {
+        "band": "city"
+      }
+    },
+    {
+      "fn": "band",
+      "name": "just past city is country",
+      "m": 30000.01,
+      "expect": {
+        "band": "country"
+      }
+    },
+    {
+      "fn": "band",
+      "name": "country upper bound is inclusive (placeholder, U-35)",
+      "m": 500000,
+      "expect": {
+        "band": "country"
+      }
+    },
+    {
+      "fn": "band",
+      "name": "just past country is none",
+      "m": 500000.01,
+      "expect": {
+        "band": "none"
+      }
+    },
+    {
+      "fn": "band",
+      "name": "the other side of the planet is none",
+      "m": 20015114,
+      "expect": {
+        "band": "none"
+      }
+    },
+    {
+      "fn": "band",
+      "name": "NaN is none",
+      "m": "NaN",
+      "expect": {
+        "band": "none"
+      }
+    },
+    {
+      "fn": "band",
+      "name": "Infinity is none",
+      "m": "Infinity",
+      "expect": {
+        "band": "none"
+      }
+    },
+    {
+      "fn": "band",
+      "name": "-Infinity is none",
+      "m": "-Infinity",
+      "expect": {
+        "band": "none"
+      }
+    },
+    {
+      "fn": "band",
+      "name": "a negative distance is none",
+      "m": -1,
+      "expect": {
+        "band": "none"
+      }
+    },
+    {
+      "fn": "band",
+      "name": "explicit thresholds are honoured (250 m under a 100 m street band)",
+      "m": 250,
+      "thresholdsM": {
+        "street": 100,
+        "neighbourhood": 500,
+        "district": 2000,
+        "city": 10000,
+        "country": 100000
+      },
+      "expect": {
+        "band": "neighbourhood"
+      }
+    },
+    {
+      "fn": "band",
+      "name": "RC thresholds: inclusive country edge",
+      "m": 100000,
+      "thresholdsM": {
+        "street": 100,
+        "neighbourhood": 500,
+        "district": 2000,
+        "city": 10000,
+        "country": 100000
+      },
+      "expect": {
+        "band": "country"
+      }
+    },
+    {
+      "fn": "band",
+      "name": "RC thresholds: past the country edge is none",
+      "m": 100001,
+      "thresholdsM": {
+        "street": 100,
+        "neighbourhood": 500,
+        "district": 2000,
+        "city": 10000,
+        "country": 100000
+      },
+      "expect": {
+        "band": "none"
+      }
+    },
+    {
+      "fn": "thresholds",
+      "name": "the RC default is accepted",
+      "raw": {
+        "street": 250,
+        "neighbourhood": 1000,
+        "district": 5000,
+        "city": 30000,
+        "country": 500000
+      },
+      "expect": {
+        "thresholdsM": {
+          "street": 250,
+          "neighbourhood": 1000,
+          "district": 5000,
+          "city": 30000,
+          "country": 500000
+        }
+      }
+    },
+    {
+      "fn": "thresholds",
+      "name": "a table that tunes only city and country is accepted",
+      "raw": {
+        "street": 250,
+        "neighbourhood": 1000,
+        "district": 5000,
+        "city": 20000,
+        "country": 300000
+      },
+      "expect": {
+        "thresholdsM": {
+          "street": 250,
+          "neighbourhood": 1000,
+          "district": 5000,
+          "city": 20000,
+          "country": 300000
+        }
+      }
+    },
+    {
+      "fn": "thresholds",
+      "name": "extra keys are dropped",
+      "raw": {
+        "street": 250,
+        "neighbourhood": 1000,
+        "district": 5000,
+        "city": 20000,
+        "country": 300000,
+        "planet": 1
+      },
+      "expect": {
+        "thresholdsM": {
+          "street": 250,
+          "neighbourhood": 1000,
+          "district": 5000,
+          "city": 20000,
+          "country": 300000
+        }
+      }
+    },
+    {
+      "fn": "thresholds",
+      "name": "null falls back to the default",
+      "raw": null,
+      "expect": {
+        "thresholdsM": {
+          "street": 250,
+          "neighbourhood": 1000,
+          "district": 5000,
+          "city": 30000,
+          "country": 500000
+        }
+      }
+    },
+    {
+      "fn": "thresholds",
+      "name": "an unparsed JSON string falls back to the default",
+      "raw": "{\"street\":100}",
+      "expect": {
+        "thresholdsM": {
+          "street": 250,
+          "neighbourhood": 1000,
+          "district": 5000,
+          "city": 30000,
+          "country": 500000
+        }
+      }
+    },
+    {
+      "fn": "thresholds",
+      "name": "a missing key falls back to the default",
+      "raw": {
+        "street": 100,
+        "neighbourhood": 500,
+        "district": 2000,
+        "city": 10000
+      },
+      "expect": {
+        "thresholdsM": {
+          "street": 250,
+          "neighbourhood": 1000,
+          "district": 5000,
+          "city": 30000,
+          "country": 500000
+        }
+      }
+    },
+    {
+      "fn": "thresholds",
+      "name": "numbers as strings fall back to the default",
+      "raw": {
+        "street": "100",
+        "neighbourhood": 500,
+        "district": 2000,
+        "city": 10000,
+        "country": 100000
+      },
+      "expect": {
+        "thresholdsM": {
+          "street": 250,
+          "neighbourhood": 1000,
+          "district": 5000,
+          "city": 30000,
+          "country": 500000
+        }
+      }
+    },
+    {
+      "fn": "thresholds",
+      "name": "a decreasing table falls back to the default",
+      "raw": {
+        "street": 250,
+        "neighbourhood": 1000,
+        "district": 5000,
+        "city": 4000,
+        "country": 500000
+      },
+      "expect": {
+        "thresholdsM": {
+          "street": 250,
+          "neighbourhood": 1000,
+          "district": 5000,
+          "city": 30000,
+          "country": 500000
+        }
+      }
+    },
+    {
+      "fn": "thresholds",
+      "name": "equal neighbours are not strictly increasing",
+      "raw": {
+        "street": 250,
+        "neighbourhood": 1000,
+        "district": 5000,
+        "city": 5000,
+        "country": 500000
+      },
+      "expect": {
+        "thresholdsM": {
+          "street": 250,
+          "neighbourhood": 1000,
+          "district": 5000,
+          "city": 30000,
+          "country": 500000
+        }
+      }
+    },
+    {
+      "fn": "thresholds",
+      "name": "a zero street band falls back to the default",
+      "raw": {
+        "street": 0,
+        "neighbourhood": 1000,
+        "district": 5000,
+        "city": 30000,
+        "country": 500000
+      },
+      "expect": {
+        "thresholdsM": {
+          "street": 250,
+          "neighbourhood": 1000,
+          "district": 5000,
+          "city": 30000,
+          "country": 500000
+        }
+      }
+    },
+    {
+      "fn": "thresholds",
+      "name": "moving the street threshold falls back (the words say 250 m, D-77)",
+      "raw": {
+        "street": 1000,
+        "neighbourhood": 2000,
+        "district": 5000,
+        "city": 30000,
+        "country": 500000
+      },
+      "expect": {
+        "thresholdsM": {
+          "street": 250,
+          "neighbourhood": 1000,
+          "district": 5000,
+          "city": 30000,
+          "country": 500000
+        }
+      }
+    },
+    {
+      "fn": "thresholds",
+      "name": "a smaller valid table that moves named thresholds falls back (D-77)",
+      "raw": {
+        "street": 100,
+        "neighbourhood": 500,
+        "district": 2000,
+        "city": 10000,
+        "country": 100000
+      },
+      "expect": {
+        "thresholdsM": {
+          "street": 250,
+          "neighbourhood": 1000,
+          "district": 5000,
+          "city": 30000,
+          "country": 500000
+        }
+      }
+    },
+    {
+      "fn": "effective",
+      "name": "pin at the centre: e is the radius",
+      "pin": {
+        "lat": 52.52,
+        "lng": 13.405
+      },
+      "hypothesis": {
+        "lat": 52.52,
+        "lng": 13.405,
+        "radiusKm": 2
+      },
+      "expect": {
+        "meters": 2000,
+        "tolM": 0
+      }
+    },
+    {
+      "fn": "effective",
+      "name": "pin outside a small disc: e is the distance",
+      "pin": {
+        "lat": 52.52,
+        "lng": 13.405
+      },
+      "hypothesis": {
+        "lat": 52.53,
+        "lng": 13.405,
+        "radiusKm": 0.1
+      },
+      "expect": {
+        "meters": 1111.951,
+        "tolM": 0.01
+      }
+    },
+    {
+      "fn": "effective",
+      "name": "pin inside a larger disc: e is the radius although the centre is 400 m away",
+      "pin": {
+        "lat": 52.52,
+        "lng": 13.405
+      },
+      "hypothesis": {
+        "lat": 52.5236,
+        "lng": 13.405,
+        "radiusKm": 1
+      },
+      "expect": {
+        "meters": 1000,
+        "tolM": 0
+      }
+    },
+    {
+      "fn": "pinBand",
+      "name": "no hypotheses is none",
+      "pin": {
+        "lat": 52.52,
+        "lng": 13.405
+      },
+      "hypotheses": [],
+      "expect": {
+        "band": "none",
+        "hypothesisId": null,
+        "confidence": null
+      }
+    },
+    {
+      "fn": "pinBand",
+      "name": "radius effect: centre on the pin, 0.1 km is street",
+      "pin": {
+        "lat": 52.52,
+        "lng": 13.405
+      },
+      "hypotheses": [
+        {
+          "id": "h1",
+          "lat": 52.52,
+          "lng": 13.405,
+          "radiusKm": 0.1,
+          "confidence": "high"
+        }
+      ],
+      "expect": {
+        "band": "street",
+        "hypothesisId": "h1",
+        "confidence": "high"
+      }
+    },
+    {
+      "fn": "pinBand",
+      "name": "radius effect: centre on the pin, 0.25 km is still street (inclusive)",
+      "pin": {
+        "lat": 52.52,
+        "lng": 13.405
+      },
+      "hypotheses": [
+        {
+          "id": "h1",
+          "lat": 52.52,
+          "lng": 13.405,
+          "radiusKm": 0.25,
+          "confidence": "high"
+        }
+      ],
+      "expect": {
+        "band": "street",
+        "hypothesisId": "h1",
+        "confidence": "high"
+      }
+    },
+    {
+      "fn": "pinBand",
+      "name": "radius effect: centre on the pin, 1 km is neighbourhood (U-62)",
+      "pin": {
+        "lat": 52.52,
+        "lng": 13.405
+      },
+      "hypotheses": [
+        {
+          "id": "h1",
+          "lat": 52.52,
+          "lng": 13.405,
+          "radiusKm": 1,
+          "confidence": "medium"
+        }
+      ],
+      "expect": {
+        "band": "neighbourhood",
+        "hypothesisId": "h1",
+        "confidence": "medium"
+      }
+    },
+    {
+      "fn": "pinBand",
+      "name": "radius effect: centre on the pin, 2 km is district, not street",
+      "pin": {
+        "lat": 52.52,
+        "lng": 13.405
+      },
+      "hypotheses": [
+        {
+          "id": "h1",
+          "lat": 52.52,
+          "lng": 13.405,
+          "radiusKm": 2,
+          "confidence": "medium"
+        }
+      ],
+      "expect": {
+        "band": "district",
+        "hypothesisId": "h1",
+        "confidence": "medium"
+      }
+    },
+    {
+      "fn": "pinBand",
+      "name": "radius effect: centre on the pin, 50 km is country",
+      "pin": {
+        "lat": 52.52,
+        "lng": 13.405
+      },
+      "hypotheses": [
+        {
+          "id": "h1",
+          "lat": 52.52,
+          "lng": 13.405,
+          "radiusKm": 50,
+          "confidence": "low"
+        }
+      ],
+      "expect": {
+        "band": "country",
+        "hypothesisId": "h1",
+        "confidence": "low"
+      }
+    },
+    {
+      "fn": "pinBand",
+      "name": "closest wins regardless of the adversary's order",
+      "pin": {
+        "lat": 52.52,
+        "lng": 13.405
+      },
+      "hypotheses": [
+        {
+          "id": "h1",
+          "lat": 48.8566,
+          "lng": 2.3522,
+          "radiusKm": 1,
+          "confidence": "high"
+        },
+        {
+          "id": "h2",
+          "lat": 52.5201,
+          "lng": 13.405,
+          "radiusKm": 0.2,
+          "confidence": "low"
+        }
+      ],
+      "expect": {
+        "band": "street",
+        "hypothesisId": "h2",
+        "confidence": "low"
+      }
+    },
+    {
+      "fn": "pinBand",
+      "name": "closest by e, not by centre: a wide disc on the pin loses to a tight one 400 m away",
+      "pin": {
+        "lat": 52.52,
+        "lng": 13.405
+      },
+      "hypotheses": [
+        {
+          "id": "h1",
+          "lat": 52.52,
+          "lng": 13.405,
+          "radiusKm": 3,
+          "confidence": "high"
+        },
+        {
+          "id": "h2",
+          "lat": 52.5236,
+          "lng": 13.405,
+          "radiusKm": 0.1,
+          "confidence": "low"
+        }
+      ],
+      "expect": {
+        "band": "neighbourhood",
+        "hypothesisId": "h2",
+        "confidence": "low"
+      }
+    },
+    {
+      "fn": "pinBand",
+      "name": "closest of three",
+      "pin": {
+        "lat": 52.52,
+        "lng": 13.405
+      },
+      "hypotheses": [
+        {
+          "id": "h1",
+          "lat": 51.5074,
+          "lng": -0.1278,
+          "radiusKm": 5,
+          "confidence": "high"
+        },
+        {
+          "id": "h2",
+          "lat": 52.53,
+          "lng": 13.405,
+          "radiusKm": 0.5,
+          "confidence": "medium"
+        },
+        {
+          "id": "h3",
+          "lat": 52.52,
+          "lng": 13.405,
+          "radiusKm": 4,
+          "confidence": "low"
+        }
+      ],
+      "expect": {
+        "band": "district",
+        "hypothesisId": "h2",
+        "confidence": "medium"
+      }
+    },
+    {
+      "fn": "pinBand",
+      "name": "a NaN hypothesis never masks a closer valid one",
+      "pin": {
+        "lat": 52.52,
+        "lng": 13.405
+      },
+      "hypotheses": [
+        {
+          "id": "h1",
+          "lat": "NaN",
+          "lng": 13.405,
+          "radiusKm": 0.1,
+          "confidence": "high"
+        },
+        {
+          "id": "h2",
+          "lat": 52.5218,
+          "lng": 13.405,
+          "radiusKm": 0.1,
+          "confidence": "medium"
+        }
+      ],
+      "expect": {
+        "band": "street",
+        "hypothesisId": "h2",
+        "confidence": "medium"
+      }
+    },
+    {
+      "fn": "pinBand",
+      "name": "only non-finite hypotheses is none",
+      "pin": {
+        "lat": 52.52,
+        "lng": 13.405
+      },
+      "hypotheses": [
+        {
+          "id": "h1",
+          "lat": 52.52,
+          "lng": 13.405,
+          "radiusKm": "NaN",
+          "confidence": "high"
+        },
+        {
+          "id": "h2",
+          "lat": 52.52,
+          "lng": "Infinity",
+          "radiusKm": 0.1,
+          "confidence": "high"
+        }
+      ],
+      "expect": {
+        "band": "none",
+        "hypothesisId": null,
+        "confidence": null
+      }
+    },
+    {
+      "fn": "pinBand",
+      "name": "a NaN pin is none",
+      "pin": {
+        "lat": "NaN",
+        "lng": 13.405
+      },
+      "hypotheses": [
+        {
+          "id": "h1",
+          "lat": 52.52,
+          "lng": 13.405,
+          "radiusKm": 0.1,
+          "confidence": "high"
+        }
+      ],
+      "expect": {
+        "band": "none",
+        "hypothesisId": null,
+        "confidence": null
+      }
+    },
+    {
+      "fn": "pinBand",
+      "name": "everything beyond the country band is none; the closest hypothesis is still recorded",
+      "pin": {
+        "lat": 52.52,
+        "lng": 13.405
+      },
+      "hypotheses": [
+        {
+          "id": "h1",
+          "lat": 51.5074,
+          "lng": -0.1278,
+          "radiusKm": 5,
+          "confidence": "high"
+        },
+        {
+          "id": "h2",
+          "lat": 48.8566,
+          "lng": 2.3522,
+          "radiusKm": 5,
+          "confidence": "medium"
+        }
+      ],
+      "expect": {
+        "band": "none",
+        "hypothesisId": "h2",
+        "confidence": "medium"
+      }
+    },
+    {
+      "fn": "pinBand",
+      "name": "a tie keeps the earlier hypothesis",
+      "pin": {
+        "lat": 52.52,
+        "lng": 13.405
+      },
+      "hypotheses": [
+        {
+          "id": "h1",
+          "lat": 52.52,
+          "lng": 13.405,
+          "radiusKm": 0.5,
+          "confidence": "low"
+        },
+        {
+          "id": "h2",
+          "lat": 52.52,
+          "lng": 13.405,
+          "radiusKm": 0.5,
+          "confidence": "high"
+        }
+      ],
+      "expect": {
+        "band": "neighbourhood",
+        "hypothesisId": "h1",
+        "confidence": "low"
+      }
+    },
+    {
+      "fn": "pinBand",
+      "name": "RC thresholds are honoured (200 m is neighbourhood under a 100 m street band; explicit thresholds, not via RC, D-77)",
+      "pin": {
+        "lat": 52.52,
+        "lng": 13.405
+      },
+      "hypotheses": [
+        {
+          "id": "h1",
+          "lat": 52.52,
+          "lng": 13.405,
+          "radiusKm": 0.2,
+          "confidence": "high"
+        }
+      ],
+      "thresholdsM": {
+        "street": 100,
+        "neighbourhood": 500,
+        "district": 2000,
+        "city": 10000,
+        "country": 100000
+      },
+      "expect": {
+        "band": "neighbourhood",
+        "hypothesisId": "h1",
+        "confidence": "high"
+      }
+    },
+    {
+      "fn": "words",
+      "name": "street",
+      "band": "street",
+      "expect": {
+        "id": "ui.band.street",
+        "words": "within 250 m (street level)"
+      }
+    },
+    {
+      "fn": "words",
+      "name": "neighbourhood",
+      "band": "neighbourhood",
+      "expect": {
+        "id": "ui.band.neighbourhood",
+        "words": "within 1 km (neighbourhood)"
+      }
+    },
+    {
+      "fn": "words",
+      "name": "district",
+      "band": "district",
+      "expect": {
+        "id": "ui.band.district",
+        "words": "within 5 km (district)"
+      }
+    },
+    {
+      "fn": "words",
+      "name": "city",
+      "band": "city",
+      "expect": {
+        "id": "ui.band.city",
+        "words": "same city area"
+      }
+    },
+    {
+      "fn": "words",
+      "name": "country",
+      "band": "country",
+      "expect": {
+        "id": "ui.band.country",
+        "words": "same country or region"
+      }
+    },
+    {
+      "fn": "words",
+      "name": "none",
+      "band": "none",
+      "expect": {
+        "id": "ui.band.none",
+        "words": "not located nearby"
+      }
+    }
+  ]
+}

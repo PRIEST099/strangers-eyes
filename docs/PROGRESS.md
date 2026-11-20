@@ -7,9 +7,9 @@
 ## STATE (overwrite in place; never append here)
 - Today: Fri Nov 20 2026 (Day 2)
 - Now: **T-031 (started 08:20 GMT+2), paused**: free-tier daily quota for the adversary model is used up (see WIP).
-- Next: resume T-031 after 10:00 GMT+2 Sat Nov 21 (free quota reset; D-74; command in WIP), then T-034. Today: G1-independent tasks. Unblocked meanwhile: T-052, T-087, T-058, T-038 (deploy; needs T-011 for the hosted AI call).
+- Next: resume T-031 after 10:00 GMT+2 Sat Nov 21 (free quota reset; D-74; command in WIP), then T-034. Meanwhile (G1-independent): T-053+ (Tier-0 tasks), T-038 deploy, T-088.
 - Blocked: T-031 on the gemini-4-hydrogen free quota (20 requests/day/model); gemini-3.8-flash unusable today (503 timeouts).
-- Last green commit: see git log (T-051/T-093). `npm --prefix web run check` green: 195 tests, 45 boundary cases, prompt hashes (all drafts). iOS: BUILD SUCCEEDED, 2/2 tests.
+- Last green commit: see git log (T-051/T-093). `npm --prefix web run check` green: 438 tests, 45 boundary cases, prompt hashes (all drafts). iOS: BUILD SUCCEEDED, 2/2 tests.
 - Checkpoints: G1 in progress (3/10 photos) | G1b – | G2 – | G3 – | slice Nov 22 – | loop Nov 24 – | hosted Nov 25 –
 - Adversary model: **gemini-4-hydrogen for T-031** (D-73; flash unusable on Nov 20; re-test flash before the RC default) | iOS path: A (firebase-ios-sdk 12.19.3)
 - Cuts applied: none
@@ -62,7 +62,7 @@ Pre-gate facts already verified on Nov 19:
 Canonical IDs:
 - **D-01..D-39** are in SPEC §0.4 (read them there).
 - **AD-xx** are in ARCH §2. Where an AD duplicates a D, the D wins.
-- **The next free number is D-77.**
+- **The next free number is D-78.**
 
 - D-00 (Nov 19) Idea: **Strangers' Eyes**, chosen by a 29-agent tournament (score 8.18) and approved by the user. **Blindfill** is the Day-1 fallback, *only* with the user's OK if G1 fails (TASKS T-034). Health/Rwanda "Muganga" was rejected (the user wants a global idea).
 - D-00a (Nov 19) Platforms: Web PWA (primary) + iOS. **Android cut**: no physical device, and the emulator has no Nano.
@@ -180,6 +180,23 @@ Canonical IDs:
   - Also recorded for T-062: `enterLocal(id)` takes an id; one FIFO queue for both kinds; no nested gate calls while holding the interlock; each cloud retry re-enters the interlock; the device timeout goes inside `deviceQueue.run(fn)`.
   - Edited: ARCH §8.5, `web/src/ai/interlock.ts`, `deviceQueue.ts`.
 - D-76 (user, Nov 20) **A development log records everything that happens, including flaws and what improved.** `docs/DEVLOG.md`: a flaw ledger (`F-nn`: date, task, found by review/live/self/mistake, severity, flaw, fix), a dated narrative and lessons learned. Backfilled from Nov 19. Appending to it is now a session-end step. Public-safe: no secrets, coordinates, place names or private photos. Edited: TASKS §2, CLAUDE.md (protocol + file map).
+- D-77 (Claude, Nov 20; T-052/T-087/T-058 reviews) **Bands, copy and matcher details settled in code:**
+  - **Bands (T-052):**
+    - The words are SPEC §10.1 verbatim as `ui.band.<band>`.
+    - The street, neighbourhood and district thresholds are locked (250/1000/5000), because the words name them; RC tunes only city and country. "Never metres" means never a measured distance.
+    - A tie in `e` keeps the adversary's earlier hypothesis.
+  - **Copy (T-087):** the 7 `copy.judge.coach.*` texts were authored by Claude to SPEC's one-line brief and corrected after review (on-device face and text finding; recorded result when the attacker is unavailable). **They need a human copy review.** The copy audit lives in `core/strings.test.ts`.
+  - **Matcher (T-058):**
+    - digit values match on punctuation-separated sub-words ("Tel:…", "REG:…");
+    - groups are counted on the normalised value;
+    - each word is also tried with a possessive 's removed (short child names);
+    - `\p{Cf}` is deleted;
+    - a function-word pair never counts for rule (b);
+    - spaced letters are joined from runs of 2;
+    - the digit window is up to the value's group count (max 6).
+    - `fuzzy.json` `conventions` is the cross-platform contract.
+  - After the fix verification: a zero-width space is read both deleted and as a space (both count), and the sub-word digit view joins up to 6 sub-words.
+  - Edited: SPEC SCR-06, §10.1 and the RC table; ARCH §8.4, §12.2, §13 (table and template) and §20.1; TASKS T-052 Verify and T-062.
 
 ### Reconciliation items (T-022, done Nov 19)
 How T-022 ran:
@@ -459,4 +476,10 @@ How T-022 ran:
   - T-051 needed no change.
   - T-093 added the interlock, the device queue and tests. The skeptic reproduced a permit-attribution flaw (an S3 fetch could take an S4 `scanText:false` permit), fixed by D-75 (one pre-fetch cloud permit at a time) with an integration test.
 - **Next:** resume T-031 tomorrow after 10:00 GMT+2; today T-052 (bands + first testvectors), T-087, T-058.
+
+### 2026-11-20 (afternoon): D-76 devlog; T-052, T-087, T-058
+- **D-76:** `docs/DEVLOG.md` (flaw ledger F-01 to F-35, narrative, lessons), now part of the session-end protocol.
+- **T-052, T-087, T-058:** built in parallel by workflow wf_1b4a803c-24f, each with a skeptic. T-058 failed review on one major finding (digits glued to labels), which was fixed together with the minor findings. A fix-verifier (wf_192cfaaa-008) passed all 11 fixes and found one regression (zero-width space), also fixed. D-77 settles the bands, copy and matcher details. check: 438 tests.
+- **Human follow-up:** copy review of the 7 `copy.judge.coach.*` texts.
+- **Next:** resume T-031 tomorrow after 10:00 GMT+2.
 

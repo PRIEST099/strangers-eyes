@@ -855,7 +855,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
   - Files: `web/src/core/types.ts` (from `research/day1-artifacts/arch/src/types.ts`, adjusted for R-03 verdict levels and R-04 vault kinds; `Route` already includes `QUEUED` (R-25)), `shared/prompts/fixtures/*.json` (the ARCH §10.2 list).
   - Verify: `tsc -b`; the fixtures parse as JSON.
 
-- [ ] T-052 [CLAUDE] Distance bands. Due: Sat Nov 21 · Deps: T-051 · AC: AC-160 (bands part), AC-352
+- [x] T-052 [CLAUDE] Distance bands. Due: Sat Nov 21 · Deps: T-051 · AC: AC-160 (bands part), AC-352 (done Nov 20 (wf_1b4a803c-24f builder + skeptic, fixes re-verified by wf_192cfaaa-008): geo.ts adds `bandThresholdsOrDefault` (RC validation; street/neighbourhood/district locked, D-77), `bandWords`/`distanceWords` via `ui.band.*` (SPEC §10.1 words verbatim), and pinBand skips non-finite e (fixed an under-report). `shared/testvectors/bands.json` (first shared vectors) drives geo.test.ts: Berlin→Paris 877,465 m ±1, band edges, radius effect, NaN → none, the formatter never prints a measured distance (400 random distances). iOS test target bundles shared/testvectors. check: 438 tests green.)
   - **iOS (from T-027):** this task creates the first file in `shared/testvectors/`, so add the folder to the `StrangersEyesTests` target in `ios/project.yml` (`- path: ../shared/testvectors`, `type: folder`, `buildPhase: resources`), then `xcodegen generate`.
   - Read: SPEC §10.1; ARCH §12.2; API-NOTES §5.6
   - Files: `web/src/core/geo.ts`, `geo.test.ts`, `shared/testvectors/bands.json`.
@@ -870,7 +870,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
     - band edges;
     - the radius effect;
     - NaN → `none`;
-    - the formatter never outputs digits followed by "m" or "km".
+    - the formatter never outputs a measured distance (D-77: only SPEC §10.1's fixed words, which name 250 m / 1 km / 5 km).
 
 - [ ] T-053 [CLAUDE] Import and EXIF stripping. Due: Sat Nov 21 · Deps: T-023, T-051 · AC: AC-100, AC-101, AC-103 (P1: AC-102)
   - Read: SPEC SCR-05, D-20; ARCH §11; API-NOTES §5.3
@@ -937,7 +937,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
     - Selftest: "LUCAS 42" is recognised with boxes; latency is logged.
     - **Cross-browser:** run the selftest in Safari and Firefox (the user opens the dev URL, or via `safaridriver`). Record pass or fail in PROGRESS. Safari lacks relaxed SIMD, so it should load the simd core; MediaPipe needs WebGL.
 
-- [ ] T-058 [CLAUDE] Vault matcher, regex detectors, prompt scanner. Due: Sun Nov 22 · Deps: T-051 · AC: AC-042, AC-110
+- [x] T-058 [CLAUDE] Vault matcher, regex detectors, prompt scanner. Due: Sun Nov 22 · Deps: T-051 · AC: AC-042, AC-110 (done Nov 20 (same workflows; the skeptic's major finding fixed and re-verified): `tier0/fuzzy.ts` (SCR-06 as fixed by R-15 plus D-77: digit sub-words, possessive and format-character readings), `tier0/regex.ts` (plate/phone/house number), `ai/vaultScan.ts` (one active index, useJudge/useReal, scanner order with canary, echo scan of free-text fields). `shared/testvectors/fuzzy.json` drives the tests: AC-042 (LUCAS, Lucas, LUCA5, L U C A S, LUCAS'S → Lucas; LOCAL, LUCKY, PARIS → no), AC-110, plates SE 1234 / SE-1234 vs SE 1235, "Medium"/"Landmark Road" never trip on an advB body or the advB.v1.ok echo while "Lucas" does. check: 438 tests green.)
   - Read: SPEC SCR-06 (Tier-0 steps 3–4), §10.3; ARCH §8.4 (as fixed by R-15)
   - Files: `web/src/tier0/fuzzy.ts` (port per ARCH §8.4 as fixed by R-15; `research/day1-artifacts/arch/src/fuzzy.ts` and its `fuzzy.check.ts` vectors, 25/25, are a pre-R-15 reference only), `web/src/tier0/regex.ts`, `web/src/ai/vaultScan.ts` (shared normaliser), tests, `shared/testvectors/fuzzy.json`.
   - Do:
@@ -990,6 +990,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
   - Verify: a table-driven unit test (AC-001); manual checks in Chrome with Nano, a Chrome guest profile and Safari.
 
 - [ ] T-062 [CLAUDE] Egress Gate: the only door to Firebase AI Logic. Due: Mon Nov 23 · Deps: T-054, T-056, T-057, T-058, T-060, T-061, T-086, T-093 · AC: AC-020–AC-025, AC-040, AC-042–AC-046, AC-048, AC-303
+  - **From T-058/T-093 reviews (D-75, D-77):** map the vault scanner's `template-canary` and `vault-unavailable` (scanner briefly blocks everything while the vault reloads) to their own Ledger reasons, and never treat `vault-unavailable` as a vault leak or BREACH. Follow the ARCH §8.5 caller rules: no nested gate calls while holding the interlock; each cloud retry re-enters the interlock; device timeouts go inside `deviceQueue.run(fn)`.
   - Read: SPEC §6, §7; ARCH §8.1–8.3 (§8.3 preflight), §8.4 (active-vault term index), §8.5 (tripwire), §8.7 (block reasons → copy), AD-17, AD-31 (with R-14, R-16, R-17, R-24, R-25); API-NOTES §1.4–1.5
   - Files: `web/src/ai/egressGate.ts` (the only `generateContent`/`generateContentStream` call site; it grows from T-086's v0), `egressGate.test.ts`, `shared/testvectors/gate-matrix.json`.
   - Do, in order:
@@ -1276,7 +1277,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
   - The full gate and the screens are then built around this skeleton.
   - Verify: one real spike photo goes from red, through the fix, to a band moved outward. Evidence in PROGRESS: "slice green".
 
-- [ ] T-087 [CLAUDE] Strings file and explain fallbacks. Due: Sun Nov 22 · Deps: T-023 · AC: AC-304
+- [x] T-087 [CLAUDE] Strings file and explain fallbacks. Due: Sun Nov 22 · Deps: T-023 · AC: AC-304 (done Nov 20 (same workflows): en.json now holds every SPEC §11 copy ID verbatim (134 rows, was 11) plus `ui.*`; `t()` resolves `copy.explain.template.*` from explain-fallback.v1.json (18 types) and is pinned to `prompts.explainFallbacks()`. Tests: SPEC fidelity, every copy ID used in web/src and ios/StrangersEyes exists (Swift against en.json only), AC-304 "safe" scan with the `copy.about.notGuarantee` allowlist. The 7 `copy.judge.coach.*` texts are authored to SPEC's brief and await a human copy review (D-77).)
   - Read: SPEC §11 (all)
   - Files: `shared/strings/en.json` (every SPEC §11 copy ID, including `copy.judge.coach.*`; the `copy.explain.template.*` texts are **not** in it, they live in `shared/prompts/explain-fallback.v1.json`, SPEC §11), `web/src/core/strings.ts` loader (`t(copyId, params)` over `@strings/en.json` plus the explain-fallback templates, ARCH §3.1), `shared/prompts/explain-fallback.v1.json` (18 clue types).
   - Verify:

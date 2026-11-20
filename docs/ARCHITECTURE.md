@@ -1110,7 +1110,7 @@ preflight(session): Promise<DryRun>   // runs when the consent sheet opens (SPEC
 - `failed ≠ ∅`: Send is disabled and the failing item is named, with "Fix in editor" (AC-133).
 - Preflight itself never blocks and never writes the Ledger. The **same bytes** are consented (sha256) and then re-checked by `gate()` when sending; checking twice is deliberate. If a stale UI forces a Send anyway, step 2 of the gate still blocks.
 
-### 8.4 The text matcher (`tier0/fuzzy.ts`) [sketch compiled + ran 2026-11-19; R-15 changes not yet compiled]
+### 8.4 The text matcher (`tier0/fuzzy.ts`) [sketch compiled + ran 2026-11-19; implemented in T-058 with the D-77 additions: the code and `shared/testvectors/fuzzy.json` `conventions` are canonical where this sketch differs]
 
 The behaviour contract is SPEC SCR-06 step 3, §10.3, AC-042, AC-110 and AC-165. One module serves Tier-0 OCR, the gate image check, the prompt scan, the tripwire scanner and the rules referee. The word lists, folds and compatibility table come from `shared/prompts/enums.v1.json` (§10.3); they are inlined below for readability.
 
@@ -2344,7 +2344,7 @@ export function pinBand(vaultId: string, pin: Pin, hs: AdversaryHypothesis[], t:
 ```
 
 - Test vector: Berlin (52.52, 13.405) → Paris (48.8566, 2.3522) = 877,465 m ± 1.
-- Thresholds come from RC `bands_m`. The `city` (30 km) and `country` (500 km) values are placeholders [UNVERIFIED: U-35]; confirm them after the benchmark and log a decision.
+- Thresholds come from RC `bands_m`. The `city` (30 km) and `country` (500 km) values are placeholders [UNVERIFIED: U-35]; confirm them after the benchmark and log a decision. street/neighbourhood/district are locked to 250/1000/5000 because the band words name them (D-77): `bandThresholdsOrDefault` falls back to the defaults for any other table.
 - Hypotheses count only when `audit_status = 'ok'`.
 
 ### 12.3 Verdict (`core/verdict.ts`; SPEC §10 verbatim)
@@ -2440,7 +2440,7 @@ All values are strings: booleans are `"true"`/`"false"` and JSON is stringified.
 | `data_tier` | STRING | `paid` | `paid` or `free`. `free` forces grounding off and selects `copy.consent.tierFree` |
 | `daily_adversary_cap` | NUMBER | `20` | Attack runs per installation per **local** day; an A+B pair counts as 1. Clamped 1–200. Keep project-wide grounded queries well below 1,500 a day |
 | `max_fix_rounds` | NUMBER | `3` | Fix and re-attack rounds per photo |
-| `bands_m` | JSON | `{"street":250,"neighbourhood":1000,"district":5000,"city":30000,"country":500000}` | Must be strictly increasing; city and country are placeholders |
+| `bands_m` | JSON | `{"street":250,"neighbourhood":1000,"district":5000,"city":30000,"country":500000}` | Must be strictly increasing; city and country are placeholders. street/neighbourhood/district are locked to 250/1000/5000 (D-77): only city and country are tunable; any other table falls back to the defaults |
 | `auto_mask_types` | JSON | `["name_text","house_number","plate","mail_or_document","screen"]` | High-severity Nano pre-screen clue types masked in Standard mode when located by OCR (SPEC SCR-06, AC-112; §11.3). Subset of CLUE_TYPES |
 | `strict_mode_default` | BOOLEAN | `false` | D-16 |
 | `fuzzy_threshold` | NUMBER | `0.8` | Clamped 0.6–0.98 |
@@ -2492,7 +2492,7 @@ The generated copy `research/day1-artifacts/arch/remoteconfig.template.json` pre
     "data_tier": {"defaultValue":{"value":"paid"},"valueType":"STRING","description":"paid|free. Drives the consent copy; free forces grounding off."},
     "daily_adversary_cap": {"defaultValue":{"value":"20"},"valueType":"NUMBER","description":"Attack runs (A+B pair = 1) per installation per LOCAL day, client-side. Keep project-wide grounded queries well below 1,500/day."},
     "max_fix_rounds": {"defaultValue":{"value":"3"},"valueType":"NUMBER","description":"Fix + re-attack rounds per photo."},
-    "bands_m": {"defaultValue":{"value":"{\"street\":250,\"neighbourhood\":1000,\"district\":5000,\"city\":30000,\"country\":500000}"},"valueType":"JSON","description":"Distance-band upper bounds in metres, strictly increasing. city/country are placeholders."},
+    "bands_m": {"defaultValue":{"value":"{\"street\":250,\"neighbourhood\":1000,\"district\":5000,\"city\":30000,\"country\":500000}"},"valueType":"JSON","description":"Distance-band upper bounds in metres, strictly increasing. street/neighbourhood/district are locked to 250/1000/5000 (D-77); only city/country (placeholders) are tunable."},
     "auto_mask_types": {"defaultValue":{"value":"[\"name_text\",\"house_number\",\"plate\",\"mail_or_document\",\"screen\"]"},"valueType":"JSON","description":"Nano pre-screen clue types masked in Standard mode when severity is high and the clue is located by OCR (faces, vault hits and regex hits are always masked). Subset of CLUE_TYPES."},
     "strict_mode_default": {"defaultValue":{"value":"false"},"valueType":"BOOLEAN","description":"Strict mode masks every flagged clue before the cloud sees anything."},
     "fuzzy_threshold": {"defaultValue":{"value":"0.8"},"valueType":"NUMBER","description":"Normalised Levenshtein similarity for text-to-vault matches (clamped 0.6-0.98)."},
@@ -3036,7 +3036,7 @@ actor EgressGate {
 | `core/shareCard.test.ts` | text built only from the allowlist; injected labels, evidence and area names never appear (AC-261) |
 | `firebase/remoteConfig.test.ts` | defaults equal the template; every key's validation and clamping (`rc.json`, AC-293); `prompt_versions` IDs resolve |
 | `firebase/init.test.ts` | module order initializeApp → initializeAppCheck → getAuth → getAI (AC-291) |
-| `copy.test.ts` | every value in `shared/strings/en.json`, `explain-fallback.v1.json` and verdict output: no `/\bsafe\b/i` except allowlisted `copy.about.notGuarantee` (AC-304); every copy ID used in code exists |
+| `core/strings.test.ts` (was planned as `copy.test.ts`) | every value in `shared/strings/en.json`, `explain-fallback.v1.json` and verdict output: no `/\bsafe\b/i` except allowlisted `copy.about.notGuarantee` (AC-304); every copy ID used in code exists |
 | `scripts/*.test.mjs` | `check-boundaries.mjs` fails on a planted violation; `check-prompts.mjs` fails on a modified released file; `check-images.mjs` fails on a JPEG with APP1 |
 
 ### 20.2 Playwright and the egress audit (Chromium; `npm --prefix web run test:e2e`)

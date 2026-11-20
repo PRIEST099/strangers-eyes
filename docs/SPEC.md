@@ -740,7 +740,14 @@ Each screen lists its purpose, layout, behaviour, states (a)–(e), copy IDs and
        - (b) two **consecutive** label tokens match two consecutive OCR words;
        - (c) the whole label matches a window of OCR words of the same length.
      - **Digit kinds** (`plate`, `house_number`, `phone`): no confusable folding. Remove spaces and dashes and compare uppercase.
-       - The value may span up to 2 adjacent OCR words ("SE 1234").
+       - The value may span up to 2 adjacent OCR words ("SE 1234"), or up to as many words as the value has groups (max 6).
+       - Punctuation separates words here too: a value glued to a label ("Tel:07700900123", "REG:SE1234") matches (D-77).
+     - **As implemented (D-77):**
+       - each word is also tried with a possessive 's removed ("AVA'S" → Ava; short names can't match "avas" under the ≤3-character rule);
+       - invisible format characters (soft hyphen, zero-width space) are deleted rather than spaced;
+       - a pair of function words never counts for rule (b);
+       - a run of ≥2 single letters is joined;
+       - `shared/testvectors/fuzzy.json` `conventions` is the full contract (iOS port, AC-168).
        - Values of 1–2 characters match only a standalone token, and only in images. Prompt and echo scans skip terms shorter than 3 characters.
      - **Pins:** their coordinates are used only for `PIN_IN_PROMPT`. A pin's label and aliases are text terms like any other item's, unless the label is empty or generic, in which case the pin contributes no terms (D-36, AC-088).
      - Every Tier-0 hit becomes a **mask**.
@@ -1290,7 +1297,7 @@ Each screen lists its purpose, layout, behaviour, states (a)–(e), copy IDs and
 | country | 500,000 m [placeholder, U-35] | "same country or region" | NONE (not shown in risk lines) |
 | none | beyond that, or no hypotheses | "not located nearby" | NONE |
 
-The city and country thresholds are placeholders; winner-spec only said "same city/country". Confirm or adjust them after the benchmark and record a D-entry.
+The city and country thresholds are placeholders; winner-spec only said "same city/country". Confirm or adjust them after the benchmark and record a D-entry. **D-77:** the street, neighbourhood and district thresholds are locked (250 / 1,000 / 5,000 m) because the verdict words name them; RC may tune only city and country, and any other `bands_m` falls back to the defaults. The words live in `shared/strings/en.json` as `ui.band.<band>`, verbatim. "Never metres" means never a *measured* distance: the fixed thresholds in the words are allowed. On a tie in `e`, the adversary's earlier hypothesis gives `conf_p`.
 
 ### 10.2 Matches
 - For each vault item, one line, using its strongest match across all claims:
@@ -1754,7 +1761,7 @@ The Router HUD line format is `{job} › {ROUTE} ({engine}) {latency}`, for exam
 | `data_tier` | STRING | `paid` | `paid` or `free`. Drives the consent copy; `free` forces grounding off. |
 | `daily_adversary_cap` | NUMBER | `20` | Attack runs per installation per **local day**. One run is an A+B pair (or B alone). Re-attacks count. Judge Mode shares the counter and falls back to CACHED. Keep project-wide grounded queries well below 1,500 a day. |
 | `max_fix_rounds` | NUMBER | `3` | Fix and re-attack rounds per photo |
-| `bands_m` | JSON | `{"street":250,"neighbourhood":1000,"district":5000,"city":30000,"country":500000}` | Must be strictly increasing. City and country are placeholders. |
+| `bands_m` | JSON | `{"street":250,"neighbourhood":1000,"district":5000,"city":30000,"country":500000}` | Must be strictly increasing. City and country are placeholders. Street, neighbourhood and district are locked to 250 / 1,000 / 5,000 (D-77); any other table falls back to the defaults. |
 | `auto_mask_types` | JSON | `["name_text","house_number","plate","mail_or_document","screen"]` | High-severity Nano clue types masked in Standard mode. Must be a subset of `CLUE_TYPES` (D-13). |
 | `strict_mode_default` | BOOLEAN | `false` | Standard is the default (D-16) |
 | `fuzzy_threshold` | NUMBER | `0.8` | Vault-matcher similarity, clamped to 0.6–0.98 |

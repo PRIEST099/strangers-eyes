@@ -14,6 +14,7 @@
 		56481E8043998DADDD856A17 /* strings in Resources */ = {isa = PBXBuildFile; fileRef = 0245E645A8C092E2F90E6AAC /* strings */; };
 		5A8A3074F77F654F2D08D41E /* Strings.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF971138E8E97F332A0C93F7 /* Strings.swift */; };
 		731CC2F40764FF0598233DE6 /* StrangersEyesApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51379D8501083B55D1669F3C /* StrangersEyesApp.swift */; };
+		8A3B28D6DF2977F9D9BEE167 /* testvectors in Resources */ = {isa = PBXBuildFile; fileRef = 59896B03499FF23507846539 /* testvectors */; };
 		991A51865982BBEE0D15EB62 /* prompts in Resources */ = {isa = PBXBuildFile; fileRef = 8270A0AA799604672292571F /* prompts */; };
 		A09299289B0CC08498E79FDB /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 929507E282FD6939FBCC0DAB /* FirebaseAuth */; };
 		D652D24A5EBEB92BDD91546F /* FirebaseRemoteConfig in Frameworks */ = {isa = PBXBuildFile; productRef = 122C87FFD674776A6AB45614 /* FirebaseRemoteConfig */; };
@@ -34,6 +35,7 @@
 		0B636D70BF26DC725BFB9F2C /* StrangersEyesTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = StrangersEyesTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		404CB8537CD6A08E70C8620B /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		51379D8501083B55D1669F3C /* StrangersEyesApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StrangersEyesApp.swift; sourceTree = "<group>"; };
+		59896B03499FF23507846539 /* testvectors */ = {isa = PBXFileReference; lastKnownFileType = folder; name = testvectors; path = ../shared/testvectors; sourceTree = SOURCE_ROOT; };
 		8270A0AA799604672292571F /* prompts */ = {isa = PBXFileReference; lastKnownFileType = folder; name = prompts; path = ../shared/prompts; sourceTree = SOURCE_ROOT; };
 		AC2658BF9E9014B48154A6F2 /* StrangersEyes.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = StrangersEyes.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D8A748692F4D7F3447D89A93 /* BundleResourcesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundleResourcesTests.swift; sourceTree = "<group>"; };
@@ -60,6 +62,7 @@
 			children = (
 				8270A0AA799604672292571F /* prompts */,
 				0245E645A8C092E2F90E6AAC /* strings */,
+				59896B03499FF23507846539 /* testvectors */,
 			);
 			path = shared;
 			sourceTree = "<group>";
@@ -142,6 +145,7 @@
 			buildConfigurationList = D983DA6B0C4152AC87EC2F48 /* Build configuration list for PBXNativeTarget "StrangersEyesTests" */;
 			buildPhases = (
 				665289FF727B7D70CD9FA52E /* Sources */,
+				9B34270C17E0211376ACA6F9 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -213,6 +217,14 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		9B34270C17E0211376ACA6F9 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8A3B28D6DF2977F9D9BEE167 /* testvectors in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		F2DCDBE9CBEC888B58B6E270 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;

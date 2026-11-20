@@ -1,0 +1,1455 @@
+{
+  "description": "The SCR-06 vault matcher (D-38): SPEC SCR-06 step 3 as fixed by R-15, ARCH §8.4, AC-042, AC-110, AC-088. Single source of truth for web/src/tier0/fuzzy.test.ts and web/src/ai/vaultScan.test.ts (Vitest) and the iOS XCTest port (SPEC §10.7, AC-168). Each case has an `fn` naming the function under test, a human `name`, its inputs and `expect`.",
+  "conventions": [
+    "threshold is RC fuzzy_threshold (0.8, clamped 0.6-0.98) unless a case gives its own `threshold`.",
+    "fn match: `term` names an entry of `terms` (digit = kind is plate, house_number or phone). `mode` image = OCR words: `words` (one OCR line) or `lines` (a list of OCR lines, each a list of words). `mode` text = a prompt or echo string in `text`, split on whitespace into words. expect.match is whether the term occurs; expect.spans, when given, is the merged list of [first, last] word indices to mask, counted over all words in order.",
+    "Text kinds: normalise (NFKD, no diacritics, lowercase, apostrophes deleted, & -> and, other punctuation -> space), join runs of >= 2 single-character tokens on one OCR line, fold saint/street -> st, avenue -> ave, road -> rd, number -> no, then compare token skeletons (0->o, 1/l->i, 5->s, 8->b, only in tokens with a letter): similarity = 1 - levenshtein / maxLength >= threshold, and tokens of <= 3 characters must be equal. Multi-word labels: one distinctive token (>= 4 chars, not generic), or two consecutive label tokens (not two function words) against two consecutive tokens, or the whole label.",
+    "Digit kinds: letters and digits only, uppercase, no confusables; equal to one word or to adjacent words joined (up to 2, or up to the number of groups the value is written in, max 6), never a substring. Values of 1-2 characters match only a standalone word, and only in images; text scans skip them.",
+    "fn normalize / tokens / alnum: expect is the output. fn tokenSim: expect.sim within 0.0001. fn clampThreshold: input -> expect (null stands for any non-number).",
+    "fn termsOf: `vault` items -> expect, the list of [vaultId, text, digit] terms in order. Pins with an empty or generic label (GENERIC_PIN_LABELS) contribute no terms, aliases included (D-36, AC-088).",
+    "fn coords: coordinatesNearPins(text, pins, 1000 m): decimal numbers with >= 3 decimals, adjacent pairs tried as (lat, lng) and (lng, lat); expect is the pin's vaultId or null.",
+    "All values are synthetic: no real people, homes, schools or plates (CLAUDE.md invariant 9). The pins are in the open Atlantic.",
+    "Also (D-77): (1) the unjoined token sequence is scanned as well as the joined one, so a 1-2 letter label next to other single letters is not lost; (2) a single-token label of < 4 characters that is generic (or the fold of a generic word: st, rd, ave, no) never matches; (3) each word is also tried with a possessive 's removed (\"AVA'S\" -> \"AVA\"), so short names are caught; (4) Unicode format characters (soft hyphen, zero-width space) are deleted, not turned into a space; (5) digit kinds are matched on whole words AND on the sub-words punctuation separates (\"Tel:07700900123\", \"REG:SE1234\"), and the number of groups is counted on the normalised value; (6) each word is also read with format characters turned into spaces (a zero-width space may separate two words), and every reading counts; (7) the sub-word view of a digit value may join up to 6 sub-words (exact equality, never a substring)."
+  ],
+  "threshold": 0.8,
+  "terms": {
+    "lucas": {
+      "vaultId": "v-lucas",
+      "kind": "child_name",
+      "text": "Lucas"
+    },
+    "cgh": {
+      "vaultId": "v-cgh",
+      "kind": "employer",
+      "text": "City General Hospital"
+    },
+    "marys": {
+      "vaultId": "v-marys",
+      "kind": "school_name",
+      "text": "St Marys Primary"
+    },
+    "marysDotted": {
+      "vaultId": "v-marys2",
+      "kind": "school_name",
+      "text": "St. Mary's Primary"
+    },
+    "plate": {
+      "vaultId": "v-plate",
+      "kind": "plate",
+      "text": "SE 1234"
+    },
+    "house7": {
+      "vaultId": "v-house",
+      "kind": "house_number",
+      "text": "7"
+    },
+    "phone": {
+      "vaultId": "v-phone",
+      "kind": "phone",
+      "text": "+44 20 7946 0958"
+    },
+    "jo": {
+      "vaultId": "v-jo",
+      "kind": "child_name",
+      "text": "Jo"
+    },
+    "elmStreet": {
+      "vaultId": "v-elm",
+      "kind": "street_name",
+      "text": "Elm Street"
+    },
+    "zoe": {
+      "vaultId": "v-zoe",
+      "kind": "child_name",
+      "text": "Zoë"
+    },
+    "lantern": {
+      "vaultId": "v-lantern",
+      "kind": "employer",
+      "text": "Order of the Lantern"
+    },
+    "ava": {
+      "vaultId": "v-ava",
+      "kind": "child_name",
+      "text": "Ava"
+    },
+    "phoneDotted": {
+      "vaultId": "v-phone2",
+      "kind": "phone",
+      "text": "+44 (20) 7946.0958"
+    },
+    "phoneUk": {
+      "vaultId": "v-phone3",
+      "kind": "phone",
+      "text": "07700 900123"
+    }
+  },
+  "cases": [
+    {
+      "fn": "match",
+      "name": "AC-042 LUCAS",
+      "ac": "AC-042",
+      "term": "lucas",
+      "mode": "image",
+      "words": [
+        "LUCAS"
+      ],
+      "expect": {
+        "match": true,
+        "spans": [
+          [
+            0,
+            0
+          ]
+        ]
+      }
+    },
+    {
+      "fn": "match",
+      "name": "AC-042 Lucas",
+      "ac": "AC-042",
+      "term": "lucas",
+      "mode": "image",
+      "words": [
+        "Lucas"
+      ],
+      "expect": {
+        "match": true,
+        "spans": [
+          [
+            0,
+            0
+          ]
+        ]
+      }
+    },
+    {
+      "fn": "match",
+      "name": "AC-042 LUCA5 (confusable 5 -> s)",
+      "ac": "AC-042",
+      "term": "lucas",
+      "mode": "image",
+      "words": [
+        "LUCA5"
+      ],
+      "expect": {
+        "match": true,
+        "spans": [
+          [
+            0,
+            0
+          ]
+        ]
+      }
+    },
+    {
+      "fn": "match",
+      "name": "AC-042 L U C A S (spaced letters on one line)",
+      "ac": "AC-042",
+      "term": "lucas",
+      "mode": "image",
+      "words": [
+        "L",
+        "U",
+        "C",
+        "A",
+        "S"
+      ],
+      "expect": {
+        "match": true,
+        "spans": [
+          [
+            0,
+            4
+          ]
+        ]
+      }
+    },
+    {
+      "fn": "match",
+      "name": "AC-042 LUCAS'S (the possessive-stripped reading matches exactly, D-77)",
+      "ac": "AC-042",
+      "term": "lucas",
+      "mode": "image",
+      "words": [
+        "LUCAS'S"
+      ],
+      "expect": {
+        "match": true,
+        "spans": [
+          [
+            0,
+            0
+          ]
+        ]
+      }
+    },
+    {
+      "fn": "match",
+      "name": "LUC4S (one edit in five: 0.8)",
+      "term": "lucas",
+      "mode": "image",
+      "words": [
+        "LUC4S"
+      ],
+      "expect": {
+        "match": true
+      }
+    },
+    {
+      "fn": "match",
+      "name": "AC-042 LOCAL does not match",
+      "ac": "AC-042",
+      "term": "lucas",
+      "mode": "image",
+      "words": [
+        "LOCAL"
+      ],
+      "expect": {
+        "match": false
+      }
+    },
+    {
+      "fn": "match",
+      "name": "AC-042 LUCKY does not match",
+      "ac": "AC-042",
+      "term": "lucas",
+      "mode": "image",
+      "words": [
+        "LUCKY"
+      ],
+      "expect": {
+        "match": false
+      }
+    },
+    {
+      "fn": "match",
+      "name": "AC-042 PARIS does not match",
+      "ac": "AC-042",
+      "term": "lucas",
+      "mode": "image",
+      "words": [
+        "PARIS"
+      ],
+      "expect": {
+        "match": false
+      }
+    },
+    {
+      "fn": "match",
+      "name": "MAPLE does not match",
+      "term": "lucas",
+      "mode": "image",
+      "words": [
+        "MAPLE"
+      ],
+      "expect": {
+        "match": false
+      }
+    },
+    {
+      "fn": "match",
+      "name": "LUNCH does not match",
+      "term": "lucas",
+      "mode": "image",
+      "words": [
+        "LUNCH"
+      ],
+      "expect": {
+        "match": false
+      }
+    },
+    {
+      "fn": "match",
+      "name": "CASES does not match",
+      "term": "lucas",
+      "mode": "image",
+      "words": [
+        "CASES"
+      ],
+      "expect": {
+        "match": false
+      }
+    },
+    {
+      "fn": "match",
+      "name": "spaced letters split over two OCR lines are not joined",
+      "term": "lucas",
+      "mode": "image",
+      "lines": [
+        [
+          "L",
+          "U"
+        ],
+        [
+          "C",
+          "A",
+          "S"
+        ]
+      ],
+      "expect": {
+        "match": false
+      }
+    },
+    {
+      "fn": "match",
+      "name": "LUCAS among other words is masked alone",
+      "term": "lucas",
+      "mode": "image",
+      "words": [
+        "NAME",
+        "TAG:",
+        "LUCAS",
+        "CLASS",
+        "3"
+      ],
+      "expect": {
+        "match": true,
+        "spans": [
+          [
+            2,
+            2
+          ]
+        ]
+      }
+    },
+    {
+      "fn": "match",
+      "name": "text scan: L U C A S",
+      "term": "lucas",
+      "mode": "text",
+      "text": "the bag says L U C A S in red",
+      "expect": {
+        "match": true,
+        "spans": [
+          [
+            3,
+            7
+          ]
+        ]
+      }
+    },
+    {
+      "fn": "match",
+      "name": "text scan: Lucas inside a sentence",
+      "term": "lucas",
+      "mode": "text",
+      "text": "Where does Lucas go to school?",
+      "expect": {
+        "match": true,
+        "spans": [
+          [
+            2,
+            2
+          ]
+        ]
+      }
+    },
+    {
+      "fn": "match",
+      "name": "a stricter threshold rejects LUKAS (0.8 < 0.9)",
+      "term": "lucas",
+      "mode": "image",
+      "words": [
+        "LUKAS"
+      ],
+      "threshold": 0.9,
+      "expect": {
+        "match": false
+      }
+    },
+    {
+      "fn": "match",
+      "name": "AC-110 CITY GENERAL -> City General Hospital (two consecutive tokens)",
+      "ac": "AC-110",
+      "term": "cgh",
+      "mode": "image",
+      "words": [
+        "CITY",
+        "GENERAL"
+      ],
+      "expect": {
+        "match": true,
+        "spans": [
+          [
+            0,
+            1
+          ]
+        ]
+      }
+    },
+    {
+      "fn": "match",
+      "name": "AC-110 CITY alone does not match",
+      "ac": "AC-110",
+      "term": "cgh",
+      "mode": "image",
+      "words": [
+        "CITY"
+      ],
+      "expect": {
+        "match": false
+      }
+    },
+    {
+      "fn": "match",
+      "name": "HOSPITAL alone does not match",
+      "ac": "AC-110",
+      "term": "cgh",
+      "mode": "image",
+      "words": [
+        "HOSPITAL"
+      ],
+      "expect": {
+        "match": false
+      }
+    },
+    {
+      "fn": "match",
+      "name": "AC-110 HOSPITAL STAFF does not match",
+      "ac": "AC-110",
+      "term": "cgh",
+      "mode": "image",
+      "words": [
+        "HOSPITAL",
+        "STAFF"
+      ],
+      "expect": {
+        "match": false
+      }
+    },
+    {
+      "fn": "match",
+      "name": "the whole label is masked as one span",
+      "term": "cgh",
+      "mode": "image",
+      "words": [
+        "WELCOME",
+        "TO",
+        "CITY",
+        "GENERAL",
+        "HOSPITAL"
+      ],
+      "expect": {
+        "match": true,
+        "spans": [
+          [
+            2,
+            4
+          ]
+        ]
+      }
+    },
+    {
+      "fn": "match",
+      "name": "CITY GENERAL split over two OCR lines still matches (reading order)",
+      "term": "cgh",
+      "mode": "image",
+      "lines": [
+        [
+          "CITY"
+        ],
+        [
+          "GENERAL"
+        ]
+      ],
+      "expect": {
+        "match": true,
+        "spans": [
+          [
+            0,
+            1
+          ]
+        ]
+      }
+    },
+    {
+      "fn": "match",
+      "name": "text scan: city general in lower case",
+      "term": "cgh",
+      "mode": "text",
+      "text": "a lanyard from city general",
+      "expect": {
+        "match": true,
+        "spans": [
+          [
+            3,
+            4
+          ]
+        ]
+      }
+    },
+    {
+      "fn": "match",
+      "name": "text scan: a hospital (staff lanyard logo) does not match",
+      "term": "cgh",
+      "mode": "text",
+      "text": "A hospital (staff lanyard logo)",
+      "expect": {
+        "match": false
+      }
+    },
+    {
+      "fn": "match",
+      "name": "St. Mary's -> St Marys Primary",
+      "term": "marys",
+      "mode": "image",
+      "words": [
+        "St.",
+        "Mary's"
+      ],
+      "expect": {
+        "match": true,
+        "spans": [
+          [
+            0,
+            1
+          ]
+        ]
+      }
+    },
+    {
+      "fn": "match",
+      "name": "ST MARYS PRIMARY SCHOOL -> St. Mary's Primary",
+      "term": "marysDotted",
+      "mode": "image",
+      "words": [
+        "ST",
+        "MARYS",
+        "PRIMARY",
+        "SCHOOL"
+      ],
+      "expect": {
+        "match": true,
+        "spans": [
+          [
+            0,
+            2
+          ]
+        ]
+      }
+    },
+    {
+      "fn": "match",
+      "name": "text scan: Saint Mary's folds to st marys",
+      "term": "marys",
+      "mode": "text",
+      "text": "crest of Saint Mary's",
+      "expect": {
+        "match": true,
+        "spans": [
+          [
+            2,
+            3
+          ]
+        ]
+      }
+    },
+    {
+      "fn": "match",
+      "name": "PRIMARY SCHOOL does not match St Marys Primary (generic words only)",
+      "term": "marys",
+      "mode": "image",
+      "words": [
+        "PRIMARY",
+        "SCHOOL"
+      ],
+      "expect": {
+        "match": false
+      }
+    },
+    {
+      "fn": "match",
+      "name": "plate SE 1234 as two words",
+      "term": "plate",
+      "mode": "image",
+      "words": [
+        "SE",
+        "1234"
+      ],
+      "expect": {
+        "match": true,
+        "spans": [
+          [
+            0,
+            1
+          ]
+        ]
+      }
+    },
+    {
+      "fn": "match",
+      "name": "plate SE-1234 as one word",
+      "term": "plate",
+      "mode": "image",
+      "words": [
+        "SE-1234"
+      ],
+      "expect": {
+        "match": true,
+        "spans": [
+          [
+            0,
+            0
+          ]
+        ]
+      }
+    },
+    {
+      "fn": "match",
+      "name": "plate SE 1235 does not match",
+      "term": "plate",
+      "mode": "image",
+      "words": [
+        "SE",
+        "1235"
+      ],
+      "expect": {
+        "match": false
+      }
+    },
+    {
+      "fn": "match",
+      "name": "plate is never a substring: SE 12345",
+      "term": "plate",
+      "mode": "image",
+      "words": [
+        "SE",
+        "12345"
+      ],
+      "expect": {
+        "match": false
+      }
+    },
+    {
+      "fn": "match",
+      "name": "plate gets no confusable folding: 5E 1234",
+      "term": "plate",
+      "mode": "image",
+      "words": [
+        "5E",
+        "1234"
+      ],
+      "expect": {
+        "match": false
+      }
+    },
+    {
+      "fn": "match",
+      "name": "plate with a lone dash read as its own word",
+      "term": "plate",
+      "mode": "image",
+      "words": [
+        "SE",
+        "-",
+        "1234"
+      ],
+      "expect": {
+        "match": true,
+        "spans": [
+          [
+            0,
+            2
+          ]
+        ]
+      }
+    },
+    {
+      "fn": "match",
+      "name": "text scan: plate in a sentence",
+      "term": "plate",
+      "mode": "text",
+      "text": "a car with plate SE 1234, parked",
+      "expect": {
+        "match": true,
+        "spans": [
+          [
+            4,
+            5
+          ]
+        ]
+      }
+    },
+    {
+      "fn": "match",
+      "name": "house number 7 matches a standalone word in an image",
+      "term": "house7",
+      "mode": "image",
+      "words": [
+        "7"
+      ],
+      "expect": {
+        "match": true,
+        "spans": [
+          [
+            0,
+            0
+          ]
+        ]
+      }
+    },
+    {
+      "fn": "match",
+      "name": "house number 7 does not match 17",
+      "term": "house7",
+      "mode": "image",
+      "words": [
+        "17"
+      ],
+      "expect": {
+        "match": false
+      }
+    },
+    {
+      "fn": "match",
+      "name": "text scans skip digit values shorter than 3",
+      "term": "house7",
+      "mode": "text",
+      "text": "door number 7 is blue",
+      "expect": {
+        "match": false
+      }
+    },
+    {
+      "fn": "match",
+      "name": "a phone written in 4 groups may span 4 words",
+      "term": "phone",
+      "mode": "text",
+      "text": "call +44 20 7946 0958 today",
+      "expect": {
+        "match": true,
+        "spans": [
+          [
+            1,
+            4
+          ]
+        ]
+      }
+    },
+    {
+      "fn": "match",
+      "name": "a phone written without spaces",
+      "term": "phone",
+      "mode": "image",
+      "words": [
+        "+442079460958"
+      ],
+      "expect": {
+        "match": true
+      }
+    },
+    {
+      "fn": "match",
+      "name": "a 2-letter name needs an exact token: JO",
+      "term": "jo",
+      "mode": "image",
+      "words": [
+        "JO"
+      ],
+      "expect": {
+        "match": true
+      }
+    },
+    {
+      "fn": "match",
+      "name": "a 2-letter name: JOE does not match",
+      "term": "jo",
+      "mode": "image",
+      "words": [
+        "JOE"
+      ],
+      "expect": {
+        "match": false
+      }
+    },
+    {
+      "fn": "match",
+      "name": "a 2-letter name spaced: J O",
+      "term": "jo",
+      "mode": "image",
+      "words": [
+        "J",
+        "O"
+      ],
+      "expect": {
+        "match": true,
+        "spans": [
+          [
+            0,
+            1
+          ]
+        ]
+      }
+    },
+    {
+      "fn": "match",
+      "name": "Elm Street -> ELM ST. (fold street -> st)",
+      "term": "elmStreet",
+      "mode": "image",
+      "words": [
+        "ELM",
+        "ST."
+      ],
+      "expect": {
+        "match": true,
+        "spans": [
+          [
+            0,
+            1
+          ]
+        ]
+      }
+    },
+    {
+      "fn": "match",
+      "name": "Elm Street: ELM alone does not match (3 chars, not distinctive)",
+      "term": "elmStreet",
+      "mode": "image",
+      "words": [
+        "ELM"
+      ],
+      "expect": {
+        "match": false
+      }
+    },
+    {
+      "fn": "match",
+      "name": "Zoë -> ZOE (diacritics stripped)",
+      "term": "zoe",
+      "mode": "image",
+      "words": [
+        "ZOE"
+      ],
+      "expect": {
+        "match": true
+      }
+    },
+    {
+      "fn": "match",
+      "name": "a pair of function words never matches: 'of the'",
+      "term": "lantern",
+      "mode": "text",
+      "text": "the view of the bay",
+      "expect": {
+        "match": false
+      }
+    },
+    {
+      "fn": "match",
+      "name": "one distinctive token matches: lantern",
+      "term": "lantern",
+      "mode": "text",
+      "text": "a lantern on the door",
+      "expect": {
+        "match": true,
+        "spans": [
+          [
+            1,
+            1
+          ]
+        ]
+      }
+    },
+    {
+      "fn": "normalize",
+      "name": "apostrophe deleted",
+      "input": "Mary's",
+      "expect": "marys"
+    },
+    {
+      "fn": "normalize",
+      "name": "possessive kept as letters",
+      "input": "LUCAS'S",
+      "expect": "lucass"
+    },
+    {
+      "fn": "normalize",
+      "name": "curly apostrophe, period and hyphen",
+      "input": "St.-Mary’s   Primary",
+      "expect": "st marys primary"
+    },
+    {
+      "fn": "normalize",
+      "name": "diacritics",
+      "input": "Zoë Ångström",
+      "expect": "zoe angstrom"
+    },
+    {
+      "fn": "normalize",
+      "name": "ampersand",
+      "input": "Smith & Sons",
+      "expect": "smith and sons"
+    },
+    {
+      "fn": "normalize",
+      "name": "full-width characters (NFKD)",
+      "input": "ＳＥ－１２３４",
+      "expect": "se 1234"
+    },
+    {
+      "fn": "tokens",
+      "name": "word folds",
+      "input": "Saint Mary's Road",
+      "expect": [
+        "st",
+        "marys",
+        "rd"
+      ]
+    },
+    {
+      "fn": "tokens",
+      "name": "number and avenue folds",
+      "input": "Number 10 Avenue",
+      "expect": [
+        "no",
+        "10",
+        "ave"
+      ]
+    },
+    {
+      "fn": "tokens",
+      "name": "spaced letters joined",
+      "input": "L U C A S",
+      "expect": [
+        "lucas"
+      ]
+    },
+    {
+      "fn": "tokens",
+      "name": "single letters that are not adjacent stay apart",
+      "input": "A & B Street",
+      "expect": [
+        "a",
+        "and",
+        "b",
+        "st"
+      ]
+    },
+    {
+      "fn": "alnum",
+      "name": "plate",
+      "input": "se-1234",
+      "expect": "SE1234"
+    },
+    {
+      "fn": "alnum",
+      "name": "phone",
+      "input": "+44 (20) 7946.0958",
+      "expect": "442079460958"
+    },
+    {
+      "fn": "tokenSim",
+      "name": "confusable 5 -> s",
+      "a": "lucas",
+      "b": "luca5",
+      "expect": {
+        "sim": 1
+      }
+    },
+    {
+      "fn": "tokenSim",
+      "name": "one insertion in six",
+      "a": "lucas",
+      "b": "lucass",
+      "expect": {
+        "sim": 0.8333
+      }
+    },
+    {
+      "fn": "tokenSim",
+      "name": "local vs lucas (skeletons iocai / iucas)",
+      "a": "lucas",
+      "b": "local",
+      "expect": {
+        "sim": 0.6
+      }
+    },
+    {
+      "fn": "tokenSim",
+      "name": "a 4-character token needs an exact match at 0.8",
+      "a": "abcd",
+      "b": "abce",
+      "expect": {
+        "sim": 0.75
+      }
+    },
+    {
+      "fn": "tokenSim",
+      "name": "3-character tokens are exact or nothing",
+      "a": "joe",
+      "b": "jon",
+      "expect": {
+        "sim": 0
+      }
+    },
+    {
+      "fn": "tokenSim",
+      "name": "digits-only tokens are not folded",
+      "a": "1580",
+      "b": "isbo",
+      "expect": {
+        "sim": 0
+      }
+    },
+    {
+      "fn": "clampThreshold",
+      "name": "default value",
+      "input": 0.8,
+      "expect": 0.8
+    },
+    {
+      "fn": "clampThreshold",
+      "name": "below the floor",
+      "input": 0.5,
+      "expect": 0.6
+    },
+    {
+      "fn": "clampThreshold",
+      "name": "above the ceiling",
+      "input": 1,
+      "expect": 0.98
+    },
+    {
+      "fn": "clampThreshold",
+      "name": "not a number",
+      "input": null,
+      "expect": 0.8
+    },
+    {
+      "fn": "clampThreshold",
+      "name": "a numeric string is not a number",
+      "input": "0.7",
+      "expect": 0.8
+    },
+    {
+      "fn": "termsOf",
+      "name": "labels and aliases; digit kinds; generic and empty pin labels contribute nothing (AC-088)",
+      "vault": [
+        {
+          "id": "v1",
+          "kind": "child_name",
+          "label": "Lucas",
+          "aliases": [
+            "Luke",
+            "",
+            "  "
+          ]
+        },
+        {
+          "id": "v2",
+          "kind": "home_pin",
+          "label": "Home",
+          "aliases": [
+            "Maple Cottage"
+          ],
+          "pin": {
+            "lat": 0.5,
+            "lng": -30.5
+          }
+        },
+        {
+          "id": "v3",
+          "kind": "work_pin",
+          "label": "",
+          "aliases": [
+            "Depot"
+          ],
+          "pin": {
+            "lat": 0.6,
+            "lng": -30.6
+          }
+        },
+        {
+          "id": "v4",
+          "kind": "place_pin",
+          "label": "Riverside Depot",
+          "aliases": [],
+          "pin": {
+            "lat": 0.7,
+            "lng": -30.7
+          }
+        },
+        {
+          "id": "v5",
+          "kind": "plate",
+          "label": "SE 1234",
+          "aliases": []
+        },
+        {
+          "id": "v6",
+          "kind": "school_pin",
+          "label": "My Home",
+          "aliases": [],
+          "pin": {
+            "lat": 0.8,
+            "lng": -30.8
+          }
+        }
+      ],
+      "expect": [
+        [
+          "v1",
+          "Lucas",
+          false
+        ],
+        [
+          "v1",
+          "Luke",
+          false
+        ],
+        [
+          "v4",
+          "Riverside Depot",
+          false
+        ],
+        [
+          "v5",
+          "SE 1234",
+          true
+        ]
+      ]
+    },
+    {
+      "fn": "coords",
+      "name": "lat, lng within 1 km of a pin",
+      "text": "taken near 0.5040, -30.5040 at noon",
+      "pins": [
+        {
+          "vaultId": "p-home",
+          "kind": "home_pin",
+          "lat": 0.5,
+          "lng": -30.5
+        }
+      ],
+      "expect": "p-home"
+    },
+    {
+      "fn": "coords",
+      "name": "lng, lat order",
+      "text": "-30.5040 0.5040",
+      "pins": [
+        {
+          "vaultId": "p-home",
+          "kind": "home_pin",
+          "lat": 0.5,
+          "lng": -30.5
+        }
+      ],
+      "expect": "p-home"
+    },
+    {
+      "fn": "coords",
+      "name": "11 km away",
+      "text": "0.6000, -30.5000",
+      "pins": [
+        {
+          "vaultId": "p-home",
+          "kind": "home_pin",
+          "lat": 0.5,
+          "lng": -30.5
+        }
+      ],
+      "expect": null
+    },
+    {
+      "fn": "coords",
+      "name": "two decimals are not coordinates",
+      "text": "0.50, -30.50",
+      "pins": [
+        {
+          "vaultId": "p-home",
+          "kind": "home_pin",
+          "lat": 0.5,
+          "lng": -30.5
+        }
+      ],
+      "expect": null
+    },
+    {
+      "fn": "coords",
+      "name": "a single number is not a pair",
+      "text": "0.5000",
+      "pins": [
+        {
+          "vaultId": "p-home",
+          "kind": "home_pin",
+          "lat": 0.5,
+          "lng": -30.5
+        }
+      ],
+      "expect": null
+    },
+    {
+      "fn": "coords",
+      "name": "the second of two pins",
+      "text": "0.8000 -30.8001",
+      "pins": [
+        {
+          "vaultId": "p-home",
+          "kind": "home_pin",
+          "lat": 0.5,
+          "lng": -30.5
+        },
+        {
+          "vaultId": "p-work",
+          "kind": "work_pin",
+          "lat": 0.8,
+          "lng": -30.8
+        }
+      ],
+      "expect": "p-work"
+    },
+    {
+      "fn": "match",
+      "name": "D-77 phone glued to a label: Tel:07700900123",
+      "term": "phoneUk",
+      "mode": "image",
+      "words": [
+        "Tel:07700900123"
+      ],
+      "expect": {
+        "match": true,
+        "spans": [
+          [
+            0,
+            0
+          ]
+        ]
+      }
+    },
+    {
+      "fn": "match",
+      "name": "D-77 plate glued to a label: REG:SE1234",
+      "term": "plate",
+      "mode": "image",
+      "words": [
+        "REG:SE1234"
+      ],
+      "expect": {
+        "match": true,
+        "spans": [
+          [
+            0,
+            0
+          ]
+        ]
+      }
+    },
+    {
+      "fn": "match",
+      "name": "D-77 plate glued to a label in a prompt: REG:SE1234",
+      "term": "plate",
+      "mode": "text",
+      "text": "car REG:SE1234 parked",
+      "expect": {
+        "match": true
+      }
+    },
+    {
+      "fn": "match",
+      "name": "D-77 a different plate glued to a label: REG:SE1235",
+      "term": "plate",
+      "mode": "image",
+      "words": [
+        "REG:SE1235"
+      ],
+      "expect": {
+        "match": false
+      }
+    },
+    {
+      "fn": "match",
+      "name": "D-77 phone written with brackets and a dot matches the spaced form",
+      "term": "phoneDotted",
+      "mode": "text",
+      "text": "call +44 20 7946 0958 today",
+      "expect": {
+        "match": true
+      }
+    },
+    {
+      "fn": "match",
+      "name": "D-77 soft hyphen inside a name: Lu­cas",
+      "term": "lucas",
+      "mode": "text",
+      "text": "hello Lu­cas",
+      "expect": {
+        "match": true
+      }
+    },
+    {
+      "fn": "match",
+      "name": "D-77 zero-width space inside a name: Lu​cas",
+      "term": "lucas",
+      "mode": "image",
+      "words": [
+        "Lu​cas"
+      ],
+      "expect": {
+        "match": true,
+        "spans": [
+          [
+            0,
+            0
+          ]
+        ]
+      }
+    },
+    {
+      "fn": "match",
+      "name": "D-77 possessive of a short name: AVA'S",
+      "term": "ava",
+      "mode": "image",
+      "words": [
+        "AVA'S"
+      ],
+      "expect": {
+        "match": true,
+        "spans": [
+          [
+            0,
+            0
+          ]
+        ]
+      }
+    },
+    {
+      "fn": "match",
+      "name": "D-77 possessive of a short name in a prompt: Jo's school bag",
+      "term": "jo",
+      "mode": "text",
+      "text": "Jo's school bag",
+      "expect": {
+        "match": true
+      }
+    },
+    {
+      "fn": "match",
+      "name": "D-77 a longer word is not a short name: AVAST",
+      "term": "ava",
+      "mode": "image",
+      "words": [
+        "AVAST"
+      ],
+      "expect": {
+        "match": false
+      }
+    },
+    {
+      "fn": "match",
+      "name": "D-77 possessive stripping keeps St Mary's matching",
+      "term": "marysDotted",
+      "mode": "image",
+      "words": [
+        "ST",
+        "MARY'S",
+        "PRIMARY"
+      ],
+      "expect": {
+        "match": true
+      }
+    },
+    {
+      "fn": "match",
+      "name": "D-77 no substring via sub-words: REG:SE1234X",
+      "term": "plate",
+      "mode": "image",
+      "words": [
+        "REG:SE1234X"
+      ],
+      "expect": {
+        "match": false
+      }
+    },
+    {
+      "fn": "match",
+      "name": "D-77 no substring: XSE1234",
+      "term": "plate",
+      "mode": "image",
+      "words": [
+        "XSE1234"
+      ],
+      "expect": {
+        "match": false
+      }
+    },
+    {
+      "fn": "match",
+      "name": "D-77 no substring: SE12345",
+      "term": "plate",
+      "mode": "image",
+      "words": [
+        "SE12345"
+      ],
+      "expect": {
+        "match": false
+      }
+    },
+    {
+      "fn": "match",
+      "name": "D-77 punctuation is a space: SE-1234-5 holds the plate SE 1234",
+      "term": "plate",
+      "mode": "image",
+      "words": [
+        "SE-1234-5"
+      ],
+      "expect": {
+        "match": true,
+        "spans": [
+          [
+            0,
+            0
+          ]
+        ]
+      }
+    },
+    {
+      "fn": "match",
+      "name": "D-77 a 1-character value as a sub-word in an image: No.7",
+      "term": "house7",
+      "mode": "image",
+      "words": [
+        "No.7"
+      ],
+      "expect": {
+        "match": true,
+        "spans": [
+          [
+            0,
+            0
+          ]
+        ]
+      }
+    },
+    {
+      "fn": "match",
+      "name": "D-77 a 1-character value is skipped in text scans: No.7",
+      "term": "house7",
+      "mode": "text",
+      "text": "No.7",
+      "expect": {
+        "match": false
+      }
+    },
+    {
+      "fn": "match",
+      "name": "D-77 a zero-width space separating two words: Lucas​school trip",
+      "term": "lucas",
+      "mode": "text",
+      "text": "Lucas​school trip",
+      "expect": {
+        "match": true
+      }
+    },
+    {
+      "fn": "match",
+      "name": "D-77 a phone glued to a label, written in more groups: Tel:077-0090-0123",
+      "term": "phoneUk",
+      "mode": "text",
+      "text": "call Tel:077-0090-0123 now",
+      "expect": {
+        "match": true
+      }
+    }
+  ]
+}

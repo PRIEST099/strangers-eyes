@@ -48,6 +48,18 @@ How a flaw was found:
 | F-21 | Nov 20 | T-031 | self | minor | The scorer showed the primary model's runs again in the "secondary model" column when only one model ran, and called an incomplete set "FAIL" | Fixed both: no secondary when absent; an incomplete set reads "INCOMPLETE (n of 10)" |
 | F-22 | Nov 20 | T-027 | live | minor | XcodeGen's `optional: true` still adds a reference to a missing file, so the iOS build failed | Missing resources are added only once they exist (T-038, T-052) |
 | F-23 | Nov 20 | T-093 | review | major | With two cloud calls authorised at once, one call's request could consume the other's permit. An attack (S3) request could then take a Judge Mode (S4) permit and **skip the tripwire's vault-text scan** | Only one cloud call may sit between "authorised" and "sent" (milliseconds); an integration test proves the scan always runs (D-75) |
+| F-24 | Nov 20 | T-052 | self | major | `pinBand` could **under-report risk**: if the first hypothesis had NaN coordinates, every later (even street-level) hypothesis was ignored, so the pin showed "not located" | Hypotheses with a non-finite distance are skipped; 3 shared vectors lock it in |
+| F-25 | Nov 20 | T-052 | self | minor | The Remote Config band table was never validated: a non-increasing table would silently skip bands | `bandThresholdsOrDefault` falls back to the defaults for any invalid table |
+| F-26 | Nov 20 | T-052 | review | major | A Remote Config change to the street threshold would make the UI claim "within 250 m" about something 300 m away | The three named thresholds are locked; only city/country are tunable (D-77) |
+| F-27 | Nov 20 | T-052 | review | minor | The band-words test could skip itself silently, and the copy IDs were untyped, so a deleted string would show a raw ID to users | The test is unconditional; the IDs are typed, so a missing string fails the build |
+| F-28 | Nov 20 | T-087 | self | major | The strings file held only 11 of SPEC's 134 copy rows; the band code used 6 IDs that did not exist; explain templates could not be looked up | All copy added verbatim; tests check SPEC fidelity and that every ID used in web **and iOS** code exists |
+| F-29 | Nov 20 | T-087 | review | minor | Two Judge Mode coach texts were inaccurate (said face/text finding might run in the cloud; said the attack is always live) | Reworded to match SCR-17; all 7 coach texts await a human copy review |
+| F-30 | Nov 20 | T-087 | review | minor | Holes in the copy-ID audit: Swift IDs checked against the wrong table, hyphenated IDs skipped, two template loaders not pinned together | Each fixed with a test |
+| F-31 | Nov 20 | T-058 | review | major | A phone number or plate **glued to a label** ("Tel:07700900123", "REG:SE1234") was never matched against the vault | Digit values are also matched on punctuation-separated sub-words (up to 6), still never as substrings |
+| F-32 | Nov 20 | T-058 | review | major | The possessive of a **short child's name** ("AVA'S", "Jo's") never matched "Ava"/"Jo": the exact-match rule for ≤3-letter names met the deleted apostrophe | Each word is also read with a possessive 's removed (D-77) |
+| F-33 | Nov 20 | T-058 | review | minor | A soft hyphen or zero-width space inside a name split it in two; the first fix (delete them) then broke "Lucas[zero-width space]school" (found by the fix verifier) | Both readings are scanned, deleted and spaced; either one counts (fail closed) |
+| F-34 | Nov 20 | T-058 | review | minor | A phone stored as "+44 (20) 7946.0958" was compared with too small a window | Groups are counted on the normalised value |
+| F-35 | Nov 20 | T-058 | self | minor | The architecture sketch would have tripped on any "of the" pair, missed multi-group phones, and returned Object.prototype members for the token "constructor" | Function-word pairs are ignored, the digit window follows the value's groups, and folds use a Map |
 
 ---
 
@@ -108,6 +120,17 @@ How a flaw was found:
 - T-093: the local/cloud interlock and the single-flight device queue.
   - The skeptic reviewer **reproduced F-23**, a real hole in the last line of defence. It was fixed (D-75) and pinned with an integration test.
   - 195 tests green.
+
+### Nov 20 (afternoon): bands, copy and the vault matcher (T-052, T-087, T-058)
+- **How:** three builder agents in parallel, one skeptic per task, then a fix-verifier on the result (workflows `wf_1b4a803c-24f`, `wf_192cfaaa-008`).
+- **Built:**
+  - Distance bands, with the first shared test vectors, which the iOS tests also bundle.
+  - All of the product copy, checked against SPEC.
+  - THE vault matcher, used by OCR masking, the gate, the prompt scans, the tripwire and the echo scan.
+- **Flaws:** F-24 to F-35. Two would have hidden real risk from the user: F-24 (a broken hypothesis masked a street-level one) and F-32 (a short child's name in the possessive). Both are now pinned by shared vectors.
+- **Process note:** the fix-verifier caught a regression introduced by one of the fixes (F-33). The "verify the fix too" step paid for itself.
+- **Pending a human:** a copy review of the 7 Judge Mode coach texts.
+- 438 tests green.
 
 ### Nov 20: this log (D-76)
 - The user asked for one place that records every flaw and improvement. This file was backfilled from the session logs and review reports, and updating it is now part of the end-of-task protocol (TASKS §2, CLAUDE.md).

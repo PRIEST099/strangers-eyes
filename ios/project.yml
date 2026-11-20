@@ -53,7 +53,9 @@ targets:
     platform: iOS
     sources:
       - path: StrangersEyesTests
-      # ../shared/testvectors (folder resource, AC-168) is added when the vectors exist (same reason as above).
+      - path: ../shared/testvectors # cross-platform vectors, same files as Vitest (SPEC §10.7, AC-168; T-052)
+        type: folder
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.strangerseyes.app.tests
