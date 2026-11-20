@@ -7,7 +7,7 @@
 ## STATE (overwrite in place; never append here)
 - Today: Fri Nov 20 2026 (Day 2)
 - Now: **T-031 (started 08:20 GMT+2), paused**: free-tier daily quota for the adversary model is used up (see WIP).
-- Next: finish T-031 (needs the user's choice: paid tier now, or resume after the free quota resets), then T-034. Unblocked meanwhile: T-027 iOS skeleton, T-051, T-087, T-093, T-058.
+- Next: resume T-031 after 10:00 GMT+2 Sat Nov 21 (free quota reset; D-74; command in WIP), then T-034. Today: G1-independent tasks. Unblocked meanwhile: T-027 iOS skeleton, T-051, T-087, T-093, T-058.
 - Blocked: T-031 on the gemini-4-hydrogen free quota (20 requests/day/model); gemini-3.8-flash unusable today (503 timeouts).
 - Last green commit: see git log (T-031 WIP commit). `npm --prefix web run check` green: 169 tests, 45 boundary cases, prompt hashes (all drafts).
 - Checkpoints: G1 in progress (3/10 photos) | G1b – | G2 – | G3 – | slice Nov 22 – | loop Nov 24 – | hosted Nov 25 –
@@ -16,7 +16,7 @@
 
 ## WIP (exact next step if a task is half-done)
 - **T-031** (Nov 20): spike code, dry run, review (24 confirmed fixes applied) and 3 of 10 photos done on gemini-4-hydrogen; raw in `PRIV/raw/spike-2026-11-20T07-56-18-live.json`. Stopped by the circuit breaker on `429 You exceeded your current quota` = free tier **20 requests/day/model** (Cloud console → Gemini API → Quotas).
-  - To resume: `VITE_SPIKE=1 npm --prefix web run dev -- --port 5174 --strictPort`, then `node benchmark/spike/run-spike.mjs --mode live --primary hydrogen --models hydrogen --photos 03,04,05,06,07,08,09,10 --probe u12` (03 again: its run 3 and fix rerun failed on quota). Then `node benchmark/spike/score-spike.mjs <first raw> <resume raw>` (later file wins per photo) → `benchmark/spike/day1-adversary.md`.
+  - To resume **after 10:00 GMT+2 Sat Nov 21** (free quota reset, D-74): `VITE_SPIKE=1 npm --prefix web run dev -- --port 5174 --strictPort`, then `node benchmark/spike/run-spike.mjs --mode live --primary hydrogen --models hydrogen --adaptive --photos 04,05,06,07,08,09,10` (about 17–20 calls). s01–s03 G1 classifications are final already (s03: 2 of 2 located). If quota is left, or on Sun: s03's fix rerun (`--photos 03` repeats its runs) and `--probe u12`. Then `node benchmark/spike/score-spike.mjs PRIV/raw/spike-2026-11-20T07-56-18-live.json <resume raw>` (later file wins per photo) → `benchmark/spike/day1-adversary.md`.
   - Then: PROGRESS gate table, release advB.v1 (D-62), tick T-031, T-034 decision.
 
 ## USER pending (mirror of TASKS §4: ID · due · status)
@@ -62,7 +62,7 @@ Pre-gate facts already verified on Nov 19:
 Canonical IDs:
 - **D-01..D-39** are in SPEC §0.4 (read them there).
 - **AD-xx** are in ARCH §2. Where an AD duplicates a D, the D wins.
-- **The next free number is D-74.**
+- **The next free number is D-75.**
 
 - D-00 (Nov 19) Idea: **Strangers' Eyes**, chosen by a 29-agent tournament (score 8.18) and approved by the user. **Blindfill** is the Day-1 fallback, *only* with the user's OK if G1 fails (TASKS T-034). Health/Rwanda "Muganga" was rejected (the user wants a global idea).
 - D-00a (Nov 19) Platforms: Web PWA (primary) + iOS. **Android cut**: no physical device, and the emulator has no Nano.
@@ -171,6 +171,10 @@ Canonical IDs:
   - The first live calls showed `advB.v1.schema.json` is rejected by both models: `400 "too many states for serving"` (U-45). Text-only probes found the minimal fix: drop `maxItems` from the clues/hypotheses/inferences arrays (box_2d keeps 4/4). The caps (12/3/8) are enforced in `parseAdvB`. advB.v1 was still a draft, so the file changed in place (D-62).
   - gemini-3.8-flash was unusable on Nov 20: 503 "Deadline expired" after 180 s with any schema (even a one-field one) and 131 s with none. So T-031 runs pass B 3× per photo on **gemini-4-hydrogen** (primary), G1b reruns on hydrogen, and no flash A/B. Re-test flash later (T-034) before choosing the RC default.
   - Edited: shared/prompts/advB.v1.schema.json + manifest, ARCH §10.6, API-NOTES §1.7/§1.12/§6.3/§10 (U-45), TASKS T-031.
+- D-74 (user + Claude, Nov 20) **T-031 stays on the free tier; the third run is adaptive.**
+  - The user chose to wait for the free quota (20 requests/day/model, reset at midnight Pacific = 10:00 GMT+2) rather than enable the paid tier early. G1 therefore finishes on Sat Nov 21 (Sun Nov 22 if needed), and T-034 moves with it.
+  - To fit the budget, a photo's 3rd primary run is skipped when runs 1–2 already decide both classifications (2–0 or 0–2). The G1 counts are identical to 3 runs by construction; only informational metrics (any-of-3, spread) use fewer runs. The U-12 probe and the s03 fix rerun run only if quota remains.
+  - Edited: SPEC §0.3 (G1 method), TASKS T-031.
 
 ### Reconciliation items (T-022, done Nov 19)
 How T-022 ran:

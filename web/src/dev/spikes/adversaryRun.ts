@@ -109,6 +109,8 @@ export interface SpikeResult {
   config: typeof CONFIG;
   /** The 3-run adversary model (D-73). */
   primary: string;
+  /** D-74: skip a primary run that can no longer change the photo's G1 classification. */
+  adaptive: boolean;
   schemaProbes?: SchemaProbe[];
   models: string[];
   prompt: { id: string; released: boolean; files: Record<string, string> };
@@ -444,7 +446,7 @@ async function probeSchema(model: string, name: string, schema: J | null, counte
 }
 
 // ---------------------------------------------------------------- the run
-export interface RunOptions { mode: 'dry' | 'live' | 'schema'; photos: string[]; models: string[]; primary: string; probeU12: boolean; variants?: string[] }
+export interface RunOptions { mode: 'dry' | 'live' | 'schema'; photos: string[]; models: string[]; primary: string; probeU12: boolean; adaptive: boolean; variants?: string[] }
 
 export function parseOptions(search: string): RunOptions | null {
   const q = new URLSearchParams(search);
@@ -462,7 +464,7 @@ export function parseOptions(search: string): RunOptions | null {
   if (!models.includes(primary)) return null;
   models.sort((x, y) => (x === primary ? -1 : y === primary ? 1 : 0));
   const variants = q.get('variants')?.split(',').map((v) => v.trim()).filter(Boolean);
-  return { mode: auto, photos, models, primary, probeU12: q.get('probe') === 'u12', ...(variants?.length ? { variants } : {}) };
+  return { mode: auto, photos, models, primary, probeU12: q.get('probe') === 'u12', adaptive: q.get('adaptive') === '1', ...(variants?.length ? { variants } : {}) };
 }
 
 /** Planned cloud calls before resends and G1b reruns (the runner prints it before a live run). */
@@ -490,6 +492,19 @@ function claimStart(mode: RunOptions['mode']): string | null {
 
 const STATUS_OK_FOR_BAND: readonly RunStatus[] = ['ok', 'no_location_signal'];
 
+/**
+ * D-74: true when the remaining runs cannot change either G1 classification of a photo (SPEC §0.3):
+ * located = ≥ 2 of `total` runs with d ≤ 5 km; refused = ≥ 2 of `total` runs declined or blocked.
+ * An error run counts towards neither, so it never decides anything.
+ */
+export function g1Decided(done: readonly RunRec[], total: number): boolean {
+  const left = total - done.length;
+  const located = done.filter((r) => r.dKm !== null && r.dKm <= CONFIG.locatedKm).length;
+  const refused = done.filter((r) => r.status === 'declined' || r.status === 'blocked').length;
+  const decided = (k: number) => k >= 2 || k + left < 2;
+  return decided(located) && decided(refused);
+}
+
 export async function runSpike(opts: RunOptions): Promise<void> {
   const refusal = claimStart(opts.mode);
   if (refusal) {
@@ -506,7 +521,7 @@ export async function runSpike(opts: RunOptions): Promise<void> {
     const spec = MANIFEST.prompts[CONFIG.promptId];
     const files = [...(spec.system ?? []), ...(Array.isArray(spec.user) ? spec.user : [spec.user]), spec.schema ?? ''].filter(Boolean);
     const result: SpikeResult = {
-      spikeVersion: SPIKE_VERSION, startedAt: new Date().toISOString(), mode: opts.mode, config: CONFIG, models: opts.models, primary: opts.primary,
+      spikeVersion: SPIKE_VERSION, startedAt: new Date().toISOString(), mode: opts.mode, config: CONFIG, models: opts.models, primary: opts.primary, adaptive: opts.adaptive,
       prompt: { id: CONFIG.promptId, released: spec.released, files: Object.fromEntries(files.map((f) => [f, MANIFEST.files[f]])) },
       authUid: Boolean(await authReady), photos: [], probes: [], callsSent: 0,
     };
@@ -556,6 +571,10 @@ export async function runSpike(opts: RunOptions): Promise<void> {
         for (const model of opts.models) {
           const n = model === opts.primary ? CONFIG.primaryRuns : CONFIG.secondaryRuns;
           for (let i = 1; i <= n; i++) {
+            if (opts.adaptive && model === opts.primary && g1Decided(rec.runs.filter((r) => r.model === model && r.kind === 'before'), n)) {
+              log(`spike-${pid} ${model} #${i}: skipped (G1 classification already decided, D-74)`);
+              break;
+            }
             const r = await passB(model, b64, truth, 'before', i, log, counters);
             rec.runs.push(r);
             log(`spike-${pid} ${model} #${i}: ${r.status} ${(r.latencyMs / 1000).toFixed(1)}s band=${r.band ?? '-'} d≤5km=${r.dKm !== null && r.dKm <= CONFIG.locatedKm}${r.error ? ' err=' + r.error.slice(0, 80) : ''}`);

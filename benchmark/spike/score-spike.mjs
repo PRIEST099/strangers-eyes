@@ -210,6 +210,7 @@ export function report(meta, scored, agg) {
   L.push('');
   L.push(`- **Run:** ${meta.dates.join(', ')} · spike ${meta.spikeVersion} · prompt \`${meta.prompt.id}\` (${meta.prompt.released ? 'released' : 'draft at run time'}; files ${Object.entries(meta.prompt.files).map(([f, h]) => `${f} ${String(h).slice(0, 12)}`).join(', ')})`);
   L.push(`- **Config:** pass B only (\`responseJsonSchema\`, thinkingLevel ${meta.config.thinkingLevel}, maxOutputTokens ${meta.config.maxOutputTokens}, timeout ${meta.config.timeoutMs / 1000} s), cloud JPEG ≤ ${meta.config.cloudMaxPx} px q${meta.config.cloudJpegQuality}, ${meta.config.primaryRuns}× \`${P}\` (primary)${S ? ` + ${meta.config.secondaryRuns}× \`${S}\`` : ''} per photo, ≥ ${meta.config.minGapMs / 1000} s between calls. **Free tier** (D-67). Pass A (grounded) not run (D-70, T-039).`);
+  if (meta.adaptive || meta.anyAdaptive) L.push(`- **Adaptive runs (D-74):** a photo's 3rd run was skipped when runs 1–2 already decided both G1 classifications (2–0 or 0–2), so the gate counts are exactly what 3 runs would give. "Any of 3", spread and radius use the runs that were made.`);
   L.push(`- **Photos:** ${agg.n} of 10 scored${agg.skipped.length ? ` (skipped: ${agg.skipped.join(', ')})` : ''}. Openly licensed Wikimedia Commons photos of public places (D-71). Every frame sent was a fresh canvas re-encode with only APP0/APP2 segments and no GPS (checked per frame), faces masked at confidence ${meta.config.faceMinConfidence} and re-checked to zero.`);
   L.push('');
   L.push('## G1: adversary (pivot gate)');
@@ -365,7 +366,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
     return scorePhoto(p, t, roles);
   });
   const agg = aggregate(scored);
-  const meta = { ...metas[metas.length - 1], dates: [...new Set(metas.map((m) => m.startedAt.slice(0, 10)))], probes: metas.flatMap((m) => m.probes ?? []) };
+  const meta = { ...metas[metas.length - 1], anyAdaptive: metas.some((m) => m.adaptive), dates: [...new Set(metas.map((m) => m.startedAt.slice(0, 10)))], probes: metas.flatMap((m) => m.probes ?? []) };
   const text = report(meta, scored, agg);
   writeFileSync(OUT, text);
   console.log(text);

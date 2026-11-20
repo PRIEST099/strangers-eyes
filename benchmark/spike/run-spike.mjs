@@ -25,7 +25,7 @@ const ALL = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10'];
 const { values: a } = parseArgs({
   strict: true,
   options: {
-    mode: { type: 'string' }, photos: { type: 'string' }, models: { type: 'string' }, probe: { type: 'string' }, variants: { type: 'string' }, primary: { type: 'string', default: 'flash' },
+    mode: { type: 'string' }, photos: { type: 'string' }, models: { type: 'string' }, probe: { type: 'string' }, variants: { type: 'string' }, primary: { type: 'string', default: 'flash' }, adaptive: { type: 'boolean', default: false },
     port: { type: 'string', default: '5174' }, 'max-minutes': { type: 'string', default: '150' },
   },
 });
@@ -54,6 +54,7 @@ if (models) q.set('models', models.join(','));
 if (a.probe) q.set('probe', a.probe);
 if (a.variants) q.set('variants', a.variants);
 if (a.primary !== 'flash') q.set('primary', a.primary);
+if (a.adaptive) q.set('adaptive', '1');
 const url = `http://localhost:${port}/?${q}#/dev/adversary`;
 const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
 const stem = `${PRIV_RAW}/spike-${ts}-${mode}${photos ? '-p' + photos.join('_') : ''}`;
