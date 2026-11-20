@@ -1792,7 +1792,6 @@ Audit this photo (advB.v1). Return only the JSON object.
     },
     "clues": {
       "type": "array",
-      "maxItems": 12,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -1873,7 +1872,6 @@ Audit this photo (advB.v1). Return only the JSON object.
     },
     "hypotheses": {
       "type": "array",
-      "maxItems": 3,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -1938,7 +1936,6 @@ Audit this photo (advB.v1). Return only the JSON object.
     },
     "inferences": {
       "type": "array",
-      "maxItems": 8,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -2000,10 +1997,11 @@ Audit this photo (advB.v1). Return only the JSON object.
 
 **`parseAdvB`** runs after `JSON.parse`. Any failure raises `ParseError`.
 - Required fields and enum values are present.
-- IDs are unique within each array.
+- IDs are unique within each array: for a duplicate id the **first** item is kept and later ones are dropped (D-72; repairing beats discarding a whole attack). Implemented in `web/src/ai/parse.ts` (T-031).
 - `clue_ids` that point at missing clues are dropped.
 - Boxes: every `box_2d` value is clamped to 0..1000; corners are swapped if `ymin > ymax` or `xmin > xmax`; zero-area boxes, and the clues carrying them, are dropped.
 - Out-of-range lat/lng is dropped; `radius_km` is floored at 0.1. The schema states these bounds (and box_2d's 0–1000) only in `description`, to keep Gemini's constrained-decoding grammar small (U-45, D-64), so this code check is the real enforcement.
+- **Array caps live in code, not in the schema (D-73):** at most 12 clues, 3 hypotheses and 8 inferences; extras are dropped in order. `maxItems` on these arrays of objects made Gemini reject the schema (400 "too many states for serving", U-45). Only `box_2d` keeps `minItems`/`maxItems` 4.
 - If `audit_status ≠ ok`, all arrays are emptied.
 - `finishReason === MAX_TOKENS` sets the status to `truncated`.
 - Finally the gate scans the returned strings (§8.2 step 6).

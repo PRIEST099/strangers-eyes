@@ -9,7 +9,9 @@ const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 // Private photos live OUTSIDE the repo (CLAUDE.md). The dev server may read them only for unattended spikes.
 const PRIV = '/Users/mac/StrangersEyes-private';
 
-export default defineConfig(({ mode }) => ({
+export default defineConfig(({ mode }) => {
+  const spike = mode === 'development' && process.env.VITE_SPIKE === '1';
+  return {
   build: {
     // Emit the licenses of every bundled npm dependency (the minifier strips their comments). A non-dot path,
     // because firebase.json hosting ignores dotfiles. The self-hosted wasm/model notices ship as
@@ -24,9 +26,15 @@ export default defineConfig(({ mode }) => ({
       '@root': r('..'),
     },
   },
-  server: {
-    fs: { allow: ['..', ...(mode === 'development' && process.env.VITE_SPIKE === '1' ? [PRIV] : [])] },
-  },
+  server: spike
+    ? {
+        // Unattended spike runs only: serve PRIV/spike (not all of PRIV), and turn off HMR and the websocket so no
+        // hot update or forced reload can restart a live run and repeat cloud calls (T-031 review blockers).
+        fs: { allow: ['..', `${PRIV}/spike`] },
+        hmr: false,
+        ws: false,
+      }
+    : { fs: { allow: ['..'] } },
   plugins: [
     react(),
     tailwindcss(),
@@ -64,4 +72,5 @@ export default defineConfig(({ mode }) => ({
       },
     }),
   ],
-}));
+  };
+});

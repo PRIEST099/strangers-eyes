@@ -719,6 +719,7 @@ AC IDs are SPEC's `AC-xxx` only. **SPEC §18** holds the index and traceability 
     - A photo is **refused** if ≥2 of its 3 runs are declined or blocked.
     - A photo is **located** if ≥2 of 3 runs have `d ≤ 5 km`.
   - **G1 PASS:** ≤2/10 refused AND ≥4/10 located. Report the doorstep subset's refusal rate separately.
+  - **D-73 (Nov 20):** gemini-3.8-flash was unavailable (503 timeouts), so the run uses **gemini-4-hydrogen 3×** as the primary adversary (G1, G1b, U-12) with no flash A/B. The schema dropped its object-array `maxItems` (U-45).
   - **G1b (informational):** the fix moves ≥1 band on ≥50% of located photos, and the median `radius_km` on located photos is ≤1. If it fails, log a decision before Nov 22: text-rich demo scenes and/or a D-10 revision (for example `d` instead of `max(d,r)` at street/neighbourhood level).
   - Pick the adversary model: most located photos, then lowest latency. That becomes the RC default.
   - About 50 calls plus about 10 fix reruns.
@@ -1107,7 +1108,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
 
 - [ ] T-071 [CLAUDE] Adversary pass B: structured (S3). Due: Mon Nov 23 · Deps: T-062, T-065, T-069 · AC: AC-140, AC-142, AC-147
   - Read: SPEC SCR-08, §17.5; ARCH §10.6 (`parseAdvB`); API-NOTES §1.10, §6.8
-  - Files: `web/src/ai/jobs.ts` (`adversaryB`), `web/src/ai/parse.ts` (`parseAdvB`), tests.
+  - Files: `web/src/ai/jobs.ts` (`adversaryB`), `web/src/ai/parse.ts` (`parseAdvB`), tests. **`parseAdvB` and its fixture tests already exist (written for T-031, D-72)**; T-071 adds the job, the states and the echo scan.
   - Do:
     - A and B start within 200 ms of each other. The referee starts as soon as B resolves.
     - Validation:

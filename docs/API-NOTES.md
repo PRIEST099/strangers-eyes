@@ -296,7 +296,7 @@ await LanguageModel.availability({ expectedInputs: [{ type: 'text', languages: [
   | minLength/maxLength, min/maxProperties, uniqueItems, contains | not enforced |
   | minimum/maximum | enforcement not stated |
 
-  - Very large or deeply nested schemas get 400 INVALID_ARGUMENT.
+  - Very large or deeply nested schemas get 400 INVALID_ARGUMENT. Seen Nov 20: `maxItems` on arrays of objects alone triggers `400 "too many states for serving"` (U-45, D-73).
   - Output is **valid** JSON, not necessarily **correct** JSON, so always validate the values.
 
 ```ts
@@ -413,7 +413,7 @@ try {
 
 | Model | Billing required? | Released | Use |
 |---|---|---|---|
-| `gemini-3.8-flash` | no | Sep 2 | **Adversary default (S3).** Paid tier: $0.75/1M input, $3.75/1M output until 2026-12-31; prices double from 2027-01-01 |
+| `gemini-3.8-flash` | no | Sep 2 | **Was the adversary default (S3); unavailable on Nov 20 (T-031): 503 "Deadline expired" after 180 s with any response schema, and 131 s for a one-line answer without one. Spike A took 38.8 s for "pong". Re-test before relying on it (D-73).** Paid tier: $0.75/1M input, $3.75/1M output until 2026-12-31; prices double from 2027-01-01 |
 | `gemini-4-hydrogen` | no | Nov 12 | Used in Google's spatial and box samples. Default thinking HIGH (slower). A/B it against 3.8-flash in the Day-1 spike |
 | `gemini-3.5-flash-lite` | no | Jul 21 | Hybrid default cloud model; S2/S4 cloud side |
 | `gemini-4-neon` / `-carbon` / `-argon` | **yes** | Nov 18 / Nov 10 / Oct 13 | not needed |
@@ -1403,7 +1403,7 @@ See §1.8: 20 MB, downscaling above 3072², tokens, text before image, and `type
 
 - Firebase supports structured responses to multimodal requests `[VERIFIED: docs]` (https://firebase.google.com/docs/ai-logic/generate-structured-output). Keyword support: §1.7.
 - `responseJsonSchema` is typed `{ [key: string]: unknown }` `[VERIFIED: src]`. ARCH's `plain(schema)` helper returns `Record<string, unknown>`, which sidesteps `as const` readonly-type friction.
-- U-45: whether `ADV_B_SCHEMA` (nested, `additionalProperties:false`, `integer` items) is accepted at runtime without a 400 for size or nesting.
+- U-45 `[VERIFIED Nov 20, T-031]`: `maxItems` on arrays of objects is what breaks it. The grammar unrolls each allowed repetition, and with 12/3/8 caps both gemini-3.8-flash and gemini-4-hydrogen return `400 … too many states for serving`. Without those caps (keeping `additionalProperties:false`, the enums, `required` and box_2d's 4/4) hydrogen accepts it. **Rule: never put `maxItems` on an array of objects in a cloud schema; cap in code.**
 
 ### 6.4 Two-pass adversary (decided: D-02, AD-03)
 
@@ -1630,7 +1630,7 @@ Every row is still unconfirmed. **When** refers to the PLAN schedule:
 | U-40 | v3Nano accepted as "Gemini Nano 4" | relayed second-hand only; see U-03 | Day 1 (c) |
 | U-41 | AI-generated voiceover allowed | moot: the human records their own voice | none |
 | U-44 | Firebase `initialPrompts` with role `system` honoured at runtime on Nano | one call with and without it | optional |
-| U-45 | `ADV_B_SCHEMA` accepted by Gemini at runtime (no 400) | first pass-B call | Day 1 (b) |
+| ~~U-45~~ | `ADV_B_SCHEMA` accepted by Gemini at runtime (no 400) | **VERIFIED Nov 20 (T-031):** the original schema → `400 "The specified schema produces a constraint that has too many states for serving"` on gemini-3.8-flash **and** gemini-4-hydrogen. Removing `maxItems` from the three arrays of objects (clues 12, hypotheses 3, inferences 8) → accepted on hydrogen (box_2d keeps min/maxItems 4). Caps moved to `parseAdvB` (D-73) | done |
 | U-46 | debug-token flow for production builds on localhost (`vite preview`) | use a preview channel instead | none |
 | U-47 | reCAPTCHA thresholds on Spark (0.5 included?) | moot on Blaze; use the default | none |
 | U-48 | how the Gemini 4 tiers (hydrogen/neon/argon/carbon) differ | docs; not needed | none |

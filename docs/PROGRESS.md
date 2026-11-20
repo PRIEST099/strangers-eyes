@@ -6,16 +6,18 @@
 
 ## STATE (overwrite in place; never append here)
 - Today: Fri Nov 20 2026 (Day 2)
-- Now: none            <- lock: "T-0xx (started HH:MM)" while a task is in progress
-- Next: **T-050** app shell, then T-051, T-087, T-093, T-058 (no Firebase needed). T-025 is done (web + iOS apps registered). T-027 iOS skeleton now needs only T-013 (approve xcodegen). T-030 Spike A needs T-004 (AI Logic "Get started") and T-012 (web debug token).
-- Blocked: nothing on the CLAUDE side for T-024 and the other no-Firebase tasks. Firebase work (T-025+) waits for Sitting A.
-- Last green commit: `03cc1f4` (T-024). `npm --prefix web run check` and `npm run build` are green (45 boundary cases, prompt hashes with every prompt still a draft, 92 tests, check-dist ok).
-- Checkpoints: G1 – | G1b – | G2 – | G3 – | slice Nov 22 – | loop Nov 24 – | hosted Nov 25 –
-- Adversary model: gemini-3.8-flash (pending T-031 A/B against gemini-4-hydrogen) | iOS path: A (firebase-ios-sdk 12.19.3)
+- Now: **T-031 (started 08:20 GMT+2), paused**: free-tier daily quota for the adversary model is used up (see WIP).
+- Next: finish T-031 (needs the user's choice: paid tier now, or resume after the free quota resets), then T-034. Unblocked meanwhile: T-027 iOS skeleton, T-051, T-087, T-093, T-058.
+- Blocked: T-031 on the gemini-4-hydrogen free quota (20 requests/day/model); gemini-3.8-flash unusable today (503 timeouts).
+- Last green commit: see git log (T-031 WIP commit). `npm --prefix web run check` green: 169 tests, 45 boundary cases, prompt hashes (all drafts).
+- Checkpoints: G1 in progress (3/10 photos) | G1b – | G2 – | G3 – | slice Nov 22 – | loop Nov 24 – | hosted Nov 25 –
+- Adversary model: **gemini-4-hydrogen for T-031** (D-73; flash unusable on Nov 20; re-test flash before the RC default) | iOS path: A (firebase-ios-sdk 12.19.3)
 - Cuts applied: none
 
 ## WIP (exact next step if a task is half-done)
-none
+- **T-031** (Nov 20): spike code, dry run, review (24 confirmed fixes applied) and 3 of 10 photos done on gemini-4-hydrogen; raw in `PRIV/raw/spike-2026-11-20T07-56-18-live.json`. Stopped by the circuit breaker on `429 You exceeded your current quota` = free tier **20 requests/day/model** (Cloud console → Gemini API → Quotas).
+  - To resume: `VITE_SPIKE=1 npm --prefix web run dev -- --port 5174 --strictPort`, then `node benchmark/spike/run-spike.mjs --mode live --primary hydrogen --models hydrogen --photos 03,04,05,06,07,08,09,10 --probe u12` (03 again: its run 3 and fix rerun failed on quota). Then `node benchmark/spike/score-spike.mjs <first raw> <resume raw>` (later file wins per photo) → `benchmark/spike/day1-adversary.md`.
+  - Then: PROGRESS gate table, release advB.v1 (D-62), tick T-031, T-034 decision.
 
 ## USER pending (mirror of TASKS §4: ID · due · status)
 Sitting A is due tonight or Fri Nov 20 morning, in this order:
@@ -60,7 +62,7 @@ Pre-gate facts already verified on Nov 19:
 Canonical IDs:
 - **D-01..D-39** are in SPEC §0.4 (read them there).
 - **AD-xx** are in ARCH §2. Where an AD duplicates a D, the D wins.
-- **The next free number is D-72.**
+- **The next free number is D-74.**
 
 - D-00 (Nov 19) Idea: **Strangers' Eyes**, chosen by a 29-agent tournament (score 8.18) and approved by the user. **Blindfill** is the Day-1 fallback, *only* with the user's OK if G1 fails (TASKS T-034). Health/Rwanda "Muganga" was rejected (the user wants a global idea).
 - D-00a (Nov 19) Platforms: Web PWA (primary) + iOS. **Android cut**: no physical device, and the emulator has no Nano.
@@ -164,6 +166,11 @@ Canonical IDs:
   - They are stored only in PRIV with `SOURCES.md` attribution, and are never used as Judge or demo samples (those stay builder-owned).
   - Caveat: well-known open images may be in model training data, so such results are reported with that caveat.
   - Edited: CLAUDE.md invariant 9, TASKS T-008/T-031.
+- D-72 (Claude, Nov 20) **`parseAdvB` repairs duplicate ids instead of rejecting the attack.** For a duplicate id inside clues, hypotheses or inferences, the first item is kept and later ones are dropped (recorded in `repairs`). Missing fields or bad enum values still raise `ParseError` (state `unreadable`). Why: ARCH §10.6 said both "IDs are unique" and "any failure raises ParseError", while the `bad_ids` fixture README expects the parser to keep going and drop dangling `clue_ids`; discarding a whole attack for one repeated id would show the user nothing. Edited: ARCH §10.6, TASKS T-071.
+- D-73 (Nov 20; schema change by Claude, model switch approved by the user: "keep going, use hydrogen if flash stays down") **Pass-B schema without array caps; gemini-4-hydrogen is the T-031 adversary.**
+  - The first live calls showed `advB.v1.schema.json` is rejected by both models: `400 "too many states for serving"` (U-45). Text-only probes found the minimal fix: drop `maxItems` from the clues/hypotheses/inferences arrays (box_2d keeps 4/4). The caps (12/3/8) are enforced in `parseAdvB`. advB.v1 was still a draft, so the file changed in place (D-62).
+  - gemini-3.8-flash was unusable on Nov 20: 503 "Deadline expired" after 180 s with any schema (even a one-field one) and 131 s with none. So T-031 runs pass B 3× per photo on **gemini-4-hydrogen** (primary), G1b reruns on hydrogen, and no flash A/B. Re-test flash later (T-034) before choosing the RC default.
+  - Edited: shared/prompts/advB.v1.schema.json + manifest, ARCH §10.6, API-NOTES §1.7/§1.12/§6.3/§10 (U-45), TASKS T-031.
 
 ### Reconciliation items (T-022, done Nov 19)
 How T-022 ran:
@@ -418,4 +425,20 @@ How T-022 ran:
   - The SDK printed one auto-generated (never registered) debug token in the console. It logs only self-generated tokens (API-NOTES §2.2), so the user's token was never printed.
   - Latency: 38.8 s for a trivial prompt on gemini-3.8-flash (thinking MEDIUM by default) is high. Watch it in T-031 against pass B's 60 s timeout.
 - **Next:** **T-031** (pass-B go/no-go, G1/G1b; photos are in PRIV), T-027 iOS skeleton, T-051, T-087.
+
+### 2026-11-20: T-031 Spike B (adversary G1/G1b): built, reviewed, partly run
+- **Built:**
+  - `web/src/ai/parse.ts` (`parseAdvB` + 15 tests, D-72).
+  - DEV-only `#/dev/adversary` (`web/src/dev/spikes/adversaryRun.ts`, `AdversarySpike.tsx`).
+  - Headless CDP runner `benchmark/spike/run-spike.mjs`; scorer `benchmark/spike/score-spike.mjs` (independent haversine cross-check against core/geo, self-test, coordinate guard).
+  - Vite spike mode serves only `PRIV/spike`, with HMR and the websocket off.
+- **Dry run:** all 10 cloud frames APP0+APP2 only, no GPS (6 sources had GPS, all stripped); 2 false-positive faces masked and re-checked to 0; contact sheet checked by eye.
+- **Review workflow** (4 lenses + skeptics, wf_6b8875f3-030): 35 findings, 24 confirmed, all fixed. Most important: a reload or HMR could restart a live run and repeat cloud calls (now: autorun stripped from the URL, a sessionStorage one-shot flag, a globalThis guard, and the runner kills Chrome on a second navigation). Also: no resend after a timeout or after a response; 1 resend max; partial saved on every call; never overwrite raw files; failed G1b reruns never count as "moved"; G1b headline vs the median before-band.
+- **Live findings:**
+  - U-45: the original schema got `400 too many states` on both models; dropping the object-array `maxItems` fixed it (D-73).
+  - gemini-3.8-flash was unusable (503 "Deadline expired" at 180 s with any schema).
+  - Free tier = **20 requests/day/model** for gemini-4-hydrogen and the 3.x flash models; 500/day for the flash-lite models.
+  - Hydrogen pass B took 88–179 s per call with an image; about 3k prompt, 0.6–1.2k output and 1.2–3k thinking tokens.
+- **Partial result (3 of 10 photos, hydrogen):** 0 refused; 2 located (s02 shopfront and s03 doorstep entrance, both at street level), 1 not located (s01). The s02 fix (6 masks) moved the band from street to country; the s03 fix rerun failed on quota.
+- **Next:** the user chooses: paid tier now, or resume after the quota reset (see WIP).
 

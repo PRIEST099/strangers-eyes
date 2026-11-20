@@ -20,7 +20,6 @@
     },
     "clues": {
       "type": "array",
-      "maxItems": 12,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -101,7 +100,6 @@
     },
     "hypotheses": {
       "type": "array",
-      "maxItems": 3,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -166,7 +164,6 @@
     },
     "inferences": {
       "type": "array",
-      "maxItems": 8,
       "items": {
         "type": "object",
         "additionalProperties": false,
