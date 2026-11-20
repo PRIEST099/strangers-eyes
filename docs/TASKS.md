@@ -1819,6 +1819,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
 
 - [ ] T-188 [CLAUDE] Pre-submit verification. Due: Mon Nov 30 09:00 · Deps: T-170, T-187 · AC: AC-360, AC-361, AC-362, AC-363, AC-364
   - Do: check every **Definition of Done** item and record each result in PROGRESS. Check that the hosted build matches HEAD; rebuild and redeploy if not.
+  - Also (from T-030): in the Console under App Check → Apps → web/iOS → Manage debug tokens, **delete every debug token** (the user does the Console step). Confirm `web/.env.development.local` and `ios/.appcheck-debug-token` are untracked (`git ls-files` shows nothing).
   - Verify: every item passes, or the user explicitly accepts the gap.
 
 - [ ] T-189 [CLAUDE] Tag and freeze. Due: Mon Nov 30 10:00 · Deps: T-188
