@@ -10,8 +10,6 @@
 - Next:
   - Resume T-031 after 10:00 GMT+2 Sat Nov 21 (free quota reset; D-74; command in WIP), then T-034.
   - Meanwhile (G1-independent):
-    - T-057: OCR with adaptive binarisation (D-81);
-    - T-056: faces;
     - T-060: routing policy (creates `remoteconfig.template.json`);
     - T-061: capabilities;
     - T-055: vault UI;
@@ -32,6 +30,7 @@
 Sitting A is due tonight or Fri Nov 20 morning, in this order:
 - T-007 Chrome on-device AI flag; connect Claude-in-Chrome · Fri Nov 20 · open
 - T-015 (optional) Discord questions · Fri Nov 20 · open
+- **New, from T-057:** cross-browser selftest. Either turn on Safari → Settings → Developer → "Allow remote automation" so Claude can run `#/dev/selftest` in Safari, or open http://localhost:5174/#/dev/selftest in Safari yourself (Claude starts the dev server). Firefox is not installed: install it, or decide to skip Firefox · Sun Nov 22 · open
 - **New, from T-037:** a face or mannequin test image for the face-recall spike (U-31), kept in `PRIV/test/`, never committed. It must be a builder-owned photo of a consenting adult, a mannequin, or a synthetic face · Sat Nov 21 · open
 - Copy review of the 7 `copy.judge.coach.*` texts (D-77) · before T-105 · open
 
@@ -98,7 +97,7 @@ Test image: a white "LUCAS" tag with dark letters, tilted 4°, composited in mem
 Canonical IDs:
 - **D-01..D-39** are in SPEC §0.4 (read them there).
 - **AD-xx** are in ARCH §2. Where an AD duplicates a D, the D wins.
-- **The next free number is D-83.**
+- **The next free number is D-84.**
 
 - D-00 (Nov 19) Idea: **Strangers' Eyes**, chosen by a 29-agent tournament (score 8.18) and approved by the user. **Blindfill** is the Day-1 fallback, *only* with the user's OK if G1 fails (TASKS T-034). Health/Rwanda "Muganga" was rejected (the user wants a global idea).
 - D-00a (Nov 19) Platforms: Web PWA (primary) + iOS. **Android cut**: no physical device, and the emulator has no Nano.
@@ -269,7 +268,7 @@ Canonical IDs:
 - D-81 (Claude, Nov 20; T-037 finding, applies to T-057) **Tier-0 OCR uses adaptive binarisation.**
   - Tesseract's default global Otsu found the demo name tag in only 14/30 realistic placements on street photos. Making the tag bigger made it worse.
   - Tier-0 OCR therefore sets `thresholding_method: '1'` (Leptonica adaptive Otsu, 26/30) once.
-  - Wherever a missed word fails open (the vault-word match, the gate's OCR of the outgoing frame, the export check), a second Sauvola pass (`'2'`) runs and the words are unioned (30/30). This costs about +1 s per check on the M1.
+  - Wherever a missed word fails open (the vault-word match, the gate's OCR of the outgoing frame, the export check), a second Sauvola pass (`'2'`) runs and the words are unioned. The 30/30 in the spike table is a four-pass union; the two-pass union as built finds **29/30** (D-83).
   - The prop design stays: plain dark letters on a light tag, no border hugging the letters.
   - Edited: API-NOTES §5.2 (verified numbers); TASKS T-037 and T-057; PROGRESS "T-037 prop OCR".
 
@@ -277,6 +276,15 @@ Canonical IDs:
   - The user approved publishing the walking-skeleton site ("Yes, deploy it"). It is deployed `--only hosting`: Auth was deployed on Nov 20 (T-030), and Remote Config waits for `remoteconfig.template.json` (T-060/T-102).
   - The `** → /index.html` rewrite is removed. Routes are hash-based (ARCH §3.4), so it served no route; it only turned a missing file (e.g. a wrong `/vendor/…` path) into `200 text/html` with a 1-hour cache. A missing file is now a real 404, and the service worker's `navigateFallback` still covers offline navigations.
   - Edited: `firebase.json`, ARCH §15.4, RUNBOOK §4.2 and §4.6 (results), API-NOTES U-10/U-20/U-21.
+
+- D-83 (Claude, Nov 21; T-056/T-057 and their review) **Tier-0 OCR and face details:**
+  - **OCR passes:** binarisation is a per-job `recognize` option (adaptive Otsu, then Sauvola), not a worker-wide setting.
+  - **Union by line:** the Sauvola pass is unioned **by line**. A line is added whole unless every word on it is a re-reading, so a sequence only one pass read in full (spaced letters, a plate, a phone) stays intact.
+  - **Recall:** measured with the real code on 30 placements, **29/30** (the adaptive pass alone 26/30). The one miss is a 32 px-cap tag on the busiest background. **Prop rule for T-010:** letters at least 48 px tall on the 2048 px master, i.e. about 3% of the photo's height. Pre-screen and the gate's own OCR are further chances.
+  - **OCR lifetime:** start ≤ 120 s through an `errorHandler` (tesseract.js 7 never settles a failed language load), each pass ≤ 30 s, a failed worker replaced, a drop never waiting on a pending start. An empty canvas is refused, one PNG snapshot serves both passes, and the downscale canvas is freed. RC `ocr_max_px` is clamped 800–2048.
+  - **Faces:** one detector per model at the RC floor 0.2; `face_min_confidence` (clamped 0.2–0.6) is applied to the scores in code. This gives the same faces and scores; boxes may shift slightly (weighted NMS). Boxes are clamped and rounded outward.
+  - **Timing:** in the Browser pane, OCR timings swung 4–5× with the app's own CPU load. AC-064's 3 s Tier-0 budget is measured in the user's Chrome at T-085.
+  - Edited: ARCH §11.2, the RC table and §18; API-NOTES §5.1–5.2; TASKS T-056, T-057 and T-037.
 
 ### Reconciliation items (T-022, done Nov 19)
 How T-022 ran:
@@ -603,4 +611,18 @@ How T-022 ran:
   - `LanguageModel` exists without an origin-trial token (unavailable in the Browser pane, which has no model).
 - **Found live:** a missing file returned `200 text/html` → rewrite removed (D-82, DEVLOG F-75).
 - **Open within T-038:** Remote Config deploy (T-060), hosted AI call (T-011), Nano in the user's Chrome (T-007), cold Tier-0 load (T-056/T-057).
+
+### 2026-11-21 (after midnight): T-057 OCR and T-056 faces; D-83
+- **T-057:**
+  - `tier0/ocr.ts` rewritten: `ocrMaster`, two passes per D-81 as per-job options, line union, serialised jobs, warm while Check is open (`useOcrWarm`, a dynamic import, so tesseract.js stays out of the initial bundle), 5 min idle drop, and start/pass timeouts.
+  - `tier0/ocrMerge.ts` added.
+  - Selftest `ocrMaster` step: LUCAS 42 is found, and its box is in master pixels.
+  - Real-photo matrix: 29/30.
+- **T-056:** `tier0/faces.ts`: detector at the floor, threshold in code, clamped outward boxes, retry after a failed load.
+- **Review:** one independent reviewer found 2 majors (DEVLOG F-76 line-union loss, F-77 createWorker hang) and minors. All are fixed, with mutation-checked tests.
+- check: 682 tests; build ok (the OCR chunk is lazy, 18 KB).
+- **Open:**
+  - T-057 cross-browser selftest (Safari needs remote automation or the user; Firefox is not installed).
+  - T-056 recall needs a face or mannequin image (U-31).
+  - AC-064 timing in the user's Chrome (T-085).
 

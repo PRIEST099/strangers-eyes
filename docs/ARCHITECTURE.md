@@ -2245,8 +2245,12 @@ Every box (faces, OCR, Nano, Gemini) is computed on, or mapped onto, the **same*
 ### 11.2 Tier-0 (`tier0/tier0.ts`)
 
 1. Decode and orient. If `createImageBitmap` fails (HEIC in desktop Chrome [UNVERIFIED: U-32]), show `copy.import.heic`. Size limits are 30 MB and 40 MP (`copy.import.tooLarge`).
-2. **Faces:** MediaPipe full-range on the CPU delegate, `minDetectionConfidence = face_min_confidence` (0.3). Each face becomes a clue `{type:'face', removable:true, masked:true, maskReason:'face'}`.
-3. **OCR:** on a canvas downscaled from the master to `ocr_max_px` (1600, SPEC D-20; never upscaled), `recognize(canvas, {}, {blocks:true, text:true})`, with `PSM.SPARSE_TEXT` set once. Word boxes are mapped back to master pixels.
+2. **Faces:** MediaPipe full-range on the CPU delegate. One detector per model is built at the RC floor (0.2), and RC `face_min_confidence` (0.3, clamped 0.2–0.6) is applied to the scores in code (D-83): the same faces and scores as a detector built at the threshold, while boxes may shift slightly (weighted NMS). Boxes are clamped to the image and rounded outward. Each face becomes a clue `{type:'face', removable:true, masked:true, maskReason:'face'}`.
+3. **OCR (`ocrMaster`, T-057):** on a canvas downscaled from the master to `ocr_max_px` (1600, SPEC D-20; never upscaled), with `PSM.SPARSE_TEXT` set once.
+   - Two passes, each with `thresholding_method` as a per-job `recognize` option: Leptonica adaptive Otsu, then Sauvola. Sauvola's lines are unioned in whole unless every word on them is a re-reading (D-81, D-83).
+   - The canvas is snapshotted to a PNG once for both passes.
+   - Word boxes are mapped back to master pixels, rounded outward.
+   - Start-up and each pass have timeouts, and a failed worker is replaced.
 4. **Regex (`tier0/regex.ts`)**, conservative and tuned on the demo photos:
    - **phone:** ≥ 7 digits with separators (7–15 digits allowing `+ - . space`);
    - **plate:** a 5–8 character token mixing letters and digits (≥ 2 of each), OCR confidence ≥ 60;
@@ -2462,7 +2466,7 @@ All values are strings: booleans are `"true"`/`"false"` and JSON is stringified.
 | `mask_pad_ratio` | NUMBER | `0.15` | Total padding as a fraction of box size. Clamped 0–0.5; minimum 4 px |
 | `cloud_image_max_px` | NUMBER | `1536` | Clamped 768–2048 |
 | `nano_image_max_px` | NUMBER | `768` | |
-| `ocr_max_px` | NUMBER | `1600` | Longest side of the Tier-0 OCR canvas: a downscale of the ≤ 2048 master, never upscaled (SPEC D-20, SCR-06). The gate and the consent dry run OCR the outgoing JPEG at its own size instead |
+| `ocr_max_px` | NUMBER | `1600` | Longest side of the Tier-0 OCR canvas: a downscale of the ≤ 2048 master, never upscaled (SPEC D-20, SCR-06). Clamped 800–2048 (D-83). The gate and the consent dry run OCR the outgoing JPEG at its own size instead |
 | `timeouts_ms` | JSON | `{"advA":90000,"advB":60000,"explain":20000,"deviceImage":60000,"deviceText":30000}` | Per-job timeouts |
 | `judge_mode_enabled` | BOOLEAN | `true` | |
 | `judge_cached_fallback` | BOOLEAN | `true` | AD-09 |
@@ -2900,7 +2904,7 @@ Chrome's hardware floor for the built-in model is 16 GB RAM or more than 4 GB of
 |---|---|---|
 | JS heap, steady | ≤ 300 MB | Pixels live in canvases owned by `pipeline.ts`, never in React state |
 | Image canvases | ≤ 3 full-size alive (master, masked, export), each ≤ 2048 px (≤ 16 MB RGBA) | Call `ImageBitmap.close()`; set `canvas.width = 0` after use |
-| Tesseract | 1 worker (≈ 60–120 MB [UNVERIFIED]) | Module singleton; terminated after 5 min idle away from the Check screen |
+| Tesseract | 1 worker (≈ 60–120 MB [UNVERIFIED]) | Module singleton, warmed while Check is open (`retainOcr`), terminated after 5 min idle once nothing holds it; start ≤ 120 s, each pass ≤ 30 s, a failed worker replaced (T-057). The OCR downscale canvas is freed after use |
 | MediaPipe | 1 detector, CPU (≈ 30–60 MB [UNVERIFIED]) | Singleton. It uses WebGL internally even on CPU. Its `console.error` "XNNPACK" INFO line is harmless |
 | Nano | one session at a time | `deviceQueue`. Never at the same time as Simulator FM |
 | Firestore | 0 until the Atlas opens | Dynamic import |
@@ -2911,7 +2915,7 @@ Chrome's hardware floor for the built-in model is 16 GB RAM or more than 4 GB of
 |---|---|---|
 | Decode and orient (12 MP → 2048) | ≤ 300 ms | none |
 | Faces (CPU, full-range) | ≤ 200 ms | 100–180 ms for create + detect, headless |
-| OCR at `ocr_max_px` 1600 (warm) | ≤ 400 ms | 183 ms at 2000×1500 on synthetic text; cold start ≈ 300 ms |
+| OCR at `ocr_max_px` 1600 (warm), two passes (D-81/D-83) | ≤ 800 ms | 183 ms per pass at 2000×1500 on synthetic text (Day 1); 405 ms for both passes on the 2048×1024 selftest canvas; 2.8–2.9 s on busy street photos in a hidden, throttled pane, which is an upper bound. Measure in the foreground at T-085 (AC-064); cold start ≈ 300 ms plus the ~7 MB download |
 | **Tier-0 total** | **≤ 1.5 s** (SPEC AC-064 allows ≤ 3 s) | none |
 | Preflight (faces + OCR at 1536) | ≤ 1 s | SPEC AC-046 allows ≤ 1.5 s |
 | Nano pre-screen (image) | ≤ 10 s | [UNVERIFIED] |

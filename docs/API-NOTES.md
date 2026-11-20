@@ -1176,6 +1176,8 @@ export async function detectFaces(img: HTMLImageElement | HTMLCanvasElement | Im
 
 Sources: https://developers.google.com/edge/mediapipe/solutions/vision/face_detector/web_js, https://developers.google.com/edge/mediapipe/solutions/vision/face_detector
 
+- **One detector at the floor, threshold in code** (T-056, D-83). MediaPipe rejects anchors with `score < minDetectionConfidence` before NMS, and a lower score never suppresses a higher one. So a detector built at 0.2, filtered at `score ≥ t`, gives the same faces and scores as one built at `t`. The face graph uses WEIGHTED NMS, so the boxes may differ slightly.
+
 ### 5.2 Tesseract.js 7 (Apache-2.0)
 
 - **API:** `createWorker(langs='eng', oem=OEM.LSTM_ONLY (1), options?, config?)`; `worker.recognize(image, options?, output?, jobId?)`; `worker.setParameters({...})`.
@@ -1196,6 +1198,12 @@ Sources: https://developers.google.com/edge/mediapipe/solutions/vision/face_dete
   - PSM 3 (auto): 0/30. 2×2 tiles (10% overlap) with Otsu: 13/30. Otsu on an 800 px downscale: 7/30.
   - Cost per 1600 px pass, measured in a hidden (throttled) pane, so pessimistic: Otsu ~0.6 s, adaptive Otsu ~1.2 s, Sauvola ~1.0 s.
   - Set it with `await worker.setParameters({ thresholding_method: '1' })` (string value). Used by T-057 (D-81).
+- **`createWorker` can hang forever** `[VERIFIED Nov 21, T-057 review: tesseract.js 7.0.0 src/createWorker.js]`.
+  - Its promise rejects only when the `load` action fails.
+  - A failed `loadLanguage` (a traineddata fetch error) or `initialize` (a corrupt cache) is reported only to `options.errorHandler`. Without a handler it is thrown as an uncaught Error, and the promise **never settles**.
+  - The app passes an `errorHandler` that fails the start, races the start against a 120 s timeout, and never awaits a pending start when it drops the worker (`tier0/ocr.ts`).
+- **Per-job Tesseract parameters** `[VERIFIED Nov 21, same source]`. `recognize(image, { thresholding_method: '2' }, output)` passes non-tesseract.js keys to Tesseract inside `SaveParameters`/`SetVariable`…`RestoreParameters`, so the setting applies to that job only and can never leak into another. The app sets the binarisation this way, per pass.
+- **An empty canvas hangs `recognize`** (browser `loadImage`: `toBlob` gives null and the error is thrown in a callback that never resolves). The app refuses a 0×0 canvas and snapshots the canvas to a PNG Blob once, when the call is made.
 - **OCR results depend on resolution.** The same image at 1536 px (the outgoing frame) and at the 1600 px Tier-0 OCR downscale (`ocr_max_px`, SPEC D-20) can yield different words. The gate's OCR therefore runs on the **exact outgoing bytes** during the consent dry run, and new hits are auto-masked before Send is enabled (SPEC SCR-07, §7.1).
 - **Tips:**
   - one worker, reused, as a module singleton (StrictMode would otherwise create two);

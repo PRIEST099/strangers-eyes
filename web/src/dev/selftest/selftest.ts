@@ -4,10 +4,10 @@
 import exifr from 'exifr';
 import { reencodeClean, checkCleanJpeg, jpegAppSegments } from '../../tier0/exif';
 import { detectFaces } from '../../tier0/faces';
-import { ocrWords } from '../../tier0/ocr';
+import { ocrMaster, ocrSinglePass } from '../../tier0/ocr';
 import { vaultStorageCheck } from './vaultStorageCheck';
 import { haversineMeters, bandFor } from '../../core/geo';
-import { box2dToPx } from '../../core/boxes';
+import { box2dToPx, iou } from '../../core/boxes';
 import { applyMasks } from '../../core/mask';
 import { render, segmentsText, verifyManifest, PROMPT_IDS } from '../../ai/prompts';
 import { ADV_B_SCHEMA, assertSchemaShape } from '../../ai/schemas';
@@ -145,10 +145,28 @@ export async function runSelfTest(): Promise<SelfTestReport> {
     ctx.font = 'bold 64px Arial, Helvetica, sans-serif';
     ctx.fillText('CITY GENERAL', 60, 120);
     ctx.fillText('Ella 4B', 60, 230);
-    const words = await ocrWords(c);
+    const words = await ocrSinglePass(c);
     const text = words.map((w) => w.text.toUpperCase()).join(' ');
     const ok = text.includes('CITY') && text.includes('GENERAL') && words.every((w) => w.box.w > 0 && w.box.h > 0);
     return { ok, detail: { words: words.map((w) => ({ text: w.text, conf: Math.round(w.conf), box: w.box })) } };
+  });
+
+  // T-057: Tier-0 OCR of a master (downscale to ocr_max_px, both passes unioned per D-81, boxes back in master px).
+  await step('ocrMaster', steps, async () => {
+    const [c, ctx] = canvas(2048, 1024, '#fff');
+    ctx.fillStyle = '#000';
+    ctx.font = 'bold 120px Arial, Helvetica, sans-serif';
+    const drawn = { x: 300, y: 600 - 120, w: Math.ceil(ctx.measureText('LUCAS').width), h: 140 }; // where LUCAS was drawn
+    ctx.fillText('LUCAS', 300, 600);
+    ctx.fillText('42', 300 + drawn.w + 80, 600);
+    const t0 = performance.now();
+    const words = await ocrMaster(c);
+    const ms = Math.round(performance.now() - t0);
+    const lucas = words.find((w) => w.text.replace(/[^A-Za-z]/g, '').toUpperCase() === 'LUCAS');
+    const fortyTwo = words.some((w) => w.text.replace(/\D/g, '') === '42');
+    // The box is in MASTER pixels (AC-118): it overlaps where LUCAS was drawn on the 2048 px canvas, not a 1600 px copy.
+    const overlap = lucas ? iou(lucas.box, drawn) : 0;
+    return { ok: !!lucas && fortyTwo && overlap > 0.5, detail: { ms, lucasBox: lucas?.box, drawn, iou: Math.round(overlap * 100) / 100, words: words.length } };
   });
 
   await step('prompts', steps, async () => {

@@ -8,6 +8,7 @@
 // revisiting the step shows the panel that matches the stored master. The dropzone's one live region renders it.
 // The step and the status are one pure reducer (ui/checkState.ts): selecting a step never touches the import status;
 // only the dropzone's onStatus changes it. The original file is not kept.
+// T-057: the Tesseract worker is kept warm while this screen is open (useOcrWarm; ARCH §18).
 import { useCallback, useReducer, useRef } from 'react';
 import { vaultScan } from '../../ai/vaultScan';
 import { t } from '../../core/strings';
@@ -16,6 +17,7 @@ import type { ImportedPhoto } from '../../tier0/importPhoto';
 import { ImportDropzone } from '../components/ImportDropzone';
 import { StepperNav } from '../components/StepperNav';
 import { CHECK_START, checkReducer } from '../checkState';
+import { useOcrWarm } from '../hooks/useOcrWarm';
 import type { ImportStatus } from '../importTransfer';
 import { stepLabelId } from '../layout';
 
@@ -30,6 +32,7 @@ export function Check() {
   const [state, dispatch] = useReducer(checkReducer, CHECK_START);
   const master = useRef<{ canvas: HTMLCanvasElement; jpeg: Blob; sha256: string } | null>(null);
   const current = state.pos.current;
+  useOcrWarm();
 
   const onPhoto = useCallback((p: ImportedPhoto | null) => {
     master.current = p ? { canvas: p.master, jpeg: p.jpeg, sha256: p.sha256 } : null;

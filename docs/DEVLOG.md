@@ -100,6 +100,11 @@ How a flaw was found:
 | F-73 | Nov 20 | T-054 | mistake | minor | While mutation-checking, the orchestrator restored a backup taken BEFORE its edit, which silently undid the fix while the tests stayed in place | Noticed at once from the count of `asSealed` call sites, and reapplied. A backup is now always taken right before the mutation |
 | F-74 | Nov 20 | T-053 | review | minor | The first TIFF cut (64 KiB) dropped GPS from real Apple ImageIO HEIC/PNG files with a large UserComment, whose GPS IFD sits past 100 KB. Each of the two new HEIF walks also lacked a test on its own (final verifier) | The cut is 1 MiB, plus a test with the GPS IFD at 100 KB and one overflow test per walk. Remaining minors (R19 as an allowlist, escaped identifiers) move to T-090 |
 | F-75 | Nov 20 | T-038 | live | minor | On the live site, a missing file (a wrong `/vendor/…` path, for example) returned `200 text/html` with a 1-hour cache, because of the catch-all SPA rewrite, which a hash-routed app never needed. MediaPipe or Tesseract would have tried to parse a web page as wasm | Rewrite removed: a missing file is now a real 404 (D-82) |
+| F-76 | Nov 21 | T-057 | review | major | The union of the two OCR passes deduplicated word by word. That split a sequence only the second pass read in full (spaced "L U C A S", a plate over two words, a phone number), so the union could be WORSE than the second pass alone, failing open at the gate | The union works by line: a second-pass line is added whole unless every word on it is a re-reading. Tests run the real matcher and phone detector on the union |
+| F-77 | Nov 21 | T-057 | review | major | tesseract.js 7's `createWorker` never settles when the language data fails to load (a network blip on a first visit), so OCR, the idle drop and terminate would all have hung for the rest of the session | An `errorHandler` fails the start. Start (120 s) and each pass (30 s) have timeouts. A drop never waits on a pending start |
+| F-78 | Nov 21 | T-057 | review | minor | A freed (empty) canvas hangs tesseract's image loading. Each pass re-encoded the canvas. The downscale canvas was never freed. The single-pass function's name invited a future gate caller to skip the union | An empty canvas is refused. One snapshot serves both passes. The downscale is freed after use. The single-pass function is now `ocrSinglePass` |
+| F-79 | Nov 21 | T-056 | review | minor | A comment claimed a face detector built at the RC floor and filtered in code gives "exactly" the same output. MediaPipe's weighted NMS can shift a box slightly | Reworded: the same faces and scores; boxes may differ slightly. Tier-0 and the gate share the function, so they always agree |
+| F-80 | Nov 21 | T-057 | self | minor | My first test for the idle-drop race never produced the race (the job ended before the timer fired), so it passed vacuously. Every test passing on the first run is what raised the suspicion | Rewritten to really queue the drop. The new timeouts then made the race impossible (start + two passes < idle), and a test pins that bound |
 
 ---
 
@@ -190,6 +195,11 @@ How a flaw was found:
 - With the user's OK, the walking skeleton went up on Firebase Hosting: https://strangers-eyes.web.app.
 - Headers, file types and caching were checked with `curl` on every asset class. A photo import on the live site makes zero network requests. The debug token cannot reach a production build. The layout works at phone width.
 - One live finding (F-75): the catch-all rewrite served a web page for a missing file. Removed.
+
+### Nov 21 (after midnight): OCR and faces (T-057, T-056)
+- Tier-0 OCR now implements tonight's finding: adaptive binarisation plus a Sauvola union pass. On the 30 real-photo placements it finds the name tag **29 times out of 30**, against 14 with the old setting. The one miss is the smallest tag on the busiest background, so the demo prop gets a minimum letter size.
+- One independent reviewer found two real defects in my first version (F-76, F-77). The fix for one F-77 case, a start that hangs, also made a race I had tested impossible (F-80).
+- **Measurement caveat:** OCR timings in the Browser pane swung 4–5× with the Claude app's own CPU load (276% CPU), so the AC-064 timing moves to the user's Chrome.
 
 ### Nov 20: this log (D-76)
 - The user asked for one place that records every flaw and improvement. This file was backfilled from the session logs and review reports, and updating it is now part of the end-of-task protocol (TASKS §2, CLAUDE.md).

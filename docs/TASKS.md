@@ -388,6 +388,7 @@ AC IDs are SPEC's `AC-xxx` only. **SPEC §18** holds the index and traceability 
   - Verify: Claude counts 25 photos and 25 truth rows.
 
 - [ ] T-010 [USER] Props and staged scenes (Judge Mode and the hero demo). Due: Sun Nov 22 20:00 · Deps: T-018c
+  - **Prop rule from T-037/T-057 (D-81, D-83):** the name tag has plain dark letters on a light tag, with no border hugging the letters. Letters must be **at least about 3% of the photo's height**, e.g. ≥ 48 px caps on the 2048 px master; at 32 px Tier-0 OCR missed the tag once in 6 placements.
   - Read: RUNBOOK §1.14, §6.1; SPEC SCR-17
   - Props:
     - a fictional **"LUCAS"** name tag on a backpack (a vault item, which should be caught on the device);
@@ -949,7 +950,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
     - Burn: hold-to-confirm for 1.5 s. There is no checkbox: it always deletes history, queue and ledger too (D-31).
   - Verify: in Chrome with a DevTools → Sensors override, the Network tab shows **0 requests** while editing the vault; `52.52, 13.405` is accepted and `95, 10` and `abc` are rejected.
 
-- [ ] T-056 [CLAUDE] Tier-0 face detection (MediaPipe). Due: Sat Nov 21 · Deps: T-053 · AC: AC-118
+- [ ] T-056 [CLAUDE] Tier-0 face detection (MediaPipe). Due: Sat Nov 21 · Deps: T-053 · AC: AC-118 (**Code done Nov 21**, D-83: one detector per model at the RC floor, threshold in code, boxes clamped and rounded outward, retry after a failed load; 6 unit tests; selftest `faces_none` passes. **Recall (U-31) is still open:** it needs a face or mannequin image in `PRIV/test/` from the user. Keep this unchecked until it is recorded.)
   - Read: API-NOTES §5.1; ARCH §11; SPEC §7.1
   - Files: `web/src/tier0/faces.ts`.
   - Do:
@@ -960,7 +961,15 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
     - The same function serves the gate.
   - Verify: selftest with a local, uncommitted face image from `PRIV/test/`; record recall (U-31).
 
-- [ ] T-057 [CLAUDE] Tier-0 OCR (Tesseract 7). Due: Sat Nov 21 · Deps: T-053 · AC: AC-064
+- [x] T-057 [CLAUDE] Tier-0 OCR (Tesseract 7). Due: Sat Nov 21 · Deps: T-053 · AC: AC-064 (done Nov 21; D-81, D-83; reviewed, with 2 majors fixed, F-76/F-77.
+  - **Code:**
+    - `tier0/ocr.ts`: `ocrMaster` (≤1600 downscale, boxes back to master px); two passes as per-job options with a line union (`tier0/ocrMerge.ts`); serialised jobs; `retainOcr` plus a 5 min idle drop; start/pass timeouts.
+    - `ui/hooks/useOcrWarm.ts` warms the worker when Check opens.
+  - **Verify:**
+    - Selftest `ocrMaster` in Chrome 156: "LUCAS 42" found, with its box in master px (IoU 0.61 with where it was drawn); latency logged in the step detail.
+    - Real-photo matrix: 29/30.
+    - Unit tests: 19 OCR and 6 merge, mutation-checked.
+    - **Cross-browser (Safari/Firefox) is still to run:** Safari needs "Allow remote automation" or the user opening the URL; Firefox is not installed (USER item).)
   - Read: API-NOTES §5.2; ARCH §11, §18
   - Files: `web/src/tier0/ocr.ts`.
   - Do:

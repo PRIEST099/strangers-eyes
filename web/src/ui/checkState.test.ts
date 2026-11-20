@@ -103,6 +103,7 @@ const rt = vi.hoisted(() => {
   };
 });
 vi.mock('react', async (importOriginal) => ({ ...(await importOriginal<Record<string, unknown>>()), ...rt.hooks }));
+vi.mock('./hooks/useOcrWarm', () => ({ useOcrWarm: () => undefined })); // no Tesseract worker in Node
 vi.mock('../tier0/importPhoto', async (importOriginal) => ({ ...(await importOriginal<Record<string, unknown>>()), importPhoto: rt.importPhoto }));
 
 interface El { type: unknown; props: Record<string, unknown> & { children?: unknown } }
