@@ -217,7 +217,7 @@ Filming on Nov 28 and uploading on Nov 29 replaces PLAN.md's "film Nov 30", beca
 | T-005 | `firebase login` in your own terminal | Fri Nov 20 | T-025 | done Nov 20 |
 | T-006 | `gh auth login`; tell Claude the account and repo name | Fri Nov 20 | T-026 | done Nov 20 (gh already signed in; the user asked for a new repo; default name `strangers-eyes`) |
 | T-018 | Day-1 decisions (filming dates, free-tier spike consent, demo-location exposure, routine commits) | Fri Nov 20 (c: before Nov 22 shoot) | T-031, T-105, T-183 | done Nov 20 (D-59, D-60, D-66, D-67, D-68) |
-| T-019 | Bundle ID | Fri Nov 20 | T-025, T-027 | open |
+| T-019 | Bundle ID | Fri Nov 20 | T-025, T-027 | done Nov 20 (`dev.strangerseyes.app`) |
 | T-003 | Blaze, budget alert, paid Gemini tier (and prepayment if asked) | Fri Nov 20 | grounding (T-039, T-070), privacy claims | open |
 | T-004 | AI Logic "Get started" → Gemini Developer API; confirm App Check is Enforced | Fri Nov 20 | T-030 | open |
 | T-007 | Chrome on-device AI and flag; connect Claude-in-Chrome | Fri Nov 20 | T-032 | open |
@@ -459,7 +459,7 @@ AC IDs are SPEC's `AC-xxx` only. **SPEC §18** holds the index and traceability 
   - **d. Routine git.** May Claude make local commits as it works, and push to the **private** repo after T-026? Going public still needs T-170.
   - Verify: four D-entries in PROGRESS.
 
-- [ ] T-019 [USER] Decide the iOS bundle ID. Due: Fri Nov 20 · Deps: none
+- [x] T-019 [USER] Decide the iOS bundle ID. Due: Fri Nov 20 · Deps: none (done Nov 20: `dev.strangerseyes.app`, D-69)
   - Default proposal: `dev.strangerseyes.app` (proposed in RUNBOOK §1.6 and ARCH §19.1; RUNBOOK §2.7–§2.8 use the `BUNDLE_ID` placeholder). Claude records it in PROGRESS Key values. It is bound into the Firebase iOS app registration, so decide before T-025.
 
 ### CLAUDE tasks
@@ -645,12 +645,12 @@ AC IDs are SPEC's `AC-xxx` only. **SPEC §18** holds the index and traceability 
     - the schemas parse and pass a hand-written structural check;
     - `ADV_B_SCHEMA` typechecks as `responseJsonSchema` (U-45 tsc half).
 
-- [ ] T-025 [CLAUDE] Wire the Firebase project. Due: Fri Nov 20 · Deps: T-002, T-005, T-019, T-023 · **Partly done Nov 20:** steps 1, 2, 4 and 5 (web app `1:320898500558:web:a71a1817cde2f1775f0d9f`, `config.ts`, `.firebaserc`, `firebase.json`). BLOCKED: T-019, for step 3 (iOS app).
+- [x] T-025 [CLAUDE] Wire the Firebase project. Due: Fri Nov 20 · Deps: T-002, T-005, T-019, T-023 (done Nov 20; verified: `apps:list` shows strangers-eyes-web `1:320898500558:web:a71a1817cde2f1775f0d9f` and strangers-eyes-ios `1:320898500558:ios:a073e67f8281ab135f0d9f`; `plutil -lint` OK on GoogleService-Info.plist with BUNDLE_ID dev.strangerseyes.app and analytics/ads off; `npm run build` passes)
   - Read: RUNBOOK §1.5, §1.6, §4.1–4.2; ARCH §15.4
   - Do (never run interactive `firebase init`):
     1. Write `.firebaserc` by hand: `{ "projects": { "default": "<PROJECT_ID>" } }`.
     2. `$FB apps:create WEB strangers-eyes-web --project <ID>`, then `$FB apps:sdkconfig WEB <APP_ID>` → `web/src/firebase/config.ts`. Committed; the web config is not secret.
-    3. iOS: `$FB apps:create IOS strangers-eyes-ios --bundle-id <T-019 ID> --project <ID>`, then `$FB apps:sdkconfig IOS <APP_ID> --out ios/StrangersEyes/Resources/GoogleService-Info.plist`. These flags are `[UNVERIFIED]`; check `--help` first, or the USER downloads the plist from the console.
+    3. iOS: `$FB apps:create IOS strangers-eyes-ios --bundle-id <T-019 ID> --project <ID>`, then `$FB apps:sdkconfig IOS <APP_ID> --out ios/StrangersEyes/Resources/GoogleService-Info.plist`. Flags verified Nov 20 (`apps:create --help`: `-b, --bundle-id`; `apps:sdkconfig --help`: `-o, --out`).
     4. Root `firebase.json` per ARCH §15.4, **without** an `emulators` block (R-08).
     5. Record the app IDs in PROGRESS Key values.
   - Verify: `$FB apps:list` shows both apps; `npm run build` passes.

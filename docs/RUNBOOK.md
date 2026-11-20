@@ -1553,7 +1553,7 @@ Claude never clicks Submit and never accepts terms on the user's behalf.
 - [ ] Playwright `channel: 'chrome'` on this Mac; Vitest/Playwright support Vite 8 (§2.6)
 - [ ] `firebase init ailogic` (U-16); `deploy --only auth` and `--only remoteconfig` on a fresh project (U-17)
 - [ ] `firestore:databases:create` ID syntax for `(default)` (U-18)
-- [ ] `apps:create IOS --bundle-id` and `apps:sdkconfig --out` flags (§1.6); `remoteconfig:rollback` flags (§4.4)
+- [x] `apps:create IOS --bundle-id` and `apps:sdkconfig --out` flags (§1.6): verified Nov 20 (T-025). Still open: `remoteconfig:rollback` flags (§4.4)
 - [ ] Rules-test `firebase.json` with a `../` rules path under CLI 13.35.1 (§2.6)
 - [ ] `SIMCTL_CHILD_AppCheckDebugToken` reaches the App Check SDK (§2.8)
 - [ ] XcodeGen `project.yml` (§2.7) generates and builds

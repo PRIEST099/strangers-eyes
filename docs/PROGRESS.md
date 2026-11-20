@@ -7,7 +7,7 @@
 ## STATE (overwrite in place; never append here)
 - Today: Fri Nov 20 2026 (Day 2)
 - Now: none            <- lock: "T-0xx (started HH:MM)" while a task is in progress
-- Next: **T-050** app shell, then T-051, T-087, T-093, T-058 (no Firebase needed). T-025 is done except iOS registration (needs T-019). T-030 Spike A needs T-004 (AI Logic "Get started") and T-012 (web debug token).
+- Next: **T-050** app shell, then T-051, T-087, T-093, T-058 (no Firebase needed). T-025 is done (web + iOS apps registered). T-027 iOS skeleton now needs only T-013 (approve xcodegen). T-030 Spike A needs T-004 (AI Logic "Get started") and T-012 (web debug token).
 - Blocked: nothing on the CLAUDE side for T-024 and the other no-Firebase tasks. Firebase work (T-025+) waits for Sitting A.
 - Last green commit: `03cc1f4` (T-024). `npm --prefix web run check` and `npm run build` are green (45 boundary cases, prompt hashes with every prompt still a draft, 92 tests, check-dist ok).
 - Checkpoints: G1 – | G1b – | G2 – | G3 – | slice Nov 22 – | loop Nov 24 – | hosted Nov 25 –
@@ -22,7 +22,6 @@ Sitting A is due tonight or Fri Nov 20 morning, in this order:
 - T-003 Blaze + $25 budget alert + paid Gemini tier · Fri Nov 20 · open
 - T-004 AI Logic "Get started" → Gemini Developer API · Fri Nov 20 · open
 - T-013 Approve `brew install xcodegen` · Fri Nov 20 · open
-- T-019 iOS bundle ID · Fri Nov 20 · open
 - T-007 Chrome on-device AI flag; connect Claude-in-Chrome · Fri Nov 20 · open
 - T-008 10 people-free outdoor spike photos → `/Users/mac/StrangersEyes-private/spike/` · Fri Nov 20 12:00 · open
 - T-015 (optional) Discord questions · Fri Nov 20 · open
@@ -33,8 +32,8 @@ Later: Sitting B (T-012, T-011) after T-025; Sitting C (T-010, T-014, T-017) Nov
 | Key | Value |
 |---|---|
 | PROJECT_ID | `strangers-eyes`, project number 320898500558 (created Nov 20 by Claude in the console at the user's request; Google Analytics OFF, Gemini in Firebase console assistant OFF; Spark plan until T-003) |
-| WEB_APP_ID / IOS_APP_ID | web `1:320898500558:web:a71a1817cde2f1775f0d9f` (`strangers-eyes-web`) / iOS: pending T-019 bundle ID |
-| BUNDLE_ID | |
+| WEB_APP_ID / IOS_APP_ID | web `1:320898500558:web:a71a1817cde2f1775f0d9f` (`strangers-eyes-web`) / iOS `1:320898500558:ios:a073e67f8281ab135f0d9f` (`strangers-eyes-ios`) |
+| BUNDLE_ID | `dev.strangerseyes.app` (D-69) |
 | RECAPTCHA_SITE_KEY | |
 | Firestore location | |
 | HOSTED_URL | |
@@ -65,7 +64,7 @@ Pre-gate facts already verified on Nov 19:
 Canonical IDs:
 - **D-01..D-39** are in SPEC §0.4 (read them there).
 - **AD-xx** are in ARCH §2. Where an AD duplicates a D, the D wins.
-- **The next free number is D-69.**
+- **The next free number is D-70.**
 
 - D-00 (Nov 19) Idea: **Strangers' Eyes**, chosen by a 29-agent tournament (score 8.18) and approved by the user. **Blindfill** is the Day-1 fallback, *only* with the user's OK if G1 fails (TASKS T-034). Health/Rwanda "Muganga" was rejected (the user wants a global idea).
 - D-00a (Nov 19) Platforms: Web PWA (primary) + iOS. **Android cut**: no physical device, and the emulator has no Nano.
@@ -153,6 +152,7 @@ Canonical IDs:
   - Applies to the T-031 spike photos only. Every other cloud call, and anything shown to judges, follows D-07 (paid tier).
   - Grounding (pass A, T-039) still needs the paid tier.
 - D-68 (T-018c, user, Nov 20) **Demo location disclosure accepted (D-26):** the Judge Mode samples, their cached pass-B results (pins rounded to 3 decimals, about 100 m) and the video may reveal the city or neighbourhood of the shoot. Shoot at public places several km or more from home, work and any school.
+- D-69 (T-019, user, Nov 20) **iOS bundle ID** = `dev.strangerseyes.app`. It is Simulator-only, so no Apple Developer team or App Store record is needed (TestFlight T-132 is cut by default).
 
 ### Reconciliation items (T-022, done Nov 19)
 How T-022 ran:
@@ -342,4 +342,14 @@ How T-022 ran:
 - **Next:**
   - USER: T-019 bundle ID, T-003 Blaze + paid tier, T-004 AI Logic "Get started", T-012 web debug token, T-007 Chrome flags, T-008 photos.
   - CLAUDE: **T-050**.
+
+### 2026-11-20: T-019 and T-025 complete
+- **Done:**
+  - **T-019**: bundle ID `dev.strangerseyes.app` (D-69).
+  - **T-025** finished: `apps:create IOS strangers-eyes-ios --bundle-id dev.strangerseyes.app` → `1:320898500558:ios:a073e67f8281ab135f0d9f`, and `apps:sdkconfig IOS … --out ios/StrangersEyes/Resources/GoogleService-Info.plist`, committed; not secret.
+- **Verified:**
+  - `apps:list` shows both apps.
+  - `plutil -lint` OK; BUNDLE_ID, PROJECT_ID and GOOGLE_APP_ID are correct; IS_ANALYTICS_ENABLED and IS_ADS_ENABLED are false.
+  - The CLI flags (`--bundle-id`, `--out`) are confirmed via `--help`; TASKS and RUNBOOK are updated.
+- **Next:** CLAUDE **T-050** app shell. T-027 iOS skeleton waits only for T-013 (approve `brew install xcodegen`).
 
