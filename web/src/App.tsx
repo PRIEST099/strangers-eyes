@@ -15,6 +15,9 @@ import { Vault } from './ui/screens/Vault';
 const DevSelftest: LazyExoticComponent<ComponentType> | null = import.meta.env.DEV
   ? lazy(() => import('./dev/selftest/SelftestPage'))
   : null;
+const DevPlumbingSpike: LazyExoticComponent<ComponentType> | null = import.meta.env.DEV
+  ? lazy(() => import('./dev/spikes/PlumbingSpike'))
+  : null;
 
 /** The route → screen map. Exported so ui/shell.test.ts asserts App's own mapping, not a copy of it. */
 export function Screen({ route }: { route: AppRoute }) {
@@ -45,6 +48,14 @@ export default function App() {
     return (
       <Suspense fallback={<p className="p-6 font-mono text-sm">loading selftest…</p>}>
         <DevSelftest />
+      </Suspense>
+    );
+  }
+
+  if (DevPlumbingSpike && route.name === 'dev' && route.page === 'spike') {
+    return (
+      <Suspense fallback={<p className="p-6 font-mono text-sm">loading spike…</p>}>
+        <DevPlumbingSpike />
       </Suspense>
     );
   }

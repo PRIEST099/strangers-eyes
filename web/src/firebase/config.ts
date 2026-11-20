@@ -13,5 +13,6 @@ export const firebaseConfig = {
 } as const;
 
 /** reCAPTCHA Enterprise (Fraud Defense) SITE key for App Check: public by design. Key `strangers-eyes-web`, score-based,
- *  domains localhost, strangers-eyes.web.app, strangers-eyes.firebaseapp.com (T-011, Nov 20). */
+ *  domains strangers-eyes.web.app and strangers-eyes.firebaseapp.com only (T-011, Nov 20). localhost is deliberately
+ *  NOT allowed: local development authenticates with the App Check debug token instead (API-NOTES §1.2). */
 export const RECAPTCHA_ENTERPRISE_SITE_KEY = '6LdCXCkuAAAAANlqU9u7c_5qzN-HniVZn-kyN78a';

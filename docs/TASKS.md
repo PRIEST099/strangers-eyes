@@ -414,7 +414,7 @@ AC IDs are SPEC's `AC-xxx` only. **SPEC §18** holds the index and traceability 
   - Not needed for the localhost spikes, which use the debug token.
   - Verify: the app shows as registered; T-038 and T-100 hosted calls pass App Check.
 
-- [ ] T-012 [USER] Create and register App Check debug tokens. Due: Fri Nov 20 (web); Sat Nov 21 (iOS) · Deps: T-004, T-025 (iOS: T-027) · **Web part, Nov 20:** Claude generated and registered debug token `local-dev-mac` in the console. The **USER pastes its value** into `web/.env.development.local` (template already created, gitignored, mode 600). Claude may not read the secret (blocked by the permission classifier). iOS part: after T-027.
+- [ ] T-012 [USER] Create and register App Check debug tokens. Due: Fri Nov 20 (web); Sat Nov 21 (iOS) · Deps: T-004, T-025 (iOS: T-027) · **Web part done Nov 20** (the user registered their own token and put it in `web/.env.development.local`; verified by T-030 PASS, format checked without reading the value). Earlier note: Claude generated and registered debug token `local-dev-mac` in the console. The **USER pastes its value** into `web/.env.development.local` (template already created, gitignored, mode 600). Claude may not read the secret (blocked by the permission classifier). iOS part: after T-027.
   - Read: RUNBOOK §1.7b (web), §1.7c (iOS)
   - **Web:**
     1. App Check → Apps → web app ⋮ → **Manage debug tokens** → **Add debug token** → **Generate** → name it `mac-dev` → Save.
@@ -680,7 +680,7 @@ AC IDs are SPEC's `AC-xxx` only. **SPEC §18** holds the index and traceability 
 - Spike code lives in `web/src/dev/spikes/` (DEV only, allowlisted) and `ios/StrangersEyes/Dev/`.
 - Raw outputs with coordinates go to `PRIV/raw/`. Only aggregates go in the repo: no coordinates, place names or images.
 
-- [ ] T-030 [CLAUDE] Spike A: Firebase plumbing. Due: Fri Nov 20 · Deps: T-004, T-012 (web), T-025
+- [x] T-030 [CLAUDE] Spike A: Firebase plumbing. Due: Fri Nov 20 · Deps: T-004, T-012 (web), T-025 (done Nov 20, PASS: `#/dev/spike` with the debug token → App Check token obtained (exchangeDebugToken), anonymous UID present, `gemini-3.8-flash` and `gemini-4-hydrogen` both returned "pong" with `inferenceSource: in_cloud` (38.8 s / 14.9 s, free tier). Request header names: `authorization: Firebase …`, `x-firebase-appcheck` (937 chars), `x-firebase-appid`. With `?appcheck-debug=off` and the App Check cache cleared: reCAPTCHA error on localhost, and both calls **401 'Firebase App Check token is invalid'**, so enforcement is proven.)
   - Read: API-NOTES §1.1–1.2, §2.2–2.3; ARCH §15.1; RUNBOOK §1.7b, §8.1
   - Files: `web/src/firebase/init.ts` (ARCH §15.1 order), `web/src/dev/spikes/PlumbingSpike.tsx`.
   - Do:

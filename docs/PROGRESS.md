@@ -398,3 +398,24 @@ How T-022 ran:
   - USER: paste the debug token; T-007 Chrome toggles.
   - CLAUDE: T-027 iOS skeleton (xcodegen ready), T-051, T-087, T-093. T-030 once the token is in place.
 
+### 2026-11-20: T-030 Spike A PASS (Firebase plumbing)
+- **Done:**
+  - Anonymous Auth enabled as code: `firebase deploy --only auth`, "Auth providers enabled: anonymous".
+  - reCAPTCHA key domains corrected: **localhost removed**. Only strangers-eyes.web.app and strangers-eyes.firebaseapp.com remain, so local dev relies on the debug token, per ARCH.
+  - `web/src/firebase/init.ts`: ARCH §15.1 order, plus a DEV-only `?appcheck-debug=off` switch for the enforcement test.
+  - `web/src/dev/spikes/PlumbingSpike.tsx`, route `#/dev/spike`, DEV-only. It goes through the tripwire with per-call permits.
+- **Evidence:**
+  - App Check token obtained via `exchangeDebugToken`.
+  - Anonymous UID present (`accounts:signUp`).
+  - `gemini-3.8-flash` → "pong" in_cloud, 38.8 s. `gemini-4-hydrogen` → "pong" in_cloud, 14.9 s. Both work on the **free tier**.
+  - Request header names: `authorization` (scheme `Firebase`), `x-firebase-appcheck`, `x-firebase-appid`, `x-goog-api-key`, `x-goog-api-client`.
+  - Without the debug token (cache cleared): reCAPTCHA error on localhost, and both calls **401 "Firebase App Check token is invalid"**. Enforcement is proven.
+  - Leak check: neither the token value nor `VITE_APPCHECK_DEBUG_TOKEN` is in `web/dist`.
+  - check (154 tests), build and check-dist are green.
+- **Notes:**
+  - The Browser-pane network tool did not capture these requests; `performance` resource entries did.
+  - Vite's first load after adding firebase deps triggers a dep-optimisation full reload.
+  - The SDK printed one auto-generated (never registered) debug token in the console. It logs only self-generated tokens (API-NOTES §2.2), so the user's token was never printed.
+  - Latency: 38.8 s for a trivial prompt on gemini-3.8-flash (thinking MEDIUM by default) is high. Watch it in T-031 against pass B's 60 s timeout.
+- **Next:** **T-031** (pass-B go/no-go, G1/G1b; photos are in PRIV), T-027 iOS skeleton, T-051, T-087.
+

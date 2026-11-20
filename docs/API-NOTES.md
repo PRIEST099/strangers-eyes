@@ -592,7 +592,7 @@ Source: https://firebase.google.com/docs/ai-logic/faq-and-troubleshooting
 
 **Debug token flow:**
 1. Run on localhost with `FIREBASE_APPCHECK_DEBUG_TOKEN` set **before** `initializeAppCheck`.
-2. DevTools logs **`Firebase App Check debug token: <uuid>`** `[VERIFIED: src 0.13.2]`; the docs show older wording.
+2. DevTools logs **`Firebase App Check debug token: <uuid>`** `[VERIFIED: src 0.13.2]`; the docs show older wording. It logs **only a token the SDK generated itself** (global = `true`). A configured string token is used silently (`index.esm.js` `readOrCreateDebugTokenFromStorage` vs `initializeDebugMode`) `[VERIFIED: src 0.13.2, Nov 20]`.
 3. Register the token in App Check → Apps → ⋮ → **Manage debug tokens**. That dialog can also generate a token, which you then set as a string.
 
 **How the flag behaves:**
@@ -600,7 +600,7 @@ Source: https://firebase.google.com/docs/ai-logic/faq-and-troubleshooting
 - `= "<token string>"` (from `VITE_APPCHECK_DEBUG_TOKEN` in `web/.env.development.local`, §1.2) works in any profile, including headless test profiles.
 - **The debug token is a secret.** Never commit or ship it, and never film DevTools while it is printed.
 
-**Day 1, before a reCAPTCHA key exists:** the code still constructs `ReCaptchaEnterpriseProvider(SITE_KEY)`. Even in debug mode the provider loads `enterprise.js` `[VERIFIED: src]`. Whether a placeholder site key breaks the debug-token path is U-53; check it in spike a. Domain warnings on localhost are expected and harmless (inferred).
+**Verified end to end Nov 20 (T-030):** debug token + registered Fraud Defense key; enforcement returns `401 Firebase App Check token is invalid` without a valid token. localhost is **not** in the key's domains, so local dev must use the debug token. **Day 1, before a reCAPTCHA key exists (historical):** the code still constructs `ReCaptchaEnterpriseProvider(SITE_KEY)`. Even in debug mode the provider loads `enterprise.js` `[VERIFIED: src]`. Whether a placeholder site key breaks the debug-token path is U-53; check it in spike a. Domain warnings on localhost are expected and harmless (inferred).
 
 **Enforcement:**
 - On **2026-11-02**, Firebase auto-enforced App Check for AI Logic in all projects. Check **Security → App Check → APIs → "Firebase AI Logic" = Enforced**.
