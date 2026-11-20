@@ -5,7 +5,7 @@
 > **Never Read a whole doc.** Grep for the task ID, AC ID or § heading, then Read with offset/limit.
 
 ## STATE (overwrite in place; never append here)
-- Today: Thu Nov 19 2026 (Day 1, late evening)
+- Today: Fri Nov 20 2026 (Day 2)
 - Now: none            <- lock: "T-0xx (started HH:MM)" while a task is in progress
 - Next: **T-024** (versioned prompts, schemas, fixtures; needs no Firebase). Then T-050 app shell, T-087 strings, T-093 interlock/device queue (the tripwire part is done). T-025 onwards waits for Sitting A.
 - Blocked: nothing on the CLAUDE side for T-024 and the other no-Firebase tasks. Firebase work (T-025+) waits for Sitting A.
@@ -21,7 +21,6 @@ none
 Sitting A is due tonight or Fri Nov 20 morning, in this order:
 - T-002 Create the Firebase project (Analytics OFF), send the project ID · Fri Nov 20 09:00 · open
 - T-005 `firebase login` in your own terminal · Fri Nov 20 · open
-- T-006 `gh auth login` · Fri Nov 20 · **gh is already signed in on this Mac**: confirm the account and the repo name to use
 - T-018 Day-1 decisions a–c (filming dates, free-tier spike consent, demo-location exposure) · Fri Nov 20 · open. **d answered Nov 19** (local commits yes, D-59)
 - T-003 Blaze + $25 budget alert + paid Gemini tier · Fri Nov 20 · open
 - T-004 AI Logic "Get started" → Gemini Developer API · Fri Nov 20 · open
@@ -42,7 +41,7 @@ Later: Sitting B (T-012, T-011) after T-025; Sitting C (T-010, T-014, T-017) Nov
 | RECAPTCHA_SITE_KEY | |
 | Firestore location | |
 | HOSTED_URL | |
-| REPO_URL | |
+| REPO_URL | https://github.com/PRIEST099/strangers-eyes (PRIVATE until T-170, Nov 29) |
 | YOUTUBE_URL | |
 | Devpost draft URL | |
 | submission-v1 SHA | |
@@ -69,7 +68,7 @@ Pre-gate facts already verified on Nov 19:
 Canonical IDs:
 - **D-01..D-39** are in SPEC §0.4 (read them there).
 - **AD-xx** are in ARCH §2. Where an AD duplicates a D, the D wins.
-- **The next free number is D-60.**
+- **The next free number is D-61.**
 
 - D-00 (Nov 19) Idea: **Strangers' Eyes**, chosen by a 29-agent tournament (score 8.18) and approved by the user. **Blindfill** is the Day-1 fallback, *only* with the user's OK if G1 fails (TASKS T-034). Health/Rwanda "Muganga" was rejected (the user wants a global idea).
 - D-00a (Nov 19) Platforms: Web PWA (primary) + iOS. **Android cut**: no physical device, and the emulator has no Nano.
@@ -123,7 +122,8 @@ Canonical IDs:
   - `build.license` emits `dist/third-party-licenses.md`;
   - `THIRD_PARTY_NOTICES.md` lists the runtime Workbox/Tailwind code and the libraries statically linked into the wasm, and ships as `/vendor/third-party-notices.md`.
   - Edited: ARCH §16.1. Follow-up: link both from About (T-092).
-- D-59 (T-018d, user, Nov 19) **Commits:** the user answered "Yes, commit": Claude makes local commits as it works (explicit pathspecs, task-ID messages). **Pushing is not yet approved.** Ask at T-026, when the private GitHub repo is created.
+- D-59 (T-018d, user, Nov 19) **Commits:** the user answered "Yes, commit": Claude makes local commits as it works (explicit pathspecs, task-ID messages).
+- D-60 (T-018d, user, Nov 20) **Pushes:** the user asked to "push on a new repo". Claude created the PRIVATE repo `strangers-eyes` (T-026) and pushes routine commits to `origin/main`. Making it **public** still needs the §7.2 scan and the user's explicit yes (T-170, Nov 29).
 
 ### Reconciliation items (T-022, done Nov 19)
 How T-022 ran:
@@ -242,5 +242,16 @@ How T-022 ran:
   - The PNG icons carry only IHDR/IDAT/IEND chunks.
   - No keys or personal data in the files.
   - `research/_vendor-docs/`, `web/public/vendor/`, `web/dist/` and `node_modules` are ignored.
+- **Next:** **T-024**.
+
+### 2026-11-20: GitHub repo (T-026)
+- **Done:**
+  - **T-026**: `gh repo create strangers-eyes --private --source . --remote origin --push`, with the RUNBOOK §1.15 description.
+  - **T-006** ticked: gh was already signed in.
+  - D-60 logged: pushes approved; public needs T-170.
+- **Verified:**
+  - `gh repo view` shows visibility PRIVATE and licenseInfo apache-2.0, detected immediately.
+  - The remote commit list equals the local log (4 commits; HEAD f4368e2 before this entry).
+  - Topics and homepage are deferred to Nov 29 (RUNBOOK §1.15).
 - **Next:** **T-024**.
 

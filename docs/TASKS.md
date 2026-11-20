@@ -215,8 +215,8 @@ Filming on Nov 28 and uploading on Nov 29 replaces PLAN.md's "film Nov 30", beca
 | T-001 | Go-ahead on Strangers' Eyes | done Nov 19 | everything | done |
 | T-002 | Create the Firebase project; send the project ID | Fri Nov 20 09:00 | T-025, all Firebase work | open |
 | T-005 | `firebase login` in your own terminal | Fri Nov 20 | T-025 | open |
-| T-006 | `gh auth login`; tell Claude the account and repo name | Fri Nov 20 | T-026 | open |
-| T-018 | Day-1 decisions (filming dates, free-tier spike consent, demo-location exposure, routine commits) | Fri Nov 20 (c: before Nov 22 shoot) | T-021 commits, T-031, T-105, T-183 | d answered Nov 19: local commits yes (D-59); push still to be asked at T-026. a, b, c open |
+| T-006 | `gh auth login`; tell Claude the account and repo name | Fri Nov 20 | T-026 | done Nov 20 (gh already signed in; the user asked for a new repo; default name `strangers-eyes`) |
+| T-018 | Day-1 decisions (filming dates, free-tier spike consent, demo-location exposure, routine commits) | Fri Nov 20 (c: before Nov 22 shoot) | T-031, T-105, T-183 | d done: local commits (D-59) and pushes to the private repo (D-60). a, b, c open |
 | T-019 | Bundle ID | Fri Nov 20 | T-025, T-027 | open |
 | T-003 | Blaze, budget alert, paid Gemini tier (and prepayment if asked) | Fri Nov 20 | grounding (T-039, T-070), privacy claims | open |
 | T-004 | AI Logic "Get started" → Gemini Developer API; confirm App Check is Enforced | Fri Nov 20 | T-030 | open |
@@ -345,7 +345,7 @@ AC IDs are SPEC's `AC-xxx` only. **SPEC §18** holds the index and traceability 
   - Do: in your own terminal: `cd "/Users/mac/Documents/firebase buildathon" && npx -y firebase-tools@15.37.0 login`. If it offers to install agent skills or AI tools, answer **No**.
   - Verify: `npx -y firebase-tools@15.37.0 projects:list` lists the project.
 
-- [ ] T-006 [USER] Authorise the GitHub CLI and approve repo creation. Due: Fri Nov 20
+- [x] T-006 [USER] Authorise the GitHub CLI and approve repo creation. Due: Fri Nov 20 (done Nov 20: gh was already signed in with `repo` scope; the user said "push on a new repo")
   - Read: RUNBOOK §1.15
   - Do: `gh auth login` (GitHub.com → HTTPS → browser). Tell Claude the account or org, the repo name (default `strangers-eyes`), and "OK to create it **private**".
   - Verify: `gh auth status`.
@@ -452,7 +452,7 @@ AC IDs are SPEC's `AC-xxx` only. **SPEC §18** holds the index and traceability 
   - The CLI alternative is `[UNVERIFIED]` (U-18).
   - Verify: `$FB firestore:databases:list` shows it.
 
-- [ ] T-018 [USER] Day-1 decisions. Answer in chat; Claude logs each as a D-entry. Due: Fri Nov 20 (item c before the Nov 22 shoot) · d answered Nov 19: "Yes, commit" = local commits approved (D-59); pushing is asked again at T-026
+- [ ] T-018 [USER] Day-1 decisions. Answer in chat; Claude logs each as a D-entry. Due: Fri Nov 20 (item c before the Nov 22 shoot) · d answered: local commits (D-59, Nov 19) and pushes to the private repo (D-60, Nov 20). a, b, c still open
   - **a. Filming dates.** Record web beats Sat Nov 28 morning, iOS beats and voice-over Sat Nov 28 evening, upload Public by Sun Nov 29 18:00. This replaces PLAN.md's Nov 30. Yes/no?
   - **b. Spike photos on the free tier.** If the paid tier isn't active when T-031 is ready, may Claude send the 10 EXIF-stripped, people-free spike photos under free-tier terms? Google may use them to improve its products, and human reviewers may read them. "No" means T-031 waits for T-003.
   - **c. Demo-location exposure.** The Judge Mode samples, their cached pass-B JSON (lat/lng hypotheses, pins rounded to about 100 m) and the video will publicly reveal the city or neighbourhood where the scenes were shot. Do you accept this, if you shoot several km from home and work?
@@ -655,7 +655,7 @@ AC IDs are SPEC's `AC-xxx` only. **SPEC §18** holds the index and traceability 
     5. Record the app IDs in PROGRESS Key values.
   - Verify: `$FB apps:list` shows both apps; `npm run build` passes.
 
-- [ ] T-026 [CLAUDE] Create the GitHub repo (PRIVATE) and push. Due: Fri Nov 20 · Deps: T-006, T-018d, T-021
+- [x] T-026 [CLAUDE] Create the GitHub repo (PRIVATE) and push. Due: Fri Nov 20 · Deps: T-006, T-018d, T-021 (done Nov 20; verified: `gh repo view --json name,visibility,licenseInfo` shows strangers-eyes, PRIVATE, apache-2.0; `origin/main` = local HEAD f4368e2)
   - Read: RUNBOOK §1.15
   - Do: `gh repo create <name> --private --source . --remote origin --push --description "See your photo the way a stalker's AI would, before you post it."` It stays **private** until T-170.
   - Verify: `gh repo view --json name,visibility,licenseInfo` shows PRIVATE and `apache-2.0`. Detection may lag; re-check at T-170.
