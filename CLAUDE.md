@@ -53,7 +53,7 @@
 6. Masks are solid fills, never blur. Say "Risk reduced", never "safe". Always show confidence.
 7. If Gemini refuses, show "on-device findings only". **Never** retry with jailbreak or role-play phrasing. Never re-attack after a decline or safety block.
 8. **Grounded pass A is display-only.** It is never parsed, cached, persisted or fed to code. Only the ungrounded pass B JSON feeds the referee, the fix planner, the Leak Atlas and the benchmark.
-9. No real people, no real homes or schools in sample, demo or benchmark images. Synthetic or builder-owned, people-free photos only. Photos come from local files only, never from a URL.
+9. No real people, no real homes or schools in sample, demo or benchmark images. Photos must be synthetic, builder-owned, or **openly licensed (CC0 / public domain / CC BY / CC BY-SA) photos of public places** with no identifiable people. Openly licensed ones are for spikes and benchmarks only: they are kept in PRIV with a `SOURCES.md` attribution file and are never used as Judge Mode or demo samples (D-71). Photos come from local files only, never from a URL.
 10. Never type passwords or API secrets into web pages. Account sign-ins, billing, consoles and Devpost submission are `[USER]` tasks. The Firebase web config is not secret and may be committed.
 11. On 8 GB RAM, never run Chrome Gemini Nano and the Simulator's Foundation Models at the same time. Run `xcrun simctl shutdown all` before Nano work.
 

@@ -1,17 +1,199 @@
 @import "tailwindcss";
 
-/* Design tokens: dark by default (ARCH §3.1). */
+/*
+ * Design tokens (SPEC §8.3; ARCH §3.1). Dark is the default (#0b0b0f); light follows prefers-color-scheme.
+ * Use them through Tailwind: bg-canvas, bg-surface, text-fg, text-muted, border-line, text-route-device, …
+ *
+ * Contrast (WCAG AA, checked for T-050): every text token is ≥ 4.5:1 on canvas, surface and surface-2 in both
+ * themes, and each verdict colour is ≥ 4.5:1 on its own tint. Outline-only borders (line-strong, the QUEUED and
+ * CACHED badge outlines) and the focus ring are ≥ 3:1 against canvas and surface.
+ * Masks are solid #000 in both themes, never blur (CLAUDE.md invariant 6).
+ */
 :root {
   color-scheme: dark;
-  --se-bg: #0b0b0f;
-  --se-fg: #e7e7ea;
-  background-color: var(--se-bg);
+
+  --se-canvas: #0b0b0f;
+  --se-surface: #14141b;
+  --se-surface-2: #1c1c25;
+  --se-line: #2c2c38;
+  --se-line-strong: #6b6b7e;
+  --se-fg: #ececf1;
+  --se-muted: #a3a3b2;
+  --se-focus: #93c5fd;
+  --se-accent: #ececf1;
+  --se-accent-fg: #0b0b0f;
+  --se-danger: #b91c1c;
+  --se-danger-fg: #ffffff;
+
+  /* Verdict (SPEC §8.3): RED high, AMBER medium, GREY info, GREEN only for "Risk reduced", TEAL protected here. */
+  --se-verdict-red: #f87171;
+  --se-verdict-red-bg: #2a1215;
+  --se-verdict-amber: #fbbf24;
+  --se-verdict-amber-bg: #2a1f08;
+  --se-verdict-grey: #a1a1aa;
+  --se-verdict-grey-bg: #1f1f25;
+  --se-verdict-green: #4ade80;
+  --se-verdict-green-bg: #0d2416;
+  --se-verdict-teal: #2dd4bf;
+  --se-verdict-teal-bg: #0a2422;
+
+  /* Route badges (SPEC §8.3): ON-DEVICE violet, IN CLOUD blue, RULES-ONLY grey, BLOCKED red,
+     QUEUED amber outline, CACHED SAMPLE dashed outline. */
+  --se-route-device: #c4b5fd;
+  --se-route-device-bg: #241a3d;
+  --se-route-cloud: #93c5fd;
+  --se-route-cloud-bg: #10233f;
+  --se-route-rules: #d4d4d8;
+  --se-route-rules-bg: #27272a;
+  --se-route-blocked: #fca5a5;
+  --se-route-blocked-bg: #3b1114;
+  --se-route-queued: #fcd34d;
+  --se-route-queued-line: #f59e0b;
+  --se-route-cached: #e4e4e7;
+  --se-route-cached-line: #a1a1aa;
+
+  --se-mask: #000000;
+
+  background-color: var(--se-canvas);
   color: var(--se-fg);
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
-body {
-  margin: 0;
-  min-height: 100dvh;
-  background-color: var(--se-bg);
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+
+    --se-canvas: #f6f6f8;
+    --se-surface: #ffffff;
+    --se-surface-2: #ececf1;
+    --se-line: #d4d4dc;
+    --se-line-strong: #8a8a99;
+    --se-fg: #15151c;
+    --se-muted: #52525e;
+    --se-focus: #1d4ed8;
+    --se-accent: #15151c;
+    --se-accent-fg: #ffffff;
+    --se-danger: #b91c1c;
+    --se-danger-fg: #ffffff;
+
+    --se-verdict-red: #b91c1c;
+    --se-verdict-red-bg: #fef2f2;
+    --se-verdict-amber: #92400e;
+    --se-verdict-amber-bg: #fffbeb;
+    --se-verdict-grey: #52525b;
+    --se-verdict-grey-bg: #f4f4f5;
+    --se-verdict-green: #166534;
+    --se-verdict-green-bg: #f0fdf4;
+    --se-verdict-teal: #0f766e;
+    --se-verdict-teal-bg: #f0fdfa;
+
+    --se-route-device: #5b21b6;
+    --se-route-device-bg: #ede9fe;
+    --se-route-cloud: #1e40af;
+    --se-route-cloud-bg: #dbeafe;
+    --se-route-rules: #3f3f46;
+    --se-route-rules-bg: #e4e4e7;
+    --se-route-blocked: #991b1b;
+    --se-route-blocked-bg: #fee2e2;
+    --se-route-queued: #92400e;
+    --se-route-queued-line: #b45309;
+    --se-route-cached: #3f3f46;
+    --se-route-cached-line: #71717a;
+  }
+}
+
+@theme inline {
+  --color-canvas: var(--se-canvas);
+  --color-surface: var(--se-surface);
+  --color-surface-2: var(--se-surface-2);
+  --color-line: var(--se-line);
+  --color-line-strong: var(--se-line-strong);
+  --color-fg: var(--se-fg);
+  --color-muted: var(--se-muted);
+  --color-focus: var(--se-focus);
+  --color-accent: var(--se-accent);
+  --color-accent-fg: var(--se-accent-fg);
+  --color-danger: var(--se-danger);
+  --color-danger-fg: var(--se-danger-fg);
+
+  --color-verdict-red: var(--se-verdict-red);
+  --color-verdict-red-bg: var(--se-verdict-red-bg);
+  --color-verdict-amber: var(--se-verdict-amber);
+  --color-verdict-amber-bg: var(--se-verdict-amber-bg);
+  --color-verdict-grey: var(--se-verdict-grey);
+  --color-verdict-grey-bg: var(--se-verdict-grey-bg);
+  --color-verdict-green: var(--se-verdict-green);
+  --color-verdict-green-bg: var(--se-verdict-green-bg);
+  --color-verdict-teal: var(--se-verdict-teal);
+  --color-verdict-teal-bg: var(--se-verdict-teal-bg);
+
+  --color-route-device: var(--se-route-device);
+  --color-route-device-bg: var(--se-route-device-bg);
+  --color-route-cloud: var(--se-route-cloud);
+  --color-route-cloud-bg: var(--se-route-cloud-bg);
+  --color-route-rules: var(--se-route-rules);
+  --color-route-rules-bg: var(--se-route-rules-bg);
+  --color-route-blocked: var(--se-route-blocked);
+  --color-route-blocked-bg: var(--se-route-blocked-bg);
+  --color-route-queued: var(--se-route-queued);
+  --color-route-queued-line: var(--se-route-queued-line);
+  --color-route-cached: var(--se-route-cached);
+  --color-route-cached-line: var(--se-route-cached-line);
+
+  --color-mask: var(--se-mask);
+}
+
+@theme {
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --animate-sheet-in: se-sheet-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  @keyframes se-sheet-in {
+    from {
+      opacity: 0;
+      transform: translateY(1.5rem);
+    }
+  }
+}
+
+@layer base {
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background-color: var(--se-canvas);
+    color: var(--se-fg);
+    font-family: var(--font-sans);
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* Visible focus for every keyboard-focusable control (AC-061). Only <main> opts out: it is the skip-control and
+     route-change focus target, and a ring around the whole page area helps no one. Other tabindex=-1 targets
+     (the Ledger rail heading, future roving-tabindex widgets) keep a visible focus. */
+  :focus-visible {
+    outline: 2px solid var(--se-focus);
+    outline-offset: 2px;
+  }
+  #main:focus {
+    outline: none;
+  }
+
+  /* No page scroll behind an open modal sheet. */
+  html:has(dialog[open]:modal) {
+    overflow: hidden;
+  }
+
+  dialog::backdrop {
+    background: rgb(0 0 0 / 0.6);
+  }
+}
+
+/* AC-063: with prefers-reduced-motion, animations (sheet slide, later the mask fill and the streaming shimmer)
+   and transitions are off. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

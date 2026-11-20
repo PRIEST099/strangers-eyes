@@ -222,7 +222,7 @@ Filming on Nov 28 and uploading on Nov 29 replaces PLAN.md's "film Nov 30", beca
 | T-004 | AI Logic "Get started" → Gemini Developer API; confirm App Check is Enforced | Fri Nov 20 | T-030 | done Nov 20 |
 | T-007 | Chrome on-device AI and flag; connect Claude-in-Chrome | Fri Nov 20 | T-032 | open |
 | T-013 | Approve `brew install xcodegen` | Fri Nov 20 | T-027 | done Nov 20 |
-| T-008 | 10 spike photos (or all 25 in one outing) | Fri Nov 20 12:00 | T-031 go/no-go | open |
+| T-008 | 10 spike photos (or all 25 in one outing) | Fri Nov 20 12:00 | T-031 go/no-go | done Nov 20 (D-71, openly licensed) |
 | T-015 | (optional) Discord: Simulator footage OK? MediaPipe/Tesseract OK? | Fri Nov 20 | README wording | open |
 | T-012 | App Check debug tokens: web now, iOS when T-027 builds | Fri Nov 20 (web) / Sat Nov 21 (iOS) | T-030, T-033 | open |
 | T-011 | reCAPTCHA Enterprise key and App Check web registration; send the site key | recommended Fri Nov 20; latest Wed Nov 25 | T-038 hosted call, T-100 | done Nov 20 |
@@ -360,7 +360,7 @@ AC IDs are SPEC's `AC-xxx` only. **SPEC §18** holds the index and traceability 
     5. If the Claude-in-Chrome extension is available, connect it to this (Nano-enabled) profile so Claude can run the availability checks in T-032. Otherwise Claude will give you snippets to paste.
   - Verify: `chrome://on-device-internals` shows the model; then T-032.
 
-- [ ] T-008 [USER] Spike photo set of 10 photos (better: shoot all 25 benchmark photos now). Due: Fri Nov 20 12:00
+- [x] T-008 [USER] Spike photo set of 10 photos (better: shoot all 25 benchmark photos now). Due: Fri Nov 20 12:00 (done Nov 20 by Claude at the user's request (D-71): 10 openly licensed Wikimedia Commons photos of ordinary public places in 10 countries on 5 continents (CC0 ×5, CC BY 4.0 ×1, CC BY-SA ×4), 3 of them doorstep-style public entrances. Saved as `PRIV/spike/spike-01..10.jpg` with `truth.csv` (Commons camera coordinates, <1 m) and `SOURCES.md`. An independent verifier passed all 10 (no identifiable people, no readable plates, no homes or schools, licences checked). Caveat for T-031: Commons images may be in Gemini's training data, so G1 can read optimistic. Note it in the gate record.)
   - Read: RUNBOOK §1.14, §5.2
   - Rules:
     - your own photos, **no people** (including reflections);
@@ -695,7 +695,7 @@ AC IDs are SPEC's `AC-xxx` only. **SPEC §18** holds the index and traceability 
   - FAIL is not a pivot. Debug the init order, the token registration and the 15-minute enforcement delay.
   - Verify: network evidence (DevTools or the rescued CDP harness) recorded in PROGRESS.
 
-- [ ] T-031 [CLAUDE] Spike B: adversary pass-B go/no-go and fix test (G1, G1b). **Pivot gate.** Due: Fri Nov 20 · Deps: T-008, T-024, T-030, and (T-003 or T-018b = yes)
+- [ ] T-031 [CLAUDE] Spike B: adversary pass-B go/no-go and fix test (G1, G1b). **Pivot gate.** Due: Fri Nov 20 · Deps: T-008, T-024, T-030, and (T-003 or T-018b = yes) · **Photos ready (T-008, D-71):** `PRIV/spike/` holds 10 photos with `truth.csv`. Some still carry EXIF GPS and author names, so the harness must send only `reencodeClean` output and assert it clean. Record the memorisation caveat next to the G1 result.
   - **Release (D-62):** once this run is recorded in PROGRESS, set `"released": true` for advB.v1 in `shared/prompts/manifest.json` and run `node scripts/check-prompts.mjs`. From then on those files are frozen; any change needs a `*.v2.*` file.
   - Read: SPEC §0.3 (G1); API-NOTES §1.7, §1.10, §1.11, §6.1–6.5, §6.8–6.9; RUNBOOK §5.1
   - Files:
@@ -836,7 +836,7 @@ AC IDs are SPEC's `AC-xxx` only. **SPEC §18** holds the index and traceability 
 
 All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both in the same commit.
 
-- [ ] T-050 [CLAUDE] App shell, design tokens and layout. Due: Sat Nov 21 · Deps: T-023 · AC: AC-060, AC-061, AC-062, AC-063, AC-065
+- [x] T-050 [CLAUDE] App shell, design tokens and layout. Due: Sat Nov 21 · Deps: T-023 · AC: AC-060, AC-061, AC-062, AC-063, AC-065 (done Nov 20; verified: `npm run check` (154 tests) and the build are green; Browser-pane screenshots at 375 and 1440 px in light and dark; no console errors; Ledger sheet modal and focus behaviour checked; independent review applied)
   - Read: SPEC §8; ARCH §3.1 (`ui/`)
   - Files: `web/src/App.tsx` (hash routes, R-09), `web/src/index.css` (tokens, light and dark), `web/src/ui/components/{Badge,Sheet,Button}.tsx`, `web/src/ui/screens/Home.tsx`.
   - Do: the SPEC §8.2 layout:

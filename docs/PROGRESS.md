@@ -20,7 +20,6 @@ none
 ## USER pending (mirror of TASKS §4: ID · due · status)
 Sitting A is due tonight or Fri Nov 20 morning, in this order:
 - T-007 Chrome on-device AI flag; connect Claude-in-Chrome · Fri Nov 20 · open
-- T-008 10 people-free outdoor spike photos → `/Users/mac/StrangersEyes-private/spike/` · Fri Nov 20 12:00 · open
 - T-015 (optional) Discord questions · Fri Nov 20 · open
 
 Later: Sitting B (T-012, T-011) after T-025; Sitting C (T-010, T-014, T-017) Nov 21–22; the rest per TASKS §4.
@@ -61,7 +60,7 @@ Pre-gate facts already verified on Nov 19:
 Canonical IDs:
 - **D-01..D-39** are in SPEC §0.4 (read them there).
 - **AD-xx** are in ARCH §2. Where an AD duplicates a D, the D wins.
-- **The next free number is D-71.**
+- **The next free number is D-72.**
 
 - D-00 (Nov 19) Idea: **Strangers' Eyes**, chosen by a 29-agent tournament (score 8.18) and approved by the user. **Blindfill** is the Day-1 fallback, *only* with the user's OK if G1 fails (TASKS T-034). Health/Rwanda "Muganga" was rejected (the user wants a global idea).
 - D-00a (Nov 19) Platforms: Web PWA (primary) + iOS. **Android cut**: no physical device, and the emulator has no Nano.
@@ -160,6 +159,11 @@ Canonical IDs:
     - spikes may use free-tier calls (D-67).
   - Re-plans SPEC D-07.
   - Also chosen as free/minimal: Gemini in Firebase console assistant OFF, AI monitoring OFF, Google Analytics OFF.
+- D-71 (user, Nov 20) **Openly licensed spike and benchmark photos allowed.**
+  - At the user's request, Claude may use free-to-use internet photos: CC0, PD, CC BY or CC BY-SA, of public places, with no identifiable people, no homes or schools, and no readable plates.
+  - They are stored only in PRIV with `SOURCES.md` attribution, and are never used as Judge or demo samples (those stay builder-owned).
+  - Caveat: well-known open images may be in model training data, so such results are reported with that caveat.
+  - Edited: CLAUDE.md invariant 9, TASKS T-008/T-031.
 
 ### Reconciliation items (T-022, done Nov 19)
 How T-022 ran:
@@ -375,4 +379,22 @@ How T-022 ran:
   - The USER does the two toggles.
 - **Background workflow `wf_60df8863-f2f`** (running): T-050 app shell (implement → review → fix) and 10 openly licensed spike photos (find → verify → replace).
 - **Next:** review the workflow results, then T-050 screenshots, T-027 iOS skeleton (xcodegen ready) and T-030 Spike A once the debug token is pasted.
+
+### 2026-11-20: T-050 app shell and T-008 spike photos (workflow wf_60df8863-f2f)
+- **T-050 app shell:**
+  - Built by an implementer agent, independently reviewed (12 findings: 10 fixed, 2 needed no change), then verified by Claude in the Browser pane.
+  - Added the hash router (SPEC §8.1; `?judge=1` → `#/judge`), light/dark tokens, the Header (brand, capability chip failing closed to "Rules-only", Ledger counters, Settings), the Ledger rail at ≥1024 px / native modal bottom sheet below, the HUD bottom-left, the check stepper, and the Badge/Button/Sheet components.
+  - Screens: Home plus placeholders. `shared/strings/en.json` and `core/strings.ts` hold the copy (T-087 completes them).
+- **T-008 spike photos:** 10 openly licensed Commons photos in `PRIV/spike/` with `truth.csv` and `SOURCES.md`. An independent verifier passed all 10 (D-71).
+- **Verified:**
+  - `npm run check`: boundaries 45/45, prompt hashes, **154 tests**. The build and check-dist are green; oxlint is clean.
+  - Browser pane:
+    - 1440 px dark/light and 375 px light/dark render correctly; no horizontal scroll at 375 px;
+    - the Ledger sheet is a native `:modal` dialog: focus goes to Close, Escape returns focus to the Ledger button;
+    - the last element clears the HUD when scrolled (716 vs 760 px);
+    - `?judge=1` → `#/judge`; the selftest still passes;
+    - **no console errors**.
+- **Next:**
+  - USER: paste the debug token; T-007 Chrome toggles.
+  - CLAUDE: T-027 iOS skeleton (xcodegen ready), T-051, T-087, T-093. T-030 once the token is in place.
 
