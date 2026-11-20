@@ -19,9 +19,6 @@ none
 
 ## USER pending (mirror of TASKS §4: ID · due · status)
 Sitting A is due tonight or Fri Nov 20 morning, in this order:
-- T-003 Blaze + $25 budget alert + paid Gemini tier · Fri Nov 20 · open
-- T-004 AI Logic "Get started" → Gemini Developer API · Fri Nov 20 · open
-- T-013 Approve `brew install xcodegen` · Fri Nov 20 · open
 - T-007 Chrome on-device AI flag; connect Claude-in-Chrome · Fri Nov 20 · open
 - T-008 10 people-free outdoor spike photos → `/Users/mac/StrangersEyes-private/spike/` · Fri Nov 20 12:00 · open
 - T-015 (optional) Discord questions · Fri Nov 20 · open
@@ -34,7 +31,7 @@ Later: Sitting B (T-012, T-011) after T-025; Sitting C (T-010, T-014, T-017) Nov
 | PROJECT_ID | `strangers-eyes`, project number 320898500558 (created Nov 20 by Claude in the console at the user's request; Google Analytics OFF, Gemini in Firebase console assistant OFF; Spark plan until T-003) |
 | WEB_APP_ID / IOS_APP_ID | web `1:320898500558:web:a71a1817cde2f1775f0d9f` (`strangers-eyes-web`) / iOS `1:320898500558:ios:a073e67f8281ab135f0d9f` (`strangers-eyes-ios`) |
 | BUNDLE_ID | `dev.strangerseyes.app` (D-69) |
-| RECAPTCHA_SITE_KEY | |
+| RECAPTCHA_SITE_KEY | `6LdCXCkuAAAAANlqU9u7c_5qzN-HniVZn-kyN78a` (public; key `strangers-eyes-web`, score-based) |
 | Firestore location | |
 | HOSTED_URL | |
 | REPO_URL | https://github.com/PRIEST099/strangers-eyes (PRIVATE until T-170, Nov 29) |
@@ -64,7 +61,7 @@ Pre-gate facts already verified on Nov 19:
 Canonical IDs:
 - **D-01..D-39** are in SPEC §0.4 (read them there).
 - **AD-xx** are in ARCH §2. Where an AD duplicates a D, the D wins.
-- **The next free number is D-70.**
+- **The next free number is D-71.**
 
 - D-00 (Nov 19) Idea: **Strangers' Eyes**, chosen by a 29-agent tournament (score 8.18) and approved by the user. **Blindfill** is the Day-1 fallback, *only* with the user's OK if G1 fails (TASKS T-034). Health/Rwanda "Muganga" was rejected (the user wants a global idea).
 - D-00a (Nov 19) Platforms: Web PWA (primary) + iOS. **Android cut**: no physical device, and the emulator has no Nano.
@@ -153,6 +150,16 @@ Canonical IDs:
   - Grounding (pass A, T-039) still needs the paid tier.
 - D-68 (T-018c, user, Nov 20) **Demo location disclosure accepted (D-26):** the Judge Mode samples, their cached pass-B results (pins rounded to 3 decimals, about 100 m) and the video may reveal the city or neighbourhood of the shoot. Shoot at public places several km or more from home, work and any school.
 - D-69 (T-019, user, Nov 20) **iOS bundle ID** = `dev.strangerseyes.app`. It is Simulator-only, so no Apple Developer team or App Store record is needed (TestFlight T-132 is cut by default).
+- D-70 (user, Nov 20) **Free first; paid only where it matters.**
+  - Build entirely on the free Spark plan and Gemini's free tier, and pay for nothing unnecessary.
+  - Before filming and judging, the user activates Blaze + the paid Gemini tier (T-003, **by Thu Nov 26**). The paid tier is needed for grounding (pass A) and to serve EEA/UK/CH users lawfully.
+  - Until then:
+    - `data_tier = free`;
+    - grounded pass A is off (T-039 deferred);
+    - the consent copy discloses free-tier terms (Google may use the redacted image to improve products);
+    - spikes may use free-tier calls (D-67).
+  - Re-plans SPEC D-07.
+  - Also chosen as free/minimal: Gemini in Firebase console assistant OFF, AI monitoring OFF, Google Analytics OFF.
 
 ### Reconciliation items (T-022, done Nov 19)
 How T-022 ran:
@@ -352,4 +359,20 @@ How T-022 ran:
   - `plutil -lint` OK; BUNDLE_ID, PROJECT_ID and GOOGLE_APP_ID are correct; IS_ANALYTICS_ENABLED and IS_ADS_ENABLED are false.
   - The CLI flags (`--bundle-id`, `--out`) are confirmed via `--help`; TASKS and RUNBOOK are updated.
 - **Next:** CLAUDE **T-050** app shell. T-027 iOS skeleton waits only for T-013 (approve `brew install xcodegen`).
+
+### 2026-11-20: free-first, AI Logic, App Check (console work by Claude)
+- **User direction:**
+  - Free stuff first; pay for nothing unnecessary (D-70: free while building, paid tier for judging).
+  - xcodegen installed by the user (T-013).
+  - Claude may drive T-004, the App Check debug token, T-007 and finding about 10 free photos.
+- **Done, in the browser pane:**
+  - **T-004**: AI Logic → Gemini Developer API (free; accepted the Gemini API Additional Terms). AI monitoring is OFF. App Check APIs tab: Firebase AI Logic is **Basic – Enforced**.
+  - **T-011**: reCAPTCHA Enterprise (Fraud Defense) API enabled (free 10k/month). Web key `strangers-eyes-web` created; web app **Registered** in App Check. The site key is in `config.ts`.
+  - **T-012 (web)**: debug token `local-dev-mac` generated and registered. Moving its value into `web/.env.development.local` needs the USER: the permission classifier blocked Claude from reading the secret (correctly). The template file exists, mode 600, gitignored.
+- **T-007** cannot be automated:
+  - Chrome extensions can't change `chrome://settings` or `chrome://flags`, and Claude in Chrome is not connected.
+  - Local State shows no flags enabled. The 4.0 GB v3Nano model is present.
+  - The USER does the two toggles.
+- **Background workflow `wf_60df8863-f2f`** (running): T-050 app shell (implement → review → fix) and 10 openly licensed spike photos (find → verify → replace).
+- **Next:** review the workflow results, then T-050 screenshots, T-027 iOS skeleton (xcodegen ready) and T-030 Spike A once the debug token is pasted.
 

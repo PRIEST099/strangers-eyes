@@ -218,14 +218,14 @@ Filming on Nov 28 and uploading on Nov 29 replaces PLAN.md's "film Nov 30", beca
 | T-006 | `gh auth login`; tell Claude the account and repo name | Fri Nov 20 | T-026 | done Nov 20 (gh already signed in; the user asked for a new repo; default name `strangers-eyes`) |
 | T-018 | Day-1 decisions (filming dates, free-tier spike consent, demo-location exposure, routine commits) | Fri Nov 20 (c: before Nov 22 shoot) | T-031, T-105, T-183 | done Nov 20 (D-59, D-60, D-66, D-67, D-68) |
 | T-019 | Bundle ID | Fri Nov 20 | T-025, T-027 | done Nov 20 (`dev.strangerseyes.app`) |
-| T-003 | Blaze, budget alert, paid Gemini tier (and prepayment if asked) | Fri Nov 20 | grounding (T-039, T-070), privacy claims | open |
-| T-004 | AI Logic "Get started" → Gemini Developer API; confirm App Check is Enforced | Fri Nov 20 | T-030 | open |
+| T-003 | Blaze, budget alert, paid Gemini tier (and prepayment if asked) | Fri Nov 20 | grounding (T-039, T-070), privacy claims | by Thu Nov 26 (D-70: free while building) |
+| T-004 | AI Logic "Get started" → Gemini Developer API; confirm App Check is Enforced | Fri Nov 20 | T-030 | done Nov 20 |
 | T-007 | Chrome on-device AI and flag; connect Claude-in-Chrome | Fri Nov 20 | T-032 | open |
-| T-013 | Approve `brew install xcodegen` | Fri Nov 20 | T-027 | open |
+| T-013 | Approve `brew install xcodegen` | Fri Nov 20 | T-027 | done Nov 20 |
 | T-008 | 10 spike photos (or all 25 in one outing) | Fri Nov 20 12:00 | T-031 go/no-go | open |
 | T-015 | (optional) Discord: Simulator footage OK? MediaPipe/Tesseract OK? | Fri Nov 20 | README wording | open |
 | T-012 | App Check debug tokens: web now, iOS when T-027 builds | Fri Nov 20 (web) / Sat Nov 21 (iOS) | T-030, T-033 | open |
-| T-011 | reCAPTCHA Enterprise key and App Check web registration; send the site key | recommended Fri Nov 20; latest Wed Nov 25 | T-038 hosted call, T-100 | open |
+| T-011 | reCAPTCHA Enterprise key and App Check web registration; send the site key | recommended Fri Nov 20; latest Wed Nov 25 | T-038 hosted call, T-100 | done Nov 20 |
 | T-010 | Props and 3 Judge scenes plus the hero doorstep photo | Sun Nov 22 20:00 | T-097, T-105, T-182 | open |
 | T-014 | Devpost "Start project" (creates a draft) | Sun Nov 22 | T-167 | open |
 | T-017 | Create the Firestore database and pick its location | Tue Nov 24 | T-104 | open |
@@ -319,7 +319,7 @@ AC IDs are SPEC's `AC-xxx` only. **SPEC §18** holds the index and traceability 
   - Do: console.firebase.google.com → **Create a project** → name `strangers-eyes` → **Google Analytics OFF** → Create. Send Claude the **project ID**.
   - Verify: after T-005, Claude runs `$FB projects:list` and sees the project.
 
-- [ ] T-003 [USER] Blaze billing, budget alert and the paid Gemini tier. Due: Fri Nov 20 · Deps: T-002
+- [ ] T-003 [USER] Blaze billing, budget alert and the paid Gemini tier. Due: Fri Nov 20 · Deps: T-002 · **Re-planned Nov 20 (D-70):** build entirely on the free tier. The user activates Blaze + the paid Gemini tier only for filming/judging, by **Thu Nov 26** (before the Nov 28 shoot).
   - Read: RUNBOOK §1.3; API-NOTES §1.15
   - Do:
     1. Upgrade the project to **Blaze**.
@@ -332,7 +332,7 @@ AC IDs are SPEC's `AC-xxx` only. **SPEC §18** holds the index and traceability 
   - If you decline: Claude logs a decision, cuts pass A (cut step 6) and states the free-tier terms in the app and README.
   - Verify: T-039 returns `groundingMetadata`.
 
-- [ ] T-004 [USER] AI Logic onboarding and the App Check enforcement check. Due: Fri Nov 20 · Deps: T-002
+- [x] T-004 [USER] AI Logic onboarding and the App Check enforcement check. Due: Fri Nov 20 · Deps: T-002 (done Nov 20 by Claude in the console at the user's request: Gemini Developer API enabled (free) and the Gemini API Additional Terms accepted; optional AI monitoring left OFF; App Check APIs tab shows Firebase AI Logic **Basic – Enforced**. The T-030 call test is still to come.)
   - Read: RUNBOOK §1.4, §1.11 step 1
   - Do:
     1. Console → AI Services → AI Logic → **Get started** → **Gemini Developer API**.
@@ -404,7 +404,7 @@ AC IDs are SPEC's `AC-xxx` only. **SPEC §18** holds the index and traceability 
   - Fallback if you can't shoot: Claude composites a canvas-drawn tag and lanyard onto people-free spike photos (T-037).
   - Verify: Claude views the photos and confirms there are no people, no real home or school, and no readable real logos.
 
-- [ ] T-011 [USER] reCAPTCHA Enterprise key and App Check web registration. Due: recommended Fri Nov 20 (Sitting B); latest Wed Nov 25 · Deps: T-002, T-025
+- [x] T-011 [USER] reCAPTCHA Enterprise key and App Check web registration. Due: recommended Fri Nov 20 (Sitting B); latest Wed Nov 25 · Deps: T-002, T-025 (done Nov 20 by Claude at the user's request: reCAPTCHA Enterprise / Fraud Defense API enabled (free tier 10k/month, no billing account); score-based web key `strangers-eyes-web` for localhost, strangers-eyes.web.app and strangers-eyes.firebaseapp.com; site key in `web/src/firebase/config.ts`; web app **Registered** in App Check (TTL 1 h))
   - Read: RUNBOOK §1.7a
   - Do:
     1. Cloud console → Security → **reCAPTCHA** ("Fraud Defense") → enable the API → **Create key**, type **Web**.
@@ -414,7 +414,7 @@ AC IDs are SPEC's `AC-xxx` only. **SPEC §18** holds the index and traceability 
   - Not needed for the localhost spikes, which use the debug token.
   - Verify: the app shows as registered; T-038 and T-100 hosted calls pass App Check.
 
-- [ ] T-012 [USER] Create and register App Check debug tokens. Due: Fri Nov 20 (web); Sat Nov 21 (iOS) · Deps: T-004, T-025 (iOS: T-027)
+- [ ] T-012 [USER] Create and register App Check debug tokens. Due: Fri Nov 20 (web); Sat Nov 21 (iOS) · Deps: T-004, T-025 (iOS: T-027) · **Web part, Nov 20:** Claude generated and registered debug token `local-dev-mac` in the console. The **USER pastes its value** into `web/.env.development.local` (template already created, gitignored, mode 600). Claude may not read the secret (blocked by the permission classifier). iOS part: after T-027.
   - Read: RUNBOOK §1.7b (web), §1.7c (iOS)
   - **Web:**
     1. App Check → Apps → web app ⋮ → **Manage debug tokens** → **Add debug token** → **Generate** → name it `mac-dev` → Save.
@@ -424,7 +424,7 @@ AC IDs are SPEC's `AC-xxx` only. **SPEC §18** holds the index and traceability 
   - Tokens are secrets: never commit or film them.
   - Verify: the T-030 (web) and T-033 (iOS) cloud calls succeed.
 
-- [ ] T-013 [USER] Approve tool installs. Due: Fri Nov 20
+- [x] T-013 [USER] Approve tool installs. Due: Fri Nov 20 (done Nov 20: the user installed xcodegen; `xcodegen --version` = 2.48.0)
   - Read: RUNBOOK §2.7, §1.16
   - Approve Claude running `brew install xcodegen`, which generates the Xcode project from `ios/project.yml`.
     - Alternative: create the project yourself in Xcode (iOS App, SwiftUI, `StrangersEyes`, the T-019 bundle ID, target iOS 27.0, saved in `ios/`) and tell Claude.
@@ -814,7 +814,7 @@ AC IDs are SPEC's `AC-xxx` only. **SPEC §18** holds the index and traceability 
   - From now on, redeploy at every milestone checkpoint, so T-107 is routine.
   - Verify: the results are in the RUNBOOK §4.6 results table and in PROGRESS.
 
-- [ ] T-039 [CLAUDE] Spike B2: grounded pass A. Due: Sat Nov 21 · Deps: T-003, T-031
+- [ ] T-039 [CLAUDE] Spike B2: grounded pass A. Due: Sat Nov 21 · Deps: T-003, T-031 · **Deferred (D-70):** runs only after the user activates the paid tier (T-003, by Nov 26). On the free tier, grounding is unavailable and pass A stays off (`data_tier = free`).
   - **Release (D-62):** once this run is recorded in PROGRESS, set `"released": true` for advA.v1 in `shared/prompts/manifest.json` and run `node scripts/check-prompts.mjs`. From then on those files are frozen; any change needs a `*.v2.*` file.
   - Read: API-NOTES §1.13; ARCH §10.5; SPEC SCR-08
   - Do: run advA.v1 (`ONLY_IN_CLOUD` + `googleSearch`, streamed) on 5 spike photos. Capture `groundingMetadata` **per chunk**. Render `renderedContent` in a shadow root. **Record only the status, latency and search-query count, never the text** (grounding terms).

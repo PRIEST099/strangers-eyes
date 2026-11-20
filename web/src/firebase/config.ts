@@ -12,5 +12,6 @@ export const firebaseConfig = {
   appId: "1:320898500558:web:a71a1817cde2f1775f0d9f",
 } as const;
 
-/** reCAPTCHA Enterprise SITE key for App Check (public). Empty until the USER creates it (T-011). */
-export const RECAPTCHA_ENTERPRISE_SITE_KEY = '';
+/** reCAPTCHA Enterprise (Fraud Defense) SITE key for App Check: public by design. Key `strangers-eyes-web`, score-based,
+ *  domains localhost, strangers-eyes.web.app, strangers-eyes.firebaseapp.com (T-011, Nov 20). */
+export const RECAPTCHA_ENTERPRISE_SITE_KEY = '6LdCXCkuAAAAANlqU9u7c_5qzN-HniVZn-kyN78a';
