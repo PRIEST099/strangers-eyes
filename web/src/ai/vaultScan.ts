@@ -2,12 +2,13 @@
 // D-38; ARCH §8.4 as fixed by R-15, R-14, D-65). The active vault is the real vault outside Judge Mode, or JUDGE_VAULT in
 // Judge Mode; then the real vault is never loaded (D-37, AC-241). Every switch re-registers the tripwire scanner.
 // Vault strings and pins live here in memory only: never logged (R9), never persisted, never sent.
-import { loadVault } from '../vault/vaultStore';
+import { finishPendingBurn, isGenericVaultString, loadVault } from '../vault/vaultStore';
+import { onVaultChange } from '../vault/sync';
 import { setVaultScanner, type VaultScanner } from './tripwire';
 import { CLOUD_TEXT_PROMPTS, fileText, MANIFEST, nonContentStrings, staticSegments } from './prompts';
 import {
   clampFuzzyThreshold, DEFAULT_FUZZY_THRESHOLD, findAllInText, firstMatchInText, GENERIC_PIN_LABELS, makeTerm, matchWords,
-  normalize, alnum, type MatchMode, type Term, type WordHit, type WordLike,
+  normalize, type MatchMode, type Term, type WordHit, type WordLike,
 } from '../tier0/fuzzy';
 import { haversineMeters } from '../core/geo';
 import { PIN_KINDS, type VaultItem, type VaultKind } from '../core/types';
@@ -20,7 +21,12 @@ export const VAULT_UNAVAILABLE = 'vault-unavailable';
 export const PIN_RADIUS_M = 1000;
 
 // ---------- the index ----------
-export interface PinRef { vaultId: string; kind: VaultKind; lat: number; lng: number }
+/**
+ * A pin of the active vault. `label` is set for place_pin only: the {KIND} display name of a place is the user's label
+ * (SPEC §17.3, copy.import.gpsNear). LOCAL ONLY: coordinatesNearPins and tripwireScanner return PinHit / {vaultId}
+ * without it, so it never reaches the Ledger, a log or a cloud-bound value.
+ */
+export interface PinRef { vaultId: string; kind: VaultKind; lat: number; lng: number; label?: string }
 
 const isPinKind = (k: VaultKind) => PIN_KINDS.includes(k);
 /** D-36 / AC-088: a pin labelled "Home", "Work", "" … contributes no text terms at all (its aliases included). */
@@ -30,8 +36,10 @@ export const isGenericPinLabel = (label: string): boolean => {
 };
 
 /**
- * Every non-pin item's label and aliases; plate / house_number / phone become digit terms. A pin contributes its
- * label and aliases only when the label is neither empty nor generic. Empty strings are dropped; duplicates merged.
+ * Every item's label and aliases; plate / house_number / phone become digit terms. A pin whose label is empty or
+ * generic contributes nothing, its aliases included (D-36). Every other empty or generic string ("Home", "Work",
+ * "School", "Place" … as a label or an alias, of any kind: vaultStore.isGenericVaultString) is dropped on its own, so
+ * a prompt containing "home" is never blocked by one (AC-088). Duplicates are merged.
  */
 export function termsOf(vault: readonly VaultItem[]): Term[] {
   const out: Term[] = [];
@@ -39,7 +47,7 @@ export function termsOf(vault: readonly VaultItem[]): Term[] {
   for (const item of vault) {
     if (isPinKind(item.kind) && isGenericPinLabel(item.label)) continue;
     for (const s of [item.label, ...item.aliases]) {
-      if (!normalize(s) && !alnum(s)) continue;
+      if (isGenericVaultString(s)) continue;
       const key = `${item.id}\u0000${s}`;
       if (seen.has(key)) continue;
       seen.add(key);
@@ -49,10 +57,13 @@ export function termsOf(vault: readonly VaultItem[]): Term[] {
   return out;
 }
 
-/** Pin coordinates, used ONLY by coordinatesNearPins (PIN_IN_PROMPT). Generic labels do not matter here. */
+/**
+ * Pin coordinates, used by coordinatesNearPins (PIN_IN_PROMPT) and the local GPS warning (tier0/gpsWarning.ts, which
+ * also reads a place_pin's label for {KIND}). Generic labels do not matter here.
+ */
 export function pinsOf(vault: readonly VaultItem[]): PinRef[] {
-  return vault.flatMap((v) => (isPinKind(v.kind) && v.pin && Number.isFinite(v.pin.lat) && Number.isFinite(v.pin.lng)
-    ? [{ vaultId: v.id, kind: v.kind, lat: v.pin.lat, lng: v.pin.lng }] : []));
+  return vault.flatMap((v): PinRef[] => (isPinKind(v.kind) && v.pin && Number.isFinite(v.pin.lat) && Number.isFinite(v.pin.lng)
+    ? [{ vaultId: v.id, kind: v.kind, lat: v.pin.lat, lng: v.pin.lng, ...(v.kind === 'place_pin' ? { label: v.label } : {}) }] : []));
 }
 
 // ---------- scans (pure) ----------
@@ -175,6 +186,18 @@ export interface VaultScanDeps {
   loadReal: () => Promise<readonly VaultItem[]>;
   /** Register the tripwire scanner (tripwire.setVaultScanner). */
   register: (fn: VaultScanner) => void;
+  /**
+   * Subscribe to "the vault changed", in this tab or another one (vault/sync.ts onVaultChange). Subscribed once, at the
+   * first init()/useReal(); every change then rebuilds the real index (ARCH §8.4 "rebuilt on every vault edit").
+   */
+  onVaultChange?: (listener: () => void) => unknown;
+  /**
+   * Boot step for BOTH modes (vaultStore.finishPendingBurn): finish an interrupted Burn vault before the index is
+   * installed. Reads no vault data (only the burn-pending marker, and only if its database exists, found without
+   * creating it), so Judge-Mode boot never unseals the real vault (D-37) and creates no database on a fresh profile
+   * (AC-241), also where indexedDB.databases() is missing or fails.
+   */
+  finishPendingBurn?: () => Promise<void>;
 }
 
 const BLOCK_ALL: VaultScanner = () => ({ vaultId: VAULT_UNAVAILABLE });
@@ -187,7 +210,7 @@ export function createVaultScan(deps: VaultScanDeps) {
   let judgeVault: readonly VaultItem[] | null = null;
   let theta = DEFAULT_FUZZY_THRESHOLD;
   let blocked = false;   // a BLOCK_ALL scanner is registered (index loading or unavailable)
-  let gen = 0;           // bumped by every switch; a load that finishes after a newer switch is discarded
+  let gen = 0;           // bumped by every switch; a boot step that finishes after a newer switch is discarded
 
   let bootResolve: () => void = noop;
   let bootReject: (e: unknown) => void = noop;
@@ -199,6 +222,15 @@ export function createVaultScan(deps: VaultScanDeps) {
     p.then(bootResolve, bootReject);
     p.catch(noop);   // the caller (or the gate, via `ready`) sees the rejection; never an unhandled one
     return p;
+  };
+
+  // A change re-reads the vault: block() drops the old terms and pins at once, and the reload installs what is really
+  // stored. That is right for an edit and for a burn (finished or not), here or in another tab.
+  let subscribed = false;
+  const subscribe = () => {
+    if (subscribed || !deps.onVaultChange) return;
+    subscribed = true;
+    deps.onVaultChange(() => { void refresh(); });
   };
 
   const install = (next: VaultScanMode, items: readonly VaultItem[]) => {
@@ -216,17 +248,69 @@ export function createVaultScan(deps: VaultScanDeps) {
     deps.register(BLOCK_ALL);
   };
 
-  /** Load the real vault and make it active. Fails closed: until it is built, and if it cannot be, every scanned cloud call trips. */
-  const loadReal = async (my: number): Promise<void> => {
-    block('real');
-    let items: readonly VaultItem[];
-    try {
-      items = await deps.loadReal();
-    } catch (e) {
-      if (my !== gen) return;   // superseded: the newer switch decides
-      throw e;                  // stays blocked; `ready` rejects, so the gate fails closed too
+  /** The real-vault load in flight, and whether the vault changed (again) while it ran. */
+  let loading: { promise: Promise<void>; again: boolean } | null = null;
+  /** A switch (init, useJudge, useReal, clearReal): bump the generation and abandon any real-vault load in flight. */
+  const switched = (): number => {
+    loading = null;
+    return ++gen;
+  };
+
+  /**
+   * Load the real vault and make it active. Fails closed: blocked from the first request until a load that started
+   * after the LAST request is installed; if the vault cannot be read it stays blocked and `ready` rejects (the gate
+   * fails closed too). Coalesced (T-054 review round 2): while a load runs, more requests only make it load once more
+   * when it finishes and never install its now-stale result, so N vault changes (every tab announcing) cost at most two
+   * loads, never N.
+   */
+  const loadReal = (): Promise<void> => {
+    if (!blocked || mode !== 'real') block('real');   // already blocked: BLOCK_ALL is registered, terms are empty
+    if (loading) {
+      loading.again = true;
+      return loading.promise;
     }
-    if (my === gen) install('real', items);
+    const cur = { promise: Promise.resolve(), again: false };
+    loading = cur;
+    cur.promise = track((async () => {
+      try {
+        for (;;) {
+          cur.again = false;
+          let items: readonly VaultItem[] = [];
+          let failed = false;
+          let error: unknown;
+          try {
+            items = await deps.loadReal();
+          } catch (e) {
+            failed = true;
+            error = e;
+          }
+          if (loading !== cur) return;   // superseded by a switch: the newer one decides
+          if (cur.again) continue;       // the vault changed while this load ran: its result may be stale
+          if (failed) throw error;       // stays blocked
+          install('real', items);
+          return;
+        }
+      } finally {
+        if (loading === cur) loading = null;
+      }
+    })());
+    return cur.promise;
+  };
+
+  /**
+   * After a vault edit: rebuild the real index. Only while the real vault is active: in Judge Mode the real vault is
+   * never loaded (useReal() reads the latest on exit). Before init() boot has not chosen yet, so there is nothing to
+   * rebuild: it resolves at once and registers nothing (the tripwire stays fail-closed, NO_SCANNER). It used to return
+   * the boot promise, which never settles before init(): a Burn vault that failed before boot never settled either
+   * (T-054 review round 3). In real mode the index is blocked synchronously, before refresh() returns.
+   * TODO(T-062): the gate must compare a monotonic vault generation (bumped inside the vault lock by saveUnlocked and
+   * burnUnlocked) with the generation this index was built from before EVERY permit; `ready` alone cannot tell that a
+   * change committed in another tab has not been announced here yet.
+   */
+  const refresh = (): Promise<void> => {
+    if (mode === 'unset') return Promise.resolve();
+    if (mode !== 'real') return ready;
+    return loadReal();
   };
 
   return {
@@ -244,13 +328,23 @@ export function createVaultScan(deps: VaultScanDeps) {
      * registers an empty index until useJudge() installs JUDGE_VAULT's. Otherwise the real vault is loaded.
      */
     init(opts: { judge: boolean }): Promise<void> {
-      const my = ++gen;
-      if (opts.judge) {
-        judgeVault = null;
-        install('judge', []);
-        return track(Promise.resolve());
-      }
-      return track(loadReal(my));
+      subscribe();
+      const my = switched();
+      judgeVault = null;
+      block(opts.judge ? 'judge' : 'real');   // fail closed while boot runs
+      return track((async () => {
+        try {
+          // Both modes: an interrupted Burn vault is finished first (it reads no vault data, so D-37 holds).
+          await deps.finishPendingBurn?.();
+        } catch (e) {
+          // Judge Mode never reads the real vault, so a burn that cannot finish yet (a blocked deletion) does not stop
+          // it: the marker stays and the next boot or load retries. Outside Judge Mode: stay blocked, `ready` rejects.
+          if (my === gen && !opts.judge) throw e;
+        }
+        if (my !== gen) return;   // superseded: the newer switch decides
+        if (opts.judge) install('judge', []);
+        else await loadReal();
+      })());
     },
 
     /**
@@ -258,7 +352,7 @@ export function createVaultScan(deps: VaultScanDeps) {
      * memory. TODO(Judge Mode task): pass vault/judgeVault.ts's JUDGE_VAULT here once that module exists.
      */
     useJudge(vault: readonly VaultItem[]): Promise<void> {
-      ++gen;
+      switched();
       judgeVault = vault;
       install('judge', vault);
       return track(Promise.resolve());
@@ -266,25 +360,19 @@ export function createVaultScan(deps: VaultScanDeps) {
 
     /** Leave Judge Mode: unseal the real vault again and rebuild its index. */
     useReal(): Promise<void> {
-      const my = ++gen;
+      subscribe();
+      switched();
       judgeVault = null;
-      return track(loadReal(my));
+      return loadReal();
     },
 
-    /**
-     * After a vault edit: rebuild the real index. Only while the real vault is active: in Judge Mode the real vault is
-     * never loaded (useReal() reads the latest on exit), and before init() boot has not chosen yet.
-     */
-    refresh(): Promise<void> {
-      if (mode !== 'real') return ready;
-      const my = ++gen;
-      return track(loadReal(my));
-    },
+    /** Rebuild the real index now (vault changes do this by themselves once subscribed). */
+    refresh,
 
     /** After Burn: the real index is emptied at once (only while the real vault is active). */
     clearReal(): void {
       if (mode !== 'real') return;
-      ++gen;
+      switched();
       install('real', []);
       track(Promise.resolve());
     },
@@ -304,5 +392,8 @@ export function createVaultScan(deps: VaultScanDeps) {
 }
 export type VaultScan = ReturnType<typeof createVaultScan>;
 
-/** The app's one instance: the real vault from vaultStore, scanner registered with the tripwire. */
-export const vaultScan: VaultScan = createVaultScan({ loadReal: loadVault, register: setVaultScanner });
+/**
+ * The app's one instance: the real vault from vaultStore, scanner registered with the tripwire, rebuilt on every vault
+ * change; every boot (Judge Mode too) first finishes an interrupted burn.
+ */
+export const vaultScan: VaultScan = createVaultScan({ loadReal: loadVault, register: setVaultScanner, onVaultChange, finishPendingBurn });

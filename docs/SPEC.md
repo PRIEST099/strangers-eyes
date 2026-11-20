@@ -143,7 +143,7 @@ These are deviations from and clarifications of `research/winner-spec.md`. The P
 | D-20 | Every image is re-encoded as JPEG. All boxes (faces, OCR, Gemini) are computed on, or mapped to, **one oriented working image ("master", longest side ≤2048 px)**. Derived frames: Nano gets a 768 px copy, the cloud a 1536 px copy, OCR a 1600 px downscale. All keep the master's aspect ratio and are never letterboxed. | Keeps orientation and boxes consistent; Nano accepts only JPEG or PNG. |
 | D-21 | The web on-device model is Chrome's **v3Nano**, already installed on this Mac. The `#gemma4-for-built-in-ai` ("Nano 4") flag is an optional experiment [UNVERIFIED]. Do it before Nov 26 or not at all, **never in the 48 h before filming**, and revert if it fails. | A Firebase answer relayed through the forum says v3Nano is acceptable through the SDK. |
 | D-22 (RN-18) | The benchmark scores **pass B only**, on **public-place photos only**. Its synthetic "home" pin is the capture point. | Grounding terms; no real homes. |
-| D-23 | The vault holds **at most 20 items**, and each label is **at most 40 characters**, on both platforms. | iOS on-device prompts must stay under 4,096 tokens. |
+| D-23 (amended by D-79) | The vault holds **at most 20 items**, each label and each alias is **at most 40 characters** (Unicode code points of the string as given, no normalisation: web `[...s].length`, iOS `unicodeScalars.count`), and an item has **at most 5 aliases**, on both platforms. | iOS on-device prompts must stay under 4,096 tokens. |
 | D-24 | The re-attack image, masks included, is visible to the cloud. The cloud can see **which regions** were hidden, never **why**. Disclosed in About and in the README. | Honesty. |
 | D-25 | Deterministic fallbacks are labelled **RULES-ONLY** everywhere and are never called "on-device AI". | Honest badges. |
 | D-26 | **Demo location disclosure [USER].** Before Judge Mode samples are recorded (T-105) and before the rehearsal, the user accepts in chat that the city or neighbourhood of the shoot becomes public, through the committed samples, the cached fixtures and the video. Shoots happen a few km or more from home, work and any school. Sample pins are rounded to 3 decimals (about 100 m). Coordinate scans allowlist only `web/public/samples/*.json`. | Judge Mode needs pins near the real scene to produce a red band. The org rule says PII is included only at the Primary Owner's request. |
@@ -699,11 +699,12 @@ Each screen lists its purpose, layout, behaviour, states (a)–(e), copy IDs and
   - **There is no URL input.** Dropped or pasted URLs and text are rejected with `copy.import.noUrl`.
 - **Accepted formats:** JPEG, PNG and WebP.
   - HEIC is attempted. If `createImageBitmap` fails, show `copy.import.heic` [UNVERIFIED: U-32].
-- **Rejected:** files over 30 MB, images over 40 MP, animated or video files (`copy.import.tooLarge`, `copy.import.unsupported`).
+  - The format is decided from the file's bytes, never its name or MIME type (D-78). An image that arrives together with a web address or page markup (dragged from a web page, or copied with "Copy image") counts as a link: `copy.import.noUrl`.
+- **Rejected:** files over 30 MB (30,000,000 bytes, as Finder shows it), images over 40 MP (read from the header before decoding), animated or video files, and malformed or truncated files (`copy.import.tooLarge`, `copy.import.unsupported`; D-78).
 - **One photo per check.** Batch "check my last 20 posts" is P2.
 - **On import:**
   1. Read EXIF locally with exifr: is there GPS, and what is the orientation?
-  2. **P1:** if GPS is present and the vault has pins, compute the band from the EXIF point to each pin. Show `copy.import.gpsFound`, plus `copy.import.gpsNear` when the band is district or closer. This is S0 and is computed in code.
+  2. **P1:** if GPS is present and the vault has pins, compute the band from the EXIF point to each pin. Show `copy.import.gpsFound`, plus `copy.import.gpsNear` when the band is district or closer. This is S0 and is computed in code. Every pin at district or closer is named, closest first, one line per {KIND}; a place pin shows its label (D-78).
   3. Decode with `createImageBitmap(blob, {imageOrientation: 'from-image'})`.
   4. Downscale to the master (≤2048 px), re-encode it as JPEG at quality 0.9 (which strips EXIF), and hand it to Tier-0.
   5. The original blob stays only in memory, or is encrypted if the session is saved. It is never uploaded.
@@ -1162,7 +1163,7 @@ Each screen lists its purpose, layout, behaviour, states (a)–(e), copy IDs and
   - (e): if a sample is refused live, show the (e) UI and offer **Use recorded result** (the cached pass B, labelled). This is not a retry of the model.
 - **ACs**
   - **AC-240 (P0) [e2e]** On a fresh Chrome profile with no Nano, against the hosted URL: `?judge=1` → sample 1 → green "Risk reduced" in ≤90 s, with no manual input beyond starting it (autoplay).
-  - **AC-241 (P0) [unit]** Entering Judge Mode never reads or unseals the real vault. Exiting leaves the real vault byte-identical.
+  - **AC-241 (P0) [unit]** Entering Judge Mode never reads or unseals the real vault. Exiting leaves the real vault byte-identical. *(Narrowed by D-80:)* the one exception is boot, in either mode: it may read the `burn-pending` marker in `se-vault-keys` (only if that database exists; it never creates one) and, if a Burn vault the user started was interrupted, finish deleting it. It never reads the vault record or the key.
   - **AC-242 (P0) [unit]** An S4 call with a non-sample image, or with the real vault, is BLOCKED (AC-023).
   - **AC-243 (P0) [e2e]** With the network offline, Judge Mode completes using the CACHED pass B, and every cached step carries a badge.
   - **AC-244 (P0) [manual]**

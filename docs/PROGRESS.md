@@ -7,9 +7,18 @@
 ## STATE (overwrite in place; never append here)
 - Today: Fri Nov 20 2026 (Day 2)
 - Now: **T-031 (started 08:20 GMT+2), paused**: free-tier daily quota for the adversary model is used up (see WIP).
-- Next: resume T-031 after 10:00 GMT+2 Sat Nov 21 (free quota reset; D-74; command in WIP), then T-034. Meanwhile (G1-independent): T-053+ (Tier-0 tasks), T-038 deploy, T-088.
+- Next:
+  - Resume T-031 after 10:00 GMT+2 Sat Nov 21 (free quota reset; D-74; command in WIP), then T-034.
+  - Meanwhile (G1-independent):
+    - T-057: OCR with adaptive binarisation (D-81);
+    - T-056: faces;
+    - T-060: routing policy (creates `remoteconfig.template.json`);
+    - T-061: capabilities;
+    - T-055: vault UI;
+    - T-059: masks;
+    - T-038: deploy, waiting for the user's OK to publish the public Hosting site.
 - Blocked: T-031 on the gemini-4-hydrogen free quota (20 requests/day/model); gemini-3.8-flash unusable today (503 timeouts).
-- Last green commit: see git log (T-051/T-093). `npm --prefix web run check` green: 438 tests, 45 boundary cases, prompt hashes (all drafts). iOS: BUILD SUCCEEDED, 2/2 tests.
+- Last green commit: see git log (T-053/T-054). `npm --prefix web run check` green: 657 tests, 106 planted boundary violations, prompt hashes (all drafts); `npm run build` + check-dist ok. iOS: BUILD SUCCEEDED, 2/2 tests.
 - Checkpoints: G1 in progress (3/10 photos) | G1b – | G2 – | G3 – | slice Nov 22 – | loop Nov 24 – | hosted Nov 25 –
 - Adversary model: **gemini-4-hydrogen for T-031** (D-73; flash unusable on Nov 20; re-test flash before the RC default) | iOS path: A (firebase-ios-sdk 12.19.3)
 - Cuts applied: none
@@ -23,6 +32,9 @@
 Sitting A is due tonight or Fri Nov 20 morning, in this order:
 - T-007 Chrome on-device AI flag; connect Claude-in-Chrome · Fri Nov 20 · open
 - T-015 (optional) Discord questions · Fri Nov 20 · open
+- **New, from T-037:** a face or mannequin test image for the face-recall spike (U-31), kept in `PRIV/test/`, never committed. It must be a builder-owned photo of a consenting adult, a mannequin, or a synthetic face · Sat Nov 21 · open
+- **New, T-038:** OK to publish the walking-skeleton site on Firebase Hosting (public at strangers-eyes.web.app) · Sat Nov 21 · ask
+- Copy review of the 7 `copy.judge.coach.*` texts (D-77) · before T-105 · open
 
 Later: Sitting B (T-012, T-011) after T-025; Sitting C (T-010, T-014, T-017) Nov 21–22; the rest per TASKS §4.
 
@@ -58,11 +70,36 @@ Pre-gate facts already verified on Nov 19:
 - The Firestore rules emulator run passes 20/20.
 - **Tier-0 in the app (T-023):** EXIF/GPS strip, MediaPipe faces, Tesseract OCR, vault crypto and solid masks all pass in Chrome 156 (Browser pane).
 
+### T-037 prop OCR (Nov 20, Chrome 156 Browser pane; D-81)
+Test image: a white "LUCAS" tag with dark letters, tilted 4°, composited in memory on people-free spike photos s01, s05 and s09 (nothing saved), at 2 positions × 5 cap heights (32, 48, 64, 96, 160 px on the 2048 px master) = 30 placements. Tesseract 7, OEM LSTM, PSM 11 (sparse text).
+
+| Binarisation | Frame | Found | ms/pass* |
+|---|---|---|---|
+| global Otsu (default, `thresholding_method` 0) | 1600 | **14/30** | ~600 |
+| global Otsu | 800 | 7/30 | ~230 |
+| global Otsu, 2×2 tiles, 10% overlap | 4 × ~1100 | 13/30 | ~1450 |
+| PSM 3 (auto) instead of 11 | 1600 | 0/30 | ~375 |
+| **Leptonica adaptive Otsu (1)** | 1600 | **26/30** | ~1170 |
+| Sauvola (2) | 1600 | 24/30 | ~1020 |
+| Sauvola (2) | 800 | 19/30 | ~340 |
+| **union of Otsu, adaptive Otsu, Sauvola, Sauvola-800** | – | **30/30** | – |
+
+\*Hidden (throttled) pane, so pessimistic.
+- A first pass on s01 alone (0° and 8° tilt, 20–96 px caps, with a blue border around the tag) read 20–36 px caps at both 1600 and 1536 px. 48–96 px was erratic, and the border made it worse ("UCAS", "——]").
+- Verdict: the prop is fine. The default binarisation is the problem, so T-057 sets adaptive Otsu plus a Sauvola union pass where a miss fails open (D-81).
+- Faces (step 3, U-31): not run. No face or mannequin image in `PRIV/test/` yet.
+
+### T-053 import on real photos (Nov 20, Chrome 156 Browser pane)
+- The 6 spike photos whose originals carry EXIF GPS (s02, s03, s04, s06, s08, s10) were run through `importPhoto`. In every master: segments are APP0,APP2 only, `exifr.gps` is undefined, the longest side is 2048 px, and sha256 has 64 hex characters. `hadGps` was true and the GPS warning appeared, with no pins named because the vault was empty.
+- `#/dev/selftest`: ALL PASS (exif, import, vaultCrypto, geo, masks, ocr, prompts, faces_none):
+  - **import (AC-101):** the Orientation=6 fixture is upright, with width and height swapped, and has no APP1/APP13 and no GPS; 35 MB → tooLarge, text → unsupported.
+  - **vaultCrypto:** the stored key reads back non-extractable; raw and jwk export throw; the record holds only `{ct, iv, v}`, with a fresh 12-byte IV and no plaintext.
+
 ## Decisions log
 Canonical IDs:
 - **D-01..D-39** are in SPEC §0.4 (read them there).
 - **AD-xx** are in ARCH §2. Where an AD duplicates a D, the D wins.
-- **The next free number is D-78.**
+- **The next free number is D-82.**
 
 - D-00 (Nov 19) Idea: **Strangers' Eyes**, chosen by a 29-agent tournament (score 8.18) and approved by the user. **Blindfill** is the Day-1 fallback, *only* with the user's OK if G1 fails (TASKS T-034). Health/Rwanda "Muganga" was rejected (the user wants a global idea).
 - D-00a (Nov 19) Platforms: Web PWA (primary) + iOS. **Android cut**: no physical device, and the emulator has no Nano.
@@ -197,6 +234,45 @@ Canonical IDs:
     - `fuzzy.json` `conventions` is the cross-platform contract.
   - After the fix verification: a zero-width space is read both deleted and as a space (both count), and the sub-word digit view joins up to 6 sub-words.
   - Edited: SPEC SCR-06, §10.1 and the RC table; ARCH §8.4, §12.2, §13 (table and template) and §20.1; TASKS T-052 Verify and T-062.
+- D-78 (Claude, Nov 20; T-053 reviews) **Photo import rules (SPEC SCR-05):**
+  - **Limits:** 30 MB = 30,000,000 bytes (as Finder and the copy say), checked from `Blob.size` before reading. 40 MP = 40,000,000 px, inclusive, read from the header before any decode (JPEG SOFn, PNG IHDR, WebP VP8/VP8L/VP8X, HEIF ispe).
+  - **Format:** decided by magic bytes, never the name or MIME type. Rejected as `unsupported`:
+    - GIF, video, AVIF;
+    - animated files (APNG acTL before IDAT, animated WebP, HEIF sequences);
+    - malformed or truncated files: a JPEG without a scan, a PNG without IEND.
+  - **Walk caps:** every container walk is capped: JPEG segments up to the first SOS (1024), small non-IDAT PNG chunks up to IEND (1024; 65,536 chunks in all), RIFF chunks (1024), ISO-BMFF boxes per level (1024), and every child of HEIF `meta`.
+  - **exifr never sees the file.** `sniff.exifTiff` takes the EXIF TIFF from those capped walks and hands only that to exifr. That is the JPEG APP1 "Exif" before the scan, the PNG eXIf before IEND, the WebP EXIF chunk, or the HEIF Exif item found via iinf/iloc (stored plainly, one extent). exifr's own parsers walk past IEND, byte-scan some JPEG segment bodies past the SOS, and walk every HEIF box: about 1 s and hundreds of MB on crafted files (round-5 verifier). An EXIF item stored any other way gets no GPS warning; the master is stripped either way. exifr gets at most 1 MiB of that TIFF: its TIFF parser trusts value counts (about 5 ms on a crafted 1 MiB TIFF), and ImageIO can put the GPS IFD past 100 KB. At most 64 ftyp brands are read. The sniff validates every HEIF infe and iloc entry with the lookup's caps, so an accepted HEIC never loses its Exif to a cap.
+  - **Local files only (SR-06):** a drop or paste that carries a web address or page markup (`text/uri-list`, `text/html`, moz-url) together with a file counts as a link → `copy.import.noUrl`.
+  - **GPS warning (P1, S0):**
+    - every pin at district or closer is named, closest first, one line per {KIND}; a place pin shows its label;
+    - pins are awaited for up to 5 s (`pinsWhenReady`), otherwise only `copy.import.gpsFound` shows;
+    - a WebP's EXIF is read from its RIFF `EXIF` chunk.
+  - **Fail closed:** a master that still carries APP1/APP13/GPS is the import error `ui.import.metadataFailed`, not the gate's copy, which says "would have left this device".
+  - **UI:** the import status lives with the master in Check's reducer (`ui/checkState.ts`), so revisiting Import shows the panel for the photo Check holds.
+  - Edited: SPEC SCR-05; ARCH §3 and §4.2 (R9); TASKS T-068, T-089, T-121.
+- D-79 (Claude, Nov 20; T-054 reviews) **Vault item rules:**
+  - At most **5 aliases** per item. Labels and aliases are ≤ 40 Unicode code points of the string as given, with no normalisation (web `[...s].length`, iOS `unicodeScalars.count`).
+  - Ids are `vi_` + 12 hex characters and unique, so no free text can reach the unsealed ledger. Only an `area_name` may carry `linkedPinId`, and it must name a `home_pin` in the vault. Removing that pin keeps the area and drops the link.
+  - Timestamps must be finite and ≥ 0. A real vault's pin source is `geolocation` or `manual` only (`synthetic` is Judge Mode only).
+  - An item may hold only the VaultItem fields, and a pin only the Pin fields; a text item may hold no pin at all. Anything else, a sparse alias array, or a field of the wrong type is `bad_item`/`bad_pin`/`pin_not_allowed`, never a TypeError. In `updateItem`, a field set to `undefined` means "no change".
+  - **What is validated is what is sealed:** new and updated items go through a JSON round trip (`asSealed`) before validation, so a toJSON, getter or class instance cannot be stored as something else. A BigInt or a cycle is `bad_item`.
+  - **AC-088 widened:** no empty or generic string (`GENERIC_PIN_LABELS`) is ever a vault term, whether label or alias, of any kind. A text item whose label is empty or generic is refused (`label_required`); a pin keeps D-36.
+  - A present but unrecognised vault record is `VaultCorruptError`: reads and writes refuse, and nothing overwrites it.
+  - **Only a vault add creates the key.** `withVaultLock` passes an unforgeable lock token, which `ensureVaultKey`, `deleteVaultKey` and `clearBurnPending` require. Future session and queue writes use `getVaultKey()` under the lock and skip the write when there is no key (AC-270).
+  - Edited: SPEC D-23; ARCH §3, §8.4 and §16.4; TASKS T-055 and T-121; `shared/testvectors/fuzzy.json` (a new termsOf case).
+- D-80 (Claude, Nov 20; T-054 reviews and fix verifiers) **Burn is resumable, bounded and cross-tab:**
+  - **Marker:** the key delete and a `burn-pending` marker are written in one transaction. The marker is cleared only after all three databases are deleted.
+  - **Timeouts:** every deletion is timed from its request: 3 s for the user's Burn vault, 250 ms for retries. A same-tab second deletion of a database still being deleted rejects at once. `BurnPendingError` means "not deleted in time", so no vault operation can hold the cross-tab lock for an unbounded time.
+  - **Resume:** every load, edit and boot, Judge Mode included, finishes a pending burn first. It reads only the marker, never the record or key, skips databases `databases()` no longer lists, and creates no database (`idb.databaseExists` where `databases()` is missing). When a retry's timed-out deletions complete, the tab announces a vault change once. A failure never announces, which prevents a cross-tab retry storm.
+  - **Cross-tab index:** every committed vault change is announced on `BroadcastChannel('se-vault')` with no data, and every real index blocks and reloads. Reloads are coalesced, and `refresh()` before `init()` resolves at once. `performBurn` does not wait for the reload, but the index is blocked synchronously before it rejects. The gate's generation check before each permit is T-062.
+  - **AC-241 narrowed:** boot may read the marker and finish a burn the user started; it never reads the vault record or key.
+  - Edited: SPEC AC-241; ARCH §8.4, §15.1 and §16.4; API-NOTES §5.4; TASKS T-055 and T-062.
+- D-81 (Claude, Nov 20; T-037 finding, applies to T-057) **Tier-0 OCR uses adaptive binarisation.**
+  - Tesseract's default global Otsu found the demo name tag in only 14/30 realistic placements on street photos. Making the tag bigger made it worse.
+  - Tier-0 OCR therefore sets `thresholding_method: '1'` (Leptonica adaptive Otsu, 26/30) once.
+  - Wherever a missed word fails open (the vault-word match, the gate's OCR of the outgoing frame, the export check), a second Sauvola pass (`'2'`) runs and the words are unioned (30/30). This costs about +1 s per check on the M1.
+  - The prop design stays: plain dark letters on a light tag, no border hugging the letters.
+  - Edited: API-NOTES §5.2 (verified numbers); TASKS T-037 and T-057; PROGRESS "T-037 prop OCR".
 
 ### Reconciliation items (T-022, done Nov 19)
 How T-022 ran:
@@ -483,3 +559,30 @@ How T-022 ran:
 - **Human follow-up:** copy review of the 7 `copy.judge.coach.*` texts.
 - **Next:** resume T-031 tomorrow after 10:00 GMT+2.
 
+### 2026-11-20 (evening): T-053, T-054, T-037 (OCR half); D-78..D-81
+- **T-053 import + EXIF strip and T-054 vault store:**
+  - Built by a workflow: one builder per task and two adversarial reviewers each, then fix rounds 2–4, each with its own verifier (wf_1ad9d726-1ee, wf_8b0f6516-78d, wf_0697d92c-600, wf_a187abcf-c96).
+  - Rounds 5–6 were applied by hand and verified independently (wf_0660c067-fab, wf_6a8e7fe5-09a).
+  - DEVLOG F-36 to F-69. The major ones:
+    - another tab kept a burned vault in memory;
+    - a fix combination could hang every vault operation while holding the cross-tab lock;
+    - a sparse alias list blocked the vault;
+    - the EXIF library walked unbounded structure (it now gets only the EXIF TIFF).
+  - My own mistakes: fix prompts truncated the findings at 14,000 characters, dropping 6 (F-55; caught by reconciliation and fixed); one browser re-check read a stale page (F-69); one mutation restore undid a fix (F-73). Each was caught before any conclusion was drawn.
+  - Rounds 5–7 were applied by hand. Each was verified by an independent agent, and the import path took three of them (F-63, F-66, F-70): every fix moved the cost to the next parser that was not bounded.
+- **Browser (Chrome 156):**
+  - selftest ALL PASS (import AC-101, vaultCrypto);
+  - all 10 PRIV spike photos import clean, with GPS found on exactly the 6 that carry it;
+  - exifr now sees 0.6–1.5 KB, not the ~1 MB file;
+  - check: 657 tests, 106 planted boundary violations.
+  - Follow-ups, minor, to T-090:
+    - R19 as an allowlist (alias tricks, escapes inside glob strings, globs the regex misses);
+    - identifier escapes defeating the name-based rules.
+- **T-037 steps 1–2:** default Tesseract binarisation reads the demo tag in only 14/30 placements; adaptive Otsu + Sauvola reads 30/30 → D-81 for T-057. Step 3 (faces) needs a test image from the user.
+- **Decisions:**
+  - D-78: import rules;
+  - D-79: vault item rules (5 aliases, code points, AC-088 any kind);
+  - D-80: resumable, bounded, cross-tab burn; AC-241 narrowed;
+  - D-81: OCR binarisation.
+- **Docs edited:** SPEC D-23, SCR-05 and AC-241; ARCH §3, §4.2 (R9, R19, R21, R22), §8.4, §15.1 and §16.4; API-NOTES §5.2, §5.3 and §5.4; TASKS T-037, T-055, T-057, T-062, T-068, T-089 and T-121.
+- **Next:** T-031 resumes after 10:00 GMT+2. Meanwhile T-057 (OCR with D-81), T-056, T-060, T-061.

@@ -805,6 +805,7 @@ AC IDs are SPEC's `AC-xxx` only. **SPEC §18** holds the index and traceability 
     2. Check that Tesseract reads "LUCAS" both at working size and at the 1536 px cloud size. This is needed for the leak demo (AC-041).
     3. Run MediaPipe full-range at 0.3 on a local, **uncommitted** face or mannequin image in `PRIV/test/`. Record recall for full-range vs short-range and whether 2×2 tiling is needed (U-31).
   - Verify: the results table is in PROGRESS. If the tag isn't read, change the prop design (bigger, higher contrast) before T-010.
+  - **Steps 1–2 done Nov 20** (results table in PROGRESS "T-037 prop OCR"; D-81): the default canvas composite (a white "LUCAS" tag, 4° tilt, on 3 people-free spike photos at 2 positions × 5 cap heights, built in memory from code, nothing saved) is read by Tesseract's default global-Otsu binarisation in only **14/30** placements, and a bigger tag does **not** help (96–160 px caps are read worse than 20–36 px). Leptonica adaptive Otsu reads 26/30 and the union with a Sauvola pass reads 30/30, so the fix is in OCR (T-057), not the prop. Prop rule for T-010: plain dark letters on a light tag, no border hugging the letters. **Step 3 (faces, U-31) is open:** `PRIV/test/` has no face or mannequin image yet; it needs a builder-owned photo of a consenting adult, a mannequin, or a synthetic face from the user.
 
 - [ ] T-038 [CLAUDE] Walking-skeleton deploy. Due: Sat Nov 21 · Deps: T-023, T-025 (T-011 for the hosted AI call) · AC: AC-366
   - **iOS (from T-027):** once `remoteconfig.template.json` exists, add it back to `ios/project.yml` as a file resource of the app target (`- path: ../remoteconfig.template.json` with `buildPhase: resources`), run `cd ios && xcodegen generate` and rebuild.
@@ -872,7 +873,17 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
     - NaN → `none`;
     - the formatter never outputs a measured distance (D-77: only SPEC §10.1's fixed words, which name 250 m / 1 km / 5 km).
 
-- [ ] T-053 [CLAUDE] Import and EXIF stripping. Due: Sat Nov 21 · Deps: T-023, T-051 · AC: AC-100, AC-101, AC-103 (P1: AC-102)
+- [x] T-053 [CLAUDE] Import and EXIF stripping. Due: Sat Nov 21 · Deps: T-023, T-051 · AC: AC-100, AC-101, AC-103 (P1: AC-102) (done Nov 20. Built and reviewed by wf_1ad9d726-1ee; fix rounds 2–4 wf_8b0f6516-78d, wf_0697d92c-600, wf_a187abcf-c96; rounds 5–6 by hand, verified by wf_0660c067-fab and wf_6a8e7fe5-09a; D-78.
+  - **Code:**
+    - `tier0/sniff.ts`: magic bytes; dimensions from the header before any decode; animation; capped walks; `exifTiff`.
+    - `tier0/importPhoto.ts`: size → sniff → EXIF TIFF only → GPS warning → decode → ≤2048 master, JPEG q 0.9 → assertCleanJpeg → sha256.
+    - `tier0/gpsWarning.ts` (P1 AC-102).
+    - `ui/importTransfer.ts`, `ui/checkState.ts` and `ui/components/ImportDropzone.tsx`: file, drag and paste; a web address → noUrl; no URL input (R8). Wired into `Check.tsx`.
+  - **Verify:**
+    - Unit tests on JPEG byte fixtures: APP1 detected, APP0+APP2 clean, an EXIF thumbnail's SOF never read as the size. AC-102: 200 m → street.
+    - In Chrome 156 the selftest import step passes AC-101 (Orientation=6 upright, no APP1/APP13, `exifr.gps` undefined, sha256), 35 MB → tooLarge, text → unsupported. All 10 PRIV spike photos import clean (APP0+APP2, no GPS, ≤2048), and GPS is found on exactly the 6 that carry it.
+    - AC-100's "starts a session" clause moves to T-068 and T-089.
+    - check: 657 tests, 106 planted violations.)
   - Read: SPEC SCR-05, D-20; ARCH §11; API-NOTES §5.3
   - Files: `web/src/tier0/decode.ts`, `web/src/tier0/exif.ts`, `web/src/ui/components/ImportDropzone.tsx`, tests.
   - Do:
@@ -885,7 +896,19 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
     - P1: the GPS-found warning, i.e. the band from the EXIF point to each pin, computed in code (S0).
   - Verify: unit tests on JPEG byte fixtures (APP1 detected; APP0+APP2 clean; Orientation=6 upright); selftest with a GPS photo from PRIV shows no APP1 and `exifr.gps` undefined.
 
-- [ ] T-054 [CLAUDE] Encrypted vault store. Due: Sat Nov 21 · Deps: T-051 · AC: AC-080, AC-081, AC-086, AC-271
+- [x] T-054 [CLAUDE] Encrypted vault store. Due: Sat Nov 21 · Deps: T-051 · AC: AC-080, AC-081, AC-086, AC-271 (done Nov 20, same workflows; D-79, D-80. A gap-fill over the T-023 scaffold.
+  - **Code:**
+    - `vault/crypto.ts`: lock token, burn-pending marker, timed deletions.
+    - `vault/vaultStore.ts`: item rules, all-or-nothing adds, finishing an interrupted burn.
+    - `vault/sync.ts`: the cross-tab change signal.
+    - `vault/burn.ts`: `performBurn`.
+    - `vault/idb.ts`: `databaseExists`.
+    - `ai/vaultScan.ts`: termsOf (AC-088, any kind), coalesced reloads, boot finishes a pending burn.
+  - **Verify:**
+    - Vitest with fake-indexeddb: AC-080 round trip, AC-081 fresh IV, AC-086 empty vault, AC-271 key first (also for an interrupted burn), AC-270, cross-tab.
+    - In Chrome 156 the selftest vaultCrypto step reads the stored key back non-extractable, raw and jwk export throw, and the record holds only `{ct, iv, v}` with no plaintext.
+    - `vaultTerms()` is `ai/vaultScan.termsOf`: labels and aliases only, never coordinates.
+    - check: 657 tests.)
   - Read: SPEC SCR-04, SCR-19, D-23; ARCH §16 (IndexedDB table); API-NOTES §5.4
   - Files: `web/src/vault/crypto.ts`, `web/src/vault/vaultStore.ts`, tests.
   - Do:
@@ -901,6 +924,11 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
     - In the browser, `exportKey('raw')` throws, and DevTools IndexedDB shows only ciphertext.
 
 - [ ] T-055 [CLAUDE] Vault UI, "Pin this place", manual coordinates, burn. Due: Sun Nov 22 · Deps: T-050, T-054 · AC: AC-082, AC-083, AC-084, AC-085, AC-270 (P1: AC-087)
+  - **From T-054 (D-79, D-80):**
+    - Map every `VaultValidationError.code` to copy: full, label_too_long, alias_too_long, too_many_aliases (max 5), label_required (empty OR generic label on a text item, e.g. an employer "Work"), bad_kind, pin_required, pin_not_allowed, bad_pin, bad_id, duplicate_id, bad_link, bad_timestamp, bad_item, not_found. Also map `VaultCorruptError` (now also an unrecognised record).
+    - Burn: `performBurn()` can reject with `BurnPendingError` ("not deleted in time"). Show a pending state with a retry, never `copy.burn.done`, and never claim the only cause is other open tabs.
+    - SCR-04: create the linked `area_name` item only when the area text is non-empty and not generic. `addItems` is all or nothing, so a generic area would make the pin save fail.
+    - An HTML `maxLength` counts UTF-16 units, which is stricter than the store's 40 code points; that is fine.
   - Read: SPEC SCR-04, SCR-19, §17.2–17.3; API-NOTES §5.7
   - Files: `web/src/ui/screens/Vault.tsx`, `web/src/ui/components/{VaultItemForm,PinButton,BurnVaultDialog}.tsx`, `web/src/vault/geolocation.ts`.
   - Do:
@@ -930,6 +958,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
   - Do:
     - A singleton worker with paths under `/vendor/tesseract-7.0.0/`; `corePath` is a **directory**.
     - Set `PSM.SPARSE_TEXT` once.
+    - **Binarisation (D-81, from T-037):** set `thresholding_method: '1'` (Leptonica adaptive Otsu) once. Where a miss fails open (the vault-word match, the gate's OCR of the outgoing frame, the export check), also run a Sauvola pass (`'2'`) and take the union of words. The default Otsu missed the demo tag in 16 of 30 placements; the union missed none.
     - Call `recognize(canvas, {}, {blocks:true, text:true})`. Pass a canvas, **never an ImageBitmap**.
     - Downscale to `ocr_max_px` (1600) and map the boxes back to the working image.
     - Warm the worker when Check opens; terminate it after 5 min idle.
@@ -990,6 +1019,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
   - Verify: a table-driven unit test (AC-001); manual checks in Chrome with Nano, a Chrome guest profile and Safari.
 
 - [ ] T-062 [CLAUDE] Egress Gate: the only door to Firebase AI Logic. Due: Mon Nov 23 · Deps: T-054, T-056, T-057, T-058, T-060, T-061, T-086, T-093 · AC: AC-020–AC-025, AC-040, AC-042–AC-046, AC-048, AC-303
+  - **From T-054 (D-80):** before each permit, compare a monotonic vault generation (bumped inside the vault lock by saveUnlocked and burnUnlocked) with the active index's generation, and refresh when they differ. Another tab hears of a vault change only when its BroadcastChannel message runs, so without this check the gate can briefly scan with a stale index (TODO(T-062) in ai/vaultScan.ts).
   - **From T-058/T-093 reviews (D-75, D-77):** map the vault scanner's `template-canary` and `vault-unavailable` (scanner briefly blocks everything while the vault reloads) to their own Ledger reasons, and never treat `vault-unavailable` as a vault leak or BREACH. Follow the ARCH §8.5 caller rules: no nested gate calls while holding the interlock; each cloud retry re-enters the interlock; device timeouts go inside `deviceQueue.run(fn)`.
   - Read: SPEC §6, §7; ARCH §8.1–8.3 (§8.3 preflight), §8.4 (active-vault term index), §8.5 (tripwire), §8.7 (block reasons → copy), AD-17, AD-31 (with R-14, R-16, R-17, R-24, R-25); API-NOTES §1.4–1.5
   - Files: `web/src/ai/egressGate.ts` (the only `generateContent`/`generateContentStream` call site; it grows from T-086's v0), `egressGate.test.ts`, `shared/testvectors/gate-matrix.json`.
@@ -1075,6 +1105,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
   - Verify: manual test with the LUCAS prop; unit test of ID validation. (Emergency cut 7.)
 
 - [ ] T-068 [CLAUDE] Pre-screen UI and mask editor. Due: Mon Nov 23 · Deps: T-059, T-066 · AC: AC-112, AC-113, AC-116
+  - **From T-053:** AC-100's "starts a session" clause is verified here: Check moves from Import to the pre-screen step with the stored master. T-089's e2e covers it too. The import status lives in `ui/checkState.ts`; keep "ready exactly while the master is held".
   - Read: SPEC SCR-06 (pre-tick table, editor), D-16
   - Files: `web/src/ui/components/{PhotoStage,ClueList,ManualMaskTool}.tsx`, `web/src/ui/screens/Check.tsx`.
   - Do:
@@ -1291,6 +1322,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
   - Verify: each file is loaded by at least one Vitest test (grep the test files).
 
 - [ ] T-089 [CLAUDE] Fake transport and Playwright smoke and offline specs. Due: Mon Nov 23 (grows until Nov 24) · Deps: T-062 · AC: AC-250 (and the fake-transport version of AC-240)
+  - **From T-053:** cover AC-100 end to end: file, drag and paste each start a session, and a pasted URL, or an image dragged from a web page, shows `copy.import.noUrl` and starts nothing. Also AC-103: a 35 MB file → tooLarge; a non-image → unsupported.
   - Read: ARCH §20.2
   - Files:
     - `web/src/ai/fakeTransport.ts` (only when `MODE==='e2e'` and `VITE_FAKE_AI=1`; it replaces only the final invoke step inside the gate; **throws in production**);
@@ -1302,6 +1334,13 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
   - Verify: `npm run test:e2e` green. Once green, it joins the §2 session-end check for web tasks.
 
 - [ ] T-090 [CLAUDE] Repo checks wired into `npm run check`. Due: Mon Nov 23 · Deps: T-024 · AC: AC-244 (EXIF part), AC-351, AC-364 (pre-check)
+  - **From the T-053/T-054 round-7 verifier (minor; nothing in the repo uses these forms today):**
+    - **R19 becomes an allowlist.** A glob pattern must start with `./` or `../` and resolve wholly inside `web/src`, or be `@prompts|@strings|@vectors/` with no `..` segment.
+      - Check `node_modules` before the alias exemption.
+      - Reject any backslash in a glob call, and any options object with a backslash or a computed key.
+      - Fail closed on any `import.meta.glob` that the parser did not consume. Today `GLOB_RE` misses a `]` inside an array pattern, a call split across lines, and nested generics.
+      - Treat `@root` as outside `web/src`.
+    - **Escapes defeat the name-based rules** (R1 `generateContent`, R9 `console`, R21 `indexedDB`): flag `\u`/`\x` escapes outside string literals, and decode string-literal escapes before applying the name rules.
   - **Already done in T-024:** `scripts/check-prompts.mjs` (hashes, the draft/released lock, the git-HEAD release guard, RC `prompt_versions`) runs in `check`. What remains here is `check-images.mjs` and wiring it in.
   - Read: ARCH §3 (`scripts/`); SPEC SR-15
   - Files:
@@ -1540,6 +1579,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
   - Verify: build (Appendix B); runs in SIM; the debug screen shows the values. AC-320.
 
 - [ ] T-121 [CLAUDE] Swift core ports and XCTest parity. Due: Thu Nov 26 (start Wed Nov 25 evening as filler) · Deps: T-027, T-088 · AC: AC-352 (parity)
+  - **From T-053/T-054 (D-78, D-79):** label and alias lengths count `unicodeScalars.count` (web: code points, no normalisation). `termsOf` drops every empty or generic string, label or alias, of any kind; the new fuzzy.json termsOf case pins it. Port `sniff`'s limits and caps if iOS imports files (30,000,000 bytes, 40 MP, 1024 segments/chunks/boxes).
   - Read: ARCH §19.1, §20.4
   - Files: `ios/StrangersEyes/Core/{Types,Geo,Boxes,FuzzyMatcher,RulesReferee,VerdictBuilder,FixPlanner,Parsers}.swift`, `ios/StrangersEyesTests/*`. The tests consume `shared/testvectors/*.json` and `shared/prompts/fixtures/*`.
   - Verify: `xcodebuild … test` is green on the same vectors as Vitest.

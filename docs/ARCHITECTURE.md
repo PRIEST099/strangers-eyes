@@ -283,6 +283,10 @@ web/
 │   ├── tier0/
 │   │   ├── decode.ts              decodeOriented(file) (createImageBitmap 'from-image'), toCanvas, downscaleTo, toJpeg
 │   │   ├── exif.ts                reencodeClean, jpegAppSegments, findMetadata, assertCleanJpeg [verified in web-ref]
+│   │   ├── sniff.ts               magic-byte container + header dimensions (40 MP before any decode), animation, capped walks;
+│   │   │                          exifTiff(): the EXIF TIFF from those walks, the ONLY input exifr ever gets (D-78)
+│   │   ├── importPhoto.ts         one file → oriented clean master (≤ 2048, JPEG q 0.9, sha256) or a typed error (SCR-05, T-053)
+│   │   ├── gpsWarning.ts          S0: EXIF point → band to every pin at district or closer (P1 AC-102); pinsWhenReady
 │   │   ├── faces.ts               MediaPipe FaceDetector singleton (full-range, CPU); detectFaces(img, minConfidence) → PxRect[]
 │   │   ├── ocr.ts                 Tesseract worker singleton (PSM.SPARSE_TEXT, {blocks:true}); ocrWords(canvas) → OcrWord[]
 │   │   ├── regex.ts               plate / phone / house-number candidates from OCR words
@@ -292,7 +296,10 @@ web/
 │   │   ├── crypto.ts              non-extractable AES-GCM-256 key in IDB 'se-vault-keys'; ensureVaultKey (single-flight), seal(value, key) /
 │   │   │                          unseal (fresh 12-byte IV per write); withVaultLock (tab queue + navigator.locks)
 │   │   ├── idb.ts                 closableStore: idb-keyval store that closes on versionchange (so Burn deletes immediately)
-│   │   ├── vaultStore.ts          CRUD over sealed items in 'se-vault-data'; 20 items, 40-char labels; burnVault() (§16.4)
+│   │   ├── vaultStore.ts          CRUD over sealed items in 'se-vault-data'; 20 items, 40-char labels, ≤ 5 aliases; burnVault(),
+│   │   │                          finishPendingBurn() (§16.4, D-79, D-80)
+│   │   ├── sync.ts                'vault changed' signal in this tab and across tabs (BroadcastChannel 'se-vault', no data)
+│   │   ├── burn.ts                performBurn(): burnVault, then clear or reload the in-memory index (§16.4 step 4)
 │   │   ├── geolocation.ts         currentPosition() (enableHighAccuracy, 15 s timeout, maximumAge 0)
 │   │   └── judgeVault.ts          JUDGE_VAULT from samples/manifest.json (in memory only, never persisted)
 │   ├── core/
@@ -323,6 +330,8 @@ web/
 │   │   │                          ShareCardDialog, AtlasCard, Badge (ON_DEVICE/IN_CLOUD/RULES_ONLY/CACHED/BLOCKED/QUEUED), Sheet, Button, VaultItemForm, PinButton
 │   │   ├── screens/               Welcome (SCR-01, 18+; not a route), Home, Vault, Check, Settings, About, Judge, Atlas (P1). The Ledger is components/LedgerPanel (rail/sheet), not a screen
 │   │   ├── hooks/                 useSession, useLedger, useCapabilities, useOnline, useConfig, useToasts, usePrefs
+│   │   ├── importTransfer.ts      pure drop/paste classifier (a web address or page markup → noUrl, D-78) and importAndSettle
+│   │   ├── checkState.ts          Check's pure reducer: stepper position + last import status (kept with the master)
 │   │   └── markdown.ts            minimal escaped Markdown → React (### headings, bullets, **bold**); no raw HTML
 │   └── dev/ (DEV only)            spikes/{PlumbingSpike,AdversarySpike,NanoSpike}.tsx; selftest/ (port of web-ref selftest.ts); slice/Slice.tsx (T-086);
 │                                  bench/{BenchPage.tsx,runner.ts,metrics.ts}. Reached only via App.tsx's `import.meta.env.DEV` dynamic import (#/dev/*)
@@ -446,7 +455,7 @@ Query parameters read once at boot:
 
 ### 4.2 Import and call-site rules (`scripts/check-boundaries.mjs`)
 
-The script ignores comments but **not** string contents, so `m['generateContent']` is caught. It scans `.ts .tsx .js .jsx .mts .cts .mjs .cjs` under `web/src` and `.swift` under `ios/`. Every run first proves itself on planted violations (43 as of Nov 19, including every evasion found in the T-023 review), then checks the repo. Test files (`*.test.*`) are exempt from the global-access rows only.
+The script ignores comments but **not** string contents, so `m['generateContent']` is caught. It scans `.ts .tsx .js .jsx .mts .cts .mjs .cjs` under `web/src` and `.swift` under `ios/`. Every run first proves itself on planted violations (106 as of Nov 20, including every evasion found in the T-023, T-053 and T-054 reviews), then checks the repo. Test files (`*.test.*`) are exempt from the global-access rows only.
 
 | Rule | Symbol, import or pattern | Allowed only in |
 |---|---|---|
@@ -461,12 +470,14 @@ The script ignores comments but **not** string contents, so `m['generateContent'
 | R13 | `vault/*` imports, including the `../vault` directory form | not from `firebase/*` or `tier0/*` (Tier-0 receives terms as plain arguments) |
 | R7 | `localStorage` | `web/src/core/localPrefs.ts` |
 | R8 | `type="url"`, `new URL(` in `ui/components/ImportDropzone.tsx` | nowhere |
-| R9 | `console.log/info/debug/warn/error/trace/dir/table` | not in `vault/`, `ai/vaultScan.ts`, `core/referee.ts` or `tier0/fuzzy.ts` (SR-15) |
+| R9 | The word `console` in any form (`console.x(…)`, `console['x']`, `console?.x`, an alias, destructuring, `globalThis.console`; also inside strings; comments ignored) | not in any non-test file of `vault/`, nor in `ai/vaultScan.ts`, `core/referee.ts`, `tier0/fuzzy.ts`, `tier0/gpsWarning.ts`, `tier0/importPhoto.ts`, `tier0/sniff.ts`, `ui/components/ImportDropzone.tsx`, `ui/screens/Check.tsx`, `ui/importTransfer.ts` or `ui/checkState.ts`: wherever vault data, pins or the original photo's GPS flow (SR-15; T-053/T-054 reviews) |
+| R21 | Opening IndexedDB: every `createStore` identifier (whatever package), `IDBFactory`, `openDB`, the specifier `'idb'` / `'idb/…'` or a path into `node_modules/…/idb` (any case: macOS's file system ignores it; a `?query` or `#hash` suffix too), and every `indexedDB` except `indexedDB.deleteDatabase(` / `.databases(` on the same line, a `typeof [globalThis\|window\|self.]indexedDB[.deleteDatabase\|.databases]` feature test followed by a comparison or punctuation (never a call or another member), and the string in `'indexedDB' in X` | `web/src/vault/idb.ts` (`closableStore`, which closes on `versionchange` so Burn vault never blocks, and `databaseExists`), plus the test helper `vault/idb.testutil.ts`. Test files are exempt; DEV-only files are not |
+| R22 | Any `'idb-keyval'` string, as a bare specifier, a subpath or any path segment (e.g. into `node_modules` or Vite's deps), in any case and with a `?query` or `#hash` suffix, outside an `import type` / `export type` (value imports, re-exports, `import()`, `require()`, computed specifiers; `import { type X }` counts as a value import) | `vault/idb.ts`, `vault/crypto.ts`, `vault/vaultStore.ts`, `dev/selftest/vaultStorageCheck.ts`, each of which passes its own closable store to every call. Tests exempt. idb-keyval calls without a store use the default `keyval-store` (the Tesseract cache, §16.3), which Burn vault never deletes and whose connection never closes |
 | R10 | `AdversaryNotes` (the type) | only `core/types.ts`, `ai/jobs.ts`, `ai/parse.ts` (`isDeclinedNotes`), `core/session.ts` and `ui/components/NotesView.tsx`. The pass-A notes **component** is `NotesView` (D-54), so screens can import it without naming the type |
 | R17 | `sendBeacon`, `XMLHttpRequest`, `new WebSocket`, `EventSource`, the string `googleapis.com` | `web/src/ai/tripwire.ts` (its `AI_HOST` constant). No network channel may bypass the fetch tripwire |
 | R14 | `web/src/dev/**` | imported only from `App.tsx`, only as `import.meta.env.DEV ? lazy(() => import('./dev/…'))`, `import.meta.env.DEV && import(…)` or inside `if (import.meta.env.DEV) { … }`. A negated guard (`!import.meta.env.DEV`) fails (AC-065) |
-| R18 | `import(…)` with a non-literal specifier | nowhere outside `web/src/dev` and tests (the checker must see every specifier) |
-| R19 | `import.meta.glob` reaching `dev/` or `vault/`, or a broad `**` pattern outside `@prompts`/`@strings`/`@vectors` | nowhere |
+| R18 | `import(…)` with a non-literal specifier; any import/export specifier containing a backslash escape | the first: nowhere outside `web/src/dev` and tests (the checker must see every specifier); the second: nowhere |
+| R19 | `import.meta.glob` reaching `dev/` or `vault/`, or a broad `**` pattern outside `@prompts`/`@strings`/`@vectors`; and, in EVERY non-test file (DEV-only too), a glob that names `node_modules` (any case), starts at the root (`/…`), climbs out of `web/src` before its first wildcard, or passes `exhaustive` | nowhere |
 | R20 | Every non-test file under `web/src/dev/**` contains the marker string `__SE_DEV_ONLY__` | `scripts/check-dist.mjs` (web `postbuild`) fails the build if the marker appears anywhere in `web/dist` |
 | R1–R4 exemption | The AI call-site rows above, inside `web/src/dev/spikes/**` | allowlisted: the Day-1 spikes (T-030–T-032) predate the gate and never ship. `dev/bench`, `dev/slice` and `dev/selftest` are **not** allowlisted; their AI calls go through `ai/egressGate.ts` |
 | R16 | iOS: `.respond(`, `.streamResponse(`, `.startChat(`, `.sendMessage(`, `.sendMessageStream(`, `.countTokens(`, `generateContent`, `generateContentStream`, `HybridModel(` (also when split across lines) | `ios/StrangersEyes/AI/EgressGate.swift`; test targets; and `ios/StrangersEyes/Dev/**`, whose files must begin with `#if DEBUG` (the T-033 spike) |
@@ -1250,6 +1261,9 @@ export function rulesStrength(claim: { kind: ClaimKind; value: string; confidenc
 **Term index (`ai/vaultScan.ts`).**
 - `termsOf(vault)` takes every non-pin item's label and aliases. Plate, house_number and phone become digit terms.
 - Pin items contribute their label and aliases **only if the label is not in `GENERIC_PIN_LABELS`** (AD-29). Their coordinates are used only by `coordinatesNearPins`.
+- **No empty or generic string is ever a term** (D-79, AC-088), whether it is a label or an alias, of any kind: an alias "Home" on a pin labelled "Grandma's" contributes nothing, and neither does an alias "Work" on an employer. A text item whose label is empty or generic is refused at save (`label_required`). `shared/testvectors/fuzzy.json` pins this for iOS too.
+- **Freshness (D-80):** every committed vault change is announced on `BroadcastChannel('se-vault')` (`vault/sync.ts`; the message holds no data), and every tab's real index blocks at once and reloads. Reloads are coalesced (one in flight plus at most one follow-up), and a stale result is never installed. `refresh()` before `init()` resolves at once and registers nothing. The gate must still compare a vault generation before each permit (T-062), because another tab hears of a change only when its message task runs.
+- `PinRef` carries `label` for a `place_pin` only, for the local GPS warning ({KIND}, SPEC §17.3). It never reaches a hit, the ledger or a cloud-bound value.
 - `activeTerms()` / `activePins()` return the **active** vault's index. Outside Judge Mode that is the real vault: built at boot from the unsealed vault, rebuilt on every vault edit, emptied by burn. `useJudge(JUDGE_VAULT)` (entering Judge Mode) drops the real vault's items and terms from memory and makes `JUDGE_VAULT` active; `useReal()` (exiting) re-unseals the real vault and rebuilds its index. Booting straight into Judge Mode (`#/judge`, `?judge=1`) never unseals the real vault (D-37, AC-241). Every switch re-registers the tripwire scanner (§8.5).
 - `scanText(text, terms)` runs `termInWords(term, words(text), θ, {image:false})`. Digit terms shorter than 3 characters are skipped in text.
 - The tripwire scanner sees every string value of the request body (§8.5), not segments. In order, it:
@@ -2639,7 +2653,10 @@ main.tsx
                                             → initializeAppCheck → getAuth + signInAnonymously → getAI
 boot():
   3. await loadConfig()                  ← ensureInitialized; fetch in background (§13.4)
-  4. await vaultScan.init()              ← if the boot route is Judge Mode (`#/judge` or `?judge=1`): do NOT unseal the real
+  4. await vaultScan.init()              ← first, in BOTH modes, finish an interrupted burn (finishPendingBurn: reads only the
+                                            burn-pending marker, never the record or key, creates no database; §16.4, D-80).
+                                            Judge Mode may proceed while it cannot finish yet; real mode fails closed.
+                                            Then, if the boot route is Judge Mode (`#/judge` or `?judge=1`): do NOT unseal the real
                                             vault (D-37); register an empty scanner until Judge Mode installs JUDGE_VAULT's.
                                             Otherwise unseal the real vault if a key exists, build the active term index and
                                             setVaultScanner(...) (an empty scanner if there is no vault)
@@ -2816,16 +2833,18 @@ idb-keyval allows one object store per database, which is why every owner has it
 
 ### 16.4 Burn vault (SPEC SCR-19)
 
-0. The whole burn runs inside `withVaultLock()` (`vault/crypto.ts`): one queue per tab plus `navigator.locks` across tabs. Every vault add/update/remove and every sealed write (sessions, queue) takes the same lock, so an in-flight write can never resurrect pre-burn data (T-023 review, D-55).
-1. Delete `vault-key-v1` from `se-vault-keys`. The key goes **first**, so an interruption leaves nothing decryptable (AC-271).
+0. The whole burn runs inside `withVaultLock(fn)` (`vault/crypto.ts`): one queue per tab plus `navigator.locks` across tabs. `fn` receives an unforgeable lock token that is live only while it runs. `ensureVaultKey(lock)`, `deleteVaultKey(lock)` and `clearBurnPending(lock)` refuse to run without a live token (D-79). Every vault add/update/remove and every sealed write (sessions, queue) takes the same lock, so an in-flight write can never resurrect pre-burn data (T-023 review, D-55). **Only a vault add may create the key.** Session and queue writes use `getVaultKey()` under the lock and skip the write when there is no key (AC-270).
+1. In ONE transaction on `se-vault-keys`: put the `burn-pending` marker and delete `vault-key-v1`. The key goes **first**, so an interruption leaves nothing decryptable (AC-271).
 2. `indexedDB.deleteDatabase('se-vault-data')`.
-3. Always (SPEC D-31; there is no checkbox): `deleteDatabase('se-sessions')` and `deleteDatabase('se-ledger')`.
-4. Clear the in-memory vault and terms, and call `setVaultScanner(emptyScanner)`.
-5. Show `copy.burn.done`.
+3. Always (SPEC D-31; there is no checkbox): `deleteDatabase('se-sessions')` and `deleteDatabase('se-ledger')`. All three deletions are requested even if one fails. Only when all three succeed is the `burn-pending` marker cleared.
+   - **Timeouts (D-80):** each deletion must complete within its timeout, counted from the request: 3 s (`DELETE_BLOCKED_TIMEOUT_MS`) for the user's Burn vault, 250 ms (`BURN_RETRY_TIMEOUT_MS`) for a retry. Otherwise it rejects `BurnPendingError` ("not deleted in time": another connection holds the database, the deletion is slow, or this tab's earlier deletion of it is still pending). A second deletion of a database this tab is still deleting is never queued; it rejects at once. So no vault operation holds the lock for an unbounded time.
+   - **Resume:** a deletion that timed out stays queued, and so does the marker. Every load, add, update, remove and every boot (Judge Mode included, §15.1) first finishes a pending burn: `finishPendingBurn` reads only the marker, never the record or the key, and skips databases `indexedDB.databases()` no longer lists. When a retry's queued deletions later complete, `vaultStore` announces a vault change once, and every index reloads and finishes the burn. A failure never announces.
+4. Only after steps 1–3 succeed and the marker is cleared, `vault/burn.ts performBurn()` calls `vaultScan.clearReal()`. In real mode that abandons any reload in flight, drops the in-memory terms and pins, and registers `tripwireScanner([], [])`: a scanner over an empty index that still trips the template canary, not a no-op scanner. In Judge Mode it does nothing. `burnVault()` announces the change (`vault/sync.ts`, `BroadcastChannel('se-vault')`, no data in the message) whether or not the burn finished, so every tab's index blocks at once (`VAULT_UNAVAILABLE`) and reloads what is stored. If a step failed, the index is not emptied: `vaultScan.refresh()` blocks it synchronously and reloads it, and performBurn rejects without waiting for that reload.
+5. Show `copy.burn.done`. On `BurnPendingError`, show the pending state instead, with a retry (copy owned by T-055). The copy must not claim the only cause is other open tabs.
 
 `keyval-store` (the Tesseract cache) is never touched. A new key is created only when the next item is added (AC-270).
 
-**Key creation** is single-flight and add-if-absent (`ensureVaultKey()`): concurrent first writes, or two tabs, always end up on the one persisted key. `seal(value, key)` never creates a key. Each store uses `vault/idb.ts`'s `closableStore`, which closes its connection on `versionchange` so `deleteDatabase` completes immediately instead of waiting for a reload.
+**Key creation** is single-flight and add-if-absent (`ensureVaultKey(lock)`): concurrent first writes, or two tabs, always end up on the one persisted key. `seal(value, key)` never creates a key. Each store uses `vault/idb.ts`'s `closableStore`, which closes its connection on `versionchange` so `deleteDatabase` completes immediately instead of waiting for a reload. Only `vault/idb.ts` opens IndexedDB (boundary rules R21, R22). Where `indexedDB.databases()` is missing or fails, `idb.databaseExists` checks for a database without creating it: it opens at the current version and aborts the version-0 upgrade, so a Judge boot on a fresh profile creates no vault database (D-80).
 
 ### 16.5 What works offline
 

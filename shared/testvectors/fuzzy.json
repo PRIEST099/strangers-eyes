@@ -6,7 +6,7 @@
     "Text kinds: normalise (NFKD, no diacritics, lowercase, apostrophes deleted, & -> and, other punctuation -> space), join runs of >= 2 single-character tokens on one OCR line, fold saint/street -> st, avenue -> ave, road -> rd, number -> no, then compare token skeletons (0->o, 1/l->i, 5->s, 8->b, only in tokens with a letter): similarity = 1 - levenshtein / maxLength >= threshold, and tokens of <= 3 characters must be equal. Multi-word labels: one distinctive token (>= 4 chars, not generic), or two consecutive label tokens (not two function words) against two consecutive tokens, or the whole label.",
     "Digit kinds: letters and digits only, uppercase, no confusables; equal to one word or to adjacent words joined (up to 2, or up to the number of groups the value is written in, max 6), never a substring. Values of 1-2 characters match only a standalone word, and only in images; text scans skip them.",
     "fn normalize / tokens / alnum: expect is the output. fn tokenSim: expect.sim within 0.0001. fn clampThreshold: input -> expect (null stands for any non-number).",
-    "fn termsOf: `vault` items -> expect, the list of [vaultId, text, digit] terms in order. Pins with an empty or generic label (GENERIC_PIN_LABELS) contribute no terms, aliases included (D-36, AC-088).",
+    "fn termsOf: `vault` items -> expect, the list of [vaultId, text, digit] terms in order. Pins with an empty or generic label (GENERIC_PIN_LABELS) contribute no terms, aliases included (D-36, AC-088). Every other empty or generic string (normalised, in GENERIC_PIN_LABELS), label or alias, of any kind, contributes no term on its own (D-79).",
     "fn coords: coordinatesNearPins(text, pins, 1000 m): decimal numbers with >= 3 decimals, adjacent pairs tried as (lat, lng) and (lng, lat); expect is the pin's vaultId or null.",
     "All values are synthetic: no real people, homes, schools or plates (CLAUDE.md invariant 9). The pins are in the open Atlantic.",
     "Also (D-77): (1) the unjoined token sequence is scanned as well as the joined one, so a 1-2 letter label next to other single letters is not lost; (2) a single-token label of < 4 characters that is generic (or the fold of a generic word: st, rd, ave, no) never matches; (3) each word is also tried with a possessive 's removed (\"AVA'S\" -> \"AVA\"), so short names are caught; (4) Unicode format characters (soft hyphen, zero-width space) are deleted, not turned into a space; (5) digit kinds are matched on whole words AND on the sub-words punctuation separates (\"Tel:07700900123\", \"REG:SE1234\"), and the number of groups is counted on the normalised value; (6) each word is also read with format characters turned into spaces (a zero-width space may separate two words), and every reading counts; (7) the sub-word view of a digit value may join up to 6 sub-words (exact equality, never a substring)."
@@ -1106,6 +1106,84 @@
           "v5",
           "SE 1234",
           true
+        ]
+      ]
+    },
+    {
+      "fn": "termsOf",
+      "name": "generic or empty strings are never terms, as a label or an alias of ANY kind (AC-088, T-054 review); a generic text label (unvalidated input, e.g. Judge Mode) gives nothing",
+      "vault": [
+        {
+          "id": "v1",
+          "kind": "place_pin",
+          "label": "Grandma's",
+          "aliases": [
+            "Home",
+            "Rosehill Cottage"
+          ],
+          "pin": {
+            "lat": 0.5,
+            "lng": -30.5
+          }
+        },
+        {
+          "id": "v2",
+          "kind": "employer",
+          "label": "Wrenfield Clinic",
+          "aliases": [
+            "Work",
+            "OFFICE",
+            ""
+          ]
+        },
+        {
+          "id": "v3",
+          "kind": "other_text",
+          "label": "Work",
+          "aliases": [
+            "Wrenfield"
+          ]
+        },
+        {
+          "id": "v4",
+          "kind": "other_text",
+          "label": "Place",
+          "aliases": []
+        },
+        {
+          "id": "v5",
+          "kind": "area_name",
+          "label": "Lindqvist Heights",
+          "aliases": [
+            "my home"
+          ]
+        }
+      ],
+      "expect": [
+        [
+          "v1",
+          "Grandma's",
+          false
+        ],
+        [
+          "v1",
+          "Rosehill Cottage",
+          false
+        ],
+        [
+          "v2",
+          "Wrenfield Clinic",
+          false
+        ],
+        [
+          "v3",
+          "Wrenfield",
+          false
+        ],
+        [
+          "v5",
+          "Lindqvist Heights",
+          false
         ]
       ]
     },

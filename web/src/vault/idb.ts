@@ -34,3 +34,30 @@ export function closableStore(dbName: string, storeName: string): UseStore {
   };
   return (txMode, callback) => open().then((db) => callback(db.transaction(storeName, txMode).objectStore(storeName)));
 }
+
+/**
+ * Whether database `name` exists, found WITHOUT creating it (crypto.burnPending, where indexedDB.databases() is missing
+ * or fails; T-054 review round 4): open it at its current version. Only an absent database needs an upgrade
+ * (oldVersion 0); that upgrade is aborted, the open fails with AbortError, and no database is left behind (checked in
+ * fake-indexeddb and Chromium 156: databases() stays empty). An existing database opens and its connection is closed at
+ * once, so it never blocks a later deletion. Any other open failure rejects (fail closed: the caller cannot rule it out).
+ */
+export function databaseExists(name: string): Promise<boolean> {
+  return new Promise<boolean>((resolve, reject) => {
+    let absent = false;
+    const req = indexedDB.open(name);
+    req.onupgradeneeded = () => {
+      absent = true;
+      try { req.transaction?.abort(); } catch { /* already finished: onsuccess closes it */ }
+    };
+    req.onsuccess = () => {
+      req.result.close();
+      resolve(!absent);
+    };
+    req.onerror = (e) => {
+      if (!absent) { reject(req.error); return; }
+      e.preventDefault();   // our own abort: the database did not exist
+      resolve(false);
+    };
+  });
+}

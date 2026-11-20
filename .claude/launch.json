@@ -1,7 +1,44 @@
 {
   "version": "0.0.1",
   "configurations": [
-    { "name": "web-dev", "runtimeExecutable": "npm", "runtimeArgs": ["--prefix", "web", "run", "dev"], "port": 5173 },
-    { "name": "web-preview", "runtimeExecutable": "npm", "runtimeArgs": ["--prefix", "web", "run", "preview"], "port": 4173 }
+    {
+      "name": "web-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "web",
+        "run",
+        "dev"
+      ],
+      "port": 5173
+    },
+    {
+      "name": "web-preview",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "web",
+        "run",
+        "preview"
+      ],
+      "port": 4173
+    },
+    {
+      "name": "web-spike",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "VITE_SPIKE=1",
+        "npm",
+        "--prefix",
+        "web",
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5174",
+        "--strictPort"
+      ],
+      "port": 5174
+    }
   ]
 }

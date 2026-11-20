@@ -13,6 +13,7 @@ import { CLOUD_TEXT_PROMPTS, MANIFEST, nonContentStrings, render, segmentsText, 
 import { ADV_B_SCHEMA } from './schemas';
 import { parseAdvB } from './parse';
 import { addItem, burnVault } from '../vault/vaultStore';
+import { gpsWarningFor, pinsWhenReady } from '../tier0/gpsWarning';
 import type { Pin, VaultItem, VaultKind } from '../core/types';
 
 // ---------- helpers ----------
@@ -56,6 +57,26 @@ describe('term index', () => {
     expect(['', '  ', 'Home', 'my home', 'WORK', 'Office', 'school', 'Flat'].every(isGenericPinLabel)).toBe(true);
     expect(isGenericPinLabel('Gran’s house')).toBe(false);
   });
+  it('AC-088: a generic label or alias never becomes a term, whatever the kind; the real names still do (T-054 review round 4)', () => {
+    const gran = item('place_pin', "Grandma's", ['Home', 'Rosehill Cottage'], {});
+    const clinic = item('employer', 'Wrenfield Clinic', ['Work', 'OFFICE', '', 'Wrenfield']);
+    const area = item('area_name', 'Lindqvist Heights', ['my home', 'Place']);
+    const terms = termsOf([gran, clinic, area]);
+    expect(terms.map((t) => [t.vaultId, t.text])).toEqual([
+      [gran.id, "Grandma's"], [gran.id, 'Rosehill Cottage'],
+      [clinic.id, 'Wrenfield Clinic'], [clinic.id, 'Wrenfield'],
+      [area.id, 'Lindqvist Heights'],
+    ]);
+    for (const text of ['a photo taken at home', 'back to work after lunch', 'the office is closed', 'my home office', 'a nice place']) {
+      expect(scanText(text, terms), text).toBeNull();
+      expect(tripwireScanner(terms, [])([text]), text).toBeNull();
+    }
+    expect(scanText("lunch at Grandma's", terms)?.vaultId).toBe(gran.id);
+    expect(scanText('lunch at Grandma', terms)?.vaultId).toBe(gran.id);
+    expect(scanText('a Wrenfield badge', terms)?.vaultId).toBe(clinic.id);
+    expect(scanText('Lindqvist Heights at dusk', terms)?.vaultId).toBe(area.id);
+  });
+
   it('pinsOf keeps every pin (generic labels included) and nothing else', () => {
     const home = item('home_pin', 'Home', [], {});
     const lucas = item('child_name', 'Lucas');
@@ -333,7 +354,12 @@ describe('createVaultScan: the ACTIVE vault', () => {
   it('before init, refresh and clearReal do nothing (boot has not chosen real or Judge Mode yet)', async () => {
     const h = harness(async () => REAL);
     h.vs.clearReal();
-    await Promise.race([h.vs.refresh(), Promise.resolve()]);
+    // refresh settles at once: there is nothing to rebuild yet. It used to return the boot promise, which never settles
+    // before init(), so a Burn vault that failed before boot never settled either (T-054 review round 3).
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const late = new Promise<string>((res) => { timer = setTimeout(() => res('pending'), 200); });
+    expect(await Promise.race([h.vs.refresh().then(() => 'resolved'), late])).toBe('resolved');
+    clearTimeout(timer);
     h.vs.setFuzzyThreshold(0.9);
     expect(h.loadReal).not.toHaveBeenCalled();
     expect(h.registered).toEqual([]);                      // the tripwire stays fail-closed (NO_SCANNER) until init
@@ -375,5 +401,153 @@ describe('createVaultScan: the ACTIVE vault', () => {
     expect(h.vs.coordinatesNearPins('0.9004, -30.5003')).toBeNull();   // the real home pin is not active
     expect(h.vs.echoScan({ sceneSummary: 'Lucas and Ellery', clues: [], hypotheses: [], inferences: [] })).toEqual([judgeKid.id]);
     expect(h.loadReal).not.toHaveBeenCalled();
+  });
+});
+
+// ---------- T-054 review round 2: coalesced reloads, boot finishes an interrupted burn, place_pin labels ----------
+describe('createVaultScan: reloads are coalesced and fail closed (T-054 review round 2)', () => {
+  const kid = item('child_name', 'Ellery');
+  const kid2 = item('child_name', 'Lucas');
+
+  /** A real-mode index whose every load is a deferred the test settles, with the vault-change listener captured. */
+  function manual() {
+    const loads: Array<ReturnType<typeof deferred<readonly VaultItem[]>>> = [];
+    const registered: VaultScanner[] = [];
+    let changed: () => void = () => {};
+    const vs = createVaultScan({
+      loadReal: () => { const d = deferred<readonly VaultItem[]>(); loads.push(d); return d.promise; },
+      register: (fn) => { registered.push(fn); },
+      onVaultChange: (l) => { changed = l; },
+    });
+    return { vs, loads, last: () => registered[registered.length - 1], change: () => changed() };
+  }
+
+  it('N vault changes while a reload runs cost ONE more load, and the stale result is never installed', async () => {
+    const h = manual();
+    const boot = h.vs.init({ judge: false });
+    await vi.waitFor(() => expect(h.loads).toHaveLength(1));
+    h.loads[0].resolve([kid]);
+    await boot;
+    expect(ids(h.vs.activeTerms())).toEqual([kid.id]);
+
+    h.change();                                            // a change: the reload starts at once
+    expect(h.loads).toHaveLength(2);
+    for (let i = 0; i < 5; i++) h.change();                // five more (every tab announcing) while it runs
+    expect(h.loads).toHaveLength(2);                       // queued nothing
+    expect(h.last()(['Ellery'])).toEqual({ vaultId: VAULT_UNAVAILABLE });   // blocked meanwhile (fail closed)
+
+    h.loads[1].resolve([kid]);                             // read before the later changes: stale
+    await vi.waitFor(() => expect(h.loads).toHaveLength(3));
+    expect(h.vs.activeTerms()).toEqual([]);                // ...so it was never installed
+    expect(h.last()(['Ellery'])).toEqual({ vaultId: VAULT_UNAVAILABLE });
+
+    h.loads[2].resolve([kid, kid2]);
+    await h.vs.ready;
+    expect(ids(h.vs.activeTerms())).toEqual([kid.id, kid2.id]);
+    expect(h.last()(['Lucas'])).toEqual({ vaultId: kid2.id });
+    expect(h.loads).toHaveLength(3);                       // boot + 2, never boot + 6
+  });
+
+  it('a failed reload stays blocked and rejects `ready`; a change during it still gets its own load', async () => {
+    const h = manual();
+    const boot = h.vs.init({ judge: false });
+    await vi.waitFor(() => expect(h.loads).toHaveLength(1));
+    h.loads[0].resolve([kid]);
+    await boot;
+    h.change();
+    h.change();
+    h.loads[1].reject(new Error('BurnPendingError'));     // the first read fails, but the vault changed meanwhile
+    await vi.waitFor(() => expect(h.loads).toHaveLength(3));
+    h.loads[2].reject(new Error('BurnPendingError'));
+    await expect(h.vs.ready).rejects.toThrow('BurnPendingError');
+    expect(h.last()(['anything'])).toEqual({ vaultId: VAULT_UNAVAILABLE });
+    h.change();                                            // the next change retries
+    h.loads[3].resolve([kid2]);
+    await h.vs.ready;
+    expect(ids(h.vs.activeTerms())).toEqual([kid2.id]);
+  });
+
+  it('a switch to Judge Mode abandons a running reload: its result is never installed and it loads nothing more', async () => {
+    const h = manual();
+    const boot = h.vs.init({ judge: false });
+    await vi.waitFor(() => expect(h.loads).toHaveLength(1));
+    h.loads[0].resolve([kid]);
+    await boot;
+    h.change();
+    h.change();
+    await h.vs.useJudge([kid2]);
+    h.loads[1].resolve([kid]);
+    await new Promise((r) => setTimeout(r, 10));
+    expect(h.loads).toHaveLength(2);
+    expect(h.vs.mode()).toBe('judge');
+    expect(ids(h.vs.activeTerms())).toEqual([kid2.id]);
+  });
+});
+
+describe('createVaultScan: boot finishes an interrupted burn in BOTH modes (T-054 review round 2, D-37)', () => {
+  function booting(finish: () => Promise<void>) {
+    const log: string[] = [];
+    const registered: VaultScanner[] = [];
+    const loadReal = vi.fn(async (): Promise<readonly VaultItem[]> => { log.push('loadReal'); return [item('child_name', 'Ellery')]; });
+    const vs = createVaultScan({
+      loadReal,
+      register: (fn) => { registered.push(fn); },
+      finishPendingBurn: async () => { log.push('finish'); await finish(); },
+    });
+    return { vs, log, loadReal, last: () => registered[registered.length - 1] };
+  }
+
+  it('Judge Mode: finishes the burn first, never loads the real vault, then installs the empty index', async () => {
+    const h = booting(async () => {});
+    const boot = h.vs.init({ judge: true });
+    expect(h.vs.mode()).toBe('judge');
+    expect(h.last()(['anything'])).toEqual({ vaultId: VAULT_UNAVAILABLE });   // fail closed until it is done
+    await boot;
+    expect(h.log).toEqual(['finish']);
+    expect(h.loadReal).not.toHaveBeenCalled();
+    expect(h.last()(['anything'])).toBeNull();
+  });
+
+  it('Judge Mode still boots when the burn cannot finish yet (the marker stays; the next boot retries)', async () => {
+    const h = booting(async () => { throw new Error('BurnPendingError'); });
+    await h.vs.init({ judge: true });
+    expect(h.vs.mode()).toBe('judge');
+    expect(h.loadReal).not.toHaveBeenCalled();
+    expect(h.last()(['anything'])).toBeNull();
+  });
+
+  it('real vault: the burn is finished before the load; if it cannot be, the index stays blocked and `ready` rejects', async () => {
+    const ok = booting(async () => {});
+    await ok.vs.init({ judge: false });
+    expect(ok.log).toEqual(['finish', 'loadReal']);
+    const stuck = booting(async () => { throw new Error('BurnPendingError'); });
+    await expect(stuck.vs.init({ judge: false })).rejects.toThrow('BurnPendingError');
+    await expect(stuck.vs.ready).rejects.toThrow('BurnPendingError');
+    expect(stuck.loadReal).not.toHaveBeenCalled();
+    expect(stuck.last()(['anything'])).toEqual({ vaultId: VAULT_UNAVAILABLE });
+  });
+});
+
+describe('PinRef label: a place_pin near the photo GPS shows its own label as {KIND} (SPEC §17.3, T-053)', () => {
+  const gym = item('place_pin', 'Gym', [], { lat: 0.7 });
+  const home = item('home_pin', 'Home', [], { lat: 0.2 });
+
+  it('createVaultScan → pinsWhenReady → gpsWarningFor shows GYM, not PLACE', async () => {
+    const h = harness(async () => [gym, home]);
+    await h.vs.init({ judge: false });
+    const pins = await pinsWhenReady(h.vs);
+    const w = gpsWarningFor({ latitude: 0.7001, longitude: -30.5 }, pins);
+    expect(w.near.map((n) => [n.kind, n.kindDisplay])).toEqual([['place_pin', 'GYM']]);
+  });
+
+  it('only a place_pin carries its label, and no hit (PinHit, tripwire result) ever carries it', async () => {
+    expect(pinsOf([gym, home])).toEqual([
+      { vaultId: gym.id, kind: 'place_pin', lat: 0.7, lng: -30.5, label: 'Gym' },
+      { vaultId: home.id, kind: 'home_pin', lat: 0.2, lng: -30.5 },
+    ]);
+    const h = harness(async () => [gym]);
+    await h.vs.init({ judge: false });
+    expect(h.vs.coordinatesNearPins('at 0.7001, -30.5002')).toEqual({ vaultId: gym.id, kind: 'place_pin', pin: true });
+    expect(h.last()(['at 0.7001, -30.5002'])).toEqual({ vaultId: gym.id });
   });
 });

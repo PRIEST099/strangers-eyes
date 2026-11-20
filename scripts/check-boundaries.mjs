@@ -133,12 +133,48 @@ const WEB_RULES = [
     why: 'localStorage is used only through core/localPrefs.ts, never for vault data.' },
   { id: 'R8-url-input', re: /type\s*=\s*["']url["']|\bnew URL\s*\(/, only: [], scope: (r) => r === 'web/src/ui/components/ImportDropzone.tsx',
     why: 'Photos come from local files only; no URL input (CLAUDE.md invariant 9).' },
-  { id: 'R9-console-in-sensitive', re: /\bconsole\.(log|info|debug|warn|error|trace|dir|table)\s*\(/, only: [],
-    scope: (r) => !isTest(r) && (r.startsWith('web/src/vault/') || ['web/src/ai/vaultScan.ts', 'web/src/core/referee.ts', 'web/src/tier0/fuzzy.ts'].includes(r)),
-    why: 'No console logging where vault data flows (SR-15).' },
+  // R9: NO `console` identifier at all where vault data, pin coordinates or the original photo's GPS flow. The bare
+  // word (T-053 fix round 3; it was `console.<method>(` only) also catches console['log'](…), console?.log(…), a
+  // `console` split from `.log(` across lines (the rules run line by line), an alias (`const c = console`),
+  // destructuring (`const { log } = console`), globalThis.console, and every method (timeLog, assert, group… print
+  // their arguments too). Comments are stripped, strings are not: the word in a string literal is flagged as well.
+  { id: 'R9-console-in-sensitive', re: /\bconsole\b/, only: [],
+    scope: (r) => !isTest(r) && (r.startsWith('web/src/vault/') || [
+      'web/src/ai/vaultScan.ts', 'web/src/core/referee.ts', 'web/src/tier0/fuzzy.ts',
+      // T-053: vault pins + the EXIF point (S0), and the original photo's GPS (readExifFacts, sniff.webpExifPayload)
+      'web/src/tier0/gpsWarning.ts', 'web/src/tier0/importPhoto.ts', 'web/src/tier0/sniff.ts',
+      // T-053 fix rounds 2-3: the active vault's pins (getPins / pinsWhenReady / importAndSettle) and the GPS warning
+      'web/src/ui/components/ImportDropzone.tsx', 'web/src/ui/screens/Check.tsx', 'web/src/ui/importTransfer.ts',
+      'web/src/ui/checkState.ts',
+    ].includes(r)),
+    why: "No console where vault data, pins or the original photo's GPS flow (SR-15): no console.x(…), console[…], console?.…, alias or destructuring." },
   { id: 'R10-AdversaryNotes', re: /\bAdversaryNotes\b/,
     only: ['web/src/ai/jobs.ts', 'web/src/ai/parse.ts', 'web/src/core/session.ts', 'web/src/ui/components/NotesView.tsx', 'web/src/core/types.ts'],
     exempt: isTest, why: 'Grounded pass-A notes are display-only; code never parses or stores them (CLAUDE.md invariant 8). The UI component is NotesView.' },
+  // R21: idb-keyval's createStore, the 'idb' package's openDB (installed with firebase) and a bare indexedDB.open()
+  // keep the connection open forever, so Burn vault's deleteDatabase('se-…') blocks until a reload (ARCH §16.4). Only
+  // vault/idb.ts (closableStore, closes on versionchange) opens a database. Flagged anywhere else:
+  //   - every `createStore` identifier (reserved, whatever package it comes from), IDBFactory, openDB, and any
+  //     'idb' / 'idb/…' module specifier (so `import * as idb from 'idb'` too);
+  //   - every `indexedDB` EXCEPT (a) a call of .deleteDatabase( / .databases( on the same line; (b) a typeof feature
+  //     test: `typeof [globalThis|window|self][. or ?.]indexedDB[.deleteDatabase|.databases]` followed on the same line
+  //     by == != === !== ; , ) ] } : && || ?? or a ternary ?, never by a call, another member or a line end;
+  //     (c) the string in `'indexedDB' in X`.
+  // So aliases (`const f = indexedDB`), destructuring, ?.open, ['open'], window['indexedDB'], `typeof indexedDB.open(…)`
+  // and a typeof split from `.open(` across lines are all caught (T-053 fix round 3). Tests are exempt
+  // (vaultStore.test.ts opens a deliberately blocking connection), and so is the one named test helper idb.testutil.ts
+  // (dumpIdb opens each fake-indexeddb database and closes it in a finally). DEV-only files are NOT exempt.
+  { id: 'R21-idb-open',
+    re: new RegExp([
+      // The 'idb' package by bare specifier or by a path into node_modules, in any case (macOS's file system ignores
+      // case) and with a ?query or #hash suffix (round-5 verifier). (?i:…) = an inline case-insensitive group.
+      /\bcreateStore\b|\bIDBFactory\b|\bopenDB\b|['"`](?i:idb)(?:[/?#][^'"`]*)?['"`]|['"`][^'"`\n]*\b(?i:node_modules\/(?:[^'"`\n]*\/)?idb)(?:[./?#][^'"`\n]*)?['"`]/,
+      /\bindexedDB\b(?!\s*(?:\?\.|\.)\s*(?:deleteDatabase|databases)\s*\()/, // (a)
+      /(?!(?<=\btypeof\s+(?:(?:globalThis|window|self)\s*(?:\?\.|\.)\s*)?indexedDB)(?:\s*(?:\?\.|\.)\s*(?:deleteDatabase|databases))?\s*(?:[!=]=|[;,)\]}:]|&&|\|\||\?\?|\?(?!\.)))/, // (b)
+      /(?!(?<=['"`]indexedDB)['"`]\s+in\b)/, // (c)
+    ].map((x, k) => (k === 0 ? `${x.source}|` : x.source)).join('')),
+    only: ['web/src/vault/idb.ts', 'web/src/vault/idb.testutil.ts'], exempt: isTest,
+    why: "Only vault/idb.ts opens IndexedDB (closableStore closes on versionchange, so Burn vault never blocks; ARCH §16.4): no createStore, openDB or 'idb' import, no indexedDB.open; elsewhere only indexedDB.deleteDatabase( / .databases(, a typeof feature test, or 'indexedDB' in X. Any string literal that is exactly 'idb' (any case) or starts with 'idb/', 'idb?' or 'idb#' is reserved too, specifier or not (fail closed)." },
   { id: 'R17-raw-egress', re: /\bsendBeacon\b|\bXMLHttpRequest\b|\bnew\s+WebSocket\b|\bEventSource\b|googleapis\.com/,
     only: ['web/src/ai/tripwire.ts'], exempt: isTest,
     why: 'No network channel around the tripwire: no sendBeacon/XHR/WebSocket/EventSource, no hard-coded googleapis.com URLs.' },
@@ -160,7 +196,9 @@ function importsOf(code) {
     const spec = m[3] ?? m[5] ?? m[8];
     if (!spec) continue;
     const kwIdx = code.indexOf(m[8] !== undefined ? 'export' : 'import', m.index);
-    out.push({ spec, line: lineOf(code, kwIdx), pos: kwIdx, dynamic, typeOnly: Boolean(m[1] || m[6]) });
+    const q = m[2] ?? m[4] ?? m[7];
+    const specPos = m.index + m[0].lastIndexOf(q + spec + q); // the specifier's opening quote
+    out.push({ spec, line: lineOf(code, kwIdx), pos: kwIdx, specPos, dynamic, typeOnly: Boolean(m[1] || m[6]) });
   }
   return out;
 }
@@ -191,6 +229,24 @@ function devGuardedImportPositions(code) {
   }
   return ok;
 }
+
+// R22: idb-keyval's default-store calls (get/set/del/update/keys/values/entries/clear/getMany/setMany/delMany with no
+// store argument) open idb-keyval's own 'keyval-store' database: tesseract.js's OCR cache (ARCH §16.3), which Burn
+// vault never deletes and whose connection is never closed. R21 cannot see that (no createStore, no indexedDB.open),
+// so VALUE imports of 'idb-keyval' are allowed only in the files below, each of which passes its own closable store to
+// every call (reviewed): vault/idb.ts (closableStore), vault/crypto.ts (the key store) and vault/vaultStore.ts (the
+// data store), and dev/selftest/vaultStorageCheck.ts (the DEV storage check, on its own closable stores).
+// `import type` / `export type` from 'idb-keyval' is erased and allowed anywhere; `import { type X }` is not type-only
+// here (write `import type`). Every OTHER 'idb-keyval' or 'idb-keyval/…' string is flagged too, so a value import, a
+// re-export, import('idb-keyval'), require('idb-keyval') and a computed specifier are all caught. Tests are exempt.
+const IDB_KEYVAL_VALUE_IMPORTERS = [
+  'web/src/vault/idb.ts', 'web/src/vault/crypto.ts', 'web/src/vault/vaultStore.ts', 'web/src/dev/selftest/vaultStorageCheck.ts',
+];
+// idb-keyval as any path segment, so a relative path into node_modules or a Vite deps path is caught too (final review).
+// Any case (macOS's file system ignores it) and a ?query or #hash suffix too (round-5 verifier).
+const IDB_KEYVAL_SPEC_RE = /(?:^|\/)idb-keyval(?:[./?#]|$)/i;
+const IDB_KEYVAL_STRING_RE = /(['"`])(?:[^'"`\n]*\/)?idb-keyval(?:[./?#][^'"`\n]*)?\1/gi;
+const R22_WHY = "Value imports of 'idb-keyval' only in vault/idb.ts, vault/crypto.ts, vault/vaultStore.ts and dev/selftest/vaultStorageCheck.ts, which pass a closable store to every call: get/set/del… without a store use the default 'keyval-store' (the Tesseract cache; Burn vault never deletes it, its connection never closes). `import type` is fine anywhere.";
 
 export function check(root) {
   const violations = [];
@@ -237,6 +293,16 @@ export function check(root) {
       }
     }
 
+    // R22: 'idb-keyval' appears outside an `import type` / `export type` only in the four closable-store files
+    if (!isTest(rel) && !IDB_KEYVAL_VALUE_IMPORTERS.includes(rel)) {
+      const typeOnlyAt = new Set(imps.filter((im) => im.typeOnly && IDB_KEYVAL_SPEC_RE.test(im.spec)).map((im) => im.specPos));
+      IDB_KEYVAL_STRING_RE.lastIndex = 0;
+      let k;
+      while ((k = IDB_KEYVAL_STRING_RE.exec(code))) {
+        if (!typeOnlyAt.has(k.index)) add('R22-idb-keyval-default', rel, lineOf(code, k.index), R22_WHY);
+      }
+    }
+
     if (!isDev(rel) && !isTest(rel)) {
       // R14: src/dev/** is reachable only from App.tsx, through a DEV-guarded dynamic import
       const guarded = devGuardedImportPositions(code);
@@ -262,6 +328,32 @@ export function check(root) {
         if (/(^|['"`/.])(dev|vault)\//.test(g[1]) || /\*\*/.test(g[1]) && !/@prompts|@strings|@vectors/.test(g[1])) {
           add('R19-glob', rel, lineOf(code, g.index), 'import.meta.glob may not pull in dev/ or vault/ (or broad ** patterns outside the shared aliases).');
         }
+      }
+    }
+
+    if (!isTest(rel)) {
+      // R19 (round-6 verifier), in EVERY non-test file, DEV-only ones included: a glob stays inside web/src or a shared
+      // alias. It may not name node_modules (any case), start at the project root ('/…'), climb out of web/src before
+      // its first wildcard ('../../*/idb-key*/…' reaches node_modules), or pass `exhaustive` (which lifts Vite's
+      // node_modules exclusion).
+      GLOB_RE.lastIndex = 0;
+      let g;
+      while ((g = GLOB_RE.exec(code))) {
+        const call = code.slice(g.index, code.indexOf(')', g.index + g[0].length) + 1 || g.index + 400);
+        const escapes = [...g[1].matchAll(/['"`]!?([^'"`]*)['"`]/g)].some(([, pat]) => {
+          if (/^@(prompts|strings|vectors)(\/|$)/.test(pat)) return false;
+          if (/node_modules/i.test(pat) || pat.startsWith('/')) return true;
+          const prefix = pat.slice(0, pat.search(/[*?{[]|$/));
+          return !inDir(resolveImport(rel, prefix.startsWith('.') ? prefix : `./${prefix}`).replace(/\/$/, ''), 'web/src');
+        });
+        if (escapes || /\bexhaustive\b/.test(call)) {
+          add('R19-glob', rel, lineOf(code, g.index), 'import.meta.glob must stay inside web/src or @prompts/@strings/@vectors: no node_modules, no root-absolute or climbing pattern, no `exhaustive` (any file, DEV-only too).');
+        }
+      }
+      // R18 (round-6 verifier): a module specifier with a backslash escape ('idb-keyv\x61l') resolves to the real
+      // package but hides it from every name-based rule.
+      for (const im of imps) {
+        if (im.spec.includes('\\')) add('R18-dynamic-literal', rel, im.line, 'A module specifier may not contain a backslash escape: the boundary rules match specifiers by name.');
       }
     }
 
@@ -322,7 +414,34 @@ function selfTest() {
     w('web/src/App.tsx', "// generateContent( in a comment is fine\nconst s = 'x';\nexport const Dev = import.meta.env.DEV\n  ? lazy(() => import('./dev/spikes/x'))\n  : null;\nif (import.meta.env.DEV) {\n  void import('./dev/y');\n}\n");
     w('web/src/dev/spikes/x.ts', `// ${DEV_MARKER}\nexport const direct = (m: any) => m.generateContent([]);\n`);
     w('web/src/dev/y.ts', `export const marker = '${DEV_MARKER}';\n`);
-    w('web/src/vault/store.ts', "export const n = 1;\n");
+    w('web/src/vault/store.ts', "// console.log(n) in a comment is fine\nexport const n = 1;\n");
+    // R9 applies only to the sensitive files: console is fine elsewhere.
+    w('web/src/core/log.ts', "export const log = (m: string) => console['log'](m);\n");
+    // R21: only vault/idb.ts opens IndexedDB; deletes, listing and typeof are fine anywhere; tests and idb.testutil.ts are exempt.
+    w('web/src/vault/idb.ts', "import type { UseStore } from 'idb-keyval';\nexport const open = (n: string) => indexedDB.open(n);\n");
+    w('web/src/vault/idb.testutil.ts', "export const raw = (n: string) => indexedDB.open(n);\n");
+    // R21 feature tests that open nothing (fix round 3): typeof on a global's member, on .databases, and `in`.
+    w('web/src/core/caps.ts', [
+      "export const a = typeof globalThis.indexedDB !== 'undefined';",
+      "export const b = typeof window.indexedDB === 'object' && typeof self.indexedDB === 'object';",
+      "export const c = typeof self?.indexedDB !== 'undefined' ? 1 : 0;",
+      "export const d = 'indexedDB' in globalThis;",
+      "export const e = typeof indexedDB.databases !== 'function';",
+      "export const f = (typeof indexedDB);",
+      '',
+    ].join('\n'));
+    w('web/src/vault/burn.test.ts', "const r = indexedDB.open('se-ledger');\nimport { createStore } from 'idb-keyval';\nimport { set } from 'idb-keyval';\nawait set('k', 1);\n");
+    // R22: idb-keyval values only in the closable-store files; `import type` / `export type` anywhere.
+    w('web/src/vault/vaultStore.ts', "import { get, set, type UseStore } from 'idb-keyval';\nexport const put = (s: UseStore) => set('k', 1, s);\n");
+    w('web/src/vault/crypto.ts', "import { del, get, promisifyRequest, type UseStore } from 'idb-keyval';\nexport const drop = (n: string) => indexedDB.deleteDatabase(n);\nexport const all = () => window.indexedDB.databases();\nexport const has = typeof indexedDB !== 'undefined';\n");
+    w('web/src/dev/selftest/vaultStorageCheck.ts', `// ${DEV_MARKER}\nimport { get, set } from 'idb-keyval';\nexport const f = (s: any) => get('k', s);\n`);
+    // round-6 verifier: globs inside web/src or a shared alias stay allowed, in DEV-only files too
+    w('web/src/core/globOk.ts', "export const icons = import.meta.glob('./icons/*.svg', { eager: true });\nexport const p = import.meta.glob('@prompts/*', { query: '?raw', import: 'default', eager: true });\n");
+    w('web/src/dev/selftest/globOkDev.ts', `// ${DEV_MARKER}\nexport const f = import.meta.glob('../fixtures/*.ts');\n`);
+    // round-5 verifier: a type-only import by a path into node_modules stays allowed (erased at build)
+    w('web/src/core/kvTypesPath.ts', "import type { UseStore } from '../../node_modules/idb-keyval/dist/index.js';\nexport type S = UseStore;\n");
+    w('web/src/core/kvTypes.ts', "import type { UseStore } from 'idb-keyval';\nimport type {\n  UseStore as U2,\n} from \"idb-keyval\";\nexport type { UseStore as U3 } from 'idb-keyval';\nexport type S = UseStore | U2;\n");
+    w('web/src/ui/components/ImportDropzone.tsx', 'export const I = (p: { status: unknown }) => <button>{String(p.status)}</button>;\n');
     w('ios/StrangersEyes/AI/EgressGate.swift', 'let r = try await session.respond(to: "x")\n');
     w('ios/StrangersEyes/Dev/Spike.swift', '// spike\n#if DEBUG\nlet r = try await session.respond(to: "x")\nlet h = HybridModel(primary: a, secondary: b)\n#endif\n');
     w('ios/StrangersEyesTests/GateTests.swift', 'let r = try await session.respond(to: "x")\n');
@@ -350,6 +469,20 @@ function selfTest() {
       ['R8-url-input', 'web/src/ui/components/ImportDropzone.tsx', 'export const I = () => <input type="url" />;\n'],
       ['R9-console-in-sensitive', 'web/src/vault/bad9.ts', "console.log('vault');\n"],
       ['R9-console-in-sensitive', 'web/src/vault/bad9b.ts', "console.error('vault');\n"],
+      ['R9-console-in-sensitive', 'web/src/tier0/gpsWarning.ts', 'export const f = (point: unknown, pins: unknown) => console.log(point, pins);\n'],
+      ['R9-console-in-sensitive', 'web/src/tier0/importPhoto.ts', 'export const f = (exif: unknown) => console.debug(exif);\n'],
+      ['R9-console-in-sensitive', 'web/src/ui/components/ImportDropzone.tsx', 'export const f = async (getPins: () => Promise<unknown>) => console.log(await getPins());\n'],
+      ['R9-console-in-sensitive', 'web/src/ui/screens/Check.tsx', "export const f = (pins: unknown) => console.info('pins', pins);\n"],
+      // fix round 3: bracket, optional chaining, a line split, an alias, destructuring, a global, other methods, new scope
+      ['R9-console-in-sensitive', 'web/src/ui/screens/Check.tsx', "export const f = (pins: unknown) => console['log'](pins);\n"],
+      ['R9-console-in-sensitive', 'web/src/ui/components/ImportDropzone.tsx', 'export const f = (pins: unknown) => console?.log(pins);\n'],
+      ['R9-console-in-sensitive', 'web/src/tier0/gpsWarning.ts', 'export const f = (pins: unknown) => console\n  .log(pins);\n'],
+      ['R9-console-in-sensitive', 'web/src/vault/bad9c.ts', 'const c = console;\nexport const f = (v: unknown) => c.log(v);\n'],
+      ['R9-console-in-sensitive', 'web/src/vault/bad9d.ts', 'const { log } = console;\nexport const f = (v: unknown) => log(v);\n'],
+      ['R9-console-in-sensitive', 'web/src/ui/importTransfer.ts', 'export const f = (pins: unknown) => globalThis.console.warn(pins);\n'],
+      ['R9-console-in-sensitive', 'web/src/tier0/importPhoto.ts', "export const f = (gps: unknown) => console.timeLog('exif', gps);\n"],
+      ['R9-console-in-sensitive', 'web/src/ui/checkState.ts', 'export const f = (s: unknown) => console.assert(false, s);\n'],
+      ['R9-console-in-sensitive', 'web/src/tier0/sniff.ts', 'export const f = (tiff: unknown) => console.dir(tiff);\n'],
       ['R10-AdversaryNotes', 'web/src/core/bad10.ts', "import type { AdversaryNotes } from './types';\n"],
       ['R11-firestore-dynamic', 'web/src/firebase/atlas.ts', "import { getFirestore } from 'firebase/firestore';\n"],
       ['R12-atlas-imports', 'web/src/firebase/atlas.ts', "import { pinBand } from '../core/geo';\nexport const load = () => import('firebase/firestore');\n"],
@@ -374,6 +507,60 @@ function selfTest() {
       ['R19-glob', 'web/src/core/bad19.ts', "export const all = import.meta.glob('../vault/*.ts');\n"],
       ['R19-glob', 'web/src/App.tsx', "export const all = import.meta.glob('./dev/**/*.tsx');\n"],
       ['R20-dev-marker', 'web/src/dev/z.ts', 'export const nothing = 1;\n'],
+      ['R21-idb-open', 'web/src/vault/vaultStore.ts', "import { createStore } from 'idb-keyval';\nconst s = createStore('se-vault-data', 'items');\n"],
+      ['R21-idb-open', 'web/src/core/ledger.ts', "export const r = indexedDB.open('se-ledger');\n"],
+      ['R21-idb-open', 'web/src/core/sessions.ts', "export const r = window.indexedDB\n  .open('se-sessions', 2);\n"],
+      ['R21-idb-open', 'web/src/core/idbOpt.ts', "export const r = globalThis.indexedDB?.open('se-ledger');\n"],
+      ['R21-idb-open', 'web/src/core/idbBracket.ts', "export const r = indexedDB['open']('se-ledger');\n"],
+      ['R21-idb-open', 'web/src/core/idbAlias.ts', "const f = indexedDB;\nexport const r = f.open('se-ledger');\n"],
+      ['R21-idb-open', 'web/src/core/idbDestructure.ts', "const { open } = indexedDB;\n"],
+      ['R21-idb-open', 'web/src/core/idbProto.ts', "export const r = IDBFactory.prototype.open.call(x, 'se-ledger');\n"],
+      ['R21-idb-open', 'web/src/core/kvAlias.ts', "import { createStore as cs } from 'idb-keyval';\nexport const s = cs('se-ledger', 'entries');\n"],
+      ['R21-idb-open', 'web/src/core/kvNs.ts', "import * as kv from 'idb-keyval';\nexport const s = kv.createStore('se-ledger', 'entries');\n"],
+      ['R21-idb-open', 'web/src/dev/selftest/badIdb.ts', `// ${DEV_MARKER}\nexport const r = indexedDB.open('se-selftest-x');\n`],
+      ['R21-idb-open', 'web/src/vault/other.testutil.ts', "export const r = indexedDB.open('se-vault-data');\n"],
+      // fix round 3: the 'idb' package, typeof hiding a call, and indexedDB after an allowed `in` test
+      ['R21-idb-open', 'web/src/core/idbOpenDB.ts', "export const db = (lib: any) => lib.openDB('se-ledger', 1);\n"],
+      ['R21-idb-open', 'web/src/core/idbPkg.ts', "import * as idb from 'idb';\n"],
+      ['R21-idb-open', 'web/src/core/idbPkgSub.ts', "export const w = () => import('idb/with-async-ittr');\n"],
+      ['R21-idb-open', 'web/src/core/idbTypeofCall.ts', "export const t = typeof indexedDB.open('se-ledger');\n"],
+      ['R21-idb-open', 'web/src/core/idbTypeofOpt.ts', "export const t = typeof globalThis.indexedDB?.open('se-ledger');\n"],
+      ['R21-idb-open', 'web/src/core/idbTypeofBracket.ts', "export const t = typeof window.indexedDB['open']('se-ledger');\n"],
+      ['R21-idb-open', 'web/src/core/idbTypeofSplit.ts', "export const t = typeof indexedDB\n  .open('se-ledger');\n"],
+      ['R21-idb-open', 'web/src/core/idbTypeofMember.ts', "export const t = typeof indexedDB.databases\n  ('x');\n"],
+      ['R21-idb-open', 'web/src/core/idbInThenOpen.ts', "export const r = 'indexedDB' in globalThis && globalThis['indexedDB'].open('se-ledger');\n"],
+      ['R21-idb-open', 'web/src/core/zustand.ts', "import { createStore } from 'zustand/vanilla';\n"],
+      // R22 (fix round 4): idb-keyval's default store, reached from anywhere but the four closable-store files
+      ['R22-idb-keyval-default', 'web/src/core/kvDefault.ts', "import { get, set } from 'idb-keyval';\nexport const s = () => set('k', 1);\n"],
+      ['R22-idb-keyval-default', 'web/src/ui/kvNs.ts', "import * as kv from 'idb-keyval';\nexport const g = () => kv.get('k');\n"],
+      ['R22-idb-keyval-default', 'web/src/core/kvMixed.ts', "import { type UseStore, keys } from 'idb-keyval';\nexport const k = (s?: UseStore) => keys(s);\n"],
+      ['R22-idb-keyval-default', 'web/src/core/kvMultiline.ts', "import {\n  get,\n  type UseStore,\n} from \"idb-keyval\";\n"],
+      ['R22-idb-keyval-default', 'web/src/core/kvDynamic.ts', "export const g = async () => (await import('idb-keyval')).get('k');\n"],
+      ['R22-idb-keyval-default', 'web/src/core/kvReexport.ts', "export { get as kvGet } from 'idb-keyval';\n"],
+      ['R22-idb-keyval-default', 'web/src/core/kvStar.ts', 'export * from `idb-keyval`;\n'],
+      ['R22-idb-keyval-default', 'web/src/core/kvSubpath.ts', "import { set } from 'idb-keyval/dist/index.js';\n"],
+      ['R22-idb-keyval-default', 'web/src/core/kvRequire.cjs', "const { del } = require('idb-keyval');\n"],
+      ['R22-idb-keyval-default', 'web/src/dev/selftest/kvDev.ts', `// ${DEV_MARKER}\nconst m = 'idb-keyval';\nexport const g = async () => (await import(m)).get('k');\n`],
+      ['R22-idb-keyval-default', 'web/src/vault/burn.ts', "import type { UseStore } from 'idb-keyval';\nimport { clear } from 'idb-keyval';\nexport const c = (s?: UseStore) => clear(s);\n"],
+      ['R22-idb-keyval-default', 'web/src/vault/idb.testutil.ts', "import { entries } from 'idb-keyval';\n"],
+      // final review: a relative path into node_modules, or a Vite deps path, reaches the same default store
+      ['R22-idb-keyval-default', 'web/src/core/kvPath.ts', "import { get } from '../../node_modules/idb-keyval/dist/index.js';\nexport const g = () => get('k');\n"],
+      ['R22-idb-keyval-default', 'web/src/core/kvViteDeps.ts', "import { get } from '/node_modules/.vite/deps/idb-keyval.js';\n"],
+      // round-5 verifier: a Vite deps path to 'idb', any case, a ?query, and a glob into node_modules
+      ['R21-idb-open', 'web/src/core/idbVite.ts', "import * as raw from '/node_modules/.vite/deps/idb.js';\nexport const r = raw;\n"],
+      ['R21-idb-open', 'web/src/core/idbCase.ts', "import * as raw from '../../NODE_MODULES/IDB/build/index.js';\nexport const r = raw;\n"],
+      ['R21-idb-open', 'web/src/core/idbQuery.ts', "import * as raw from 'idb?v=1';\nexport const r = raw;\n"],
+      ['R22-idb-keyval-default', 'web/src/core/kvCase.ts', "import { get } from '../../node_modules/IDB-KEYVAL/dist/index.js';\n"],
+      ['R22-idb-keyval-default', 'web/src/core/kvQuery.ts', "import { get } from 'idb-keyval?v=1';\n"],
+      ['R19-glob', 'web/src/core/kvGlob.ts', "export const m = import.meta.glob('../../node_modules/idb-key*/dist/index.js');\n"],
+      // round-6 verifier: a DEV-only file, a pattern climbing out of web/src, `exhaustive`, a root-absolute pattern,
+      // and an escaped specifier
+      ['R19-glob', 'web/src/dev/selftest/globDev.ts', `// ${DEV_MARKER}\nexport const m = import.meta.glob('../../../node_modules/id?/build/index.js');\n`],
+      ['R19-glob', 'web/src/core/globClimb.ts', "export const m = import.meta.glob('../../*/idb-key*/dist/index.js');\n"],
+      ['R19-glob', 'web/src/core/globExhaustive.ts', "export const m = import.meta.glob('./*.ts', { exhaustive: true });\n"],
+      ['R19-glob', 'web/src/core/globRoot.ts', "export const m = import.meta.glob('/*.json');\n"],
+      ['R18-dynamic-literal', 'web/src/core/escSpec.ts', "import { get } from 'idb-keyv\\x61l';\nexport const g = () => get('k');\n"],
+      ['R21-idb-open', 'web/src/core/idbPath.ts', "import * as raw from '../../node_modules/idb/build/index.js';\nexport const r = raw;\n"],
       ['R1-ai-call', 'web/src/dev/selftest/bad.ts', `// ${DEV_MARKER}\nexport const x = (m: any) => m.generateContent(r);\n`],
       ['R7-localStorage', 'web/src/dev/bench/bad.ts', `// ${DEV_MARKER}\nlocalStorage.setItem('a', 'b');\n`],
     ];

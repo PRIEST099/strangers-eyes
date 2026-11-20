@@ -1185,6 +1185,13 @@ Sources: https://developers.google.com/edge/mediapipe/solutions/vision/face_dete
 - The Blob-URL worker (`importScripts(workerPath)`) **worked offline** under the service worker.
 - **Inputs:** data-URL string, Blob/File, `<img>`, `<canvas>`, `<video>`, OffscreenCanvas, CanvasRenderingContext2D. **ImageBitmap is rejected** ("Error attempting to read image.").
 - **Timing** (warm worker, M1 headless): 4000×3000 → 695 ms; 2000×1500 → 183 ms; 1000×750 → 82 ms; 500×375 → 44 ms. Cold start about 300 ms.
+- **Busy photo backgrounds defeat the default binarisation** `[VERIFIED Nov 20, T-037: Chrome 156 (Browser pane), tesseract.js 7.0.0, OEM LSTM, PSM 11]`. A white "LUCAS" tag (dark letters, 4° tilt) composited on 3 people-free street photos, 2 positions × 5 cap heights (32–160 px on the 2048 px master), OCR on the 1600 px downscale:
+  - global Otsu (`thresholding_method` `'0'`, the default): **14/30** found. Larger text and a border around the tag make it worse (96–160 px caps were read less often than 20–36 px).
+  - Leptonica adaptive Otsu (`'1'`): **26/30**. Sauvola (`'2'`): 24/30; Sauvola on an 800 px downscale: 19/30.
+  - the union of Otsu, adaptive Otsu, Sauvola and Sauvola-800: **30/30**.
+  - PSM 3 (auto): 0/30. 2×2 tiles (10% overlap) with Otsu: 13/30. Otsu on an 800 px downscale: 7/30.
+  - Cost per 1600 px pass, measured in a hidden (throttled) pane, so pessimistic: Otsu ~0.6 s, adaptive Otsu ~1.2 s, Sauvola ~1.0 s.
+  - Set it with `await worker.setParameters({ thresholding_method: '1' })` (string value). Used by T-057 (D-81).
 - **OCR results depend on resolution.** The same image at 1536 px (the outgoing frame) and at the 1600 px Tier-0 OCR downscale (`ocr_max_px`, SPEC D-20) can yield different words. The gate's OCR therefore runs on the **exact outgoing bytes** during the consent dry run, and new hits are auto-masked before Send is enabled (SPEC SCR-07, §7.1).
 - **Tips:**
   - one worker, reused, as a module singleton (StrictMode would otherwise create two);
@@ -1225,6 +1232,13 @@ Sources: https://github.com/naptha/tesseract.js/blob/master/docs/api.md, …/doc
 - **Working image:** longest side **≤2048 px** (SPEC D-20; this verified `reencodeClean` default). All boxes live on this one oriented image. Nano gets a 768 px copy and the cloud a 1536 px copy, at the same aspect ratio.
   - Resolved in T-022 (R-07): ARCH §11.1 and §18 use the ≤2048 px master; an earlier ARCH draft used 3072 px. Tier-0 OCR runs on a 1600 px downscale (`ocr_max_px`).
 - HEIC in desktop Chrome's `createImageBitmap` probably fails (U-32). Catch the error and show "convert to JPEG".
+- **Never hand exifr a whole untrusted file** `[VERIFIED Nov 20, T-053 round-5 verifier, exifr 7.1.3 source + probes]`. Its file parsers walk structure the app's sniff does not bound:
+  - PNG: chunks to the end of the file, past IEND;
+  - JPEG: a byte-by-byte scan through the bodies of every segment except APPn/SOF0/SOF2/DHT/DQT/DRI/COM, so an APP header hidden in such a body jumps it past the SOS;
+  - HEIF: every box from meta to the end of the file.
+  - A crafted 30 MB file cost about 1 s and 365–577 MB. exifr also throws on a PNG with 1–10 trailing bytes after IEND.
+  - The app hands exifr only the EXIF TIFF found by its own capped walks (`sniff.exifTiff`): 0.6–1.5 KB on the 10 spike photos, against ~1 MB files.
+  - exifr's TIFF parser also trusts each tag's value count: it allocates arrays of that size and strips trailing NULs one character at a time. A crafted 30 MB TIFF cost about 2.5 s, so only the first 1 MiB is handed over: about 5 ms on a crafted 1 MiB TIFF. Not 64 KiB, because Apple ImageIO writes the GPS IFD after the Exif IFD's values, past 100 KB after a large UserComment (round-6 and round-7 verifiers).
 
 ```ts
 // reference src/lib/exif.ts  [VERIFIED: tsc + ran]
@@ -1288,6 +1302,12 @@ export async function burnVault() { await del('vault-key-v1', keyStore); indexed
 ```
 
 - The app's `burnVault()` (ARCH §16.4) also deletes `se-sessions` and `se-ledger` after `se-vault-data`, with no partial option (SPEC D-31; D-50). The snippet shows only the verified key-first order.
+- **IndexedDB behaviours the burn relies on** (T-054 reviews, Nov 20; D-80). Verified in fake-indexeddb 6.2.8 and, where marked, in Chrome 156 (Browser pane):
+  - `deleteDatabase` gets `blocked` while another connection is open and finishes only once that connection closes. A second `deleteDatabase` of the same name, queued behind a pending one, gets **no** `blocked` event, so a timer that starts on `blocked` never starts. The app times every deletion from the request instead.
+  - `indexedDB.databases()` still lists a database whose deletion is blocked, and an `open()` queued behind that deletion waits until the blocker closes `[Chrome 156]`. **Never inspect with `open()` while a deletion is pending:** it re-creates the database.
+  - Checking whether a database exists without creating it: `open(name)` with no version; in `onupgradeneeded` (oldVersion 0) call `req.transaction.abort()`. The open fails with `AbortError` and no database is left behind. An existing database opens; close it at once so it never blocks a later deletion `[Chrome 156]`. Used only where `databases()` is missing or throws.
+  - `indexedDB.databases()` support: Chrome 71+, Safari 14+, Firefox 126+ (MDN). Safari and Firefox are unverified here (U-59).
+  - `BroadcastChannel` is same-origin and stays on the device. The vault-change message carries no data.
 
 Sources: https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto/encrypt, https://developer.mozilla.org/en-US/docs/Web/API/AesGcmParams
 
