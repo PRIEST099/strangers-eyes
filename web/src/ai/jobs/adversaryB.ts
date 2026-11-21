@@ -45,7 +45,7 @@ export interface CallInfo {
 }
 
 export type AttackOutcome =
-  | { kind: 'result'; result: AdversaryResult; call: CallInfo }
+  | { kind: 'result'; result: AdversaryResult; call: CallInfo; recorded?: { recordedAt: string; model: string } } // recorded: Judge Mode CACHED replay (T-105)
   | { kind: 'refused'; why: 'declined' | 'blocked'; call: CallInfo }
   | { kind: 'notSent'; reason: GateBlockReason; copyId: StringId; params?: Record<string, string>; retry: boolean; call: CallInfo }
   | { kind: 'failed'; state: 'truncated' | 'unreadable' | 'error'; code: GateErrorCode; copyId: StringId; retry: boolean; retryAfterMs?: number; call: CallInfo };
@@ -74,6 +74,8 @@ export interface AdversaryBInput {
   /** 'r1' first attack, 'r2' re-attack… */
   runId?: string;
   signal?: AbortSignal;
+  /** Judge Mode: the sample being checked (the gate refuses a non-Judge request while the fake vault is active). */
+  judge?: { sampleId: string };
 }
 export interface AdversaryBDeps {
   run?: <T>(req: GateRequest<T>) => Promise<GateResult<T>>;
@@ -85,7 +87,7 @@ export interface AdversaryBDeps {
 /** The pass-B request exactly as the gate's template check expects it. */
 export function adversaryBRequest(i: AdversaryBInput): GateRequest<AdvBValue> {
   return {
-    job: 'adversaryB', payloadClass: 'S3', sessionId: i.sessionId, judge: null,
+    job: 'adversaryB', payloadClass: 'S3', sessionId: i.sessionId, judge: i.judge ? { sampleId: i.judge.sampleId } : null,
     modelSpec: { kind: 'adversaryB', system: systemText(ADV_B_PROMPT), schema: ADV_B_SCHEMA },
     promptId: ADV_B_PROMPT, text: render(ADV_B_PROMPT), images: [i.image], consent: i.consent,
     parse: (raw) => parseAdvBText(raw),

@@ -4,6 +4,7 @@
     {"file": "benchmark/spike/score-spike.mjs", "values": ["0.2501", "12.3456789"], "why": "Not coordinates: a band edge in km in the scorer self-test, and the fake value that proves report() refuses coordinate-like numbers."},
     {"file": "docs/API-NOTES.md", "values": ["48.8566", "2.3522"], "why": "Paris city centre in the public Berlin to Paris haversine test vector (ARCH §12)."},
     {"file": "docs/ARCHITECTURE.md", "values": ["48.8566", "2.3522"], "why": "Paris city centre in the public Berlin to Paris haversine test vector (ARCH §12)."},
+    {"file": "scripts/make-judge-samples.mjs", "values": ["-0.168736", "0.331264", "0.418688", "0.081312"], "why": "Not coordinates: the JFIF RGB to YCbCr colour-conversion constants in the placeholder JPEG encoder (T-105)."},
     {"file": "research/day1-artifacts/web-ref/src/selftest.ts", "values": ["48.8566", "2.3522"], "why": "Paris city centre in the public Berlin to Paris haversine test vector (Day-1 reference code)."},
     {"file": "research/workflow-planning/verification-notes.md", "values": ["48.8566", "2.3522"], "why": "Paris city centre in the public Berlin to Paris haversine test vector."},
     {"file": "research/day1-artifacts/ios-ref/probes/mac_out3.txt", "values": ["26.03126299381256", "9.727572083473206"], "why": "Day-1 probe output: latencies in seconds."},
@@ -16,6 +17,7 @@
     {"file": "web/src/core/referee.test.ts", "values": ["10.123456", "-30.654321"], "why": "Synthetic sequential digits in the open Atlantic."},
     {"file": "web/src/tier0/ocr.test.ts", "values": ["0.78125"], "why": "A scale factor (1600/2048), not a coordinate."},
     {"file": "web/src/ui/vaultUi.test.ts", "values": ["51.123456", "-0.987654"], "why": "Synthetic sequential digits for a GPS pin fixture. It falls on land in southern England, so the owner should move it to the open-ocean test area (T-090 report)."},
+    {"file": "web/src/ui/judge/judgeMode.test.ts", "values": ["0.50049", "-30.50051", "0.12345"], "why": "Synthetic open South Atlantic pin (no land within 100 km) and a plain number, used to prove the fake vault rounds pins to 3 decimals (T-105)."},
     {"file": "web/src/vault/geolocation.test.ts", "values": ["90.0001"], "why": "An out-of-range latitude input for the range check."},
     {"file": "web/src/vault/vaultStore.test.ts", "values": ["0.51234", "-30.56789", "30.56789"], "why": "Synthetic pin in the open South Atlantic (and its unsigned digits)."},
     {"file": "web/src/vault/vaultTerms.test.ts", "values": ["0.51234", "-30.56789", "0.61234", "-30.66789", "0.71234", "-30.76789", "0.81234", "-30.86789"], "why": "Synthetic pins in the open South Atlantic."}

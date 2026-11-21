@@ -63,7 +63,7 @@ export interface PrescreenOutcome {
 }
 /** The pre-screen's Nano line: ON_DEVICE with its clue count, or RULES_ONLY and why (SPEC SCR-06 states a–c). */
 export interface PrescreenNanoLine {
-  readonly route: 'ON_DEVICE' | 'RULES_ONLY';
+  readonly route: 'ON_DEVICE' | 'IN_CLOUD' | 'RULES_ONLY'; // IN_CLOUD: Judge Mode only (S4 on a sample)
   readonly latencyMs: number;
   readonly count: number;
   readonly fallback: 'no_device' | 'device_failed' | null;

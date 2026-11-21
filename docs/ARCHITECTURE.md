@@ -252,7 +252,7 @@ web/
 │   ├── models/blaze_face_full_range.tflite    committed (Apache-2.0; 1,083,786 B) — the model we use
 │   ├── models/blaze_face_short_range.tflite   committed (229,746 B) — fallback only
 │   ├── vendor/ (gi)                           mediapipe-1.2.3/wasm/ and tesseract-7.0.0/{worker.min.js,core/,lang/}, created by copy-assets.mjs (predev/prebuild)
-│   ├── samples/manifest.json      3 samples {id,title,image,imageSha256,nano768,nano768Sha256,cachedAdvB,recordedAt,model}
+│   ├── samples/manifest.json      3 samples {id,title,placeholder,image,imageSha256,nano768,nano768Sha256,cachedAdvB,cachedAdvBFixed,recordedAt,model,expected} (D-150)
 │   │                              + the fake vault (pins at PUBLIC buildings) [DECISION: USER approves coordinates before commit]
 │   ├── samples/judge-0{1,2,3}.jpg             people-free, prop-staged, EXIF-free (check-images.mjs)
 │   ├── samples/judge-0{1,2,3}.nano768.jpg     pre-rendered S4 Nano input (byte-stable hash across browsers)

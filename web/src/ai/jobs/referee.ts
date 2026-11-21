@@ -12,6 +12,8 @@
 //      the gate turns into one retry and then RULES_ONLY "fallback: invalid output".
 //   4. The device matches are unioned with the rules referee (mergeMatches: the stronger strength per pair, '+rules').
 // If either list is empty the device call is skipped (an empty enum is an invalid schema) and the rules decide.
+// T-105 (D-151): in Judge Mode (input.judge) the request is S4 instead (judgeJson text, PREFER_ON_DEVICE, the sample proof
+// with the fake vault object): the vault is fake, so without Nano the referee honestly runs IN_CLOUD (unioned with the rules).
 // Never throws: any gate failure ends in the rules result, labelled honestly (RefereeOutcome.fallback).
 // LOCAL ONLY: vault labels, the prompt and the device's reasons stay in memory on this device; nothing is logged,
 // persisted or sent. Never calls the SDK: the gate is the only door (invariant 4); `run` is injectable for tests.
@@ -128,8 +130,8 @@ export type RefereeFallback = 'skipped' | 'no_device' | 'device_failed';
 
 export interface RefereeOutcome {
   matches: RefereeMatch[];
-  /** ON_DEVICE when Nano answered (its matches unioned with the rules); RULES_ONLY otherwise. */
-  route: 'ON_DEVICE' | 'RULES_ONLY';
+  /** ON_DEVICE when Nano answered (its matches unioned with the rules); IN_CLOUD only in Judge Mode (S4); RULES_ONLY otherwise. */
+  route: 'ON_DEVICE' | 'IN_CLOUD' | 'RULES_ONLY';
   latencyMs: number;
   ledgerId: string | null;
   /** The gate's notes plus '+rules' when rules matches joined a device answer (Router HUD; never vault text). */
@@ -145,6 +147,8 @@ export interface RefereeInput {
   signal?: AbortSignal;
   /** May only LOWER RC timeouts_ms.referee (the gate enforces it). */
   timeoutMs?: number;
+  /** Judge Mode: S4 with this sample and the ACTIVE fake vault object (which must also be `vault`). */
+  judge?: { sampleId: string; vault: readonly VaultItem[] };
 }
 export interface RefereeDeps {
   run?: <T>(req: GateRequest<T>) => Promise<GateResult<T>>;
@@ -152,10 +156,12 @@ export interface RefereeDeps {
 }
 
 /** The one request shape the gate accepts for the referee (S0, deviceJson text, runtime enums, rules as the floor). */
-export function refereeRequest(i: { sessionId: string; signal?: AbortSignal; timeoutMs?: number }, p: RefereePrompt, rules: readonly RefereeMatch[]): GateRequest<RefereeMatch[]> {
+export function refereeRequest(i: { sessionId: string; signal?: AbortSignal; timeoutMs?: number; judge?: RefereeInput['judge'] }, p: RefereePrompt, rules: readonly RefereeMatch[]): GateRequest<RefereeMatch[]> {
+  const j = i.judge;
   return {
-    job: 'referee', payloadClass: 'S0', sessionId: i.sessionId, judge: null,
-    modelSpec: { kind: 'deviceJson', io: 'text', schema: refereeSchema([...p.claimOf.keys()], [...p.itemOf.keys()]) },
+    job: 'referee', payloadClass: j ? 'S4' : 'S0', sessionId: i.sessionId, judge: j ? { sampleId: j.sampleId } : null,
+    modelSpec: { kind: j ? 'judgeJson' : 'deviceJson', io: 'text', schema: refereeSchema([...p.claimOf.keys()], [...p.itemOf.keys()]) },
+    ...(j ? { synthetic: { sampleId: j.sampleId, vault: j.vault } } : {}),
     promptId: NANO_REF_PROMPT, text: refereeText(p), images: [],
     parse: (raw) => parseRefereeText(raw, p),
     deterministic: () => rules.map((m) => ({ ...m, clueIds: [...m.clueIds] })),
@@ -184,12 +190,14 @@ export async function referee(i: RefereeInput, deps: RefereeDeps = {}): Promise<
   if (!p) return rulesOnly('skipped');
   try {
     const r = await run(refereeRequest(i, p, rules));
-    if (r.route !== 'ON_DEVICE') {
+    const cloud = r.route === 'IN_CLOUD' && i.judge !== undefined; // S4 only: never an S0 answer from the cloud
+    if (r.route !== 'ON_DEVICE' && !cloud) {
       return rulesOnly(r.notes.some(deviceFailedNote) ? 'device_failed' : 'no_device', [...r.notes], r.ledgerId);
     }
     const merged = mergeMatches(r.value, rules);
     const notes = [...r.notes, ...merged.notes.filter((n) => !r.notes.includes(n))];
-    return { matches: merged.matches, route: 'ON_DEVICE', latencyMs: r.latencyMs, ledgerId: r.ledgerId, notes, fallback: null };
+    const matches = cloud ? merged.matches.map((m) => (m.route === 'ON_DEVICE' ? { ...m, route: 'IN_CLOUD' as const } : m)) : merged.matches;
+    return { matches, route: cloud ? 'IN_CLOUD' : 'ON_DEVICE', latencyMs: r.latencyMs, ledgerId: r.ledgerId, notes, fallback: null };
   } catch (e) {
     // A gate block or error on an S0 call is a bug or an abort: the rules still decide, and nothing was sent.
     const ledgerId = e instanceof GateError ? e.ledgerId ?? null : null;

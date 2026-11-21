@@ -58,12 +58,15 @@ export async function runConsentDryRun(master: HTMLCanvasElement, masks: readonl
 }
 
 /** What Send hands the attack: the consented image and its token (minted HERE, by the consent sheet only). */
-export interface SentImage { image: OutgoingImage; consent: ConsentToken; model: string; sessionId: string }
+export interface SentImage { image: OutgoingImage; consent: ConsentToken; model: string; sessionId: string; judge?: { sampleId: string } }
 
-export async function consentTo(dry: DryRun, sessionId: string): Promise<SentImage> {
+export async function consentTo(dry: DryRun, sessionId: string, judge?: { sampleId: string }): Promise<SentImage> {
   const c = await rc();
   const { mintConsent } = await import('../../ai/egressGate');
-  return { image: dry.image, consent: mintConsent({ sha256: dry.image.sha256, sessionId }), model: c?.adversaryModel ?? 'unknown', sessionId };
+  return {
+    image: dry.image, consent: mintConsent({ sha256: dry.image.sha256, sessionId }), model: c?.adversaryModel ?? 'unknown', sessionId,
+    ...(judge ? { judge: { sampleId: judge.sampleId } } : {}),
+  };
 }
 
 /** Pass B on the consented image; `runId` is 'r1' for the first attack, 'r2'… for re-attacks (T-080). */
@@ -72,7 +75,7 @@ export async function runAttack(sent: SentImage, cache: AdvBCache, runId = 'r1')
   // only once the gate commits an IN_CLOUD entry with that same hash (the bytes it checked and sent).
   void sentImages.remember(sent.image.jpeg).catch(() => undefined);
   const { adversaryB } = await import('../../ai/jobs/adversaryB');
-  return adversaryB({ sessionId: sent.sessionId, image: sent.image, consent: sent.consent, model: sent.model, runId }, { cache });
+  return adversaryB({ sessionId: sent.sessionId, image: sent.image, consent: sent.consent, model: sent.model, runId, ...(sent.judge ? { judge: sent.judge } : {}) }, { cache });
 }
 
 /** A per-session pass-B cache (AC-147): final outcomes keyed by session + sha256 + model + prompt version. */
@@ -85,11 +88,12 @@ export function newAttackCache(): AdvBCache {
  * The referee for one pass-B result (T-074): the on-device referee through the gate (S0, ONLY_ON_DEVICE; RULES-ONLY
  * when Nano is absent, off or fails), unioned with the rules referee. Never rejects.
  */
-export async function runReferee(adv: AdversaryResult, vault: readonly VaultItem[], sessionId: string, theta?: number): Promise<RefereeOutcome> {
+export async function runReferee(adv: AdversaryResult, vault: readonly VaultItem[], sessionId: string, theta?: number, judge?: { sampleId: string }): Promise<RefereeOutcome> {
   const t0 = performance.now();
   try {
     const { referee } = await import('../../ai/jobs/referee');
-    return await referee({ sessionId, adv, vault, ...(theta !== undefined ? { theta } : {}) });
+    // Judge Mode (T-105): S4 with the fake vault object itself as the proof (`vault` IS JUDGE_VAULT there).
+    return await referee({ sessionId, adv, vault, ...(theta !== undefined ? { theta } : {}), ...(judge ? { judge: { sampleId: judge.sampleId, vault } } : {}) });
   } catch {
     // The job's chunk did not load: no device call was made; the rules referee decides, labelled as a failure.
     const matches = rulesReferee(refereeClaims(adv), refereeVaultItems(vault), theta);

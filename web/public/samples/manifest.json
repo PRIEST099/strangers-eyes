@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "placeholder": true,
+  "about": "Judge Mode samples (T-105). PLACEHOLDERS: drawn synthetic scenes and authored pass-B answers until the T-010 photos and recorded pass B replace them (RUNBOOK §6.2a). Coordinates are in the open-ocean test area.",
+  "fakeVault": {
+    "homePin": {
+      "lat": 0.5,
+      "lng": -30.5
+    },
+    "workPin": {
+      "lat": 0.53,
+      "lng": -30.46
+    }
+  },
+  "samples": [
+    {
+      "id": "judge-01",
+      "title": "Doorstep entrance (placeholder)",
+      "placeholder": true,
+      "image": "judge-01.jpg",
+      "imageSha256": "7d744e1756dc83f300b1921aaee4fde50bd81d7f43cf1e9953cc25fafd24dd1e",
+      "nano768": "judge-01.nano768.jpg",
+      "nano768Sha256": "6ab0f2c1aec548ba7112f883a663a6abb81b2ab2d423a9aead65206ef564ed99",
+      "cachedAdvB": "judge-01.advB.v1.json",
+      "cachedAdvBFixed": "judge-01.advB.fixed.v1.json",
+      "recordedAt": "2026-11-21",
+      "model": "placeholder (authored, not recorded)",
+      "expected": null
+    },
+    {
+      "id": "judge-02",
+      "title": "Marketplace listing (placeholder)",
+      "placeholder": true,
+      "image": "judge-02.jpg",
+      "imageSha256": "67062f77ca8b528317beca337fd480ab1c79d618b4b374b178a154c411a5f39c",
+      "nano768": "judge-02.nano768.jpg",
+      "nano768Sha256": "a13164b0bad6b40aae03c371af83f036f53c22bcf783c40a0b62c2f0acf07b5e",
+      "cachedAdvB": "judge-02.advB.v1.json",
+      "cachedAdvBFixed": "judge-02.advB.fixed.v1.json",
+      "recordedAt": "2026-11-21",
+      "model": "placeholder (authored, not recorded)",
+      "expected": null
+    },
+    {
+      "id": "judge-03",
+      "title": "Café table creator shot (placeholder)",
+      "placeholder": true,
+      "image": "judge-03.jpg",
+      "imageSha256": "1b6d6fd9aa20bf061a7e5f85256741fd04493a69302b000b216b654cad8a5a23",
+      "nano768": "judge-03.nano768.jpg",
+      "nano768Sha256": "095c5b6f4dbbd0cc0ea718be9da50281e62092172c399e85eb10918e7717eeec",
+      "cachedAdvB": "judge-03.advB.v1.json",
+      "cachedAdvBFixed": "judge-03.advB.fixed.v1.json",
+      "recordedAt": "2026-11-21",
+      "model": "placeholder (authored, not recorded)",
+      "expected": null
+    }
+  ]
+}

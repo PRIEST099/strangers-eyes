@@ -27,7 +27,9 @@ function listAfter<T>(prompt: string, name: string): T[] {
   }
 }
 
-const words = (s: string) => s.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length >= 4);
+/** Place words too generic to link anything ("A coastal city" is not "City General Hospital"; T-105, F-225). */
+const GENERIC_WORDS: ReadonlySet<string> = new Set(['city', 'town', 'area', 'district', 'street', 'road', 'near', 'coastal']);
+const words = (s: string) => s.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length >= 4 && !GENERIC_WORDS.has(w));
 
 /** A deliberately simple referee: the whole label named → exact; a shared long word → likely. */
 export function fakeRefereeAnswer(prompt: string): string {
@@ -49,7 +51,7 @@ export function fakeRefereeAnswer(prompt: string): string {
   return JSON.stringify({ matches: matches.slice(0, 12) });
 }
 
-const PRESCREEN_OK = JSON.stringify({
+export const PRESCREEN_OK = JSON.stringify({
   clues: [
     { type: 'street_sign', text: '', region: 'top_right', severity: 'medium' },
     { type: 'uniform_or_lanyard', text: '', region: 'bottom_center', severity: 'medium' },

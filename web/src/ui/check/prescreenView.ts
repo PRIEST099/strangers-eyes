@@ -53,9 +53,10 @@ export function nanoLineCopy(state: CapState | null): StringId {
 /** T-066: the Nano line once the pre-screen finished: what the gate actually did, not what the chip expected. */
 export function nanoResultLine(
   nano: PrescreenNanoLine | undefined, state: CapState | null,
-): { id: StringId; params?: StringParams; route: 'ON_DEVICE' | 'RULES_ONLY'; ms?: number } {
+): { id: StringId; params?: StringParams; route: 'ON_DEVICE' | 'IN_CLOUD' | 'RULES_ONLY'; ms?: number } {
   if (!nano) return { id: nanoLineCopy(state), route: 'RULES_ONLY' };
   if (nano.route === 'ON_DEVICE') return { id: 'ui.prescreen.nanoDone', params: { n: nano.count }, route: 'ON_DEVICE', ms: nano.latencyMs };
+  if (nano.route === 'IN_CLOUD') return { id: 'ui.prescreen.judgeCloudDone', params: { n: nano.count }, route: 'IN_CLOUD', ms: nano.latencyMs }; // Judge Mode S4
   if (nano.fallback === 'device_failed') return { id: 'ui.prescreen.nanoFailed', route: 'RULES_ONLY' };
   if (state === 'a') return { id: 'ui.prescreen.nanoUnavailable', route: 'RULES_ONLY' };
   return { id: nanoLineCopy(state), route: 'RULES_ONLY' };

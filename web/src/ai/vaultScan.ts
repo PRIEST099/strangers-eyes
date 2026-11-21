@@ -349,7 +349,7 @@ export function createVaultScan(deps: VaultScanDeps) {
 
     /**
      * Enter Judge Mode: JUDGE_VAULT becomes the active vault and the real vault's terms and pins are dropped from
-     * memory. TODO(Judge Mode task): pass vault/judgeVault.ts's JUDGE_VAULT here once that module exists.
+     * memory. The Judge screen passes vault/judgeVault.makeJudgeVault's object (T-105, D-151).
      */
     useJudge(vault: readonly VaultItem[]): Promise<void> {
       switched();

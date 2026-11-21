@@ -1,0 +1,125 @@
+{
+  "audit_status": "ok",
+  "scene_summary": "A stone building entrance with a street sign, a bus stop, a backpack and a lanyard on a railing.",
+  "clues": [
+    {
+      "id": "c1",
+      "type": "street_sign",
+      "box_2d": [
+        80,
+        560,
+        220,
+        900
+      ],
+      "evidence": "Blue street sign naming a harbour road and a number range.",
+      "reveals": "street",
+      "severity": "high",
+      "removable": true
+    },
+    {
+      "id": "c2",
+      "type": "uniform_or_lanyard",
+      "box_2d": [
+        700,
+        300,
+        860,
+        470
+      ],
+      "evidence": "Lanyard card printed HOSPITAL STAFF with a red logo.",
+      "reveals": "venue_or_organisation",
+      "severity": "high",
+      "removable": true
+    },
+    {
+      "id": "c3",
+      "type": "house_number",
+      "box_2d": [
+        320,
+        600,
+        420,
+        680
+      ],
+      "evidence": "Door number plaque beside the entrance.",
+      "reveals": "street",
+      "severity": "medium",
+      "removable": true
+    },
+    {
+      "id": "c4",
+      "type": "transit_sign",
+      "box_2d": [
+        250,
+        880,
+        380,
+        980
+      ],
+      "evidence": "Green bus stop sign at the kerb.",
+      "reveals": "neighbourhood",
+      "severity": "medium",
+      "removable": true
+    },
+    {
+      "id": "c5",
+      "type": "architecture",
+      "box_2d": [
+        150,
+        0,
+        800,
+        1000
+      ],
+      "evidence": "Pale stone facade with regular courses.",
+      "reveals": "city",
+      "severity": "low",
+      "removable": false
+    }
+  ],
+  "hypotheses": [
+    {
+      "id": "h1",
+      "label": "Harbour Road, a coastal district",
+      "level": "street",
+      "lat": 0.502,
+      "lng": -30.497,
+      "radius_km": 0.6,
+      "confidence": "medium",
+      "clue_ids": [
+        "c1",
+        "c3"
+      ]
+    },
+    {
+      "id": "h2",
+      "label": "The harbour district of a coastal city",
+      "level": "district",
+      "lat": 0.51,
+      "lng": -30.48,
+      "radius_km": 3,
+      "confidence": "low",
+      "clue_ids": [
+        "c4",
+        "c5"
+      ]
+    }
+  ],
+  "inferences": [
+    {
+      "id": "i1",
+      "kind": "workplace",
+      "value": "A hospital (staff lanyard)",
+      "confidence": "medium",
+      "clue_ids": [
+        "c2"
+      ]
+    },
+    {
+      "id": "i2",
+      "kind": "home_area",
+      "value": "Near Harbour Road",
+      "confidence": "medium",
+      "clue_ids": [
+        "c1",
+        "c3"
+      ]
+    }
+  ]
+}

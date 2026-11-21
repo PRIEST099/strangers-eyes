@@ -27,6 +27,12 @@
 // ('after_fix') vs the first verdict → compareVerdicts → VerdictCard's compare header (green only when riskReduced),
 // the Before → After rows and the receipt line. At most RC max_fix_rounds re-attacks; none after any decline. Export
 // is not built.
+// T-105 (D-150..D-152): Judge Mode runs THIS flow on a sample (the `judge` prop, from the Judge screen): the sample is
+// imported instead of a drop, the pre-screen's model step and the referee run as S4 (ON-DEVICE with Nano, else IN CLOUD,
+// honestly badged), pass B runs live as S3 tagged with the sample, and when the live attacker is unavailable (and RC
+// judge_cached_fallback is on) the recorded pass B is replayed, badged CACHED. Autoplay (RC judge_autoplay_default)
+// advances each step after a beat (consent after a visible 3 s countdown) with coach marks; it stops at the re-attack's
+// verdict, at any failure, or when there is nothing to fix.
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import type { AdvBCache, AttackOutcome } from '../../ai/jobs/adversaryB';
 import type { RefereeOutcome } from '../../ai/jobs/referee';
@@ -40,7 +46,7 @@ import type { ImportedPhoto } from '../../tier0/importPhoto';
 import type { EditorOp } from '../check/editor';
 import { runPrescreen } from '../check/runPrescreen';
 import { consentTo, newAttackCache, runAttack, runConsentDryRun, runReferee, type SentImage } from '../check/runSend';
-import { consentTierCopy, userUnmaskedBoxes, verdictOf } from '../check/sendFlow';
+import { consentTierCopy, sendBlockedCopy, userUnmaskedBoxes, verdictOf } from '../check/sendFlow';
 import { compareRows, receiptParams } from '../check/fixFlow';
 import { FixPanel } from '../check/FixPanel';
 import { deterministicFix, residualAfter, selectedFix } from '../../core/fixPlan';
@@ -55,6 +61,12 @@ import { PrescreenPanel } from '../components/PrescreenPanel';
 import { StepperNav } from '../components/StepperNav';
 import { BUILT_STEPS, CHECK_START, checkReducer, fixBlocked, latestResult, maskedCandidate, settledReattack } from '../checkState';
 import { useOcrWarm } from '../hooks/useOcrWarm';
+import { systemStatus } from '../systemStatus';
+import { caps, prefs } from '../../core/localPrefs';
+import { autoDelay, coachFor, liveUnavailable, nextAutoAction, type AutoAction } from '../judge/judgeFlow';
+import { judgeNanoStep, loadSamplePhoto, recordedAttack } from '../judge/judgeRun';
+import { JudgeCoach } from '../judge/JudgeCoach';
+import type { JudgeSample } from '../../vault/judgeVault';
 import type { ImportStatus } from '../importTransfer';
 import { stepLabelId } from '../layout';
 
@@ -85,7 +97,15 @@ const NO_MASKS: readonly PxRect[] = Object.freeze([]) as readonly PxRect[];
 
 const newSessionId = (): string => (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `s-${Date.now()}-${Math.random()}`);
 
-export function Check() {
+/** A Judge Mode check (T-105): the sample, the ACTIVE fake vault object, autoplay, and "this sample is finished". */
+export interface JudgeCheck {
+  sample: JudgeSample;
+  vault: readonly VaultItem[];
+  autoplay: boolean;
+  onFinished?: () => void;
+}
+
+export function Check({ judge = null }: { judge?: JudgeCheck | null } = {}) {
   // The stepper position, the last import status (`ready` exactly while master.current is set) and the pre-screen.
   const [state, dispatch] = useReducer(checkReducer, CHECK_START);
   const master = useRef<{ canvas: HTMLCanvasElement; jpeg: Blob; sha256: string } | null>(null);
@@ -118,6 +138,44 @@ export function Check() {
   const onCloud = useCallback(() => dispatch({ type: 'toSend' }), []);
   const onCancelSend = useCallback(() => dispatch({ type: 'cancelSend' }), []);
   const onToVerdict = useCallback(() => dispatch({ type: 'toVerdict' }), []);
+  // One dispatch site per action type (the source pin in checkState.test.ts); Judge Mode reuses these.
+  const onContinue = useCallback(() => dispatch({ type: 'continue' }), []);
+  const markSent = useCallback((run: number) => dispatch({ type: 'sent', run }), []);
+  const attackDone = useCallback((run: number, outcome: AttackOutcome) => dispatch({ type: 'attackDone', run, outcome }), []);
+  const markResent = useCallback((run: number) => dispatch({ type: 'resent', run }), []);
+  const reattackDone = useCallback((run: number, outcome: AttackOutcome) => dispatch({ type: 'reattackDone', run, outcome }), []);
+
+  // ---------- Judge Mode (T-105) ----------
+  const sampleId = judge?.sample.id ?? null;
+  const judgeTag = useMemo(() => (sampleId ? { sampleId } : undefined), [sampleId]);
+  const rcNow = useRef(rc);
+  rcNow.current = rc;
+  /** The masks and crop of the re-attack image being sent (for the CACHED "after fix" recording, D-150). */
+  const fixNow = useRef<{ masks: readonly PxRect[]; crop: PxRect | null } | null>(null);
+  /** The live outcome, or the recorded replay when the live attacker is unavailable and RC allows it (AC-243, AC-246). */
+  const withRecorded = useCallback(async (o: AttackOutcome, sent: SentImage, runId: string, fix: { masks: readonly PxRect[]; crop: PxRect | null } | null): Promise<AttackOutcome> => {
+    const m = master.current;
+    if (!judge || !m || !(rcNow.current?.judgeCachedFallback ?? true) || !liveUnavailable(o)) return o;
+    return (await recordedAttack({ sample: judge.sample, image: sent.image, runId, fix, master: { width: m.canvas.width, height: m.canvas.height } })) ?? o;
+  }, [judge]);
+  // The sample is the photo: imported once (the ref survives StrictMode's second effect run), then straight to the pre-screen.
+  const sampleStarted = useRef(false);
+  useEffect(() => {
+    if (!judge || sampleStarted.current) return;
+    sampleStarted.current = true;
+    onImportStatus({ kind: 'busy' });
+    void loadSamplePhoto(judge.sample).then((p) => {
+      onPhoto(p);
+      if (!p) { onImportStatus({ kind: 'error', copyId: 'ui.judge.sampleFailed' }); return; }
+      onImportStatus({ kind: 'ready', lines: [] });
+      onContinue();
+    });
+  }, [judge, onPhoto, onImportStatus, onContinue]);
+  // Read at render (no store hook: Check re-renders on every step, and a send while the cloud is off is refused by the
+  // gate and replaced by the recording anyway).
+  const cloudOff = !!judge && sendBlockedCopy({
+    online: (typeof navigator === 'undefined' || navigator.onLine !== false) && !prefs.simulateOffline(), status: systemStatus.get(), capUsed: caps.usedToday(),
+  }) !== null;
 
   // The consent dry run, once per flow run, when the Send step is shown (local only; while the cloud is off the
   // sheet shows the reason instead and offers no Send, ConsentPanel).
@@ -133,23 +191,23 @@ export function Check() {
     const sent = session.current.sent;
     if (!sent) return;
     const cache = session.current.cache;
-    void runAttack(sent, cache).then(
-      (outcome) => dispatch({ type: 'attackDone', run, outcome }),
+    void runAttack(sent, cache).then((o) => withRecorded(o, sent, 'r1', null)).then(
+      (outcome) => attackDone(run, outcome),
       () => undefined, // ABORTED: a newer episode replaced this one
     );
-  }, []);
+  }, [withRecorded, attackDone]);
   const onSend = useCallback(() => {
     const s = state.flow.send;
     if (s.kind !== 'ready' || s.dry.failed.length > 0) return;
     const run = s.run;
     const sid = session.current.id;
-    void consentTo(s.dry, sid).then((sent) => {
+    void consentTo(s.dry, sid, judgeTag).then((sent) => {
       if (flowNow.current !== run || session.current.id !== sid) return;
       session.current.sent = sent;
-      dispatch({ type: 'sent', run });
+      markSent(run);
       attack(run);
     });
-  }, [state.flow.send, attack]);
+  }, [state.flow.send, attack, judgeTag, markSent]);
   const onRetryAttack = useCallback(() => {
     const run = flowNow.current;
     dispatch({ type: 'retryAttack', run });
@@ -178,7 +236,7 @@ export function Check() {
     for (const o of [outcome, afterOutcome, latest]) {
       if (!o || o.kind !== 'result' || batch.started.has(o)) continue;
       batch.started.add(o);
-      void runReferee(o.result, vault, session.current.id, vaultScan.threshold()).then((r) => {
+      void runReferee(o.result, vault, session.current.id, vaultScan.threshold(), judgeTag).then((r) => {
         setRefs((cur) => {
           if (refPending.current !== batch) return cur; // the vault was re-read meanwhile: this run is stale
           const by = new Map(cur.vault === vault ? cur.by : []);
@@ -187,7 +245,7 @@ export function Check() {
         });
       });
     }
-  }, [outcome, afterOutcome, latest, vault]);
+  }, [outcome, afterOutcome, latest, vault, judgeTag]);
   /** The VerdictCard referee row: the referee's route and latency, and the honest note when the rules decided. */
   const refereeRow = useCallback((r: RefereeOutcome | undefined, rulesMs: number) => {
     if (!r) return { route: 'RULES_ONLY' as const, latencyMs: rulesMs };
@@ -246,11 +304,12 @@ export function Check() {
   const reattack = useCallback((run: number, runId: string) => {
     const sent = session.current.resent;
     if (!sent) return;
-    void runAttack(sent, session.current.cache, runId).then(
-      (outcome) => dispatch({ type: 'reattackDone', run, outcome }),
+    const fix = fixNow.current;
+    void runAttack(sent, session.current.cache, runId).then((o) => withRecorded(o, sent, runId, fix)).then(
+      (outcome) => reattackDone(run, outcome),
       () => undefined,
     );
-  }, []);
+  }, [withRecorded, reattackDone]);
   const rounds = re.rounds;
   const onResend = useCallback(() => {
     const s = state.reattack.send;
@@ -258,13 +317,14 @@ export function Check() {
     const run = s.run;
     const sid = session.current.id;
     const runId = `r${rounds + 2}`;
-    void consentTo(s.dry, sid).then((sent) => {
+    fixNow.current = { masks: s.dry.masks, crop: applied?.crop ?? null };
+    void consentTo(s.dry, sid, judgeTag).then((sent) => {
       if (reNow.current !== run || session.current.id !== sid) return;
       session.current.resent = sent;
-      dispatch({ type: 'resent', run });
+      markResent(run);
       reattack(run, runId);
     });
-  }, [state.reattack.send, rounds, reattack]);
+  }, [state.reattack.send, rounds, reattack, judgeTag, applied, markResent]);
   const onRetryReattack = useCallback(() => {
     const run = reNow.current;
     dispatch({ type: 'retryReattack', run });
@@ -285,6 +345,71 @@ export function Check() {
     <Button variant="primary" data-action="fix" onClick={onToFix}>{state.reattack.rounds > 0 ? t('ui.fix.again') : t('copy.fix.button')}</Button>
   ) : null;
 
+  // Judge Mode: the recording when the cloud is off (the consent sheet shows the reason and offers no Send; nothing is
+  // sent and no consent is minted for a replay), then autoplay.
+  const cachedOk = !!judge && (rc?.judgeCachedFallback ?? true);
+  const onUseRecorded = useCallback(() => {
+    const s = state.flow.send;
+    const m = master.current;
+    if (!judge || s.kind !== 'ready' || s.dry.failed.length > 0 || attackKind !== 'idle' || !m) return;
+    const run = s.run;
+    void recordedAttack({ sample: judge.sample, image: s.dry.image, runId: 'r1', fix: null, master: { width: m.canvas.width, height: m.canvas.height } }).then((rec) => {
+      if (!rec || flowNow.current !== run) return;
+      markSent(run);
+      attackDone(run, rec);
+    });
+  }, [judge, state.flow.send, attackKind, markSent, attackDone]);
+  const onUseRecordedAgain = useCallback(() => {
+    const s = state.reattack.send;
+    const m = master.current;
+    if (!judge || s.kind !== 'ready' || s.dry.failed.length > 0 || reAttackKind !== 'idle' || !m) return;
+    const run = s.run;
+    const runId = `r${rounds + 2}`;
+    void recordedAttack({ sample: judge.sample, image: s.dry.image, runId, fix: { masks: s.dry.masks, crop: applied?.crop ?? null }, master: { width: m.canvas.width, height: m.canvas.height } }).then((rec) => {
+      if (!rec || reNow.current !== run) return;
+      markResent(run);
+      reattackDone(run, rec);
+    });
+  }, [judge, state.reattack.send, reAttackKind, rounds, applied, markResent, reattackDone]);
+  const planHasFix = !!plan && (plan.fix.masks.length > 0 || plan.fix.crop !== null);
+  const auto: AutoAction | null = judge?.autoplay ? nextAutoAction({
+    current, importReady: state.importStatus.kind === 'ready',
+    canSend: !!candidate && candidate.blockedBy.length === 0 && attackKind === 'idle' && state.prescreen.kind === 'done' && state.prescreen.failed.length === 0,
+    sendReady: state.flow.send.kind === 'ready' && state.flow.send.dry.failed.length === 0 && attackKind === 'idle',
+    cloudOff, cachedFallback: cachedOk, attackDone: attackKind === 'done', fixAvailable: fixAction !== null, planHasFix,
+    reattackPending: re.pending && !!applied,
+    reSendReady: re.send.kind === 'ready' && re.send.dry.failed.length === 0 && reAttackKind === 'idle',
+    afterSettled: !!afterOutcome,
+  }) : null;
+  const autoHandlers = useRef<Record<AutoAction, () => void>>(null as unknown as Record<AutoAction, () => void>);
+  autoHandlers.current = {
+    continue: onContinue, toSend: onCloud, send: onSend, useRecorded: onUseRecorded, toVerdict: onToVerdict,
+    toFix: onToFix, applyFix: onApplyFix, toReattack: onToReattack, resend: onResend, useRecordedAgain: onUseRecordedAgain,
+  };
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const autoKey = auto ? `${auto}|${current}|${flowRun}|${reRun}|${rounds}` : null;
+  useEffect(() => {
+    if (!auto) return;
+    const ms = autoDelay(auto);
+    const t0 = Date.now();
+    const consent = ms >= 3000;
+    if (consent) setCountdown(Math.ceil(ms / 1000));
+    const tick = consent ? setInterval(() => setCountdown(Math.max(1, Math.ceil((ms - (Date.now() - t0)) / 1000))), 250) : undefined;
+    const fire = setTimeout(() => { setCountdown(null); autoHandlers.current[auto](); }, ms);
+    return () => { clearTimeout(fire); clearInterval(tick); setCountdown(null); };
+  }, [autoKey]); // eslint-disable-line react-hooks/exhaustive-deps -- autoKey names the step the timer is for
+  // "This sample is finished" (Run all moves on): the re-attack's verdict shows, or there is nothing to fix.
+  const finished = !!judge && ((!!afterOutcome && !!compare) || (current === 'verdict' && !!verdict && !!plan && !planHasFix));
+  const finishedOnce = useRef(false);
+  useEffect(() => {
+    if (!finished || finishedOnce.current) return;
+    finishedOnce.current = true;
+    judge?.onFinished?.();
+  }, [finished, judge]);
+  const shownOutcome = current === 'reattack' ? (afterOutcome ?? (re.attack.kind === 'done' ? re.attack.outcome : null)) : current === 'attack' || current === 'verdict' || current === 'fix' ? outcome : null;
+  const recordedShown = shownOutcome?.kind === 'result' ? shownOutcome.recorded ?? null : null;
+  const offerRecorded = cachedOk && cloudOff && ((current === 'send' && attackKind === 'idle' && state.flow.send.kind === 'ready') || (current === 'reattack' && reAttackKind === 'idle' && re.send.kind === 'ready'));
+
   const devFake = import.meta.env.DEV && typeof location !== 'undefined' ? new URLSearchParams(location.search).get('fakeAdv') : null;
   const devNano = import.meta.env.DEV && typeof location !== 'undefined' ? new URLSearchParams(location.search).get('fakeNano') : null;
 
@@ -300,13 +425,15 @@ export function Check() {
     void runPrescreen(
       { canvas: m.canvas, jpeg: m.jpeg },
       (report) => dispatch({ type: 'prescreenStep', run, report }),
-      { isCurrent: () => epochNow.current === run, sessionId: session.current.id },
+      { isCurrent: () => epochNow.current === run, sessionId: session.current.id, ...(judge ? { nano: judgeNanoStep(judge.sample, judge.vault) } : {}) },
     ).then((outcome) => dispatch({ type: 'prescreenDone', run, outcome }));
-  }, [current, prescreenKind, epoch]);
+  }, [current, prescreenKind, epoch, judge]);
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-2xl font-semibold tracking-tight">{t('ui.screen.check')}</h1>
+      {judge
+        ? <h2 className="text-xl font-semibold tracking-tight">{judge.sample.title}</h2>
+        : <h1 className="text-2xl font-semibold tracking-tight">{t('ui.screen.check')}</h1>}
       <StepperNav
         current={current}
         reached={state.pos.reached}
@@ -317,11 +444,20 @@ export function Check() {
         <h2 id="check-step-title" className="text-lg font-semibold">
           {t(stepLabelId(current))}
         </h2>
-        {current === 'import' && (
+        {judge && (
+          <JudgeCoach
+            coach={coachFor(current)} countdownS={countdown} recorded={recordedShown}
+            onUseRecorded={offerRecorded ? (current === 'send' ? onUseRecorded : onUseRecordedAgain) : null}
+          />
+        )}
+        {current === 'import' && judge && (
+          <p className="mt-3 text-sm text-muted">{state.importStatus.kind === 'error' ? t('ui.judge.sampleFailed') : t('ui.judge.sampleLoading')}</p>
+        )}
+        {current === 'import' && !judge && (
           <div className="mt-3 flex flex-col gap-3">
             <ImportDropzone getPins={activePins} status={state.importStatus} onStatus={onImportStatus} onPhoto={onPhoto} />
             {state.importStatus.kind === 'ready' && (
-              <Button variant="primary" className="self-start" data-action="continue" onClick={() => dispatch({ type: 'continue' })}>
+              <Button variant="primary" className="self-start" data-action="continue" onClick={onContinue}>
                 {t('ui.check.continue')}
               </Button>
             )}

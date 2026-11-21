@@ -1134,6 +1134,15 @@ The harness downloads raw JSON into `PRIV/raw/` (`bench-<date>.json`). `benchmar
   - Run pass B ≥10× on the hero photo and each Judge scene. Record the red-before / green-after rates and film the most stable photo.
   - Write reset scripts that burn the vault and clear the Ledger.
 
+### 6.2a Replacing the Judge Mode placeholder samples with the T-010 photos [CLAUDE, after USER shoots them]
+The repo ships three SYNTHETIC PLACEHOLDER samples (drawn scenes with a PLACEHOLDER watermark, authored pass-B answers; D-150). Swapping in the real staged photos is a data-only change: no code changes.
+1. **Photos.** From the T-010 shoot (people-free, D-26 rules, SPEC SCR-17), export each scene as a JPEG, about 1600 px on the long side. Strip all metadata: re-encode through the app's own import (any canvas re-encode writes JFIF only), never commit an original.
+2. **nano768.** Make the 768 px pre-screen input from the SAME stripped JPEG (long side 768, JPEG quality about 0.85, JFIF only). `scripts/make-judge-samples.mjs --hash` rejects any APP1/APP13/ICC/COM segment.
+3. **Record pass B once per photo (real cloud, USER-approved quota):** with the fake vault active in `#/judge`, run the sample live; save the validated pass-B JSON (ungrounded pass B only, never pass A: invariant 8, AC-245) as `judge-0N.advB.v1.json`. Apply the default fix (autoplay), re-attack live, and save that answer as `judge-0N.advB.fixed.v1.json`. Keep only synthetic or rounded public coordinates; the files are public.
+4. **Manifest.** Overwrite the files in `web/public/samples/` keeping the names (or edit `image`/`nano768`/`cachedAdvB*` in `manifest.json`), set `title`, `recordedAt`, `model`, `placeholder: false` per sample and at the top, and the fake-vault pins (public places, 3 decimals; USER approves before commit). Write `expected` only from the T-097 observations.
+5. **Hashes:** `node scripts/make-judge-samples.mjs --hash` (re-checks the JPEGs and the JSON, rewrites `imageSha256` / `nano768Sha256`). Do NOT run it without `--hash`: that redraws the placeholders.
+6. **Checks:** `node scripts/check-images.mjs`, `npm --prefix web run check` (`ui/judge/judgeMode.test.ts` checks the hashes, clean JPEGs, valid pass B; its open-ocean coordinate assertion must be relaxed to the approved pins), then a browser run of each sample (live, then offline for the CACHED badge).
+
 ### 6.3 Recording setup [USER, with Claude preparing app state]
 - **Capture:** 1920×1080 at 30 fps. Keep the Router HUD (bottom-left) and the Cloud Ledger (right) in frame.
 - **macOS:**

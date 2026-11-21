@@ -1,0 +1,99 @@
+{
+  "audit_status": "ok",
+  "scene_summary": "An item for sale indoors: a stool and a lamp, a box, a lanyard, and a window onto a brick street.",
+  "clues": [
+    {
+      "id": "c1",
+      "type": "window_view",
+      "box_2d": [
+        80,
+        540,
+        570,
+        960
+      ],
+      "evidence": "Window view of a brick terrace and a street sign.",
+      "reveals": "street",
+      "severity": "high",
+      "removable": true
+    },
+    {
+      "id": "c2",
+      "type": "street_sign",
+      "box_2d": [
+        150,
+        600,
+        250,
+        900
+      ],
+      "evidence": "Street sign naming a market street.",
+      "reveals": "street",
+      "severity": "high",
+      "removable": true
+    },
+    {
+      "id": "c3",
+      "type": "uniform_or_lanyard",
+      "box_2d": [
+        520,
+        300,
+        680,
+        460
+      ],
+      "evidence": "Lanyard card printed HOSPITAL STAFF hanging on the lamp.",
+      "reveals": "venue_or_organisation",
+      "severity": "high",
+      "removable": true
+    },
+    {
+      "id": "c4",
+      "type": "house_number",
+      "box_2d": [
+        300,
+        760,
+        370,
+        830
+      ],
+      "evidence": "House number plaque across the street.",
+      "reveals": "street",
+      "severity": "medium",
+      "removable": true
+    }
+  ],
+  "hypotheses": [
+    {
+      "id": "h1",
+      "label": "Market Street, an old brick quarter",
+      "level": "street",
+      "lat": 0.498,
+      "lng": -30.503,
+      "radius_km": 0.5,
+      "confidence": "medium",
+      "clue_ids": [
+        "c1",
+        "c2",
+        "c4"
+      ]
+    }
+  ],
+  "inferences": [
+    {
+      "id": "i1",
+      "kind": "home_area",
+      "value": "The seller lives near Market Street",
+      "confidence": "medium",
+      "clue_ids": [
+        "c1",
+        "c2"
+      ]
+    },
+    {
+      "id": "i2",
+      "kind": "workplace",
+      "value": "A hospital (staff lanyard)",
+      "confidence": "medium",
+      "clue_ids": [
+        "c3"
+      ]
+    }
+  ]
+}

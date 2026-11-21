@@ -1,0 +1,35 @@
+{
+  "audit_status": "ok",
+  "scene_summary": "The same scene with several solid black areas; little readable text remains.",
+  "clues": [
+    {
+      "id": "c5",
+      "type": "architecture",
+      "box_2d": [
+        150,
+        0,
+        800,
+        1000
+      ],
+      "evidence": "Pale stone facade with regular courses.",
+      "reveals": "city",
+      "severity": "low",
+      "removable": false
+    }
+  ],
+  "hypotheses": [
+    {
+      "id": "h9",
+      "label": "A coastal city",
+      "level": "city",
+      "lat": 0.6,
+      "lng": -30.3,
+      "radius_km": 25,
+      "confidence": "low",
+      "clue_ids": [
+        "c5"
+      ]
+    }
+  ],
+  "inferences": []
+}

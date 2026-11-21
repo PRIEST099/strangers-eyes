@@ -7,7 +7,9 @@
 // T-080 (D-144): `ok` LOOKS at the image the gate is sending: a high clue whose box is solid black is "not seen", so a
 // re-attack on a fixed photo drops that clue and what it supported (the street sign's neighbourhood guess becomes a
 // city-level one; the lanyard's workplace inference goes). `okStatic` always gives the full answer (a "Still exposed").
+// T-105 (D-152): with `?fakeAdv=` set, Judge Mode's S4 cloud jobs (referee, pre-screen) are answered here too.
 import { devSetFakeAdversary, type DevFakeReply } from '../ai/egressGate';
+import { fakeRefereeAnswer, PRESCREEN_OK } from './fakeNano';
 
 const OK = {
   audit_status: 'ok',
@@ -93,9 +95,22 @@ export const FAKE_MODES: Readonly<Record<string, DevFakeReply>> = {
   timeout: { hang: true },
 };
 
+/**
+ * D-152: Judge Mode's S4 jobs in the cloud (judgeJson; a browser without Nano, or Nano off) answered by the same fake,
+ * whatever the adversary mode, so `?fakeAdv=network` fails only the attacker. The referee reuses the fake Nano's
+ * word-overlap answer (computed from the prompt the gate built); the pre-screen its two canned clues.
+ */
+export function judgeCloudReply(job: string): DevFakeReply {
+  if (job === 'referee') return { textFor: async (_imgs, prompt) => fakeRefereeAnswer(prompt), delayMs: 900 };
+  if (job === 'preScreen') return { text: PRESCREEN_OK, delayMs: 1100 };
+  return { status: 400 }; // any other S4 job: an error, never the real model
+}
+
 export function installFakeAdversary(): void {
-  devSetFakeAdversary(() => {
+  devSetFakeAdversary((job) => {
     const mode = new URLSearchParams(self.location.search).get('fakeAdv');
-    return mode ? FAKE_MODES[mode] ?? { status: 400 } : null; // an unknown mode is a 400, never the real model
+    if (!mode) return null;
+    if (job !== 'adversaryB') return judgeCloudReply(job);
+    return FAKE_MODES[mode] ?? { status: 400 }; // an unknown mode is a 400, never the real model
   });
 }

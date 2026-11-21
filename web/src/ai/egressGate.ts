@@ -1338,7 +1338,8 @@ function sdkModel(spec: ModelSpec, mode: GateMode, config: AppConfig, job: JobNa
  */
 export interface DevFakeReply {
   text?: string; finishReason?: string; refuse?: boolean; status?: number; network?: boolean; hang?: boolean; delayMs?: number;
-  textFor?: (imagesBase64: readonly string[]) => Promise<string>;
+  /** D-152: `prompt` is the joined text parts the gate built (the fake S4 referee reads its CLAIMS/VAULT lines). */
+  textFor?: (imagesBase64: readonly string[], prompt: string) => Promise<string>;
 }
 type DevFake = (job: JobName) => DevFakeReply | null;
 let devFake: DevFake | null = null;
@@ -1364,7 +1365,8 @@ function devFakeModel(r: DevFakeReply): GateModel {
       const d = (p as { inlineData?: { data?: unknown } }).inlineData?.data;
       return typeof d === 'string' ? [d] : [];
     });
-    const text = r.textFor ? await r.textFor(images) : r.text ?? '';
+    const prompt = parts.map((p) => (typeof (p as { text?: unknown }).text === 'string' ? (p as { text: string }).text : '')).join('');
+    const text = r.textFor ? await r.textFor(images, prompt) : r.text ?? '';
     return {
       text: () => { if (r.refuse) throw err('response-error'); return text; },
       inferenceSource: 'in_cloud',
@@ -1421,7 +1423,9 @@ async function devAvailabilityNow(io: NanoIo): Promise<NanoState> {
 function devBuildModel(spec: ModelSpec, mode: GateMode, config: AppConfig, job: JobName): GateModel {
   const cloudOnly = spec.kind === 'adversaryA' || spec.kind === 'adversaryB' || mode === 'ONLY_IN_CLOUD';
   if (!cloudOnly && devNanoActive()) return devNanoModel(devNano?.reply(job) ?? null);
-  const r = spec.kind === 'adversaryB' && devFake ? devFake(job) : null;
+  // D-152: the S4 cloud model (judgeJson: Judge Mode only) is faked with the adversary, so a DEV Judge run with
+  // `?fakeAdv=` makes no real cloud call at all. A job the fake does not answer is an error, never the SDK.
+  const r = (spec.kind === 'adversaryB' || spec.kind === 'judgeJson') && devFake ? devFake(job) : null;
   return r ? devFakeModel(r) : sdkModel(spec, mode, config, job);
 }
 
