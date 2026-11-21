@@ -5,7 +5,7 @@
 //   - Tones: HIGH red, MEDIUM amber, INFO grey, CAUGHT teal; level RED red, AMBER amber, LOW and PARTIAL grey. GREEN is
 //     only ever the "Risk reduced" compare header (SPEC §10.6), never a level or a line.
 //   - Confidence (AC-164): match → "{strength} · attacker confidence {c}"; pin → "attacker confidence {c}"; pin_match →
-//     the match form, plus the band's own confidence when it differs. Echo, caught and found-on-device lines are code
+//     the match form plus the band hypothesis's confidence, always (amended AC-164, D-134). Echo, caught and found-on-device lines are code
 //     findings: "Found on this device", no confidence (a found_on_device line's own text already says it).
 //   - Muted vault labels (SCR-09): the item's own label after the KIND, when the setting is on, the label is not empty,
 //     and it adds something (not a place pin, whose KIND is already the label; not the KIND itself, e.g. "Home").
@@ -48,7 +48,17 @@ export interface LineView {
   /** Whether the line has a "Why?" expansion (a referee reason or supporting clues). */
   why: { reason: string | null; clues: string | null; clueIds: readonly string[]; route: Route } | null;
 }
-export interface CompareView { text: string; tone: Tone; icon: VerdictIconName; reduced: boolean }
+export interface CompareView {
+  text: string;
+  tone: Tone;
+  icon: VerdictIconName;
+  reduced: boolean;
+  /**
+   * "Risk reduced" in level terms (D-128): the header's {after} IS the card's headline, so the header becomes the
+   * card's heading and the headline is not printed again under it (D-134).
+   */
+  isHeadline: boolean;
+}
 export interface CardView {
   level: VerdictLevel;
   levelLabel: string;
@@ -61,7 +71,7 @@ export interface CardView {
   bestGuess: string | null;
   noVault: string | null;
   neverLearns: string;
-  /** What the live region announces when the verdict appears (compare header first, then the headline). */
+  /** What the live region announces (compare header first, then the headline unless the header already ends with it). */
   announcement: string;
 }
 export interface CardOptions {
@@ -99,7 +109,8 @@ export function lineConfidence(line: VerdictLine, tr: Translate = appT): string 
     case 'match':
       return tr('ui.verdict.strengthConf', { strength: line.strength ?? '', confidence: line.confidence ?? '' });
     case 'pin_match':
-      return line.bandConfidence !== undefined && line.bandConfidence !== line.confidence
+      // Amended AC-164 (D-127, D-134): strength, the claim's confidence AND the band hypothesis's confidence, always.
+      return line.bandConfidence !== undefined
         ? tr('ui.verdict.pinMatchConf', { strength: line.strength ?? '', confidence: line.confidence ?? '', bandConfidence: line.bandConfidence })
         : tr('ui.verdict.strengthConf', { strength: line.strength ?? '', confidence: line.confidence ?? '' });
     case 'pin':
@@ -174,9 +185,11 @@ export function compareView(cmp: VerdictComparison, tr: Translate = appT): Compa
   // left) would repeat the card's own headline.
   if (!h || (h.copyId !== 'copy.verdict.reduced' && h.copyId !== 'copy.verdict.still')) return null;
   const text = tr(h.copyId, h.params);
-  return cmp.riskReduced && h.copyId === 'copy.verdict.reduced'
-    ? { text, tone: 'green', icon: 'check', reduced: true }
-    : { text, tone: LEVEL_TONE[cmp.after.level], icon: LEVEL_ICON[cmp.after.level], reduced: false };
+  if (cmp.riskReduced && h.copyId === 'copy.verdict.reduced') {
+    const isHeadline = h.params.after === tr(headlineCopyId(cmp.after.level));
+    return { text, tone: 'green', icon: 'check', reduced: true, isHeadline };
+  }
+  return { text, tone: LEVEL_TONE[cmp.after.level], icon: LEVEL_ICON[cmp.after.level], reduced: false, isHeadline: false };
 }
 
 /** `noPins` (no pin item with a pin; verdict.ts review round): the same "Add places" prompt as noVault (D-125). */
@@ -203,7 +216,7 @@ export function verdictCardView(verdict: Verdict, vault: readonly VaultItem[], o
     bestGuess: bg ? tr(bg.copyId, bg.params) : null,
     noVault: v.noVault || hasNoPins(v) ? tr('copy.verdict.noVault') : null,
     neverLearns: tr('copy.verdict.neverLearns'),
-    announcement: compare ? `${compare.text} ${headline}` : headline,
+    announcement: compare ? (compare.isHeadline ? compare.text : `${compare.text} ${headline}`) : headline,
   };
 }
 

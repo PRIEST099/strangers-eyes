@@ -9,7 +9,11 @@ import { createT, STRINGS } from '../core/strings';
 import { buildVerdict, compareVerdicts, comparisonHeadline, lineText, type VerdictInput } from '../core/verdict';
 import type { VaultItem, Verdict, VerdictComparison } from '../core/types';
 import { VerdictCard, type VerdictCardProps } from './components/VerdictCard';
-import { compareView, lineConfidence, mutedLabel, verdictCardView } from './components/verdict/model';
+import {
+  compareView, LEVEL_ICON, LEVEL_TONE, lineConfidence, lineView, mutedLabel, verdictCardView, type VerdictIconName,
+} from './components/verdict/model';
+import { VerdictIcon } from './components/verdict/VerdictIcon';
+import { SCRUBBED } from '../core/verdict';
 
 type VInput = Omit<VerdictInput, 'vault'> & { vault: string[] };
 type BuildCase = { fn: 'build'; name: string; input: VInput };
@@ -102,8 +106,10 @@ describe('the card over every verdict.json build case', () => {
           expect(l.confidence?.length).toBeGreaterThan(0);
           if (line.kind === 'match' || line.kind === 'pin_match') {
             expect(l.confidence).toContain(`${line.strength} · attacker confidence ${line.confidence}`);
-            if (line.kind === 'pin_match' && line.bandConfidence && line.bandConfidence !== line.confidence) {
-              expect(l.confidence).toContain(`distance: attacker confidence ${line.bandConfidence}`);
+            if (line.kind === 'pin_match') {
+              // amended AC-164 (D-127, D-134): strength, claim confidence AND band confidence, even when equal
+              expect(line.bandConfidence).toBeDefined();
+              expect(l.confidence).toBe(`${line.strength} · attacker confidence ${line.confidence} · distance: attacker confidence ${line.bandConfidence}`);
             }
           } else if (line.kind === 'pin') {
             expect(l.confidence).toBe(`attacker confidence ${line.confidence}`);
@@ -151,6 +157,10 @@ describe('the compare header over every verdict.json compare case (SPEC §10.6)'
       expect(body).not.toMatch(/\bsafe\b/i);
       expect(withoutBandWords(body)).not.toMatch(DISTANCE);
       expect(body).toContain(S('copy.verdict.neverLearns'));
+      // one heading, and the after headline is printed exactly once (D-134: no "→ X X")
+      const headline = S(`copy.verdict.${cmp.after.level.toLowerCase()}`);
+      expect(body.split(headline).length - 1).toBe(1);
+      expect((markup.match(/<h3\b/g) ?? []).length).toBe(1);
       if (cmp.after.level === 'PARTIAL') {
         expect(markup).not.toContain('data-compare');
         expect(body).toContain(S('copy.verdict.partial'));
@@ -232,8 +242,11 @@ describe('vault labels, "Why?", referee row, announcement', () => {
     expect(verdictCardView(demo.verdict, demo.vault, { showVaultLabels: true, tr }).announcement).toBe(S('copy.verdict.red'));
     const { cmp, vault } = cmpOf(compares.find((c) => c.expect.riskReduced) as CompareCase);
     const view = verdictCardView(cmp.before, vault, { showVaultLabels: true, comparison: cmp, tr });
+    const headline = S(`copy.verdict.${cmp.after.level.toLowerCase()}`);
     expect(view.announcement.startsWith('Risk reduced:')).toBe(true);
-    expect(view.announcement.endsWith(S(`copy.verdict.${cmp.after.level.toLowerCase()}`))).toBe(true);
+    expect(view.announcement.endsWith(headline)).toBe(true);
+    expect(view.announcement.split(headline).length - 1).toBe(1);
+    expect(view.announcement).toBe(view.compare?.isHeadline ? view.compare.text : `${view.compare?.text} ${headline}`);
   });
 
   it('a vault with no pins (noPins, verdict.ts review round) also gets the Add places prompt', () => {
@@ -244,5 +257,66 @@ describe('vault labels, "Why?", referee row, announcement', () => {
   it('renders the actions slot before neverLearns', () => {
     const markup = html({ ...demo, actions: createElement('button', { type: 'button' }, 'ACT') });
     expect(markup.indexOf('ACT')).toBeLessThan(markup.indexOf('data-never-learns'));
+  });
+});
+
+describe('fix round (D-134): levels, labels, scrubbing, "Why?", icons, the level-terms header', () => {
+  const ICONS: VerdictIconName[] = ['alert', 'warn', 'info', 'lock', 'eye', 'chip', 'check'];
+
+  it('level tones and icons: RED red/alert, AMBER amber/warn, LOW grey/info, PARTIAL grey/chip (PARTIAL never looks like LOW)', () => {
+    expect(LEVEL_TONE).toEqual({ RED: 'red', AMBER: 'amber', LOW: 'grey', PARTIAL: 'grey' });
+    expect(LEVEL_ICON).toEqual({ RED: 'alert', AMBER: 'warn', LOW: 'info', PARTIAL: 'chip' });
+    for (const prefix of ['refused (declined)', 'band city']) {
+      const { verdict, vault } = run(byName(prefix).input);
+      const markup = html({ verdict, vault });
+      const head = /<div data-tone="(\w+)"[^>]*>\s*<span[^>]*>\s*<svg[^>]*data-icon="(\w+)"/.exec(markup);
+      expect(head?.slice(1)).toEqual(verdict.level === 'PARTIAL' ? ['grey', 'chip'] : ['grey', 'info']);
+      expect(markup).not.toMatch(/data-tone="red"/);
+    }
+  });
+
+  it('every icon has its own shape, so tones never differ by colour alone (AC-062)', () => {
+    const ds = ICONS.map((name) => /\sd="([^"]+)"/.exec(renderToStaticMarkup(createElement(VerdictIcon, { name })))?.[1]);
+    expect(new Set(ds).size).toBe(ICONS.length);
+  });
+
+  it('labels off: no muted label on any line of any case, place pins included', () => {
+    for (const c of builds) {
+      const { verdict, vault } = run(c.input);
+      for (const l of verdict.lines) expect(mutedLabel(l, vault, false)).toBeNull();
+      expect(html({ verdict, vault, showVaultLabels: false })).not.toContain('data-vault-label');
+    }
+    const place = run(byName('place pins').input);
+    expect(place.verdict.lines.length).toBeGreaterThan(0);
+    for (const l of place.verdict.lines) expect(mutedLabel(l, place.vault, false)).toBeNull();
+  });
+
+  it('the muted label has coordinate-like numbers scrubbed', () => {
+    const item: VaultItem = { id: 'v-x', kind: 'employer', label: 'Bay 4.5 Works', aliases: [], createdAt: 0 };
+    const line = { ...run(byName('strength possible').input).verdict.lines[0], vaultId: 'v-x', params: { KIND: 'EMPLOYER' } };
+    expect(mutedLabel(line, [item], true)).toBe(`Bay ${SCRUBBED} Works`);
+  });
+
+  it('"Why?" needs a reason or clues: a match line with neither has none', () => {
+    const { verdict, vault } = run(byName('strength possible').input);
+    const bare = { ...verdict.lines[0], reason: '', clueIds: [] };
+    expect(lineView(bare, vault, true, tr).why).toBeNull();
+    expect(html({ verdict: { ...verdict, lines: [bare] }, vault })).not.toContain('Why?');
+    expect(lineView({ ...bare, reason: 'shared word' }, vault, true, tr).why).not.toBeNull();
+    expect(lineView({ ...bare, clueIds: ['c1'] }, vault, true, tr).why).not.toBeNull();
+  });
+
+  it('a level-terms "Risk reduced" header is the heading; the headline is not printed again under it', () => {
+    // the engine's own reading (D-128): a reduced header whose {after} is the after headline
+    const found = compares.map(cmpOf).find(({ cmp }) => cmp.riskReduced
+      && comparisonHeadline(cmp, tr).params.after === S(`copy.verdict.${cmp.after.level.toLowerCase()}`));
+    expect(found).toBeDefined();
+    const { cmp, vault } = found as { cmp: VerdictComparison; vault: VaultItem[] };
+    const view = compareView(cmp, tr);
+    expect(view?.isHeadline).toBe(true);
+    const markup = html({ verdict: cmp.after, vault, comparison: cmp });
+    expect(markup).toMatch(/data-compare="reduced"[\s\S]*?<h3[^>]*>Risk reduced:/);
+    const headline = S(`copy.verdict.${cmp.after.level.toLowerCase()}`);
+    expect(text(markup).split(headline).length - 1).toBe(1);
   });
 });

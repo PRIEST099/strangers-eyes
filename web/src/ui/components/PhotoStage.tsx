@@ -9,10 +9,10 @@
 //     handle to resize it. Keyboard: Tab to a mask (it is selected on focus), arrows move it, Shift+arrows resize it,
 //     Alt for 1 px steps, Delete/Backspace removes it (focus returns to "Add mask"). "Add mask" adds a centred one.
 // While a user mask is being dragged the picture is re-rendered without it, so its old place does not stay black.
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type RefObject, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { deriveFrame, renderFrame } from '../../core/frames';
 import { t } from '../../core/strings';
-import type { PxRect } from '../../core/types';
+import type { ImageFrame, PxRect } from '../../core/types';
 import {
   dragRect, keyToOp, masksOf, moveRect, resizeRect, toImagePoint, warningOf, type EditorOp, type EditorState, type UserMask,
 } from '../check/editor';
@@ -22,6 +22,8 @@ export interface PhotoStageProps {
   master: HTMLCanvasElement;
   editor: EditorState;
   onOp: (op: EditorOp) => void;
+  /** The Add mask button's ref, owned by the parent so the side list can return focus to it. */
+  addButtonRef?: RefObject<HTMLButtonElement | null>;
 }
 
 type Pt = { x: number; y: number };
@@ -37,10 +39,38 @@ function blackout(c: HTMLCanvasElement, w: number, h: number) {
   if (ctx) { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, c.width, c.height); }
 }
 
-export function PhotoStage({ master, editor, onOp }: PhotoStageProps) {
+/**
+ * Paint the cloud frame of `master` with `masks` into `out`. Only ever the RENDERED copy is drawn: if rendering or
+ * drawing fails, `out` is solid black (fail closed), never the master. The rendered copy is always freed. Exported for
+ * the tests (injectable `render`).
+ */
+export function paintPreview(
+  out: HTMLCanvasElement, master: HTMLCanvasElement, masks: readonly PxRect[],
+  render: (m: HTMLCanvasElement, f: ImageFrame, r: readonly PxRect[]) => HTMLCanvasElement = renderFrame,
+): 'ok' | 'blackout' {
+  const frame = deriveFrame('cloud', master.width, master.height);
+  let rendered: HTMLCanvasElement | null = null;
+  try {
+    rendered = render(master, frame, masks);
+    out.width = frame.width;
+    out.height = frame.height;
+    const ctx = out.getContext('2d');
+    if (!ctx) throw new Error('no 2d context');
+    ctx.drawImage(rendered, 0, 0);
+    return 'ok';
+  } catch {
+    blackout(out, frame.width, frame.height);
+    return 'blackout';
+  } finally {
+    if (rendered) { rendered.width = 0; rendered.height = 0; }
+  }
+}
+
+export function PhotoStage({ master, editor, onOp, addButtonRef }: PhotoStageProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
-  const addRef = useRef<HTMLButtonElement>(null);
+  const ownAddRef = useRef<HTMLButtonElement>(null);
+  const addRef = addButtonRef ?? ownAddRef;
   const [drag, setDrag] = useState<Drag | null>(null);
   const W = editor.width;
   const H = editor.height;
@@ -48,22 +78,7 @@ export function PhotoStage({ master, editor, onOp }: PhotoStageProps) {
   const masks = useMemo(() => masksOf(editor, { except }), [editor, except]);
 
   useEffect(() => {
-    const out = canvasRef.current;
-    if (!out) return;
-    const frame = deriveFrame('cloud', master.width, master.height);
-    let rendered: HTMLCanvasElement | null = null;
-    try {
-      rendered = renderFrame(master, frame, masks);
-      out.width = frame.width;
-      out.height = frame.height;
-      const ctx = out.getContext('2d');
-      if (!ctx) throw new Error('no 2d context');
-      ctx.drawImage(rendered, 0, 0);
-    } catch {
-      blackout(out, frame.width, frame.height); // fail closed: never the unmasked photo
-    } finally {
-      if (rendered) { rendered.width = 0; rendered.height = 0; }
-    }
+    if (canvasRef.current) paintPreview(canvasRef.current, master, masks);
   }, [master, masks]);
 
   // The selected mask has the focus (a new mask, from a drag or the button, is selected when it is added).
@@ -149,7 +164,7 @@ export function PhotoStage({ master, editor, onOp }: PhotoStageProps) {
           onPointerCancel={onUp}
         >
           {editor.items.filter((it) => !it.clue.masked).map((it) => {
-            const red = it.flag !== 'possible' || warningOf(it) !== null; // amber only for a possible identifier
+            const red = it.flag !== 'possible' || warningOf(it, editor) !== null; // amber only for a possible identifier
             return (
               <div
                 key={it.clue.id}

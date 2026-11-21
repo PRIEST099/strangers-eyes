@@ -9,7 +9,7 @@ import {
 } from '../checkState';
 import { resultStatus } from '../importTransfer';
 import { clueLabelId, lineCopy, nanoLineCopy, readerLabelId, rowDetail, severityLabelId } from './prescreenView';
-import { vaultIndexReady } from './runPrescreen';
+import { vaultIndexReady, withTimeout } from './runPrescreen';
 import { createEditor } from './editor';
 
 const SHA = '1'.repeat(64);
@@ -25,7 +25,7 @@ const OUTCOME: PrescreenOutcome = {
   findings: [{ clue: face }], failed: [], width: 800, height: 600, mode: 'standard',
   autoMaskTypes: ['name_text', 'house_number', 'plate', 'mail_or_document', 'screen'], padRatio: 0.15,
 };
-const onPrescreen: CheckState = { pos: { current: 'prescreen', reached: 'prescreen' }, importStatus: READY, prescreen: PRESCREEN_IDLE };
+const onPrescreen: CheckState = { pos: { current: 'prescreen', reached: 'prescreen' }, importStatus: READY, prescreen: PRESCREEN_IDLE, epoch: 1 };
 const run = (s: CheckState, ...as: CheckAction[]) => as.reduce(checkReducer, s);
 const ALL_DONE: CheckAction[] = (['metadata', 'faces', 'text', 'vault'] as const).map((step) => ({ type: 'prescreenStep', run: 1, report: { step, status: 'done', count: 1, ms: 5 } }));
 
@@ -48,13 +48,38 @@ describe('pre-screen transitions', () => {
     expect(run(s, { type: 'prescreenStart', run: 2, sha256: SHA })).toBe(s);
   });
 
+  it('start is accepted once per epoch, and only with the current epoch as its run (D-133: no double Tier-0)', () => {
+    expect(run(onPrescreen, { type: 'prescreenStart', run: 0, sha256: SHA })).toBe(onPrescreen); // a stale epoch
+    expect(run(onPrescreen, { type: 'prescreenStart', run: 2, sha256: SHA })).toBe(onPrescreen); // a future one
+    const done = run(onPrescreen, { type: 'prescreenStart', run: 1, sha256: SHA }, ...ALL_DONE, { type: 'prescreenDone', run: 1, outcome: OUTCOME });
+    expect(run(done, { type: 'prescreenStart', run: 1, sha256: SHA })).toBe(done); // not again once done
+  });
+
+  it('a new import and an accepted retry each start a new epoch; a refused retry does not', () => {
+    expect(run(onPrescreen, { type: 'importStatus', status: { kind: 'busy' } }).epoch).toBe(2);
+    const failed = run(onPrescreen, { type: 'prescreenStart', run: 1, sha256: SHA }, { type: 'prescreenDone', run: 1, outcome: OUTCOME });
+    const retried = run(failed, { type: 'retry' });
+    expect(retried.epoch).toBe(2);
+    expect(run(retried, { type: 'prescreenStart', run: 2, sha256: SHA }).prescreen.kind).toBe('running');
+    expect(run(onPrescreen, { type: 'retry' }).epoch).toBe(1);
+  });
+
+  it('a line forced to failed keeps the latency it reported', () => {
+    const s = run(onPrescreen, { type: 'prescreenStart', run: 1, sha256: SHA },
+      { type: 'prescreenStep', run: 1, report: { step: 'faces', status: 'done', count: 0, ms: 12 } },
+      { type: 'prescreenDone', run: 1, outcome: { ...OUTCOME, failed: ['faces'] } });
+    expect(s.prescreen.kind === 'done' && s.prescreen.lines.faces).toEqual({ status: 'failed', ms: 12 });
+  });
+
   it('reports and results of another run are ignored (a photo replaced mid-run)', () => {
-    const s = run(onPrescreen, { type: 'prescreenStart', run: 2, sha256: SHA });
+    const s = run({ ...onPrescreen, epoch: 2 }, { type: 'prescreenStart', run: 2, sha256: SHA });
     expect(run(s, { type: 'prescreenStep', run: 1, report: { step: 'faces', status: 'done', count: 9 } })).toBe(s);
     expect(run(s, { type: 'prescreenDone', run: 1, outcome: OUTCOME })).toBe(s);
     // the photo is replaced: the old run's result lands on an idle pre-screen and changes nothing
     const replaced = run(s, { type: 'importStatus', status: { kind: 'busy' } });
     expect(run(replaced, { type: 'prescreenDone', run: 2, outcome: OUTCOME })).toBe(replaced);
+    const again = run({ ...replaced, importStatus: READY }, { type: 'prescreenStart', run: 3, sha256: SHA }); // same photo, new epoch
+    expect(run(again, { type: 'prescreenDone', run: 2, outcome: OUTCOME })).toBe(again);
   });
 
   it('done → the editor with the pre-ticks applied and the lines as reported', () => {
@@ -195,5 +220,26 @@ describe('vaultIndexReady (fail closed)', () => {
     const first = src.ready;
     void first.then(() => { src.ready = next; setTimeout(resolveNext, 0); });
     expect(await vaultIndexReady(src)).toBe(true);
+  });
+});
+
+describe('withTimeout (a stalled face model fails its step closed)', () => {
+  afterEach(() => { vi.useRealTimers(); });
+  it('passes a value or a rejection through, and rejects after the timeout', async () => {
+    expect(await withTimeout(Promise.resolve(7), 10, 'x')).toBe(7);
+    await expect(withTimeout(Promise.reject(new Error('boom')), 10, 'x')).rejects.toThrow('boom');
+    vi.useFakeTimers();
+    const p = withTimeout(new Promise<never>(() => {}), 60_000, 'face model');
+    const seen = p.catch((e: Error) => e.message);
+    await vi.advanceTimersByTimeAsync(59_999);
+    let settled = false;
+    void p.then(() => {}, () => { settled = true; });
+    await Promise.resolve();
+    expect(settled).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(await seen).toBe('face model: timed out after 60000 ms');
+    expect(vi.getTimerCount()).toBe(0);
+    expect(await withTimeout(Promise.resolve('loaded'), 60_000, 'face model')).toBe('loaded');
+    expect(vi.getTimerCount()).toBe(0); // a reader that answered in time leaves no timer behind
   });
 });

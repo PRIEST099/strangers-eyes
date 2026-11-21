@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { houseNumbers, isHouseNumberText, isPlateLike, phones, plates, PLATE_MIN_CONF, regexFlags, trimPunct, unionRect } from './regex';
+import { houseNumbers, isHouseNumberText, isPlateLike, phones, plates, PLATE_MIN_CONF, regexFlags, spacedPlates, trimPunct, unionRect } from './regex';
 import type { OcrWord } from '../core/types';
 
 /** OCR words laid out left to right per line; every word 40 px tall unless given. */
@@ -70,6 +70,51 @@ describe('houseNumbers (SPEC SCR-06 step 4: standalone 1–4 digits + optional l
   it('isHouseNumberText', () => {
     expect(['1', '12', '123', '1234', '12a', '(3)'].every(isHouseNumberText)).toBe(true);
     expect(['', 'a1', '12345', '12ab', '1 2'].some(isHouseNumberText)).toBe(false);
+  });
+});
+
+describe('spacedPlates (T-068 review, D-133): plates in 2–3 groups over adjacent OCR words', () => {
+  it.each([
+    [['SE', '1234'], 'SE 1234'],
+    [['AB12', 'CDE'], 'AB12 CDE'],
+    [['B', 'MW', '1234'], 'B MW 1234'],
+    [['(AB12', 'CDE)'], 'AB12 CDE'],
+  ])('%j → %s', (parts, text) => {
+    const words = ocr([parts]);
+    const hits = plates(words);
+    expect(hits.map((h) => h.text)).toEqual([text]);
+    expect(hits[0].words).toEqual(parts.map((_, i) => i));
+    expect(hits[0].box).toEqual(unionRect(words.map((w) => w.box)));
+  });
+
+  it.each([
+    [['ROOM', '12'], 'an all-letter word of 4+ is a sign'],
+    [['Se', '1234'], 'lower case'],
+    [['SE', '12'], 'too short joined'],
+    [['AB', 'CD', 'EF'], 'no digits'],
+    [['12', '34', '56'], 'no letters'],
+    [['ABCDE', '12'], 'a part longer than 4'],
+  ])('%j is not a plate (%s)', (parts) => {
+    expect(plates(ocr([parts]))).toEqual([]);
+  });
+
+  it('needs every part at confidence ≥ 60, one line, and the words side by side', () => {
+    expect(plates(ocr([[['SE', PLATE_MIN_CONF - 1], '1234']]))).toEqual([]);
+    expect(plates(ocr([['SE'], ['1234']]))).toEqual([]); // two lines
+    const far = ocr([['SE', '1234']]);
+    far[1] = { ...far[1], box: { ...far[1].box, x: far[0].box.x + far[0].box.w + 61 } }; // gap > 1.5 × 40 px
+    expect(plates(far)).toEqual([]);
+    const tiny = ocr([['SE', ['1234', 90, 20]]]); // height ratio 0.5
+    expect(plates(tiny)).toEqual([]);
+  });
+
+  it('words already in a single-token plate are not reused; the longest run wins', () => {
+    expect(plates(ocr([['SE1234', 'AB']])).map((h) => h.text)).toEqual(['SE1234']);
+    expect(spacedPlates(ocr([['SE', '1234']]), new Set([0]))).toEqual([]);
+    expect(plates(ocr([['X', 'SE', '1234', 'AB']])).map((h) => h.text)).toEqual(['X SE 1234']);
+    expect(plates(ocr([['AB12', 'CDE', '9999']])).map((h) => h.text)).toEqual(['AB12 CDE']); // 3 parts too long: the 2-part run
+    expect(plates(ocr([['AB12', 'CDE', '9']])).map((h) => h.text)).toEqual(['AB12 CDE 9']); // both runs fit: the longer one
+    expect(plates(ocr([['A1234', 'BC']]))).toEqual([]); // a part of 5 characters is not a plate group
   });
 });
 

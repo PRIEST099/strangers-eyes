@@ -5,7 +5,7 @@ import type { Clue } from '../../core/types';
 import type { Tier0Finding } from '../../tier0/tier0';
 import {
   candidateOf, createEditor, DEFAULT_MASK_SHARE, dragRect, editorReducer, keyStep, keyToOp, masksOf, MIN_MASK_PX, moveRect,
-  needsConfirm, normaliseRect, resizeRect, toImagePoint, userMaskClue, warningOf, type EditorState,
+  coveredByUserMask, needsConfirm, normaliseRect, resizeRect, toImagePoint, userMaskClue, warningOf, type EditorState,
 } from './editor';
 
 const W = 1000;
@@ -48,23 +48,33 @@ describe('toggle', () => {
   it('un-ticking a face or a vault hit is allowed and sets userUnmasked (warnFace / warnVault); ticking again clears it', () => {
     let s = editorReducer(fresh(), { op: 'toggle', id: 't0-1' });
     expect(s.items[0].clue).toMatchObject({ masked: false, userUnmasked: true });
-    expect(warningOf(s.items[0])).toBe('copy.editor.warnFace');
+    expect(warningOf(s.items[0], s)).toBe('copy.editor.warnFace');
     s = editorReducer(s, { op: 'toggle', id: 't0-2' });
-    expect(warningOf(s.items[1])).toBe('copy.editor.warnVault');
+    expect(warningOf(s.items[1], s)).toBe('copy.editor.warnVault');
     s = editorReducer(s, { op: 'toggle', id: 't0-1' });
     expect(s.items[0].clue).toMatchObject({ masked: true, userUnmasked: false, maskReason: 'face' });
-    expect(warningOf(s.items[0])).toBeNull();
+    expect(warningOf(s.items[0], s)).toBeNull();
+  });
+
+  it('an un-ticked clue has no mask reason; ticking it again restores the pre-tick reason (D-132)', () => {
+    let s = editorReducer(fresh(), { op: 'toggle', id: 't0-2' });
+    expect('maskReason' in s.items[1].clue).toBe(false);
+    s = editorReducer(s, { op: 'toggle', id: 't0-2' });
+    expect(s.items[1].clue.maskReason).toBe('vault_text');
+    s = editorReducer(editorReducer(s, { op: 'toggle', id: 't0-3' }), { op: 'toggle', id: 't0-3' });
+    expect(s.items[2].clue.maskReason).toBe('regex');
   });
 
   it('an unmasked face or vault hit always warns, however it came to be unmasked', () => {
-    const it0 = fresh().items[0];
-    expect(warningOf({ ...it0, clue: { ...it0.clue, masked: false, userUnmasked: false } })).toBe('copy.editor.warnFace');
+    const s = fresh();
+    const it0 = s.items[0];
+    expect(warningOf({ ...it0, clue: { ...it0.clue, masked: false, userUnmasked: false } }, s)).toBe('copy.editor.warnFace');
   });
 
   it('un-ticking a regex flag is not a private item: no warning, userUnmasked stays false', () => {
     const s = editorReducer(fresh(), { op: 'toggle', id: 't0-3' });
     expect(s.items[2].clue).toMatchObject({ masked: false, userUnmasked: false });
-    expect(warningOf(s.items[2])).toBeNull();
+    expect(warningOf(s.items[2], s)).toBeNull();
   });
 
   it('ticking a flagged clue masks it with maskReason user', () => {
@@ -206,8 +216,35 @@ describe('the masked frame candidate (what T-069 sends)', () => {
     s = editorReducer(s, { op: 'toggle', id: 't0-3' });
     const c = candidateOf(s, 'b'.repeat(64), ['faces']);
     expect(c.unmaskedPrivate).toEqual({ faces: 1, vault: 1 });
-    expect(c.blockedBy).toEqual(['faces']);
+    expect(c.blockedBy).toEqual(['faces', 'face_unmasked']);
     expect(c.masks).toEqual([]);
+  });
+
+  it('an un-ticked face blocks the photo (face_unmasked) even under a user mask that covers it (D-132)', () => {
+    let s = editorReducer(fresh(), { op: 'toggle', id: 't0-1' });
+    s = editorReducer(s, { op: 'add', rect: { x: 0, y: 0, w: 400, h: 400 } }); // far bigger than the face
+    const c = candidateOf(s, 'c'.repeat(64), []);
+    expect(c.blockedBy).toEqual(['face_unmasked']);
+    expect(c.unmaskedPrivate.faces).toBe(1);
+    expect(warningOf(s.items[0], s)).toBe('copy.editor.warnFace');
+    expect(candidateOf(editorReducer(s, { op: 'toggle', id: 't0-1' }), 'c'.repeat(64), []).blockedBy).toEqual([]);
+    expect(coveredByUserMask(s.items[0], s)).toBe(false); // a face is never 'covered'
+  });
+
+  it('an un-ticked vault hit counts as covered only when ONE user mask fully contains its padded box', () => {
+    let s = editorReducer(fresh(), { op: 'toggle', id: 't0-2' }); // LUCAS at 300,50 80×20 → padded 294,46 92×28
+    const c0 = candidateOf(s, 'd'.repeat(64), []);
+    expect(c0.unmaskedPrivate.vault).toBe(1);
+    expect(c0.blockedBy).toEqual([]); // the gate blocks the send of an uncovered vault hit (AC-135); no candidate block
+    s = editorReducer(s, { op: 'add', rect: { x: 296, y: 46, w: 90, h: 28 } }); // misses 2 px on the left
+    expect(candidateOf(s, 'd'.repeat(64), []).unmaskedPrivate.vault).toBe(1);
+    expect(warningOf(s.items[1], s)).toBe('copy.editor.warnVault');
+    s = editorReducer(s, { op: 'add', rect: { x: 294, y: 46, w: 92, h: 28 } }); // exactly the padded box
+    expect(candidateOf(s, 'd'.repeat(64), []).unmaskedPrivate.vault).toBe(0);
+    expect(warningOf(s.items[1], s)).toBeNull();
+    expect(coveredByUserMask(s.items[1], s)).toBe(true);
+    expect(s.items[1].clue.userUnmasked).toBe(true); // still the user's choice; only its effect is covered
+    expect(coveredByUserMask(s.items[0], s)).toBe(false); // a masked item is never "covered"
   });
 
   it('masksOf can leave out the user mask being dragged (the stage re-renders without it)', () => {

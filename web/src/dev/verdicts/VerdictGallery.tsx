@@ -53,6 +53,8 @@ const SAMPLES: Sample[] = [
 
 export default function VerdictGallery() {
   const [labels, setLabels] = useState(true);
+  // Only the selected card announces (its live region); the others stay quiet, so ten cards never speak at once.
+  const [selected, setSelected] = useState(0);
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-6 bg-canvas p-4 text-fg sm:p-6" data-dev-only="__SE_DEV_ONLY__">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -61,10 +63,18 @@ export default function VerdictGallery() {
           Vault labels: {labels ? 'on' : 'off'}
         </Button>
       </div>
-      {SAMPLES.map((s) => (
-        <section key={s.title} className="flex flex-col gap-2" aria-label={s.title}>
+      {SAMPLES.map((s, i) => (
+        <section
+          key={s.title}
+          className="flex flex-col gap-2"
+          aria-label={s.title}
+          data-selected={i === selected}
+          onFocusCapture={() => setSelected(i)}
+          onPointerDown={() => setSelected(i)}
+        >
           <h2 className="font-mono text-xs text-muted">{s.title}</h2>
           <VerdictCard
+            announce={i === selected}
             verdict={s.verdict}
             vault={s.vault}
             comparison={s.comparison}

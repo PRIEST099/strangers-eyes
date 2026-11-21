@@ -1,14 +1,16 @@
 // web/src/ui/components/PrescreenPanel.tsx: the Pre-screen step (SPEC SCR-06; T-068). The progress list (each line with
 // its route badge and latency: Tier-0 is RULES-ONLY), then the photo with its masks and the side list. Until T-066 the
 // "Looking for clues" line is RULES-ONLY and says why, by capability state (prescreenView.nanoLineCopy). A failed
-// reader blocks the photo (fail closed, D-123) and offers Try again. The primary actions are shown but disabled until
+// reader blocks the photo (fail closed, D-123) and offers Try again; after it, focus goes to the progress list, which
+// stays mounted (all pending) while the run restarts (D-132). The primary actions are shown but disabled until
 // the Send (T-069) and Export (T-079) steps exist; nothing here sends anything.
 // TODO(T-064): each line also becomes a Router HUD entry once the HUD has its store.
+import { useRef } from 'react';
 import { t } from '../../core/strings';
 import { TIER0_STEPS } from '../../tier0/tier0';
 import type { EditorOp } from '../check/editor';
 import { lineCopy, nanoLineCopy } from '../check/prescreenView';
-import type { PrescreenState, ProgressLine } from '../checkState';
+import { PENDING_LINES, type PrescreenState, type ProgressLine } from '../checkState';
 import { useOnline } from '../hooks/useOnline';
 import { useShell } from '../shellContext';
 import { Badge } from './Badge';
@@ -34,15 +36,30 @@ function LineMark({ line }: { line: ProgressLine }) {
 export function PrescreenPanel({ master, state, onOp, onRetry }: PrescreenPanelProps) {
   const shell = useShell();
   const online = useOnline();
-  if (state.kind === 'idle' || !master) return <p className="mt-2 text-sm text-muted">{t('ui.prescreen.busy', { name: t('ui.prescreen.metadataName') })}</p>;
-  const running = state.kind === 'running';
+  const progressRef = useRef<HTMLUListElement>(null);
+  const addRef = useRef<HTMLButtonElement>(null);
+  if (!master) return <p className="mt-2 text-sm text-muted">{t('ui.placeholder')}</p>;
+  // idle (just opened, or after Try again) shows the same list, all pending, so the focus target stays mounted
+  const lines = state.kind === 'idle' ? PENDING_LINES : state.lines;
+  const running = state.kind !== 'done';
   const capState = shell?.caps.checked ? shell.caps.capability.state : null;
+  const retry = () => {
+    onRetry();
+    progressRef.current?.focus(); // the alert and its button go away: focus stays on the step, never on <body>
+  };
 
   return (
     <div className="mt-3 flex flex-col gap-4">
-      <ul aria-label={t('ui.prescreen.progress')} aria-live="polite" aria-busy={running} className="flex flex-col gap-1.5 text-sm">
+      <ul
+        ref={progressRef}
+        tabIndex={-1}
+        aria-label={t('ui.prescreen.progress')}
+        aria-live="polite"
+        aria-busy={running}
+        className="flex flex-col gap-1.5 rounded-md text-sm"
+      >
         {TIER0_STEPS.map((step) => {
-          const line = state.lines[step];
+          const line = lines[step];
           const c = lineCopy(step, line);
           const text = c.name ? t(c.id, { name: t(c.name) }) : t(c.id, c.params);
           return (
@@ -70,12 +87,12 @@ export function PrescreenPanel({ master, state, onOp, onRetry }: PrescreenPanelP
           {state.failed.length > 0 && (
             <div role="alert" className="flex flex-col items-start gap-2 rounded-lg border border-verdict-red bg-verdict-red-bg p-3 text-sm">
               <p>{t('ui.prescreen.failed')}</p>
-              <Button onClick={onRetry}>{t('ui.prescreen.retry')}</Button>
+              <Button onClick={retry}>{t('ui.prescreen.retry')}</Button>
             </div>
           )}
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
-            <PhotoStage master={master} editor={state.editor} onOp={onOp} />
-            <ClueList editor={state.editor} onOp={onOp} />
+            <PhotoStage master={master} editor={state.editor} onOp={onOp} addButtonRef={addRef} />
+            <ClueList editor={state.editor} onOp={onOp} failed={state.failed} afterRemove={() => addRef.current?.focus()} />
           </div>
           <div className="flex flex-col gap-2 border-t border-line pt-3">
             <div className="flex flex-wrap gap-2">

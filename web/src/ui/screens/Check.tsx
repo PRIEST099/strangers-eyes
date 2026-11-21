@@ -38,9 +38,13 @@ export function Check() {
   // The stepper position, the last import status (`ready` exactly while master.current is set) and the pre-screen.
   const [state, dispatch] = useReducer(checkReducer, CHECK_START);
   const master = useRef<{ canvas: HTMLCanvasElement; jpeg: Blob; sha256: string } | null>(null);
-  const runs = useRef(0);
+  // The epoch whose Tier-0 run has been started, and the epoch in force (read by a run to see it was superseded).
+  const started = useRef(-1);
+  const epochNow = useRef(state.epoch);
+  epochNow.current = state.epoch;
   const current = state.pos.current;
   const prescreenKind = state.prescreen.kind;
+  const epoch = state.epoch;
   useOcrWarm();
 
   const onPhoto = useCallback((p: ImportedPhoto | null) => {
@@ -50,16 +54,21 @@ export function Check() {
   const onOp = useCallback((op: EditorOp) => dispatch({ type: 'edit', op }), []);
   const onRetry = useCallback(() => dispatch({ type: 'retry' }), []);
 
-  // Tier-0 runs once per photo, when the Pre-screen step is first shown (and again after Try again). Every report
-  // carries its run number: the reducer ignores a run whose photo has been replaced meanwhile.
+  // Tier-0 runs once per photo, when the Pre-screen step is first shown (and again after Try again). The run number is
+  // the epoch (D-133): never started twice for one epoch (StrictMode runs an effect twice in dev), and the reducer
+  // ignores a run whose photo has been replaced meanwhile. A superseded run skips the readers it has not started yet.
   useEffect(() => {
     const m = master.current;
-    if (current !== 'prescreen' || prescreenKind !== 'idle' || !m) return;
-    const run = ++runs.current;
+    if (current !== 'prescreen' || prescreenKind !== 'idle' || !m || started.current === epoch) return;
+    started.current = epoch;
+    const run = epoch;
     dispatch({ type: 'prescreenStart', run, sha256: m.sha256 });
-    void runPrescreen({ canvas: m.canvas, jpeg: m.jpeg }, (report) => dispatch({ type: 'prescreenStep', run, report }))
-      .then((outcome) => dispatch({ type: 'prescreenDone', run, outcome }));
-  }, [current, prescreenKind]);
+    void runPrescreen(
+      { canvas: m.canvas, jpeg: m.jpeg },
+      (report) => dispatch({ type: 'prescreenStep', run, report }),
+      { isCurrent: () => epochNow.current === run },
+    ).then((outcome) => dispatch({ type: 'prescreenDone', run, outcome }));
+  }, [current, prescreenKind, epoch]);
 
   return (
     <div className="flex flex-col gap-4">

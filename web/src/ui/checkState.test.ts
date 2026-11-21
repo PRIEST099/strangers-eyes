@@ -105,7 +105,7 @@ const rt = vi.hoisted(() => {
       useId: () => { at++; return ':r0:'; },
     },
     importPhoto: vi.fn<(file: unknown, opts: { pins: readonly GpsPinLike[] }) => Promise<ImportResult>>(),
-    runPrescreen: vi.fn(() => new Promise<never>(() => {})), // Tier-0 never settles here: the step shows its progress
+    runPrescreen: vi.fn((..._args: unknown[]) => new Promise<never>(() => {})), // Tier-0 never settles here: the step shows its progress
   };
 });
 vi.mock('react', async (importOriginal) => ({ ...(await importOriginal<Record<string, unknown>>()), ...rt.hooks }));
@@ -156,7 +156,7 @@ afterEach(() => {
 describe('checkReducer: the step and the import status are independent', () => {
   it('selectStep revisits a reached step and keeps the import status, whatever it is', () => {
     for (const importStatus of [IMPORT_IDLE, BUSY, HEIC_ERROR, READY]) {
-      const s: CheckState = { pos: { current: 'prescreen', reached: 'prescreen' }, importStatus, prescreen: PRESCREEN_IDLE };
+      const s: CheckState = { pos: { current: 'prescreen', reached: 'prescreen' }, importStatus, prescreen: PRESCREEN_IDLE, epoch: 0 };
       const back = checkReducer(s, { type: 'selectStep', step: 'import' });
       expect(back.pos).toEqual({ current: 'import', reached: 'prescreen' }); // a revisit keeps `reached`
       expect(back.importStatus).toBe(importStatus);
@@ -168,29 +168,29 @@ describe('checkReducer: the step and the import status are independent', () => {
 
   it('selectStep never jumps ahead of the furthest step reached (D-121)', () => {
     for (const importStatus of [IMPORT_IDLE, BUSY, HEIC_ERROR, READY]) {
-      const s: CheckState = { pos: STEPPER_START, importStatus, prescreen: PRESCREEN_IDLE };
+      const s: CheckState = { pos: STEPPER_START, importStatus, prescreen: PRESCREEN_IDLE, epoch: 0 };
       for (const step of ['prescreen', 'send', 'attack', 'export'] as const) expect(checkReducer(s, { type: 'selectStep', step })).toBe(s);
     }
   });
 
   it('continue moves Import → Pre-screen only while a photo is ready', () => {
     for (const importStatus of [IMPORT_IDLE, BUSY, HEIC_ERROR]) {
-      const s: CheckState = { pos: STEPPER_START, importStatus, prescreen: PRESCREEN_IDLE };
+      const s: CheckState = { pos: STEPPER_START, importStatus, prescreen: PRESCREEN_IDLE, epoch: 0 };
       expect(checkReducer(s, { type: 'continue' })).toBe(s);
     }
-    const ready: CheckState = { pos: STEPPER_START, importStatus: READY, prescreen: PRESCREEN_IDLE };
+    const ready: CheckState = { pos: STEPPER_START, importStatus: READY, prescreen: PRESCREEN_IDLE, epoch: 0 };
     expect(checkReducer(ready, { type: 'continue' }).pos).toEqual({ current: 'prescreen', reached: 'prescreen' });
   });
 
   it('importStatus replaces the status and drops every step after Import (a new photo; D-121)', () => {
-    const s: CheckState = { pos: { current: 'import', reached: 'send' }, importStatus: READY, prescreen: PRESCREEN_IDLE };
+    const s: CheckState = { pos: { current: 'import', reached: 'send' }, importStatus: READY, prescreen: PRESCREEN_IDLE, epoch: 0 };
     const busy = checkReducer(s, { type: 'importStatus', status: BUSY });
-    expect(busy).toEqual({ pos: STEPPER_START, importStatus: BUSY, prescreen: PRESCREEN_IDLE });
+    expect(busy).toEqual({ pos: STEPPER_START, importStatus: BUSY, prescreen: PRESCREEN_IDLE, epoch: 1 });
     expect(checkReducer(busy, { type: 'importStatus', status: HEIC_ERROR }).importStatus).toBe(HEIC_ERROR);
   });
 
   it('a new Check starts on Import, idle', () => {
-    expect(CHECK_START).toEqual({ pos: STEPPER_START, importStatus: IMPORT_IDLE, prescreen: PRESCREEN_IDLE });
+    expect(CHECK_START).toEqual({ pos: STEPPER_START, importStatus: IMPORT_IDLE, prescreen: PRESCREEN_IDLE, epoch: 0 });
     expect(Object.isFrozen(CHECK_START)).toBe(true);
   });
 });
@@ -215,7 +215,8 @@ describe("Check's own state: the import status survives a step round trip (the d
     expect(find(tree, ImportDropzone)).toHaveLength(0); // another step: no dropzone
     expect(only(tree, StepperNav).props).toMatchObject({ current: 'prescreen', reached: 'prescreen' });
     expect(rt.runPrescreen).toHaveBeenCalledTimes(1); // Tier-0 started on the held photo (AC-100)
-    expect(only(tree, PrescreenPanel).props.state).toMatchObject({ kind: 'running', run: 1, sha256: '0'.repeat(64) });
+    expect((rt.runPrescreen.mock.calls[0][2] as { isCurrent: () => boolean }).isCurrent()).toBe(true);
+    expect(only(tree, PrescreenPanel).props.state).toMatchObject({ kind: 'running', run: 1, sha256: '0'.repeat(64) }); // the run number is the epoch (D-133)
 
     (only(tree, StepperNav).props.onSelect as (s: string) => void)('import');
     tree = draw();
@@ -238,6 +239,9 @@ describe("Check's own state: the import status survives a step round trip (the d
     expect((only(tree, ImportDropzone).props as unknown as ImportDropzoneProps).status).toEqual(BUSY);
     expect(master?.current).toBeNull();
     expect(only(tree, StepperNav).props).toMatchObject({ current: 'import', reached: 'import' });
+    // the run of the replaced photo is told it is superseded (D-133): its readers not started yet are skipped
+    const opts = rt.runPrescreen.mock.calls[0][2] as { isCurrent: () => boolean };
+    expect(opts.isCurrent()).toBe(false);
     expect(find(tree, Button).filter((b) => b.props['data-action'] === 'continue')).toHaveLength(0); // no photo, no Continue
   });
 

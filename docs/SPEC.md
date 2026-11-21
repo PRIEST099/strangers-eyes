@@ -885,6 +885,7 @@ Each screen lists its purpose, layout, behaviour, states (a)–(e), copy IDs and
   - (e) **refused:**
     - Pass B declined or blocked: the notes card shows `copy.adv.declined`, the clue list is replaced by "Clues found on this device" (the pre-screen list), and the flow continues to a partial verdict (SCR-09 state e).
     - Only pass A declined (its text starts with `DECLINED:`) while pass B is ok: the notes card shows `copy.adv.notesDeclined`, and pass B's results are used normally.
+    - Any decline or block (pass A or pass B) ends cloud checks for this photo: the gate refuses every further S3 call for the same session or image (`CLOUD_REFUSED`, no request; D-129, invariant 7), so the UI must disable re-attack and "Fix and re-check" for it.
     - **No retry button** for declines or blocks (D-18).
   - Grounding off (`grounding_enabled = false`, the free tier, or the box unticked): the notes card shows pass B's `scene_summary` plus `copy.adv.notesOff`. No chip and no sources.
   - `audit_status === 'no_location_signal'`: `copy.adv.noSignal`.

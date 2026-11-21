@@ -23,7 +23,7 @@ export const HOUSE_NUMBER_MIN_HEIGHT_RATIO = 0.02;
 export const trimPunct = (s: string): string => s.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
 
 /**
- * Plate-like: ONE token of 5–8 alphanumerics with ≥2 letters and ≥2 digits (internal hyphens allowed and not
+ * Plate-like: ONE token of 5–8 alphanumerics (spaced plates over several OCR words: spacedPlates) with ≥2 letters and ≥2 digits (internal hyphens allowed and not
  * counted: "AB-123-CD"). Confidence is checked by the caller (plates()).
  */
 export function isPlateLike(text: string): boolean {
@@ -75,6 +75,50 @@ export function plates(words: readonly OcrWord[]): RegexHit[] {
   words.forEach((w, i) => {
     if (w.conf >= PLATE_MIN_CONF && isPlateLike(w.text)) out.push(hit('plate', words, [i], trimPunct(w.text)));
   });
+  return [...out, ...spacedPlates(words, new Set(out.flatMap((h) => h.words)))];
+}
+
+/**
+ * One part of a spaced plate ("SE", "1234", "AB12", "CDE"): 1–4 upper-case letters and/or digits, OCR confidence ≥ 60,
+ * and not an all-letter word of 4+ characters ("ROOM 12", "PARK 3" and "MAIN 42" are signs, not plates).
+ */
+function platePart(w: OcrWord): string | null {
+  const t = trimPunct(w.text.normalize('NFKC'));
+  if (w.conf < PLATE_MIN_CONF || !/^[\p{Lu}\p{Nd}]{1,4}$/u.test(t)) return null;
+  if (t.length >= 4 && /^\p{Lu}+$/u.test(t)) return null;
+  return t;
+}
+
+/** Two words sit side by side like the groups of one plate: similar heights, a gap of at most 1.5× their height. */
+function sideBySide(a: OcrWord, b: OcrWord): boolean {
+  const h = Math.max(a.box.h, b.box.h);
+  const ratio = Math.min(a.box.h, b.box.h) / h;
+  const gap = b.box.x - (a.box.x + a.box.w);
+  return ratio >= 0.6 && gap >= -0.2 * h && gap <= 1.5 * h;
+}
+
+/**
+ * Plates printed in 2–3 groups ("SE 1234", "AB12 CDE", "B MW 1234"; T-068 review, D-133): adjacent words on ONE OCR
+ * line, each a plate part, side by side, whose joined text is plate-like. The longest run wins; words already in a
+ * single-token plate are skipped. Over-masking is the safe side, and the user can un-tick a flag.
+ */
+export function spacedPlates(words: readonly OcrWord[], used: ReadonlySet<number> = new Set()): RegexHit[] {
+  const out: RegexHit[] = [];
+  for (const idx of lines(words)) {
+    for (let k = 0; k < idx.length; k++) {
+      for (const n of [3, 2]) {
+        const run = idx.slice(k, k + n);
+        if (run.length < n || run.some((i) => used.has(i))) continue;
+        const parts = run.map((i) => platePart(words[i]));
+        if (parts.some((p) => p === null)) continue;
+        if (!run.every((i, j) => j === 0 || sideBySide(words[run[j - 1]], words[i]))) continue;
+        if (!isPlateLike(parts.join(''))) continue;
+        out.push(hit('plate', words, run, parts.join(' ')));
+        k += n - 1;
+        break;
+      }
+    }
+  }
   return out;
 }
 

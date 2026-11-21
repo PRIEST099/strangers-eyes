@@ -37,6 +37,8 @@ export interface Tier0Deps {
   /** The active vault's matcher in image mode; null when the index is not available (fail closed). */
   matchVault: (words: readonly OcrWord[]) => Promise<readonly VaultWordHit[] | null>;
   now: () => number;
+  /** False once this run has been superseded (a new photo, a retry): a step not started yet fails at once (D-133). */
+  isCurrent?: () => boolean;
 }
 
 /** A clue plus what the local side list needs to label it. LOCAL ONLY. */
@@ -159,6 +161,7 @@ export async function runTier0(
     report({ step, status: 'running' });
     const t0 = deps.now();
     try {
+      if (deps.isCurrent && !deps.isCurrent()) throw new Error('superseded'); // its result would be ignored anyway
       const v = await run();
       report({ step, status: 'done', count: count(v), ms: Math.max(0, Math.round(deps.now() - t0)) });
       return v;

@@ -2,7 +2,8 @@
 // unit-tested in Node; components/PhotoStage and components/ClueList only dispatch EditorOps.
 //   - Detected items (faces, vault text, regex flags; later the Nano clues of T-066) keep their unpadded box (D-88).
 //     Their mask is toggled, never moved: un-ticking a face or a vault hit is allowed (the gate demo) and sets
-//     `userUnmasked`, which shows copy.editor.warnFace / warnVault. A masked grid-cell box asks for a confirmation
+//     `userUnmasked`, which shows copy.editor.warnFace / warnVault. An un-ticked face blocks the photo (`face_unmasked`,
+//     D-132); an un-ticked vault hit is fine only once a user mask fully covers it. A masked grid-cell box asks for a confirmation
 //     before it is removed (copy.editor.confirmRemoveCell); `needsConfirm` says when.
 //   - User masks ("Add mask": a drag on the photo, or the button) can be moved, resized and deleted, by pointer or by
 //     keyboard (arrows move, Shift+arrows resize, Delete/Backspace removes; Alt makes the step 1 px). They are painted
@@ -13,7 +14,7 @@
 // LOCAL ONLY: clue texts and vault kinds are shown on this device and never leave it.
 import { padRect } from '../../core/boxes';
 import { preTickOf, type PreTickFlag, type PreTickMode } from '../../core/pretick';
-import type { Clue, ClueType, PxRect, Route, VaultKind } from '../../core/types';
+import type { Clue, ClueType, MaskReason, PxRect, Route, VaultKind } from '../../core/types';
 import type { RegexKind } from '../../tier0/regex';
 import type { Tier0Finding, Tier0StepId } from '../../tier0/tier0';
 
@@ -28,6 +29,8 @@ export interface EditorItem {
   readonly regexKind?: RegexKind;
   /** How it is shown while unmasked (pre-tick table). */
   readonly flag: PreTickFlag;
+  /** The pre-tick's mask reason, restored when the user ticks the item again (D-132). */
+  readonly autoReason?: MaskReason;
   readonly approximate: boolean;
 }
 export interface UserMask {
@@ -66,7 +69,7 @@ export function createEditor(
     const clue: Clue = { ...f.clue, masked: p.masked, userUnmasked: false };
     if (p.maskReason) clue.maskReason = p.maskReason;
     else delete clue.maskReason;
-    return { clue, vaultKinds: f.vaultKinds, regexKind: f.regexKind, flag: p.flag, approximate: p.approximate };
+    return { clue, vaultKinds: f.vaultKinds, regexKind: f.regexKind, flag: p.flag, approximate: p.approximate, autoReason: p.maskReason };
   });
   return { width: size.width, height: size.height, padRatio: opts.padRatio, items, userMasks: [], nextN: 1, selected: null };
 }
@@ -76,11 +79,28 @@ const isPrivate = (c: Clue) => c.type === 'face' || c.vaultHits.length > 0;
 /** A masked grid-cell box: removing it asks first (copy.editor.confirmRemoveCell; ARCH §11.4). */
 export const needsConfirm = (item: EditorItem): boolean => item.clue.masked && item.approximate;
 
-/** The warning an unmasked face or vault hit shows, however it came to be unmasked (the gate will block the send). */
-export function warningOf(item: EditorItem): 'copy.editor.warnFace' | 'copy.editor.warnVault' | null {
+const contains = (outer: PxRect, inner: PxRect) =>
+  outer.x <= inner.x && outer.y <= inner.y && outer.x + outer.w >= inner.x + inner.w && outer.y + outer.h >= inner.y + inner.h;
+
+/**
+ * An unmasked vault hit that one user mask FULLY covers (its padded box inside the user mask): its pixels are still
+ * painted, so it is neither warned about nor counted as unmasked (copy.editor.confirmRemoveCell: "make sure it is
+ * covered by another mask"). Partial cover counts for nothing. Faces are never "covered" this way (D-132).
+ */
+export function coveredByUserMask(item: EditorItem, s: Pick<EditorState, 'width' | 'height' | 'padRatio' | 'userMasks'>): boolean {
+  if (item.clue.masked || item.clue.type === 'face' || item.clue.vaultHits.length === 0) return false;
+  const padded = padRect(item.clue.box, s.width, s.height, s.padRatio);
+  return s.userMasks.some((m) => contains(m.rect, padded));
+}
+
+/**
+ * The warning an unmasked face or vault hit shows, however it came to be unmasked. A face always warns (and blocks the
+ * photo, D-132); a vault hit warns unless a user mask fully covers it.
+ */
+export function warningOf(item: EditorItem, s: Pick<EditorState, 'width' | 'height' | 'padRatio' | 'userMasks'>): 'copy.editor.warnFace' | 'copy.editor.warnVault' | null {
   if (item.clue.masked) return null;
   if (item.clue.type === 'face') return 'copy.editor.warnFace';
-  return item.clue.vaultHits.length > 0 ? 'copy.editor.warnVault' : null;
+  return item.clue.vaultHits.length > 0 && !coveredByUserMask(item, s) ? 'copy.editor.warnVault' : null;
 }
 
 const int = (v: number) => (Number.isFinite(v) ? Math.round(v) : 0);
@@ -165,10 +185,15 @@ export function editorReducer(s: EditorState, a: EditorOp): EditorState {
       const i = s.items.findIndex((it) => it.clue.id === a.id);
       if (i < 0) return s;
       const c = s.items[i].clue;
-      // Un-ticking a face or a vault hit is allowed and remembered (userUnmasked); ticking any item masks it again.
-      const clue: Clue = c.masked
-        ? { ...c, masked: false, userUnmasked: isPrivate(c) || c.userUnmasked }
-        : { ...c, masked: true, userUnmasked: false, maskReason: c.maskReason ?? 'user' };
+      // Un-ticking a face or a vault hit is allowed and remembered (userUnmasked); an unmasked clue has no mask reason.
+      // Ticking any item masks it again, with its pre-tick reason (or 'user' for a flag the user chose to mask).
+      let clue: Clue;
+      if (c.masked) {
+        clue = { ...c, masked: false, userUnmasked: isPrivate(c) || c.userUnmasked };
+        delete clue.maskReason;
+      } else {
+        clue = { ...c, masked: true, userUnmasked: false, maskReason: s.items[i].autoReason ?? 'user' };
+      }
       const items = s.items.slice();
       items[i] = { ...s.items[i], clue };
       return { ...s, items };
@@ -200,6 +225,9 @@ export function editorReducer(s: EditorState, a: EditorOp): EditorState {
 
 // ---------- the masked frame candidate (what T-069's consent sheet shows and the cloud JPEG is built from) ----------
 
+/** A reason the candidate may not be sent or exported. */
+export type CandidateBlock = Tier0StepId | 'face_unmasked';
+
 export interface MaskedFrameCandidate {
   /** The master this candidate belongs to (Check's stored master, by its sha256). */
   readonly masterSha256: string;
@@ -209,10 +237,16 @@ export interface MaskedFrameCandidate {
   readonly masks: readonly PxRect[];
   /** Every item as a Clue (detected first, then user masks as source 'manual'), with masked / userUnmasked. */
   readonly clues: readonly Clue[];
-  /** Private items the user un-ticked: the consent dry run shows copy.consent.unmasked and the gate blocks the send. */
+  /**
+   * Private items left unmasked: faces, and vault hits no user mask fully covers. Shown by the consent dry run
+   * (copy.consent.unmasked). A face here also puts `face_unmasked` in `blockedBy`.
+   */
   readonly unmaskedPrivate: { readonly faces: number; readonly vault: number };
-  /** Tier-0 steps that failed: non-empty → nothing may go on from this photo (fail closed, D-123). */
-  readonly blockedBy: readonly Tier0StepId[];
+  /**
+   * Why nothing may go on from this photo (send or export), empty when it may: a Tier-0 step that failed (fail closed,
+   * D-123), or `face_unmasked` while any face is un-ticked, whatever user masks lie over it (D-132).
+   */
+  readonly blockedBy: readonly CandidateBlock[];
   /** Who produced the pre-screen. RULES_ONLY until T-066 adds the Nano pre-screen. */
   readonly route: Extract<Route, 'RULES_ONLY' | 'ON_DEVICE'>;
 }
@@ -232,6 +266,9 @@ export function masksOf(s: EditorState, opts: { except?: string } = {}): PxRect[
 
 export function candidateOf(s: EditorState, masterSha256: string, blockedBy: readonly Tier0StepId[], route: MaskedFrameCandidate['route'] = 'RULES_ONLY'): MaskedFrameCandidate {
   const unmasked = s.items.filter((it) => !it.clue.masked);
+  const faces = unmasked.filter((it) => it.clue.type === 'face').length;
+  const blocks: CandidateBlock[] = [...blockedBy];
+  if (faces > 0) blocks.push('face_unmasked');
   return {
     masterSha256,
     width: s.width,
@@ -239,10 +276,10 @@ export function candidateOf(s: EditorState, masterSha256: string, blockedBy: rea
     masks: masksOf(s),
     clues: [...s.items.map((it) => it.clue), ...s.userMasks.map(userMaskClue)],
     unmaskedPrivate: {
-      faces: unmasked.filter((it) => it.clue.type === 'face').length,
-      vault: unmasked.filter((it) => it.clue.type !== 'face' && it.clue.vaultHits.length > 0).length,
+      faces,
+      vault: unmasked.filter((it) => it.clue.type !== 'face' && it.clue.vaultHits.length > 0 && !coveredByUserMask(it, s)).length,
     },
-    blockedBy: [...blockedBy],
+    blockedBy: blocks,
     route,
   };
 }

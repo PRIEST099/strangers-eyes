@@ -163,6 +163,16 @@ describe('runTier0', () => {
     expect(r.failed).toEqual(['metadata', 'faces', 'text', 'vault']);
   });
 
+  it('a superseded run (isCurrent false) starts no reader: every step fails at once (D-133)', async () => {
+    let current = true;
+    const d = deps({ assertClean: vi.fn(async () => { current = false; }), isCurrent: () => current });
+    const r = await runTier0(MASTER, JPEG, d);
+    expect(d.detectFaces).not.toHaveBeenCalled();
+    expect(d.ocr).not.toHaveBeenCalled();
+    expect(d.matchVault).not.toHaveBeenCalled();
+    expect(r.failed).toEqual(['faces', 'text', 'vault']);
+  });
+
   it('a listener that throws never breaks the pipeline', async () => {
     const r = await runTier0(MASTER, JPEG, deps(), () => { throw new Error('ui'); });
     expect(r.failed).toEqual([]);

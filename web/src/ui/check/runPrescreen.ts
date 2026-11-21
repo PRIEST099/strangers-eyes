@@ -77,15 +77,43 @@ async function loadConfig(): Promise<PrescreenConfig> {
 
 export interface PrescreenInput { canvas: HTMLCanvasElement; jpeg: Blob }
 
+/** The face model's load (wasm + model) and one detection may each take this long before the step fails closed. */
+export const FACE_LOAD_TIMEOUT_MS = 60_000;
+export const FACE_DETECT_TIMEOUT_MS = 15_000;
+
+/**
+ * `p`, or a rejection after `ms`: a stalled reader fails its step (closed) instead of hanging the pre-screen, and
+ * Try again can run it again. The timer is always cleared.
+ */
+export function withTimeout<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const t = new Promise<never>((_, rej) => { timer = setTimeout(() => rej(new Error(`${what}: timed out after ${ms} ms`)), ms); });
+  return Promise.race([p, t]).finally(() => clearTimeout(timer));
+}
+
+export interface PrescreenOptions {
+  /** False once Check has moved on (a new photo, a retry): readers not started yet are skipped. */
+  isCurrent?: () => boolean;
+  index?: VaultIndexLike;
+  faceLoadMs?: number;
+  faceDetectMs?: number;
+}
+
 /** Run the Tier-0 pre-screen on Check's master. Never rejects: failures are in `outcome.failed`. */
-export async function runPrescreen(m: PrescreenInput, onStep: (r: Tier0StepReport) => void, index: VaultIndexLike = vaultScan): Promise<PrescreenOutcome> {
+export async function runPrescreen(m: PrescreenInput, onStep: (r: Tier0StepReport) => void, opts: PrescreenOptions = {}): Promise<PrescreenOutcome> {
+  const index = opts.index ?? vaultScan;
   const c = await loadConfig();
   const r = await runTier0(m.canvas, m.jpeg, {
     assertClean: async (jpeg) => (await import('../../tier0/exif')).assertCleanJpeg(jpeg),
-    detectFaces: async (master) => (await import('../../tier0/faces')).detectFaces(master, c.faceMinConfidence),
+    detectFaces: async (master) => {
+      const faces = await import('../../tier0/faces');
+      await withTimeout(faces.getFaceDetector(), opts.faceLoadMs ?? FACE_LOAD_TIMEOUT_MS, 'face model');
+      return withTimeout(faces.detectFaces(master, c.faceMinConfidence), opts.faceDetectMs ?? FACE_DETECT_TIMEOUT_MS, 'face detection');
+    },
     ocr: async (master) => (await import('../../tier0/ocr')).ocrMaster(master, { maxPx: c.ocrMaxPx }),
     matchVault: async (words) => ((await vaultIndexReady(index)) ? index.matchWords(words, 'image') : null),
     now: () => performance.now(),
+    isCurrent: opts.isCurrent,
   }, onStep);
   return {
     findings: r.findings, failed: r.failed, width: m.canvas.width, height: m.canvas.height,

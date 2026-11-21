@@ -1,7 +1,8 @@
 // web/src/ui/components/VerdictCard.tsx: the verdict card (T-077; SPEC SCR-09, §10; ARCH §12.3, §12.4; D-124).
 // Renders a Verdict from core/verdict.ts; every rule (tones, confidence wording, muted vault labels) is in
 // verdict/model.ts. Layout, top to bottom (SCR-09):
-//   [compare header: "Risk reduced" green, or "Still exposed"]   (only after a re-attack)
+//   [compare header: "Risk reduced" green, or "Still exposed"]   (only after a re-attack; a level-terms "Risk reduced"
+//                                                                 is the heading itself, the headline not repeated, D-134)
 //   LEVEL  headline                                              (a heading; LOW's copy carries "This isn't a guarantee.")
 //   the lines (a list): icon · text (muted vault label) · confidence · [Why?]
 //   Not linked: … · Attacker's best guess: … · noVault + "Add places"
@@ -42,11 +43,16 @@ export interface VerdictCardProps {
   headingLevel?: 2 | 3;
   /** A "Why?" open on first render (DEV gallery, tests). */
   defaultOpenLineId?: string | null;
+  /**
+   * Whether this card's live region announces the verdict (default true). A page showing several cards (the DEV
+   * gallery) turns it off for all but the selected one, so they do not all speak at once.
+   */
+  announce?: boolean;
 }
 
 export function VerdictCard({
   verdict, vault, comparison = null, showVaultLabels, referee = null, actions, onFocusClues, onExplain,
-  headingLevel = 3, defaultOpenLineId = null,
+  headingLevel = 3, defaultOpenLineId = null, announce = true,
 }: VerdictCardProps) {
   const settings = useSettings();
   const show = showVaultLabels ?? settings.showVaultLabels;
@@ -62,9 +68,10 @@ export function VerdictCard({
   // Fill the live region after it is mounted, so screen readers announce the verdict when it appears.
   useEffect(() => {
     setAnnounced('');
+    if (!announce) return;
     const timer = setTimeout(() => setAnnounced(view.announcement), 100);
     return () => clearTimeout(timer);
-  }, [view.announcement]);
+  }, [view.announcement, announce]);
 
   // A new verdict closes any "Why?" whose line no longer exists.
   const openLine = view.lines.find((l) => l.id === openId && l.why) ?? null;
@@ -89,14 +96,20 @@ export function VerdictCard({
       </p>
 
       {view.compare && (
-        <p
+        <div
           data-compare={view.compare.reduced ? 'reduced' : 'still'}
           data-tone={view.compare.tone}
           className={`flex items-start gap-2 rounded-lg border p-3 font-semibold ${TONE_BORDER[view.compare.tone]} ${TONE_BG[view.compare.tone]} ${TONE_TEXT[view.compare.tone]}`}
         >
           <VerdictIcon name={view.compare.icon} />
-          <span>{view.compare.text}</span>
-        </p>
+          {view.compare.isHeadline ? (
+            <Heading id={headingId} className="text-lg leading-snug font-semibold">
+              {view.compare.text}
+            </Heading>
+          ) : (
+            <span>{view.compare.text}</span>
+          )}
+        </div>
       )}
 
       <div data-tone={view.tone} className={`flex items-start gap-3 rounded-lg p-3 ${TONE_BG[view.tone]}`}>
@@ -107,9 +120,11 @@ export function VerdictCard({
           <span className={`font-mono text-xs font-bold tracking-wider ${TONE_TEXT[view.tone]}`} aria-hidden="true">
             {view.levelLabel}
           </span>
-          <Heading id={headingId} className="text-lg leading-snug font-semibold text-fg">
-            {view.headline}
-          </Heading>
+          {!view.compare?.isHeadline && (
+            <Heading id={headingId} className="text-lg leading-snug font-semibold text-fg">
+              {view.headline}
+            </Heading>
+          )}
         </div>
       </div>
 

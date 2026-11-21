@@ -6,8 +6,10 @@
 //   - importStatus is sent only by the dropzone's onStatus: busy on a new attempt, then ready or the error. Every new
 //     attempt replaces the photo, so it also drops the pre-screen and every step after Import (D-121): masks drawn on
 //     the old photo must never be applied to, or sent with, a new one.
-//   - prescreenStart / prescreenStep / prescreenDone carry a run number; a report from any other run (a photo replaced
-//     mid-run, a retry) is ignored. retry drops a finished pre-screen so Check runs it again.
+//   - `epoch` counts the pre-screen episodes: every import attempt and every accepted retry starts a new one. A run's
+//     number IS the epoch it was started in, so prescreenStart is accepted once per epoch (StrictMode's second effect,
+//     or any duplicate, is refused) and a report from any other run (a photo replaced mid-run, a retry) is ignored
+//     (D-133). retry drops a failed pre-screen so Check runs it again.
 //   - edit applies a mask-editor op (ui/check/editor.ts) to a finished pre-screen.
 // The master photo is NOT here: Check keeps it in a ref (never React state, never storage).
 import type { ClueType } from '../core/types';
@@ -57,6 +59,8 @@ export interface CheckState {
   readonly importStatus: ImportStatus;
   /** The pre-screen of the photo Check holds (idle until it is first opened). */
   readonly prescreen: PrescreenState;
+  /** The current pre-screen episode; the only run number prescreenStart accepts (D-133). */
+  readonly epoch: number;
 }
 
 export type CheckAction =
@@ -70,7 +74,7 @@ export type CheckAction =
   | { type: 'edit'; op: EditorOp };
 
 /** A new Check: the Import step, idle. */
-export const CHECK_START: CheckState = Object.freeze({ pos: STEPPER_START, importStatus: IMPORT_IDLE, prescreen: PRESCREEN_IDLE });
+export const CHECK_START: CheckState = Object.freeze({ pos: STEPPER_START, importStatus: IMPORT_IDLE, prescreen: PRESCREEN_IDLE, epoch: 0 });
 
 const reachedIndex = (pos: StepperPosition) => CHECK_STEPS.indexOf(pos.reached);
 
@@ -84,9 +88,9 @@ export function checkReducer(s: CheckState, a: CheckAction): CheckState {
       return { ...s, pos: moveToStep(s.pos, 'prescreen') };
     case 'importStatus':
       // A new attempt (or its result): the photo the later steps were about is gone.
-      return { pos: STEPPER_START, importStatus: a.status, prescreen: PRESCREEN_IDLE };
+      return { pos: STEPPER_START, importStatus: a.status, prescreen: PRESCREEN_IDLE, epoch: s.epoch + 1 };
     case 'prescreenStart':
-      if (s.importStatus.kind !== 'ready' || s.prescreen.kind === 'running') return s;
+      if (s.importStatus.kind !== 'ready' || s.prescreen.kind !== 'idle' || a.run !== s.epoch) return s;
       return { ...s, prescreen: { kind: 'running', run: a.run, sha256: a.sha256, lines: PENDING_LINES } };
     case 'prescreenStep': {
       const p = s.prescreen;
@@ -102,13 +106,13 @@ export function checkReducer(s: CheckState, a: CheckAction): CheckState {
       // A step that never reported done is failed (fail closed), whatever the outcome says.
       const failed = TIER0_STEPS.filter((st) => o.failed.includes(st) || p.lines[st].status !== 'done');
       const lines = { ...p.lines };
-      for (const st of failed) if (lines[st].status !== 'failed') lines[st] = { status: 'failed' };
+      for (const st of failed) if (lines[st].status !== 'failed') lines[st] = { status: 'failed', ...(lines[st].ms !== undefined ? { ms: lines[st].ms } : {}) };
       const editor = createEditor(o.findings, { width: o.width, height: o.height }, { mode: o.mode, autoMaskTypes: o.autoMaskTypes, padRatio: o.padRatio });
       return { ...s, prescreen: { kind: 'done', run: p.run, sha256: p.sha256, lines, failed, editor } };
     }
     case 'retry':
       if (s.prescreen.kind !== 'done' || s.prescreen.failed.length === 0) return s;
-      return { ...s, prescreen: PRESCREEN_IDLE };
+      return { ...s, prescreen: PRESCREEN_IDLE, epoch: s.epoch + 1 };
     case 'edit': {
       const p = s.prescreen;
       if (p.kind !== 'done') return s;
