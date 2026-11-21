@@ -1197,7 +1197,7 @@ The FAQ says the first 30 s must cover who it's for, the problem, and how Fireba
 | 5 Gate | 1:40–1:55 | Chrome | Same state | Untick the name-tag mask → re-check → consent sheet warns `copy.consent.unmasked`, Send stays enabled → Send → red toast "Blocked: 'LUCAS' would have left this device." → "What the cloud saw" shows only the earlier masked copy | Toast text | Must be the real gate code path. Depends on Tesseract reading the tag at 1536 px (checked Nov 21) |
 | 6 Fix and re-attack | 1:55–2:20 | Chrome | Same state | Tap Fix → on-device plan text → solid fills animate → re-attack IN_CLOUD → real result → green **"Risk reduced"** → receipt line → (only if T-081's P1 share card shipped) share card with no location | "Risk reduced", never "safe"; confidence shown | Pre-tested ≥10× (§6.2); film what it really does |
 | 7 Proof and platforms | 2:20–2:42 | Edit + iOS cameo from Session A | `benchmark/results/summary.md` final | Benchmark card with real numbers; iOS verdict with the Apple Foundation Models badge and Vision masks (×4); routing-table overlay | Caption "iOS 27 Simulator on Apple-silicon Mac · Apple Foundation Models on-device" | Routing table: vault and original photo ONLY_ON_DEVICE; public explanations PREFER_ON_DEVICE with cloud fallback; attacker ONLY_IN_CLOUD |
-| 8 Close | 2:42–2:50 | Edit | — | Firebase stack strip as text (AI Logic hybrid, App Check, Remote Config, Anonymous Auth, Firestore if the Atlas shipped, Hosting). "Try it in any browser, no on-device AI needed: Judge Mode, about 60 seconds." URL and repo. | URL readable for ≥3 s | Text names, not product logos |
+| 8 Close | 2:42–2:50 | Edit | — | Firebase stack strip as text (AI Logic hybrid, App Check, Remote Config, Anonymous Auth, Hosting (Firestore cut, D-141)). "Try it in any browser, no on-device AI needed: Judge Mode, about 60 seconds." URL and repo. | URL readable for ≥3 s | Text names, not product logos |
 
 ### 6.7 Voice-over draft (about 300 words)
 The user rewrites this in their own words. Bracketed parts are filled from real results.
@@ -1320,7 +1320,7 @@ Claude records the real fields and limits here after Nov 22.
 **Values:**
 - **Name:** Strangers' Eyes
 - **Elevator pitch** (165 characters, measured; Devpost usually allows 200): "The cloud plays the stalker; your device holds the answers. See what AI can infer from your photo and fix it before you post. The attacker never learns it was right."
-- **Built with:** firebase-ai-logic, gemini, gemini-nano, apple-foundation-models, firebase-app-check, firebase-remote-config, cloud-firestore (only if the Atlas shipped), firebase-auth, firebase-hosting, react, typescript, vite, tailwindcss, swiftui, vision, mediapipe, tesseract.js
+- **Built with:** firebase-ai-logic, gemini, gemini-nano, apple-foundation-models, firebase-app-check, firebase-remote-config, firebase-auth, firebase-hosting, react, typescript, vite, tailwindcss, swiftui, vision, mediapipe, tesseract.js
 - **Try it out:** hosted URL, repo URL
 - **Thumbnail:** `docs/img/thumbnail.png`, 3:2, no third-party logos.
 - **Gallery** (no third-party logos, no real home or school):
@@ -1336,7 +1336,7 @@ Claude records the real fields and limits here after Nov 22.
 **Testing-instructions template:**
 ```
 1. Open HOSTED_URL in any browser (desktop or mobile). No login: an anonymous session is created automatically. Free.
-2. Click "Judge Mode": 3 synthetic, people-free scenes and a fictional vault load. Press Run. The full loop runs red→green in about 60–90 s.
+2. Click "Judge Mode": 3 CC0 photos of public places (people and plates solid-masked, drawn props; D-153) and a fictional vault load. Press Run. The full loop runs red→green in about 60–90 s.
 3. Watch the Router HUD (bottom-left): every step is labelled ON-DEVICE, IN_CLOUD or RULES-ONLY, with latency.
    The Cloud Ledger (right) counts exactly what left the device.
 4. Optional on-device AI: Chrome desktop with on-device AI enabled (chrome://settings/ai and
@@ -1398,7 +1398,7 @@ The raw JSON is visible in DevTools, and the added harm over the public Gemini a
 ## Run it yourself
 Web: Node ≥24.12 (tested 26.8.2); `cd web && npm ci && npm run dev`; your own Firebase project; App Check debug token in `web/.env.development.local` (never commit).
 iOS: Xcode 27, iOS 27 Simulator, Apple Intelligence on; replace `ios/StrangersEyes/Resources/GoogleService-Info.plist` with your own project's; register your own App Check debug token (`AppCheckDebugToken` env var); firebase-ios-sdk **exact 12.19.3** (HybridModel was removed in 13.0.0).
-Deploy: `firebase deploy --only hosting,firestore,auth,remoteconfig`.
+Deploy: `firebase deploy --only hosting,auth,remoteconfig` (Firestore cut, D-141).
 
 ## Repo map
 ## Built during #BuildHybridAI (Nov 19–30 2026)
@@ -1421,7 +1421,7 @@ Vault (device) → pre-screen and pre-mask (device) → red team on a redacted c
 - Routing by sensitivity class, stored in Remote Config and enforced by one Egress Gate: S0/S1 ONLY_ON_DEVICE (no cloud fallback; deterministic code instead), S2 PREFER_ON_DEVICE with a visible cloud fallback, S3 ONLY_IN_CLOUD with Google Search grounding, S4 PREFER_ON_DEVICE for judges.
 - Web: firebase/ai hybrid (Gemini Nano in Chrome: image + JSON schema; inferenceSource badges). iOS: FirebaseAILogic HybridModel and on-device-only sessions with Apple Foundation Models; Vision for pixels.
 - Two adversary passes: grounded notes (display only, with Search Suggestions) and an independent ungrounded JSON pass that feeds the on-device referee.
-- App Check, Anonymous Auth, Remote Config, Firestore (if shipped), Hosting.
+- App Check, Anonymous Auth, Remote Config, Hosting (Firestore cut, D-141).
 ## Challenges we ran into
 (e.g. ONLY_ON_DEVICE silently uses the cloud without window.LanguageModel → gate pre-checks; HybridModel removed in iOS SDK 13 → pinned 12.19.3; Simulator FM has no tools or vision → @Generable over Vision text; 8 GB RAM)
 ## Accomplishments that we're proud of

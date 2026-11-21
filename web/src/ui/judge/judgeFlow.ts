@@ -16,7 +16,10 @@ import type { AdversaryResult, Box2D, GateBlockReason, ImageFrame, PxRect } from
 import type { CheckStep } from '../layout';
 
 export const CACHED_ON_BLOCK: readonly GateBlockReason[] = ['OFFLINE', 'KILL_SWITCH', 'DAILY_CAP'];
-export const CACHED_ON_ERROR: readonly GateErrorCode[] = ['CLOUD_QUOTA', 'CLOUD_AUTH', 'CLOUD_BAD_REQUEST', 'CLOUD_NETWORK'];
+// D-156: a timeout or a server error (free-tier flash: 80–143 s, 503s) is unavailability too, so judges get the
+// labelled recording instead of an error (RUNBOOK §7.3 "never locked out"). Refusals, blocks, unreadable answers and
+// INTERNAL (a bug) are never replaced.
+export const CACHED_ON_ERROR: readonly GateErrorCode[] = ['CLOUD_QUOTA', 'CLOUD_AUTH', 'CLOUD_BAD_REQUEST', 'CLOUD_NETWORK', 'CLOUD_SERVER', 'TIMEOUT'];
 
 export function liveUnavailable(o: AttackOutcome): boolean {
   if (o.kind === 'notSent') return CACHED_ON_BLOCK.includes(o.reason);

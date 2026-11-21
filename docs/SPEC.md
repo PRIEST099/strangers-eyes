@@ -1661,7 +1661,7 @@ The Router HUD line format is `{job} › {ROUTE} ({engine}) {latency}`, for exam
 | Judge Mode | Full (P0) | Sample scenes P2 |
 | Leak Atlas | P1 | Not built |
 | App Check | reCAPTCHA Enterprise (hosted); debug token on localhost | Debug provider in the Simulator (App Attest unused: no device) |
-| Typical on-device latency | Nano: to be measured (target ≤6 s for text, ≤10 s for image) | FM in the Simulator: 18–30 s per call (measured) |
+| Typical on-device latency | Nano (measured Nov 21, Chrome 157, D-154): referee ~6 s warm / 16 s cold (text), pre-screen ~10 s warm / 13 s cold (image) | FM in the Simulator: 18–30 s per call (measured) |
 
 ### 14.6 iOS rules
 - Never run Simulator FM while Chrome Nano is running (8 GB RAM). Shut the Simulator down when you aren't recording.

@@ -214,13 +214,13 @@ describe('S4 in Judge Mode (D-151; AC-023, AC-048, AC-242)', () => {
 // ---------- CACHED replay and autoplay ----------
 const call = { route: 'BLOCKED' as const, source: null, latencyMs: 0, ledgerId: 'l', model: 'm' };
 describe('the CACHED replay (AC-243, AC-246)', () => {
-  it('replaces only unavailability (offline, kill switch, cap, auth, 400, 429, network), never a refusal or a bad answer', () => {
+  it('replaces only unavailability (offline, kill switch, cap, auth, 400, 429, network, 5xx, timeout: D-156), never a refusal, a bad answer or a bug', () => {
     const notSent = (reason: string): AttackOutcome => ({ kind: 'notSent', reason: reason as never, copyId: 'copy.cap.offline', retry: false, call });
     const failed = (code: string, state: 'error' | 'truncated' | 'unreadable' = 'error'): AttackOutcome => ({ kind: 'failed', state, code: code as never, copyId: 'copy.err.cloudFailed', retry: false, call });
     for (const r of ['OFFLINE', 'KILL_SWITCH', 'DAILY_CAP']) expect(liveUnavailable(notSent(r))).toBe(true);
     for (const r of ['FACE', 'VAULT_TEXT_IN_IMAGE', 'NO_CONSENT', 'TRIPWIRE']) expect(liveUnavailable(notSent(r))).toBe(false);
-    for (const c of ['CLOUD_QUOTA', 'CLOUD_AUTH', 'CLOUD_BAD_REQUEST', 'CLOUD_NETWORK']) expect(liveUnavailable(failed(c))).toBe(true);
-    for (const c of ['CLOUD_SERVER', 'TIMEOUT', 'INTERNAL']) expect(liveUnavailable(failed(c))).toBe(false);
+    for (const c of ['CLOUD_QUOTA', 'CLOUD_AUTH', 'CLOUD_BAD_REQUEST', 'CLOUD_NETWORK', 'CLOUD_SERVER', 'TIMEOUT']) expect(liveUnavailable(failed(c))).toBe(true);
+    expect(liveUnavailable(failed('INTERNAL'))).toBe(false);
     expect(liveUnavailable(failed('PARSE_FAILED', 'unreadable'))).toBe(false);
     expect(liveUnavailable({ kind: 'refused', why: 'declined', call })).toBe(false);
   });
