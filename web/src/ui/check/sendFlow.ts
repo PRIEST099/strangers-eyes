@@ -67,11 +67,14 @@ export function caughtOf(c: MaskedFrameCandidate | null): CaughtItem[] {
   return out;
 }
 
-export function verdictOf(o: AttackOutcome, vault: readonly VaultItem[], c: MaskedFrameCandidate | null, opts: { theta?: number; bands?: BandThresholdsM } = {}): Verdict {
+export function verdictOf(
+  o: AttackOutcome, vault: readonly VaultItem[], c: MaskedFrameCandidate | null,
+  opts: { theta?: number; bands?: BandThresholdsM; phase?: Verdict['phase'] } = {},
+): Verdict {
   const caught = caughtOf(c);
   const types = c ? [...new Set(c.clues.flatMap((x): ClueType[] => (x.source !== 'manual' && x.type !== 'face' ? [x.type] : [])))] : [];
   const prescreenFlags = c ? { types, route: c.route } : null;
-  const base = { vault, caught, prescreenFlags, ...(opts.bands ? { bands: opts.bands } : {}) };
+  const base = { vault, caught, prescreenFlags, ...(opts.bands ? { bands: opts.bands } : {}), ...(opts.phase ? { phase: opts.phase } : {}) };
   if (o.kind === 'result') {
     const claims = refereeClaims(o.result);
     const matches = rulesReferee(claims, refereeVaultItems(vault), opts.theta);

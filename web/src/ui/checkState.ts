@@ -17,8 +17,16 @@
 //     flow's run number, so a result from an episode that was cancelled or replaced is ignored. cancelSend sends
 //     nothing and returns to the editor (AC-132). A final attack outcome moves on to the Verdict by itself; a
 //     transient failure stays on the Attack step with Try again (and toVerdict shows the on-device findings).
+//   - T-078..T-080 (D-142, D-143): `fix` and `reattack`. toFix opens the Fix step from a verdict built on a pass-B
+//     result (never after a decline, never past RC max_fix_rounds); the plan itself is derived in Check (core/fixPlan),
+//     the reducer keeps only what the user unticked and the fix applied so far (cumulative masks + crop on top of the
+//     candidate's). applyFix starts a new re-attack episode; its dry run, consent and pass B mirror the first send's
+//     actions (reflight*, resent, reattackDone, retryReattack) under their own run number. A round counts when it is
+//     sent. Any refusal (first attack or re-attack) ends fixing for the photo: the gate refuses S3 after a decline
+//     anyway (D-114, D-129), so the UI never offers it.
 // The master photo is NOT here: Check keeps it in a ref (never React state, never storage).
-import type { ClueType } from '../core/types';
+import type { ClueType, PxRect } from '../core/types';
+import { combineCrops } from '../core/fixPlan';
 import type { PreTickMode } from '../core/pretick';
 import { TIER0_STEPS, type Tier0Finding, type Tier0StepId, type Tier0StepReport } from '../tier0/tier0';
 import type { AttackOutcome } from '../ai/jobs/adversaryB';
@@ -28,7 +36,7 @@ import { IMPORT_IDLE, type ImportStatus } from './importTransfer';
 import { CHECK_STEPS, STEPPER_START, moveToStep, type CheckStep, type StepperPosition } from './layout';
 
 /** The steps that exist so far. The stepper shows the others as not available yet (D-121). */
-export const BUILT_STEPS: readonly CheckStep[] = Object.freeze(['import', 'prescreen', 'send', 'attack', 'verdict']);
+export const BUILT_STEPS: readonly CheckStep[] = Object.freeze(['import', 'prescreen', 'send', 'attack', 'verdict', 'fix', 'reattack']);
 
 /** One progress line (SPEC SCR-06 "Progress list"). */
 export interface ProgressLine {
@@ -80,6 +88,36 @@ export interface FlowState {
 export const FLOW_IDLE: FlowState = Object.freeze({ run: 0, send: Object.freeze({ kind: 'idle' as const }), attack: Object.freeze({ kind: 'idle' as const }) });
 const nextFlow = (f: FlowState): FlowState => ({ run: f.run + 1, send: FLOW_IDLE.send, attack: FLOW_IDLE.attack });
 
+/** The Fix step (SCR-11): what the user unticked in the plan on screen, and the fix applied so far. */
+export interface FixState {
+  readonly unchecked: readonly string[];
+  readonly cropOff: boolean;
+  /** Cumulative fix masks (master px) and crop on top of the candidate's masks; null before the first Apply. */
+  readonly applied: { readonly masks: readonly PxRect[]; readonly crop: PxRect | null } | null;
+  /** Masks the last Apply added. */
+  readonly lastAdded: number;
+}
+export const FIX_IDLE: FixState = Object.freeze({ unchecked: Object.freeze([]) as readonly string[], cropOff: false, applied: null, lastAdded: 0 });
+
+/** Re-attack episodes (SCR-11): the dry run and pass B of the fixed image, and the rounds so far. */
+export interface ReattackState {
+  readonly run: number;
+  readonly send: SendState;
+  readonly attack: AttackState;
+  /** Re-attacks sent for this photo; each counts toward RC max_fix_rounds. */
+  readonly rounds: number;
+  /** Final outcomes of the re-attacks, in order. */
+  readonly history: readonly AttackOutcome[];
+  /** An Apply is waiting for its re-attack. */
+  readonly pending: boolean;
+  /** How many masks the last image sent had (the consent sheet's diff line). */
+  readonly lastSentMasks: number;
+}
+export const REATTACK_IDLE: ReattackState = Object.freeze({
+  run: 0, send: FLOW_IDLE.send, attack: FLOW_IDLE.attack, rounds: 0, history: Object.freeze([]) as readonly AttackOutcome[], pending: false, lastSentMasks: 0,
+});
+const nextReattack = (r: ReattackState, over: Partial<ReattackState> = {}): ReattackState => ({ ...r, run: r.run + 1, send: FLOW_IDLE.send, attack: FLOW_IDLE.attack, ...over });
+
 /** A final outcome goes straight on to the Verdict; a retryable one waits on the Attack step for Try again. */
 export const goesToVerdict = (o: AttackOutcome): boolean => o.kind === 'result' || o.kind === 'refused' || !o.retry;
 
@@ -93,6 +131,9 @@ export interface CheckState {
   readonly epoch: number;
   /** Send → Attack → Verdict (D-139). */
   readonly flow: FlowState;
+  /** Fix → Re-attack (D-142, D-143). */
+  readonly fix: FixState;
+  readonly reattack: ReattackState;
 }
 
 export type CheckAction =
@@ -111,10 +152,57 @@ export type CheckAction =
   | { type: 'sent'; run: number }
   | { type: 'attackDone'; run: number; outcome: AttackOutcome }
   | { type: 'retryAttack'; run: number }
-  | { type: 'toVerdict' };
+  | { type: 'toVerdict' }
+  | { type: 'toFix'; maxRounds: number }
+  | { type: 'toggleFixMask'; clueId: string }
+  | { type: 'toggleFixCrop' }
+  | { type: 'applyFix'; masks: readonly PxRect[]; crop: PxRect | null }
+  | { type: 'cancelFix' }
+  | { type: 'toReattack'; maxRounds: number }
+  | { type: 'reflightStart'; run: number }
+  | { type: 'reflightDone'; run: number; dry: DryRun }
+  | { type: 'cancelResend' }
+  | { type: 'resent'; run: number }
+  | { type: 'reattackDone'; run: number; outcome: AttackOutcome }
+  | { type: 'retryReattack'; run: number }
+  | { type: 'reattackSettle' };
 
 /** A new Check: the Import step, idle. */
-export const CHECK_START: CheckState = Object.freeze({ pos: STEPPER_START, importStatus: IMPORT_IDLE, prescreen: PRESCREEN_IDLE, epoch: 0, flow: FLOW_IDLE });
+export const CHECK_START: CheckState = Object.freeze({
+  pos: STEPPER_START, importStatus: IMPORT_IDLE, prescreen: PRESCREEN_IDLE, epoch: 0, flow: FLOW_IDLE, fix: FIX_IDLE, reattack: REATTACK_IDLE,
+});
+
+/** A refusal anywhere in this photo's session (the first attack or a re-attack): no more S3 for it (D-114, D-129). */
+export function declinedInSession(s: CheckState): boolean {
+  const a = s.flow.attack;
+  return (a.kind === 'done' && a.outcome.kind === 'refused') || s.reattack.history.some((o) => o.kind === 'refused');
+}
+
+/** The newest pass-B result of this photo (the last re-attack result, else the first attack's), or null. */
+export function latestResult(s: CheckState): Extract<AttackOutcome, { kind: 'result' }> | null {
+  for (let i = s.reattack.history.length - 1; i >= 0; i--) {
+    const o = s.reattack.history[i];
+    if (o && o.kind === 'result') return o;
+  }
+  const a = s.flow.attack;
+  return a.kind === 'done' && a.outcome.kind === 'result' ? a.outcome : null;
+}
+
+/** The last re-attack's final outcome, once it is settled (the compare view's "after"), else null. */
+export function settledReattack(s: CheckState): AttackOutcome | null {
+  const r = s.reattack;
+  return r.attack.kind === 'done' && r.history.length === r.rounds && r.rounds > 0 ? r.history[r.history.length - 1] ?? null : null;
+}
+
+/** Why no further fix round may start (null when one may): a decline, no pass-B result, or the round cap (AC-195). */
+export function fixBlocked(s: CheckState, maxRounds: number): 'declined' | 'noResult' | 'maxRounds' | 'busy' | null {
+  if (declinedInSession(s)) return 'declined';
+  if (!latestResult(s)) return 'noResult';
+  if (s.reattack.rounds >= maxRounds) return 'maxRounds';
+  const at = s.reattack.attack;
+  if (at.kind === 'running' || (at.kind === 'done' && s.reattack.history.length < s.reattack.rounds)) return 'busy';
+  return null;
+}
 
 const reachedIndex = (pos: StepperPosition) => CHECK_STEPS.indexOf(pos.reached);
 
@@ -128,7 +216,10 @@ export function checkReducer(s: CheckState, a: CheckAction): CheckState {
       return { ...s, pos: moveToStep(s.pos, 'prescreen') };
     case 'importStatus':
       // A new attempt (or its result): the photo the later steps were about is gone.
-      return { pos: STEPPER_START, importStatus: a.status, prescreen: PRESCREEN_IDLE, epoch: s.epoch + 1, flow: nextFlow(s.flow) };
+      return {
+        pos: STEPPER_START, importStatus: a.status, prescreen: PRESCREEN_IDLE, epoch: s.epoch + 1, flow: nextFlow(s.flow),
+        fix: FIX_IDLE, reattack: nextReattack(REATTACK_IDLE, { run: s.reattack.run + 1 }),
+      };
     case 'prescreenStart':
       if (s.importStatus.kind !== 'ready' || s.prescreen.kind !== 'idle' || a.run !== s.epoch) return s;
       return { ...s, prescreen: { kind: 'running', run: a.run, sha256: a.sha256, lines: PENDING_LINES } };
@@ -152,7 +243,7 @@ export function checkReducer(s: CheckState, a: CheckAction): CheckState {
     }
     case 'retry':
       if (s.prescreen.kind !== 'done' || s.prescreen.failed.length === 0) return s;
-      return { ...s, prescreen: PRESCREEN_IDLE, epoch: s.epoch + 1, flow: nextFlow(s.flow) };
+      return { ...s, prescreen: PRESCREEN_IDLE, epoch: s.epoch + 1, flow: nextFlow(s.flow), fix: FIX_IDLE, reattack: nextReattack(REATTACK_IDLE, { run: s.reattack.run + 1 }) };
     case 'edit': {
       const p = s.prescreen;
       if (p.kind !== 'done' || s.flow.attack.kind !== 'idle') return s; // sent: the masks are locked (D-139)
@@ -175,7 +266,10 @@ export function checkReducer(s: CheckState, a: CheckAction): CheckState {
     case 'sent': {
       const f = s.flow;
       if (s.pos.current !== 'send' || f.send.kind !== 'ready' || f.send.dry.failed.length > 0 || f.attack.kind !== 'idle' || a.run !== f.run) return s;
-      return { ...s, pos: moveToStep(s.pos, 'attack'), flow: { ...f, attack: { kind: 'running', run: a.run } } };
+      return {
+        ...s, pos: moveToStep(s.pos, 'attack'), flow: { ...f, attack: { kind: 'running', run: a.run } },
+        reattack: { ...s.reattack, lastSentMasks: f.send.dry.masks.length },
+      };
     }
     case 'attackDone': {
       const at = s.flow.attack;
@@ -192,6 +286,69 @@ export function checkReducer(s: CheckState, a: CheckAction): CheckState {
     case 'toVerdict':
       if (s.flow.attack.kind !== 'done') return s;
       return { ...s, pos: moveToStep(s.pos, 'verdict') };
+    // ---------- Fix → Re-attack (T-078..T-080) ----------
+    case 'toFix':
+      if ((s.pos.current !== 'verdict' && s.pos.current !== 'reattack') || fixBlocked(s, a.maxRounds) !== null) return s;
+      return { ...s, pos: moveToStep(s.pos, 'fix'), fix: { ...s.fix, unchecked: [], cropOff: false } };
+    case 'toggleFixMask': {
+      if (s.pos.current !== 'fix') return s;
+      const u = s.fix.unchecked;
+      return { ...s, fix: { ...s.fix, unchecked: u.includes(a.clueId) ? u.filter((x) => x !== a.clueId) : [...u, a.clueId] } };
+    }
+    case 'toggleFixCrop':
+      if (s.pos.current !== 'fix') return s;
+      return { ...s, fix: { ...s.fix, cropOff: !s.fix.cropOff } };
+    case 'applyFix': {
+      if (s.pos.current !== 'fix' || (a.masks.length === 0 && !a.crop) || s.reattack.attack.kind === 'running') return s;
+      const prev = s.fix.applied;
+      const applied = { masks: [...(prev?.masks ?? []), ...a.masks.map((m) => ({ ...m }))], crop: combineCrops(prev?.crop ?? null, a.crop) };
+      return { ...s, fix: { unchecked: [], cropOff: false, applied, lastAdded: a.masks.length }, reattack: nextReattack(s.reattack, { pending: true }) };
+    }
+    case 'cancelFix':
+      if (s.pos.current !== 'fix') return s;
+      return { ...s, pos: moveToStep(s.pos, settledReattack(s) ? 'reattack' : 'verdict'), fix: { ...s.fix, unchecked: [], cropOff: false } };
+    case 'toReattack':
+      if (s.pos.current !== 'fix' || !s.reattack.pending || !s.fix.applied || declinedInSession(s) || s.reattack.rounds >= a.maxRounds) return s;
+      return { ...s, pos: moveToStep(s.pos, 'reattack') };
+    case 'reflightStart': {
+      const r = s.reattack;
+      if (s.pos.current !== 'reattack' || !r.pending || r.send.kind !== 'idle' || r.attack.kind !== 'idle' || a.run !== r.run) return s;
+      return { ...s, reattack: { ...r, send: { kind: 'checking', run: a.run } } };
+    }
+    case 'reflightDone': {
+      const r = s.reattack;
+      if (r.send.kind !== 'checking' || r.send.run !== a.run) return s;
+      return { ...s, reattack: { ...r, send: { kind: 'ready', run: a.run, dry: a.dry } } };
+    }
+    case 'cancelResend':
+      if (s.pos.current !== 'reattack' || !s.reattack.pending || s.reattack.attack.kind !== 'idle') return s;
+      return { ...s, pos: moveToStep(s.pos, 'fix'), reattack: nextReattack(s.reattack) };
+    case 'resent': {
+      const r = s.reattack;
+      if (s.pos.current !== 'reattack' || !r.pending || r.send.kind !== 'ready' || r.send.dry.failed.length > 0 || r.attack.kind !== 'idle' || a.run !== r.run) return s;
+      if (declinedInSession(s)) return s;
+      return {
+        ...s, reattack: { ...r, attack: { kind: 'running', run: a.run }, rounds: r.rounds + 1, pending: false, lastSentMasks: r.send.dry.masks.length },
+      };
+    }
+    case 'reattackDone': {
+      const r = s.reattack;
+      if (r.attack.kind !== 'running' || r.attack.run !== a.run) return s;
+      const history = goesToVerdict(a.outcome) ? [...r.history, a.outcome] : r.history;
+      return { ...s, reattack: { ...r, attack: { kind: 'done', run: a.run, outcome: a.outcome }, history } };
+    }
+    case 'retryReattack': {
+      const r = s.reattack;
+      const at = r.attack;
+      if (at.kind !== 'done' || at.run !== a.run || at.outcome.kind === 'result' || at.outcome.kind === 'refused' || !at.outcome.retry) return s;
+      if (r.history.length === r.rounds) return s; // already settled
+      return { ...s, reattack: { ...r, attack: { kind: 'running', run: a.run } } };
+    }
+    case 'reattackSettle': {
+      const r = s.reattack;
+      if (r.attack.kind !== 'done' || r.history.length >= r.rounds) return s;
+      return { ...s, reattack: { ...r, history: [...r.history, r.attack.outcome] } };
+    }
   }
 }
 

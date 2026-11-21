@@ -17,7 +17,14 @@
 // token for that sha256 and runs pass B through the Egress Gate (ai/jobs/adversaryB.ts); a final outcome opens the
 // Verdict: the rules referee over pass B's validated JSON → buildVerdict → VerdictCard (Referee: RULES-ONLY, its
 // latency). Each photo is one session (a fresh sessionId per import epoch) with its own pass-B cache. The sent image
-// and its token stay in a ref (memory only). Fix, Re-attack and Export are not built.
+// and its token stay in a ref (memory only).
+// T-078..T-080 (D-142..D-144): from a verdict built on a pass-B result, "Fix it on this device" opens the Fix step: the
+// RULES-ONLY plan (core/fixPlan over the NEWEST pass-B result and the verdict built from it) as a checklist; Apply adds
+// solid fix masks (and an optional crop) on top of the masks already sent. "Re-attack the fixed photo" runs the SAME
+// dry run, a NEW consent for the new bytes, the gate and pass B ('r2', 'r3'…), then the referee: buildVerdict
+// ('after_fix') vs the first verdict → compareVerdicts → VerdictCard's compare header (green only when riskReduced),
+// the Before → After rows and the receipt line. At most RC max_fix_rounds re-attacks; none after any decline. Export
+// is not built.
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import type { AdvBCache } from '../../ai/jobs/adversaryB';
 import { vaultScan } from '../../ai/vaultScan';
@@ -31,6 +38,11 @@ import type { EditorOp } from '../check/editor';
 import { runPrescreen } from '../check/runPrescreen';
 import { consentTo, newAttackCache, runAttack, runConsentDryRun, type SentImage } from '../check/runSend';
 import { consentTierCopy, userUnmaskedBoxes, verdictOf } from '../check/sendFlow';
+import { compareRows, receiptParams } from '../check/fixFlow';
+import { FixPanel } from '../check/FixPanel';
+import { deterministicFix, residualAfter, selectedFix } from '../../core/fixPlan';
+import { compareVerdicts } from '../../core/verdict';
+import type { PxRect } from '../../core/types';
 import { AttackPanel } from '../components/AttackPanel';
 import { Button } from '../components/Button';
 import { ConsentPanel } from '../components/ConsentPanel';
@@ -38,7 +50,7 @@ import { VerdictCard } from '../components/VerdictCard';
 import { ImportDropzone } from '../components/ImportDropzone';
 import { PrescreenPanel } from '../components/PrescreenPanel';
 import { StepperNav } from '../components/StepperNav';
-import { BUILT_STEPS, CHECK_START, checkReducer, maskedCandidate } from '../checkState';
+import { BUILT_STEPS, CHECK_START, checkReducer, fixBlocked, latestResult, maskedCandidate, settledReattack } from '../checkState';
 import { useOcrWarm } from '../hooks/useOcrWarm';
 import type { ImportStatus } from '../importTransfer';
 import { stepLabelId } from '../layout';
@@ -66,6 +78,8 @@ function useRc() {
   return rc;
 }
 
+const NO_MASKS: readonly PxRect[] = Object.freeze([]) as readonly PxRect[];
+
 const newSessionId = (): string => (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `s-${Date.now()}-${Math.random()}`);
 
 export function Check() {
@@ -82,8 +96,8 @@ export function Check() {
   useOcrWarm();
   const rc = useRc();
   // One session per photo (import epoch): its id, its pass-B cache, and the image it sent (memory only).
-  const session = useRef<{ epoch: number; id: string; cache: AdvBCache; sent: SentImage | null }>({ epoch: -1, id: '', cache: newAttackCache(), sent: null });
-  if (session.current.epoch !== epoch) session.current = { epoch, id: newSessionId(), cache: newAttackCache(), sent: null };
+  const session = useRef<{ epoch: number; id: string; cache: AdvBCache; sent: SentImage | null; resent: SentImage | null }>({ epoch: -1, id: '', cache: newAttackCache(), sent: null, resent: null });
+  if (session.current.epoch !== epoch) session.current = { epoch, id: newSessionId(), cache: newAttackCache(), sent: null, resent: null };
   const flowRun = state.flow.run;
   const flowNow = useRef(flowRun);
   flowNow.current = flowRun;
@@ -154,6 +168,87 @@ export function Check() {
     const v = verdictOf(outcome, vault, candidate, { theta: vaultScan.threshold(), ...(rc ? { bands: rc.bandsM } : {}) });
     return { v, ms: Math.round(performance.now() - t0) };
   }, [outcome, vault, candidate, rc]);
+  // ---------- Fix → Re-attack (T-078..T-080) ----------
+  const maxRounds = rc?.maxFixRounds ?? 3;
+  const latest = latestResult(state);
+  const blocked = fixBlocked(state, maxRounds);
+  const blockedCopy = blocked === 'declined' ? t('ui.fix.declined') : blocked === 'noResult' ? t('ui.fix.needsResult') : blocked === 'maxRounds' ? t('copy.fix.maxRounds') : null;
+  const re = state.reattack;
+  const applied = state.fix.applied;
+  // The masks of the first image sent (the candidate's plus the dry run's auto masks), then every fix applied since.
+  const sentMasks = state.flow.send.kind === 'ready' ? state.flow.send.dry.masks : NO_MASKS;
+  const fixMasks = useMemo(() => [...sentMasks, ...(applied?.masks ?? [])], [sentMasks, applied]);
+  const plan = useMemo(() => {
+    const m = master.current;
+    if (!latest || !vault || !m || !candidate) return null;
+    const v = verdictOf(latest, vault, candidate, { theta: vaultScan.threshold(), ...(rc ? { bands: rc.bandsM } : {}) });
+    const input = { adv: latest.result, verdict: v, vault, width: m.canvas.width, height: m.canvas.height, padRatio: rc?.maskPadRatio ?? 0.15 };
+    return { input, fix: deterministicFix(input) };
+  }, [latest, vault, candidate, rc]);
+  const unchecked = state.fix.unchecked;
+  const cropOff = state.fix.cropOff;
+  const residual = useMemo(() => (plan ? residualAfter(plan.input, plan.fix, new Set(unchecked), cropOff) : null), [plan, unchecked, cropOff]);
+  const onToFix = useCallback(() => dispatch({ type: 'toFix', maxRounds }), [maxRounds]);
+  const onApplyFix = useCallback(() => {
+    if (!plan) return;
+    const sel = selectedFix(plan.fix, new Set(unchecked), cropOff);
+    dispatch({ type: 'applyFix', masks: sel.masks, crop: sel.crop });
+  }, [plan, unchecked, cropOff]);
+  const onToReattack = useCallback(() => dispatch({ type: 'toReattack', maxRounds }), [maxRounds]);
+
+  // The re-attack's dry run: the same preflight as the first send, on the fixed bytes (fix masks + crop).
+  const reSendKind = re.send.kind;
+  const reAttackKind = re.attack.kind;
+  const reRun = re.run;
+  useEffect(() => {
+    const m = master.current;
+    if (current !== 'reattack' || !re.pending || reSendKind !== 'idle' || reAttackKind !== 'idle' || !m || !candidate || !applied) return;
+    const run = reRun;
+    dispatch({ type: 'reflightStart', run });
+    void runConsentDryRun(m.canvas, fixMasks, userUnmaskedBoxes(candidate), applied.crop).then((dry) => dispatch({ type: 'reflightDone', run, dry }));
+  }, [current, re.pending, reSendKind, reAttackKind, reRun, candidate, applied, fixMasks]);
+  const reNow = useRef(reRun);
+  reNow.current = reRun;
+  const reattack = useCallback((run: number, runId: string) => {
+    const sent = session.current.resent;
+    if (!sent) return;
+    void runAttack(sent, session.current.cache, runId).then(
+      (outcome) => dispatch({ type: 'reattackDone', run, outcome }),
+      () => undefined,
+    );
+  }, []);
+  const rounds = re.rounds;
+  const onResend = useCallback(() => {
+    const s = state.reattack.send;
+    if (s.kind !== 'ready' || s.dry.failed.length > 0) return;
+    const run = s.run;
+    const sid = session.current.id;
+    const runId = `r${rounds + 2}`;
+    void consentTo(s.dry, sid).then((sent) => {
+      if (reNow.current !== run || session.current.id !== sid) return;
+      session.current.resent = sent;
+      dispatch({ type: 'resent', run });
+      reattack(run, runId);
+    });
+  }, [state.reattack.send, rounds, reattack]);
+  const onRetryReattack = useCallback(() => {
+    const run = reNow.current;
+    dispatch({ type: 'retryReattack', run });
+    reattack(run, `r${rounds + 1}`);
+  }, [reattack, rounds]);
+  const afterOutcome = settledReattack(state);
+  const compare = useMemo(() => {
+    if (!afterOutcome || !vault || !verdict) return null;
+    const t0 = performance.now();
+    const after = verdictOf(afterOutcome, vault, candidate, { theta: vaultScan.threshold(), phase: 'after_fix', ...(rc ? { bands: rc.bandsM } : {}) });
+    return { cmp: compareVerdicts(verdict.v, after), ms: Math.round(performance.now() - t0) };
+  }, [afterOutcome, vault, verdict, candidate, rc]);
+  const allOutcomes = useMemo(() => (outcome ? [outcome, ...re.history] : [...re.history]), [outcome, re.history]);
+  const prevSentMasks = re.lastSentMasks;
+  const fixAction = blocked === null && latest ? (
+    <Button variant="primary" data-action="fix" onClick={onToFix}>{state.reattack.rounds > 0 ? t('ui.fix.again') : t('copy.fix.button')}</Button>
+  ) : null;
+
   const devFake = import.meta.env.DEV && typeof location !== 'undefined' ? new URLSearchParams(location.search).get('fakeAdv') : null;
 
   // Tier-0 runs once per photo, when the Pre-screen step is first shown (and again after Try again). The run number is
@@ -201,7 +296,7 @@ export function Check() {
             canSend={!!candidate && candidate.blockedBy.length === 0 && attackKind === 'idle'} onCloud={onCloud}
           />
         )}
-        {devFake && (current === 'send' || current === 'attack') && (
+        {devFake && (current === 'send' || current === 'attack' || current === 'reattack') && (
           <p className="mt-2 rounded-md border border-dashed border-line px-2 py-1 font-mono text-xs text-muted">{t('ui.dev.fakeAdversary', { mode: devFake })}</p>
         )}
         {current === 'send' && (
@@ -216,14 +311,63 @@ export function Check() {
         {current === 'verdict' && (
           verdict && vault ? (
             <div className="mt-3 flex flex-col gap-3">
-              <VerdictCard verdict={verdict.v} vault={vault} referee={{ route: 'RULES_ONLY', latencyMs: verdict.ms }} headingLevel={3} />
+              <VerdictCard
+                verdict={verdict.v} vault={vault} referee={{ route: 'RULES_ONLY', latencyMs: verdict.ms }} headingLevel={3}
+                actions={fixAction ?? (blockedCopy ? <p className="text-sm text-muted">{blockedCopy}</p> : null)}
+              />
               <p className="text-sm text-muted">{t('ui.verdict.nextSoon')}</p>
             </div>
           ) : (
             <p className="mt-3 text-sm text-muted">{t('ui.verdict.loading')}</p>
           )
         )}
-        {(current === 'fix' || current === 'reattack' || current === 'export') && <p className="mt-2 text-sm text-muted">{t('ui.placeholder')}</p>}
+        {current === 'fix' && (
+          <FixPanel
+            master={master.current?.canvas ?? null} baseMasks={fixMasks} baseCrop={applied?.crop ?? null} fix={plan?.fix ?? null}
+            unchecked={unchecked} cropOff={cropOff} residual={residual}
+            applied={re.pending && applied ? { added: state.fix.lastAdded } : null}
+            blockedCopy={re.pending ? (blocked === 'declined' || blocked === 'maxRounds' ? blockedCopy : null) : blockedCopy}
+            round={{ n: Math.min(rounds + 1, maxRounds), max: maxRounds }}
+            onToggle={(clueId) => dispatch({ type: 'toggleFixMask', clueId })} onToggleCrop={() => dispatch({ type: 'toggleFixCrop' })}
+            onApply={onApplyFix} onCancel={() => dispatch({ type: 'cancelFix' })} onReattack={onToReattack}
+          />
+        )}
+        {current === 'reattack' && reAttackKind === 'idle' && (
+          <div className="mt-3 flex flex-col gap-2">
+            {re.send.kind === 'ready' && <p className="text-sm font-medium" data-testid="consent-diff">{t('ui.consent.diff', { n: Math.max(0, re.send.dry.masks.length - prevSentMasks) })}</p>}
+            <ConsentPanel
+              send={re.send} candidate={candidate} tierCopy={consentTierCopy(rc?.dataTier ?? 'free')}
+              model={rc?.adversaryModel ?? ''} sent={false} onSend={onResend} onCancel={() => dispatch({ type: 'cancelResend' })}
+            />
+          </div>
+        )}
+        {current === 'reattack' && reAttackKind !== 'idle' && !afterOutcome && (
+          <AttackPanel attack={re.attack} model={rc?.adversaryModel ?? ''} onRetry={onRetryReattack} onToVerdict={() => dispatch({ type: 'reattackSettle' })} />
+        )}
+        {current === 'reattack' && afterOutcome && (
+          compare && vault ? (
+            <div className="mt-3 flex flex-col gap-3" data-testid="compare">
+              <p className="text-xs text-muted">{t('ui.fix.round', { n: rounds, max: maxRounds })}</p>
+              <VerdictCard
+                verdict={compare.cmp.after} comparison={compare.cmp} vault={vault} referee={{ route: 'RULES_ONLY', latencyMs: compare.ms }} headingLevel={3}
+                actions={fixAction ?? (blockedCopy ? <p className="text-sm text-muted">{blockedCopy}</p> : null)}
+              />
+              {compareRows(compare.cmp.before, compare.cmp.after, vault).length > 0 && (
+                <div>
+                  <p className="text-sm font-medium">{t('ui.compare.title')}</p>
+                  <ul className="mt-1 flex flex-col gap-1 text-sm" data-testid="compare-rows">
+                    {compareRows(compare.cmp.before, compare.cmp.after, vault).map((row, i) => <li key={i}>{row}</li>)}
+                  </ul>
+                </div>
+              )}
+              <p className="font-mono text-xs text-muted" data-testid="receipt">{t('copy.receipt.line', receiptParams(allOutcomes))}</p>
+              <p className="text-sm text-muted">{t('ui.verdict.nextSoon')}</p>
+            </div>
+          ) : (
+            <p className="mt-3 text-sm text-muted">{t('ui.verdict.loading')}</p>
+          )
+        )}
+        {current === 'export' && <p className="mt-2 text-sm text-muted">{t('ui.placeholder')}</p>}
       </section>
     </div>
   );

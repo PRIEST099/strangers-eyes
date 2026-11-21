@@ -2508,6 +2508,8 @@ riskReduced = levelRank(after) < levelRank(before)
 
 ### 12.5 Fix planner (`core/fixPlanner.ts`)
 
+**As built (D-142, D-143):** the rules plan is `web/src/core/fixPlan.ts` (`deterministicFix`, `fixTargets`, `expectedResidual`, `selectedFix`, `residualAfter`, `combineCrops`); `validateDevicePlan` and nanoFix.v1 are not built. Boxes map through the newest pass-B result's `sentFrame`; a crop asks only for strong targets citing nothing removable; fix masks accumulate across rounds and crops intersect. The re-attack image (master + first-send masks + fix masks + crop) goes through `runConsentDryRun`, a new consent and the gate; the compare uses the photo's first verdict as "before".
+
 **`deterministicFix`** (SPEC §10.4):
 1. Mask every removable clue cited by any exact, likely or possible match, plus every removable clue cited by the hypothesis giving the closest pin band of district or finer. If there are no targets, mask every removable clue with severity high (SPEC §10.4).
 2. `crop`: `'none'`, unless every clue cited by some exact or likely target (or by the closest-band hypothesis) is non-removable. In that case use the side whose `minimalCrop` removes all of those boxes within the 40% cap (SPEC §10.4, D-35). If no side fits, use `'none'` and show `copy.fix.unremovable` plus the manual crop tool.

@@ -25,14 +25,17 @@ async function sha256Hex(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
   return Array.from(new Uint8Array(d), (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-/** The dry run on Check's master with the candidate's masks. Never rejects: a failure is `failed: ['check']`. */
-export async function runConsentDryRun(master: HTMLCanvasElement, masks: readonly PxRect[], userUnmasked: readonly PxRect[]): Promise<DryRun> {
+/**
+ * The dry run on Check's master with the candidate's masks (plus, for a re-attack, the fix masks and its crop: T-080,
+ * the same dry run, consent and gate as the first send). Never rejects: a failure is `failed: ['check']`.
+ */
+export async function runConsentDryRun(master: HTMLCanvasElement, masks: readonly PxRect[], userUnmasked: readonly PxRect[], crop: PxRect | null = null): Promise<DryRun> {
   const c = await rc();
   const decode = await import('../../tier0/decode');
   return runPreflight(
     { masks, width: master.width, height: master.height, userUnmasked, faceMinConfidence: c?.faceMinConfidence ?? 0.3, padRatio: c?.maskPadRatio ?? 0.15 },
     {
-      build: (m) => buildFrameJpeg('cloud', master, { masks: m, ...(c ? { maxPx: c.cloudImageMaxPx } : {}) }),
+      build: (m) => buildFrameJpeg('cloud', master, { masks: m, ...(crop ? { crop } : {}), ...(c ? { maxPx: c.cloudImageMaxPx } : {}) }),
       checkClean: async (jpeg) => (await import('../../tier0/exif')).checkCleanJpeg(jpeg),
       decode: async (bytes) => {
         const bmp = await decode.decodeOriented(new Blob([bytes], { type: 'image/jpeg' }));
@@ -60,9 +63,10 @@ export async function consentTo(dry: DryRun, sessionId: string): Promise<SentIma
   return { image: dry.image, consent: mintConsent({ sha256: dry.image.sha256, sessionId }), model: c?.adversaryModel ?? 'unknown', sessionId };
 }
 
-export async function runAttack(sent: SentImage, cache: AdvBCache): Promise<AttackOutcome> {
+/** Pass B on the consented image; `runId` is 'r1' for the first attack, 'r2'… for re-attacks (T-080). */
+export async function runAttack(sent: SentImage, cache: AdvBCache, runId = 'r1'): Promise<AttackOutcome> {
   const { adversaryB } = await import('../../ai/jobs/adversaryB');
-  return adversaryB({ sessionId: sent.sessionId, image: sent.image, consent: sent.consent, model: sent.model }, { cache });
+  return adversaryB({ sessionId: sent.sessionId, image: sent.image, consent: sent.consent, model: sent.model, runId }, { cache });
 }
 
 /** A per-session pass-B cache (AC-147): final outcomes keyed by session + sha256 + model + prompt version. */

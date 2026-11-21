@@ -4,7 +4,12 @@ import { describe, expect, it } from 'vitest';
 import type { AttackOutcome } from '../../ai/jobs/adversaryB';
 import type { DryRun } from '../../ai/preflight';
 import type { AdversaryResult, Clue, VaultItem } from '../../core/types';
-import { FLOW_IDLE, PRESCREEN_IDLE, checkReducer, goesToVerdict, maskedCandidate, type CheckAction, type CheckState, type PrescreenOutcome } from '../checkState';
+import {
+  FIX_IDLE, FLOW_IDLE, PRESCREEN_IDLE, REATTACK_IDLE, checkReducer, declinedInSession, fixBlocked, goesToVerdict, latestResult, maskedCandidate,
+  settledReattack, type CheckAction, type CheckState, type PrescreenOutcome,
+} from '../checkState';
+import { compareVerdicts, comparisonHeadline } from '../../core/verdict';
+import { compareRows, receiptParams } from './fixFlow';
 import { resultStatus } from '../importTransfer';
 import { INITIAL_STATUS } from '../systemStatus';
 import { caughtOf, consentTierCopy, groundingOffered, sendBlockedCopy, userUnmaskedBoxes, verdictOf } from './sendFlow';
@@ -22,7 +27,7 @@ const OUTCOME: PrescreenOutcome = { findings: [{ clue: vaultClue }], failed: [],
 const run = (s: CheckState, ...as: CheckAction[]) => as.reduce(checkReducer, s);
 const steps: CheckAction[] = (['metadata', 'faces', 'text', 'vault'] as const).map((step) => ({ type: 'prescreenStep', run: 1, report: { step, status: 'done', count: 0, ms: 1 } }));
 const onPrescreen: CheckState = run(
-  { pos: { current: 'prescreen', reached: 'prescreen' }, importStatus: READY, prescreen: PRESCREEN_IDLE, epoch: 1, flow: FLOW_IDLE },
+  { pos: { current: 'prescreen', reached: 'prescreen' }, importStatus: READY, prescreen: PRESCREEN_IDLE, epoch: 1, flow: FLOW_IDLE, fix: FIX_IDLE, reattack: REATTACK_IDLE },
   { type: 'prescreenStart', run: 1, sha256: SHA }, ...steps, { type: 'prescreenDone', run: 1, outcome: OUTCOME },
 );
 const dry = (over: Partial<DryRun> = {}): DryRun => ({
@@ -128,5 +133,93 @@ describe('sendFlow helpers', () => {
     const p = verdictOf({ kind: 'refused', why: 'declined', call }, VAULT, c);
     expect(p.level).toBe('PARTIAL');
     expect(p.pinBands).toEqual([]);
+  });
+});
+
+// T-078..T-080 (D-142, D-143): Fix → Re-attack in ui/checkState.ts, and the compare helpers in ui/check/fixFlow.ts.
+describe('Fix → Re-attack transitions (D-143)', () => {
+  const ready = run(onPrescreen, { type: 'toSend' }, { type: 'preflightStart', run: 0 }, { type: 'preflightDone', run: 0, dry: dry({ masks: [{ x: 0, y: 0, w: 9, h: 9 }] }) });
+  const sent = run(ready, { type: 'sent', run: 0 });
+  const onVerdict = run(sent, { type: 'attackDone', run: 0, outcome: { kind: 'result', result: result(), call } });
+  const M = { x: 10, y: 10, w: 50, h: 50 };
+  const onFix = run(onVerdict, { type: 'toFix', maxRounds: 3 });
+  const applied = run(onFix, { type: 'toggleFixMask', clueId: 'c2' }, { type: 'applyFix', masks: [M], crop: null });
+  const reReady = run(applied, { type: 'toReattack', maxRounds: 3 }, { type: 'reflightStart', run: 1 }, { type: 'reflightDone', run: 1, dry: dry({ masks: [M, M] }) });
+  const resent = run(reReady, { type: 'resent', run: 1 });
+  const after = (o: AttackOutcome) => run(resent, { type: 'reattackDone', run: 1, outcome: o });
+
+  it('BUILT steps: Fix opens from a verdict on a pass-B result; Apply adds masks, keeps the step and starts a re-attack episode', () => {
+    expect(sent.reattack.lastSentMasks).toBe(1);
+    expect(onFix.pos.current).toBe('fix');
+    expect(onFix.fix.unchecked).toEqual([]);
+    expect(run(onFix, { type: 'applyFix', masks: [], crop: null })).toBe(onFix); // nothing ticked: no Apply
+    expect(applied.pos.current).toBe('fix');
+    expect(applied.fix).toEqual({ unchecked: [], cropOff: false, applied: { masks: [M], crop: null }, lastAdded: 1 });
+    expect([applied.reattack.pending, applied.reattack.run]).toEqual([true, 1]);
+    expect(run(applied, { type: 'cancelFix' }).pos.current).toBe('verdict');
+  });
+
+  it('the re-attack runs its own dry run, consent and pass B; a round counts when it is sent; the result is the new "after"', () => {
+    expect(reReady.pos.current).toBe('reattack');
+    expect(run(reReady, { type: 'reflightDone', run: 0, dry: dry() })).toBe(reReady); // a stale run
+    expect(run(reReady, { type: 'cancelResend' }).pos.current).toBe('fix');
+    expect([resent.reattack.rounds, resent.reattack.pending, resent.reattack.attack.kind, resent.reattack.lastSentMasks]).toEqual([1, false, 'running', 2]);
+    const ok = after({ kind: 'result', result: result({ runId: 'r2' }), call });
+    expect(settledReattack(ok)?.kind).toBe('result');
+    expect(latestResult(ok)?.result.runId).toBe('r2');
+    expect(fixBlocked(ok, 3)).toBeNull();
+    expect(run(ok, { type: 'toFix', maxRounds: 3 }).pos.current).toBe('fix');
+  });
+
+  it('AC-195: no round past max_fix_rounds', () => {
+    const ok = after({ kind: 'result', result: result(), call });
+    expect(fixBlocked(ok, 1)).toBe('maxRounds');
+    expect(run(ok, { type: 'toFix', maxRounds: 1 })).toBe(ok);
+    expect(run(applied, { type: 'toReattack', maxRounds: 0 })).toBe(applied);
+  });
+
+  it('D-114/D-129: after any refusal there is no fix round and no re-attack', () => {
+    const declined = run(sent, { type: 'attackDone', run: 0, outcome: { kind: 'refused', why: 'declined', call } });
+    expect([declinedInSession(declined), fixBlocked(declined, 3)]).toEqual([true, 'declined']);
+    expect(run(declined, { type: 'toFix', maxRounds: 3 })).toBe(declined);
+    const reDeclined = after({ kind: 'refused', why: 'blocked', call });
+    expect(fixBlocked(reDeclined, 3)).toBe('declined');
+    expect(run(reDeclined, { type: 'toFix', maxRounds: 3 })).toBe(reDeclined);
+  });
+
+  it('a retryable re-attack failure is not settled until Try again succeeds or the user settles it; a new import resets fixing', () => {
+    const net = after({ kind: 'failed', state: 'error', code: 'CLOUD_NETWORK', copyId: 'copy.err.network', retry: true, call });
+    expect([settledReattack(net), fixBlocked(net, 3)]).toEqual([null, 'busy']);
+    expect(run(net, { type: 'retryReattack', run: 1 }).reattack.attack.kind).toBe('running');
+    expect(settledReattack(run(net, { type: 'reattackSettle' }))?.kind).toBe('failed');
+    const fresh = run(net, { type: 'importStatus', status: { kind: 'busy' } });
+    expect([fresh.fix, fresh.reattack.rounds, fresh.reattack.history]).toEqual([FIX_IDLE, 0, []]);
+  });
+});
+
+describe('fixFlow helpers (AC-194)', () => {
+  const c = maskedCandidate(onPrescreen, SHA);
+  const before = verdictOf({ kind: 'result', result: result(), call }, VAULT, c);
+  const fixed = result({ inferences: [], hypotheses: [{ id: 'h1', label: 'A coastal city', level: 'city', lat: 0.6, lng: -30.3, radiusKm: 25, confidence: 'low', clueIds: [] }] });
+  const afterFix = verdictOf({ kind: 'result', result: fixed, call }, VAULT, c, { phase: 'after_fix' });
+
+  it('a fixed re-attack is "Risk reduced"; the same answer again is "Still exposed"', () => {
+    expect(afterFix.phase).toBe('after_fix');
+    const cmp = compareVerdicts(before, afterFix);
+    expect(cmp.riskReduced).toBe(true);
+    expect(comparisonHeadline(cmp).copyId).toBe('copy.verdict.reduced');
+    const same = compareVerdicts(before, verdictOf({ kind: 'result', result: result(), call }, VAULT, c, { phase: 'after_fix' }));
+    expect(same.riskReduced).toBe(false);
+    expect(comparisonHeadline(same).copyId).toBe('copy.verdict.still');
+  });
+
+  it('Before → After rows use KIND names and band or link words, never the label; the receipt counts cloud calls only', () => {
+    const rows = compareRows(before, afterFix, VAULT);
+    expect(rows.at(-1)).toBe("Attacker's best guess: neighbourhood level → city level");
+    expect(rows.some((r) => r.includes('exact link → not linked'))).toBe(true);
+    expect(rows.join(' ')).not.toMatch(/Lucas|City General/);
+    expect(compareRows(before, verdictOf({ kind: 'refused', why: 'declined', call }, VAULT, c), VAULT)).toEqual([]);
+    const cached = { ...call, route: 'CACHED' as const };
+    expect(receiptParams([{ kind: 'result', result: result(), call }, { kind: 'result', result: fixed, call: cached }])).toEqual({ images: 1, requests: 1, k: 0, r: 5 });
   });
 });

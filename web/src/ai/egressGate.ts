@@ -1331,8 +1331,15 @@ function sdkModel(spec: ModelSpec, mode: GateMode, config: AppConfig, job: JobNa
 // The fake model lives here because only this file may name the content methods (check-boundaries R1). A production
 // build has none of it: appDeps picks devBuildModel only under import.meta.env.DEV, the setter returns at once in a
 // production build, and the fake's strings carry the DEV marker, so scripts/check-dist.mjs fails if any of it ships.
-/** One fake pass-B answer: JSON text (with an optional finishReason), a safety refusal, an HTTP/network error, or a hang. */
-export interface DevFakeReply { text?: string; finishReason?: string; refuse?: boolean; status?: number; network?: boolean; hang?: boolean; delayMs?: number }
+/**
+ * One fake pass-B answer: JSON text (with an optional finishReason), a safety refusal, an HTTP/network error, or a hang.
+ * `textFor` (D-144) computes the text from the base64 images the gate is sending (after every check has passed), so a
+ * re-attack on a fixed image can answer differently; it only reads them, and only in a DEV build.
+ */
+export interface DevFakeReply {
+  text?: string; finishReason?: string; refuse?: boolean; status?: number; network?: boolean; hang?: boolean; delayMs?: number;
+  textFor?: (imagesBase64: readonly string[]) => Promise<string>;
+}
 type DevFake = (job: JobName) => DevFakeReply | null;
 let devFake: DevFake | null = null;
 /** DEV ONLY: install (or clear, null) the fake adversary. Does nothing in a production build. */
@@ -1341,7 +1348,7 @@ export function devSetFakeAdversary(fn: DevFake | null): void {
   devFake = fn;
 }
 function devFakeModel(r: DevFakeReply): GateModel {
-  const answer = async (opts?: GateCallOptions): Promise<GateResponse> => {
+  const answer = async (opts?: GateCallOptions, parts: readonly Part[] = []): Promise<GateResponse> => {
     const signal = opts?.signal;
     const wait = (ms: number) => new Promise<void>((res, rej) => {
       const id = r.hang ? undefined : setTimeout(res, ms);
@@ -1353,14 +1360,19 @@ function devFakeModel(r: DevFakeReply): GateModel {
     });
     if (r.network) throw err('fetch-error');
     if (r.status !== undefined) throw err('fetch-error', r.status);
+    const images = parts.flatMap((p) => {
+      const d = (p as { inlineData?: { data?: unknown } }).inlineData?.data;
+      return typeof d === 'string' ? [d] : [];
+    });
+    const text = r.textFor ? await r.textFor(images) : r.text ?? '';
     return {
-      text: () => { if (r.refuse) throw err('response-error'); return r.text ?? ''; },
+      text: () => { if (r.refuse) throw err('response-error'); return text; },
       inferenceSource: 'in_cloud',
       candidates: [{ finishReason: r.finishReason ?? 'STOP' }],
     };
   };
   return {
-    async generateContent(_parts, opts) { return { response: await answer(opts) }; },
+    async generateContent(parts, opts) { return { response: await answer(opts, parts) }; },
     async generateContentStream() { throw new Error('__SE_DEV_ONLY__ fake adversary: pass B is not streamed'); },
   };
 }

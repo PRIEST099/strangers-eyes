@@ -1279,7 +1279,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
   - Verify: screenshots in light and dark mode.
   - **Status (Nov 21): built and unit-tested; browser-checked in the DEV gallery `#/dev/verdicts` (desktop and 375 px, dark and light, no horizontal scroll, the disclosure and the labels toggle work, no console errors). Not wired into Check yet: the Check builder mounts `<VerdictCard verdict vault comparison? referee? actions? onFocusClues? onExplain? headingLevel?>` (D-124, D-125).** Files: `web/src/ui/components/VerdictCard.tsx`, `web/src/ui/components/verdict/{model.ts,tones.ts,VerdictLineItem.tsx,VerdictIcon.tsx}`, `web/src/ui/verdictCard.test.ts` (every `verdict.json` build and compare case, labels on and off: no "safe", no measured distance, no pin coordinate, headline as a heading, neverLearns, a live region, no green outside "Risk reduced", confidence per AC-164, PARTIAL never reads as LOW, LOW says "This isn't a guarantee.", Add places on noVault/noPins; 12 mutants killed, F-180; fix round D-134 / F-198..F-200: the band confidence always shows, a level-terms "Risk reduced" header is the heading, `announce` prop, 9 more mutants killed), `web/src/dev/verdicts/VerdictGallery.tsx`, App.tsx (one DEV-only lazy route), en.json (`ui.verdict.*`, `ui.unit.seconds`). **Open:** the Settings toggle "Show vault labels in results" belongs to T-092 (P1; the card already reads the pref); clue highlighting on the image and the SCR-16 Explain button come through the callbacks once those screens exist.
 
-- [ ] T-078 [CLAUDE] Fix planner (S0, nanoFix.v1) with a deterministic fallback. Due: Tue Nov 24 · Deps: T-074, T-076 · AC: AC-190, AC-191, AC-197
+- [ ] T-078 [CLAUDE] Fix planner (S0, nanoFix.v1) with a deterministic fallback. Due: Tue Nov 24 · Deps: T-074, T-076 · AC: AC-190, AC-191, AC-197 (**Rules plan built Nov 21, not ticked:** D-142, F-214. `core/fixPlan.ts` `deterministicFix` (AC-191 unit, AC-197 automated half), `ui/check/FixPanel.tsx` plan card + checklist. **Open:** nanoFix.v1 + `validateDevicePlan` (AC-190), the Nano manual check, the OCR-union refinement.)
   - Read: SPEC SCR-11, §10.4; ARCH §10.10, §12.5
   - Files: `web/src/ai/jobs.ts` (`fixPlan`), `web/src/core/fixPlanner.ts` (`deterministicFix`, `validateDevicePlan`).
   - Do:
@@ -1289,7 +1289,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
     - An empty plan while red lines exist → use the rules plan.
   - Verify: unit tests for the fallback and validation; manual check with Nano.
 
-- [ ] T-079 [CLAUDE] Apply the fix. Due: Tue Nov 24 · Deps: T-059, T-078 · AC: AC-192, AC-196
+- [ ] T-079 [CLAUDE] Apply the fix. Due: Tue Nov 24 · Deps: T-059, T-078 · AC: AC-192, AC-196 (**Built Nov 21, not ticked:** D-142. Solid fix masks + optional crop on a copy (cumulative across rounds); re-OCR = the re-attack's consent dry run on the exact bytes (AC-198 path). **Open:** the fill animation; a unit test on a synthetic image through the dry run.)
   - Read: SPEC SCR-11 ("Apply")
   - Do:
     - Solid fills animate in (15% padding; OCR union where it overlaps).
@@ -1299,7 +1299,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
     - Non-removable cited clues → `copy.fix.unremovable`.
   - Verify: unit test on a synthetic image; manual check.
 
-- [ ] T-080 [CLAUDE] Re-attack and before/after compare. Due: Tue Nov 24 · Deps: T-071, T-079 · AC: AC-193, AC-194, AC-195
+- [ ] T-080 [CLAUDE] Re-attack and before/after compare. Due: Tue Nov 24 · Deps: T-071, T-079 · AC: AC-193, AC-194, AC-195 (**Built Nov 21, not ticked:** D-143, D-144, F-211..F-213. Dry run → new consent → gate → pass B r2.. → `buildVerdict('after_fix')` → `compareVerdicts` → VerdictCard compare header, Before → After rows, receipt line; `max_fix_rounds` (AC-195 unit); no re-attack after any refusal. AC-194 unit (reduced vs still). Browser: DEV fake (`?fakeAdv=ok`, image-aware), synthetic image, RED → Risk reduced → LOW. **Open:** AC-193 with real numbers (one real re-attack), pass A on re-attack, Judge countdown.)
   - Read: SPEC SCR-11, §10.6, D-18
   - Do:
     - Compact consent → pass B (+ pass A if the "Notes on re-attack" setting is on) → referee → compare per **SPEC §10.6**.
