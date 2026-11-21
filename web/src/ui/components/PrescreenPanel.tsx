@@ -2,8 +2,8 @@
 // its route badge and latency: Tier-0 is RULES-ONLY), then the photo with its masks and the side list. Until T-066 the
 // "Looking for clues" line is RULES-ONLY and says why, by capability state (prescreenView.nanoLineCopy). A failed
 // reader blocks the photo (fail closed, D-123) and offers Try again; after it, focus goes to the progress list, which
-// stays mounted (all pending) while the run restarts (D-132). The primary actions are shown but disabled until
-// the Send (T-069) and Export (T-079) steps exist; nothing here sends anything.
+// stays mounted (all pending) while the run restarts (D-132). "Check with the cloud attacker" opens the Send step
+// (T-069) when the candidate may be sent; Export stays disabled until T-079. Nothing here sends anything.
 // TODO(T-064): each line also becomes a Router HUD entry once the HUD has its store.
 import { useRef } from 'react';
 import { t } from '../../core/strings';
@@ -25,6 +25,10 @@ export interface PrescreenPanelProps {
   state: PrescreenState;
   onOp: (op: EditorOp) => void;
   onRetry: () => void;
+  /** The candidate may be sent (no failed reader, no un-ticked face, not sent yet; T-069). */
+  canSend?: boolean;
+  /** Opens the Send step (SCR-07). */
+  onCloud?: () => void;
 }
 
 function LineMark({ line }: { line: ProgressLine }) {
@@ -33,7 +37,7 @@ function LineMark({ line }: { line: ProgressLine }) {
   return <span aria-hidden="true" className={`inline-block size-2 rounded-full bg-muted ${line.status === 'running' ? 'motion-safe:animate-pulse' : 'opacity-40'}`} />;
 }
 
-export function PrescreenPanel({ master, state, onOp, onRetry }: PrescreenPanelProps) {
+export function PrescreenPanel({ master, state, onOp, onRetry, canSend = false, onCloud }: PrescreenPanelProps) {
   const shell = useShell();
   const online = useOnline();
   const progressRef = useRef<HTMLUListElement>(null);
@@ -96,10 +100,13 @@ export function PrescreenPanel({ master, state, onOp, onRetry }: PrescreenPanelP
           </div>
           <div className="flex flex-col gap-2 border-t border-line pt-3">
             <div className="flex flex-wrap gap-2">
-              <Button variant="primary" disabled aria-describedby="prescreen-next">{t(online ? 'ui.prescreen.cloud' : 'ui.prescreen.queue')}</Button>
+              {/* Offline: "Queue cloud check" (SCR-18) stays disabled until the offline queue exists (T-084). */}
+              <Button variant="primary" disabled={!online || !canSend || !onCloud} onClick={onCloud} data-action="cloud">
+                {t(online ? 'ui.prescreen.cloud' : 'ui.prescreen.queue')}
+              </Button>
               <Button disabled aria-describedby="prescreen-next">{t('ui.prescreen.export')}</Button>
             </div>
-            <p id="prescreen-next" className="text-sm text-muted">{t('ui.prescreen.nextSoon')}</p>
+            <p id="prescreen-next" className="text-sm text-muted">{t('ui.prescreen.exportSoon')}</p>
           </div>
         </>
       )}

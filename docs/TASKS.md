@@ -1185,7 +1185,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
     - Actions: "Check with the cloud attacker" / "Queue cloud check" / "Just clean and export".
   - Verify: AC-112 unit test on a fixture clue set; manual check with the hero photo.
 
-- [ ] T-069 [CLAUDE] Consent sheet. Due: Mon Nov 23 · Deps: T-062, T-068 · AC: AC-130, AC-131, AC-132, AC-133, AC-134, AC-135
+- [ ] T-069 [CLAUDE] Consent sheet. Due: Mon Nov 23 · Deps: T-062, T-068 · AC: AC-130, AC-131, AC-132, AC-133, AC-134, AC-135 (**Built Nov 21, not ticked:** D-139, D-140, F-202..F-206. `ai/preflight.ts` (dry run, strict JPEG, 2 auto-mask rounds, user hits never re-masked; AC-134 unit), `ui/components/ConsentPanel.tsx` (Send step panel, not a modal), `ui/check/{sendFlow,runSend}.ts`, `checkState.flow`. Unit: tier line AC-131, cancel AC-132, failure disables Send AC-133. Browser (DEV fake adversary, synthetic image): sheet → Send → verdict. **Open:** AC-130 e2e needs the Ledger rail (T-063, F-205); AC-135 e2e with a real vault hit; re-attack diff line and Judge countdown (with T-080/Judge); `core/consent.ts` not needed (`mintConsent` in the gate).)
   - Read: SPEC SCR-07, D-30; ARCH §6 (`ConsentToken`), §8.3 (dry run, R-16)
   - Files: `web/src/core/consent.ts` (token = sha256 + sessionId + issuedAt, 10-minute TTL), `web/src/ui/components/ConsentSheet.tsx`, `web/src/ai/preflight.ts` + `preflight.test.ts` (ARCH §8.3).
   - Do:
@@ -1209,7 +1209,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
     - **Memory only.** Never parsed, cached, persisted or passed on: in TypeScript, the referee, benchmark and Atlas inputs accept only `AdversaryResult`.
   - Verify: AC-143 sentinel-string test; IndexedDB and localStorage dumps contain no note text.
 
-- [ ] T-071 [CLAUDE] Adversary pass B: structured (S3). Due: Mon Nov 23 · Deps: T-062, T-065, T-069 · AC: AC-140, AC-142, AC-147
+- [ ] T-071 [CLAUDE] Adversary pass B: structured (S3). Due: Mon Nov 23 · Deps: T-062, T-065, T-069 · AC: AC-140, AC-142, AC-147 (**Built Nov 21, not ticked:** D-137, D-138. `ai/jobs/adversaryB.ts` (states ok / no_location_signal / declined / blocked / truncated / unreadable / error, plus notSent; per-session cache, AC-147 unit), 11 tests through the real gate on fakes over the `advB.v1.*` fixtures; DEV fake adversary `dev/fakeAdversary.ts` (`?fakeAdv=`). **Open:** AC-140 (pass A, T-070); a real pass B run once the T-031 quota allows.)
   - Read: SPEC SCR-08, §17.5; ARCH §10.6 (`parseAdvB`); API-NOTES §1.10, §6.8
   - Files: `web/src/ai/jobs.ts` (`adversaryB`), `web/src/ai/parse.ts` (`parseAdvB`), tests. **`parseAdvB` and its fixture tests already exist (written for T-031, D-72)**; T-071 adds the job, the states and the echo scan.
   - Do:
@@ -1365,7 +1365,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
   - Then repeat the flow by hand in the user's Chrome with Nano: pre-screen, referee and fix show **ON-DEVICE** (AC-003).
   - Verify: the audit exits 0; red→green is demonstrated; PROGRESS says "GATE Nov 24: PASS". On failure, apply cuts 1–4 at once.
 
-- [ ] T-086 [CLAUDE] Thin vertical slice. Due: Sun Nov 22 · Deps: T-024, T-030, T-031, T-051, T-052, T-053, T-054, T-059
+- [ ] T-086 [CLAUDE] Thin vertical slice. Due: Sun Nov 22 · Deps: T-024, T-030, T-031, T-051, T-052, T-053, T-054, T-059 (**Check → Verdict built Nov 21 in the product screen instead of `dev/slice` (D-139):** import → pre-screen → consent → gate → pass B → rules referee → VerdictCard, checked in the browser with the DEV fake adversary only. **Open:** steps 5–6 (fix, re-attack: T-078–T-080) and the real-photo evidence "slice green" (needs one real pass B).)
   - Read: ARCH §5.1; SPEC §10
   - Files: `web/src/dev/slice/Slice.tsx`; `web/src/ai/egressGate.ts` v0 (S3 path only: EXIF check, consent hash, a ledger line), so the boundary check passes.
   - Do: on a plain page:

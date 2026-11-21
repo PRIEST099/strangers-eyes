@@ -1324,6 +1324,51 @@ function sdkModel(spec: ModelSpec, mode: GateMode, config: AppConfig, job: JobNa
   }
 }
 
+// ---------- DEV ONLY: the fake adversary (D-137) ----------
+// A DEV build can answer pass B from web/src/dev/fakeAdversary.ts instead of the SDK, so the Check flow can be driven
+// end to end in a browser without spending the cloud quota. Only the MODEL is swapped: every other gate step (class,
+// kill switch, offline, cap, consent, the image re-check, the prompt scan, the Ledger, the echo scan) runs for real.
+// The fake model lives here because only this file may name the content methods (check-boundaries R1). A production
+// build has none of it: appDeps picks devBuildModel only under import.meta.env.DEV, the setter returns at once in a
+// production build, and the fake's strings carry the DEV marker, so scripts/check-dist.mjs fails if any of it ships.
+/** One fake pass-B answer: JSON text (with an optional finishReason), a safety refusal, an HTTP/network error, or a hang. */
+export interface DevFakeReply { text?: string; finishReason?: string; refuse?: boolean; status?: number; network?: boolean; hang?: boolean; delayMs?: number }
+type DevFake = (job: JobName) => DevFakeReply | null;
+let devFake: DevFake | null = null;
+/** DEV ONLY: install (or clear, null) the fake adversary. Does nothing in a production build. */
+export function devSetFakeAdversary(fn: DevFake | null): void {
+  if (!import.meta.env.DEV) return;
+  devFake = fn;
+}
+function devFakeModel(r: DevFakeReply): GateModel {
+  const answer = async (opts?: GateCallOptions): Promise<GateResponse> => {
+    const signal = opts?.signal;
+    const wait = (ms: number) => new Promise<void>((res, rej) => {
+      const id = r.hang ? undefined : setTimeout(res, ms);
+      signal?.addEventListener('abort', () => { clearTimeout(id); rej(new DOMException('aborted', 'AbortError')); });
+    });
+    await wait(r.delayMs ?? 0);
+    const err = (code: string, status?: number) => Object.assign(new Error(`__SE_DEV_ONLY__ fake adversary: ${code}`), {
+      code, ...(status !== undefined ? { customErrorData: { status } } : {}),
+    });
+    if (r.network) throw err('fetch-error');
+    if (r.status !== undefined) throw err('fetch-error', r.status);
+    return {
+      text: () => { if (r.refuse) throw err('response-error'); return r.text ?? ''; },
+      inferenceSource: 'in_cloud',
+      candidates: [{ finishReason: r.finishReason ?? 'STOP' }],
+    };
+  };
+  return {
+    async generateContent(_parts, opts) { return { response: await answer(opts) }; },
+    async generateContentStream() { throw new Error('__SE_DEV_ONLY__ fake adversary: pass B is not streamed'); },
+  };
+}
+function devBuildModel(spec: ModelSpec, mode: GateMode, config: AppConfig, job: JobName): GateModel {
+  const r = spec.kind === 'adversaryB' && devFake ? devFake(job) : null;
+  return r ? devFakeModel(r) : sdkModel(spec, mode, config, job);
+}
+
 async function webSha256(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
   const d = await crypto.subtle.digest('SHA-256', bytes);
   return Array.from(new Uint8Array(d), (b) => b.toString(16).padStart(2, '0')).join('');
@@ -1351,7 +1396,7 @@ function appDeps(): GateDeps {
     interlock: appInterlock,
     tripwire: appTripwire,
     deviceQueue: appDeviceQueue,
-    buildModel: sdkModel,
+    buildModel: import.meta.env.DEV ? devBuildModel : sdkModel, // D-137: the DEV fake adversary; production always the SDK
     ledger: appLedger,
     status: systemStatus,
     notify: (n) => gateNotices.emit(n),

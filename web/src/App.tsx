@@ -32,6 +32,10 @@ const DevAdversarySpike: LazyExoticComponent<ComponentType> | null = import.meta
 const DevVerdictGallery: LazyExoticComponent<ComponentType> | null = import.meta.env.DEV
   ? lazy(() => import('./dev/verdicts/VerdictGallery'))
   : null;
+// D-137: DEV builds may answer pass B from a fake adversary (`?fakeAdv=ok|declined|blocked|…`), never the SDK.
+if (import.meta.env.DEV) {
+  void import('./dev/fakeAdversary').then((m) => m.installFakeAdversary(), () => undefined);
+}
 
 /** The route → screen map. Exported so ui/shell.test.ts asserts App's own mapping, not a copy of it. */
 export function Screen({ route }: { route: AppRoute }) {

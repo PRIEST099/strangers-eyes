@@ -12,18 +12,33 @@
 // device (ui/check/runPrescreen.ts) and then shows the mask editor. Its result is the masked frame candidate
 // (checkState.maskedCandidate) that the Send step (T-069) will show; nothing is sent from here. Steps that are not
 // built yet are shown as not available (BUILT_STEPS, D-121).
-import { useCallback, useEffect, useReducer, useRef } from 'react';
+// T-069/T-071/T-086 (D-137..D-139): "Check with the cloud attacker" opens the Send step. Its consent dry run builds the
+// cloud JPEG from candidate.masks and checks those exact bytes (ui/check/runSend.ts); "Send this image" mints the consent
+// token for that sha256 and runs pass B through the Egress Gate (ai/jobs/adversaryB.ts); a final outcome opens the
+// Verdict: the rules referee over pass B's validated JSON → buildVerdict → VerdictCard (Referee: RULES-ONLY, its
+// latency). Each photo is one session (a fresh sessionId per import epoch) with its own pass-B cache. The sent image
+// and its token stay in a ref (memory only). Fix, Re-attack and Export are not built.
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import type { AdvBCache } from '../../ai/jobs/adversaryB';
 import { vaultScan } from '../../ai/vaultScan';
 import { t } from '../../core/strings';
+import type { VaultItem } from '../../core/types';
+import type { AppConfig } from '../../firebase/remoteConfig';
+import { loadVault } from '../../vault/vaultStore';
 import { pinsWhenReady, type GpsPinLike } from '../../tier0/gpsWarning';
 import type { ImportedPhoto } from '../../tier0/importPhoto';
 import type { EditorOp } from '../check/editor';
 import { runPrescreen } from '../check/runPrescreen';
+import { consentTo, newAttackCache, runAttack, runConsentDryRun, type SentImage } from '../check/runSend';
+import { consentTierCopy, userUnmaskedBoxes, verdictOf } from '../check/sendFlow';
+import { AttackPanel } from '../components/AttackPanel';
 import { Button } from '../components/Button';
+import { ConsentPanel } from '../components/ConsentPanel';
+import { VerdictCard } from '../components/VerdictCard';
 import { ImportDropzone } from '../components/ImportDropzone';
 import { PrescreenPanel } from '../components/PrescreenPanel';
 import { StepperNav } from '../components/StepperNav';
-import { BUILT_STEPS, CHECK_START, checkReducer } from '../checkState';
+import { BUILT_STEPS, CHECK_START, checkReducer, maskedCandidate } from '../checkState';
 import { useOcrWarm } from '../hooks/useOcrWarm';
 import type { ImportStatus } from '../importTransfer';
 import { stepLabelId } from '../layout';
@@ -33,6 +48,25 @@ import { stepLabelId } from '../layout';
  * unsealing still gets copy.import.gpsNear. [] before boot has chosen a vault, or if it cannot be read.
  */
 const activePins = (): Promise<readonly GpsPinLike[]> => pinsWhenReady(vaultScan);
+
+/** The active vault for the referee: Judge Mode's fake vault, else the sealed real one ([] if it cannot be read). */
+async function activeVault(): Promise<readonly VaultItem[]> {
+  if (vaultScan.mode() === 'judge') return vaultScan.judgeVault() ?? [];
+  try { return await loadVault(); } catch { return []; }
+}
+
+/** RC values the slice shows (model id, tier, bands, θ); defaults while RC cannot be read. */
+function useRc() {
+  const [rc, setRc] = useState<AppConfig | null>(null);
+  useEffect(() => {
+    let live = true;
+    void import('../../firebase/remoteConfig').then((m) => { if (live) setRc(m.cfg()); }, () => undefined);
+    return () => { live = false; };
+  }, []);
+  return rc;
+}
+
+const newSessionId = (): string => (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `s-${Date.now()}-${Math.random()}`);
 
 export function Check() {
   // The stepper position, the last import status (`ready` exactly while master.current is set) and the pre-screen.
@@ -46,6 +80,17 @@ export function Check() {
   const prescreenKind = state.prescreen.kind;
   const epoch = state.epoch;
   useOcrWarm();
+  const rc = useRc();
+  // One session per photo (import epoch): its id, its pass-B cache, and the image it sent (memory only).
+  const session = useRef<{ epoch: number; id: string; cache: AdvBCache; sent: SentImage | null }>({ epoch: -1, id: '', cache: newAttackCache(), sent: null });
+  if (session.current.epoch !== epoch) session.current = { epoch, id: newSessionId(), cache: newAttackCache(), sent: null };
+  const flowRun = state.flow.run;
+  const flowNow = useRef(flowRun);
+  flowNow.current = flowRun;
+  const heldSha = master.current?.sha256 ?? null;
+  const candidate = useMemo(() => maskedCandidate(state, heldSha), [state.prescreen, state.importStatus, heldSha]);
+  const sendKind = state.flow.send.kind;
+  const attackKind = state.flow.attack.kind;
 
   const onPhoto = useCallback((p: ImportedPhoto | null) => {
     master.current = p ? { canvas: p.master, jpeg: p.jpeg, sha256: p.sha256 } : null;
@@ -53,6 +98,63 @@ export function Check() {
   const onImportStatus = useCallback((status: ImportStatus) => dispatch({ type: 'importStatus', status }), []);
   const onOp = useCallback((op: EditorOp) => dispatch({ type: 'edit', op }), []);
   const onRetry = useCallback(() => dispatch({ type: 'retry' }), []);
+  const onCloud = useCallback(() => dispatch({ type: 'toSend' }), []);
+  const onCancelSend = useCallback(() => dispatch({ type: 'cancelSend' }), []);
+  const onToVerdict = useCallback(() => dispatch({ type: 'toVerdict' }), []);
+
+  // The consent dry run, once per flow run, when the Send step is shown (local only; while the cloud is off the
+  // sheet shows the reason instead and offers no Send, ConsentPanel).
+  useEffect(() => {
+    const m = master.current;
+    if (current !== 'send' || sendKind !== 'idle' || attackKind !== 'idle' || !m || !candidate || candidate.blockedBy.length > 0) return;
+    const run = flowRun;
+    dispatch({ type: 'preflightStart', run });
+    void runConsentDryRun(m.canvas, candidate.masks, userUnmaskedBoxes(candidate)).then((dry) => dispatch({ type: 'preflightDone', run, dry }));
+  }, [current, sendKind, attackKind, flowRun, candidate]);
+
+  const attack = useCallback((run: number) => {
+    const sent = session.current.sent;
+    if (!sent) return;
+    const cache = session.current.cache;
+    void runAttack(sent, cache).then(
+      (outcome) => dispatch({ type: 'attackDone', run, outcome }),
+      () => undefined, // ABORTED: a newer episode replaced this one
+    );
+  }, []);
+  const onSend = useCallback(() => {
+    const s = state.flow.send;
+    if (s.kind !== 'ready' || s.dry.failed.length > 0) return;
+    const run = s.run;
+    const sid = session.current.id;
+    void consentTo(s.dry, sid).then((sent) => {
+      if (flowNow.current !== run || session.current.id !== sid) return;
+      session.current.sent = sent;
+      dispatch({ type: 'sent', run });
+      attack(run);
+    });
+  }, [state.flow.send, attack]);
+  const onRetryAttack = useCallback(() => {
+    const run = flowNow.current;
+    dispatch({ type: 'retryAttack', run });
+    attack(run);
+  }, [attack]);
+
+  // The verdict: the active vault (read on this device) and the rules referee over pass B.
+  const [vault, setVault] = useState<readonly VaultItem[] | null>(null);
+  useEffect(() => {
+    if (attackKind !== 'done') { setVault(null); return; }
+    let live = true;
+    void activeVault().then((v) => { if (live) setVault(v); });
+    return () => { live = false; };
+  }, [attackKind, flowRun]);
+  const outcome = state.flow.attack.kind === 'done' ? state.flow.attack.outcome : null;
+  const verdict = useMemo(() => {
+    if (!outcome || !vault) return null;
+    const t0 = performance.now();
+    const v = verdictOf(outcome, vault, candidate, { theta: vaultScan.threshold(), ...(rc ? { bands: rc.bandsM } : {}) });
+    return { v, ms: Math.round(performance.now() - t0) };
+  }, [outcome, vault, candidate, rc]);
+  const devFake = import.meta.env.DEV && typeof location !== 'undefined' ? new URLSearchParams(location.search).get('fakeAdv') : null;
 
   // Tier-0 runs once per photo, when the Pre-screen step is first shown (and again after Try again). The run number is
   // the epoch (D-133): never started twice for one epoch (StrictMode runs an effect twice in dev), and the reducer
@@ -94,9 +196,34 @@ export function Check() {
           </div>
         )}
         {current === 'prescreen' && (
-          <PrescreenPanel master={master.current?.canvas ?? null} state={state.prescreen} onOp={onOp} onRetry={onRetry} />
+          <PrescreenPanel
+            master={master.current?.canvas ?? null} state={state.prescreen} onOp={onOp} onRetry={onRetry}
+            canSend={!!candidate && candidate.blockedBy.length === 0 && attackKind === 'idle'} onCloud={onCloud}
+          />
         )}
-        {current !== 'import' && current !== 'prescreen' && <p className="mt-2 text-sm text-muted">{t('ui.placeholder')}</p>}
+        {devFake && (current === 'send' || current === 'attack') && (
+          <p className="mt-2 rounded-md border border-dashed border-line px-2 py-1 font-mono text-xs text-muted">{t('ui.dev.fakeAdversary', { mode: devFake })}</p>
+        )}
+        {current === 'send' && (
+          <ConsentPanel
+            send={state.flow.send} candidate={candidate} tierCopy={consentTierCopy(rc?.dataTier ?? 'free')}
+            model={rc?.adversaryModel ?? ''} sent={attackKind !== 'idle'} onSend={onSend} onCancel={onCancelSend}
+          />
+        )}
+        {current === 'attack' && (
+          <AttackPanel attack={state.flow.attack} model={rc?.adversaryModel ?? ''} onRetry={onRetryAttack} onToVerdict={onToVerdict} />
+        )}
+        {current === 'verdict' && (
+          verdict && vault ? (
+            <div className="mt-3 flex flex-col gap-3">
+              <VerdictCard verdict={verdict.v} vault={vault} referee={{ route: 'RULES_ONLY', latencyMs: verdict.ms }} headingLevel={3} />
+              <p className="text-sm text-muted">{t('ui.verdict.nextSoon')}</p>
+            </div>
+          ) : (
+            <p className="mt-3 text-sm text-muted">{t('ui.verdict.loading')}</p>
+          )
+        )}
+        {(current === 'fix' || current === 'reattack' || current === 'export') && <p className="mt-2 text-sm text-muted">{t('ui.placeholder')}</p>}
       </section>
     </div>
   );

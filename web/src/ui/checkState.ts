@@ -10,17 +10,25 @@
 //     number IS the epoch it was started in, so prescreenStart is accepted once per epoch (StrictMode's second effect,
 //     or any duplicate, is refused) and a report from any other run (a photo replaced mid-run, a retry) is ignored
 //     (D-133). retry drops a failed pre-screen so Check runs it again.
-//   - edit applies a mask-editor op (ui/check/editor.ts) to a finished pre-screen.
+//   - edit applies a mask-editor op (ui/check/editor.ts) to a finished pre-screen. An edit drops a consent dry run
+//     (it described other bytes); once the image has been sent the masks are locked (the Fix step changes them, D-139).
+//   - T-069/T-071/T-086 (D-139): `flow` is the Send → Attack → Verdict episode. toSend opens the Send step from a
+//     finished pre-screen; the dry run (preflightStart/Done) and the attack (sent/attackDone/retryAttack) carry the
+//     flow's run number, so a result from an episode that was cancelled or replaced is ignored. cancelSend sends
+//     nothing and returns to the editor (AC-132). A final attack outcome moves on to the Verdict by itself; a
+//     transient failure stays on the Attack step with Try again (and toVerdict shows the on-device findings).
 // The master photo is NOT here: Check keeps it in a ref (never React state, never storage).
 import type { ClueType } from '../core/types';
 import type { PreTickMode } from '../core/pretick';
 import { TIER0_STEPS, type Tier0Finding, type Tier0StepId, type Tier0StepReport } from '../tier0/tier0';
+import type { AttackOutcome } from '../ai/jobs/adversaryB';
+import type { DryRun } from '../ai/preflight';
 import { candidateOf, createEditor, editorReducer, type EditorOp, type EditorState, type MaskedFrameCandidate } from './check/editor';
 import { IMPORT_IDLE, type ImportStatus } from './importTransfer';
 import { CHECK_STEPS, STEPPER_START, moveToStep, type CheckStep, type StepperPosition } from './layout';
 
 /** The steps that exist so far. The stepper shows the others as not available yet (D-121). */
-export const BUILT_STEPS: readonly CheckStep[] = Object.freeze(['import', 'prescreen']);
+export const BUILT_STEPS: readonly CheckStep[] = Object.freeze(['import', 'prescreen', 'send', 'attack', 'verdict']);
 
 /** One progress line (SPEC SCR-06 "Progress list"). */
 export interface ProgressLine {
@@ -53,6 +61,28 @@ export type PrescreenState =
   };
 export const PRESCREEN_IDLE: PrescreenState = Object.freeze({ kind: 'idle' });
 
+/** The consent dry run of the Send step (SCR-07). */
+export type SendState =
+  | { readonly kind: 'idle' }
+  | { readonly kind: 'checking'; readonly run: number }
+  | { readonly kind: 'ready'; readonly run: number; readonly dry: DryRun };
+/** Pass B (SCR-08). */
+export type AttackState =
+  | { readonly kind: 'idle' }
+  | { readonly kind: 'running'; readonly run: number }
+  | { readonly kind: 'done'; readonly run: number; readonly outcome: AttackOutcome };
+export interface FlowState {
+  /** The current Send/Attack episode; async reports from any other run are ignored. */
+  readonly run: number;
+  readonly send: SendState;
+  readonly attack: AttackState;
+}
+export const FLOW_IDLE: FlowState = Object.freeze({ run: 0, send: Object.freeze({ kind: 'idle' as const }), attack: Object.freeze({ kind: 'idle' as const }) });
+const nextFlow = (f: FlowState): FlowState => ({ run: f.run + 1, send: FLOW_IDLE.send, attack: FLOW_IDLE.attack });
+
+/** A final outcome goes straight on to the Verdict; a retryable one waits on the Attack step for Try again. */
+export const goesToVerdict = (o: AttackOutcome): boolean => o.kind === 'result' || o.kind === 'refused' || !o.retry;
+
 export interface CheckState {
   readonly pos: StepperPosition;
   /** The last import status, next to the master it describes: `ready` exactly while Check holds that master. */
@@ -61,6 +91,8 @@ export interface CheckState {
   readonly prescreen: PrescreenState;
   /** The current pre-screen episode; the only run number prescreenStart accepts (D-133). */
   readonly epoch: number;
+  /** Send → Attack → Verdict (D-139). */
+  readonly flow: FlowState;
 }
 
 export type CheckAction =
@@ -71,10 +103,18 @@ export type CheckAction =
   | { type: 'prescreenStep'; run: number; report: Tier0StepReport }
   | { type: 'prescreenDone'; run: number; outcome: PrescreenOutcome }
   | { type: 'retry' }
-  | { type: 'edit'; op: EditorOp };
+  | { type: 'edit'; op: EditorOp }
+  | { type: 'toSend' }
+  | { type: 'preflightStart'; run: number }
+  | { type: 'preflightDone'; run: number; dry: DryRun }
+  | { type: 'cancelSend' }
+  | { type: 'sent'; run: number }
+  | { type: 'attackDone'; run: number; outcome: AttackOutcome }
+  | { type: 'retryAttack'; run: number }
+  | { type: 'toVerdict' };
 
 /** A new Check: the Import step, idle. */
-export const CHECK_START: CheckState = Object.freeze({ pos: STEPPER_START, importStatus: IMPORT_IDLE, prescreen: PRESCREEN_IDLE, epoch: 0 });
+export const CHECK_START: CheckState = Object.freeze({ pos: STEPPER_START, importStatus: IMPORT_IDLE, prescreen: PRESCREEN_IDLE, epoch: 0, flow: FLOW_IDLE });
 
 const reachedIndex = (pos: StepperPosition) => CHECK_STEPS.indexOf(pos.reached);
 
@@ -88,7 +128,7 @@ export function checkReducer(s: CheckState, a: CheckAction): CheckState {
       return { ...s, pos: moveToStep(s.pos, 'prescreen') };
     case 'importStatus':
       // A new attempt (or its result): the photo the later steps were about is gone.
-      return { pos: STEPPER_START, importStatus: a.status, prescreen: PRESCREEN_IDLE, epoch: s.epoch + 1 };
+      return { pos: STEPPER_START, importStatus: a.status, prescreen: PRESCREEN_IDLE, epoch: s.epoch + 1, flow: nextFlow(s.flow) };
     case 'prescreenStart':
       if (s.importStatus.kind !== 'ready' || s.prescreen.kind !== 'idle' || a.run !== s.epoch) return s;
       return { ...s, prescreen: { kind: 'running', run: a.run, sha256: a.sha256, lines: PENDING_LINES } };
@@ -112,13 +152,46 @@ export function checkReducer(s: CheckState, a: CheckAction): CheckState {
     }
     case 'retry':
       if (s.prescreen.kind !== 'done' || s.prescreen.failed.length === 0) return s;
-      return { ...s, prescreen: PRESCREEN_IDLE, epoch: s.epoch + 1 };
+      return { ...s, prescreen: PRESCREEN_IDLE, epoch: s.epoch + 1, flow: nextFlow(s.flow) };
     case 'edit': {
       const p = s.prescreen;
-      if (p.kind !== 'done') return s;
+      if (p.kind !== 'done' || s.flow.attack.kind !== 'idle') return s; // sent: the masks are locked (D-139)
       const editor = editorReducer(p.editor, a.op);
-      return editor === p.editor ? s : { ...s, prescreen: { ...p, editor } };
+      if (editor === p.editor) return s;
+      return { ...s, prescreen: { ...p, editor }, flow: s.flow.send.kind === 'idle' ? s.flow : nextFlow(s.flow) };
     }
+    case 'toSend':
+      if (s.pos.current !== 'prescreen' || s.prescreen.kind !== 'done' || s.prescreen.failed.length > 0) return s;
+      return { ...s, pos: moveToStep(s.pos, 'send') };
+    case 'preflightStart':
+      if (s.pos.current !== 'send' || s.flow.send.kind !== 'idle' || s.flow.attack.kind !== 'idle' || a.run !== s.flow.run) return s;
+      return { ...s, flow: { ...s.flow, send: { kind: 'checking', run: a.run } } };
+    case 'preflightDone':
+      if (s.flow.send.kind !== 'checking' || s.flow.send.run !== a.run) return s;
+      return { ...s, flow: { ...s.flow, send: { kind: 'ready', run: a.run, dry: a.dry } } };
+    case 'cancelSend':
+      if (s.pos.current !== 'send' || s.flow.attack.kind !== 'idle') return s;
+      return { ...s, pos: moveToStep(s.pos, 'prescreen'), flow: nextFlow(s.flow) };
+    case 'sent': {
+      const f = s.flow;
+      if (s.pos.current !== 'send' || f.send.kind !== 'ready' || f.send.dry.failed.length > 0 || f.attack.kind !== 'idle' || a.run !== f.run) return s;
+      return { ...s, pos: moveToStep(s.pos, 'attack'), flow: { ...f, attack: { kind: 'running', run: a.run } } };
+    }
+    case 'attackDone': {
+      const at = s.flow.attack;
+      if (at.kind !== 'running' || at.run !== a.run) return s;
+      const flow = { ...s.flow, attack: { kind: 'done' as const, run: a.run, outcome: a.outcome } };
+      const pos = goesToVerdict(a.outcome) && s.pos.current === 'attack' ? moveToStep(s.pos, 'verdict') : s.pos;
+      return { ...s, pos, flow };
+    }
+    case 'retryAttack': {
+      const at = s.flow.attack;
+      if (at.kind !== 'done' || at.run !== a.run || at.outcome.kind === 'result' || at.outcome.kind === 'refused' || !at.outcome.retry) return s;
+      return { ...s, pos: moveToStep(s.pos, 'attack'), flow: { ...s.flow, attack: { kind: 'running', run: a.run } } };
+    }
+    case 'toVerdict':
+      if (s.flow.attack.kind !== 'done') return s;
+      return { ...s, pos: moveToStep(s.pos, 'verdict') };
   }
 }
 

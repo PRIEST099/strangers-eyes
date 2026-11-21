@@ -38,8 +38,8 @@ const list = (e: EditorState, failed: Parameters<typeof ClueList>[0]['failed'] =
 describe('StepperNav: unbuilt steps are never "not reached yet" (D-121)', () => {
   it('Import current: Pre-screen is not reached yet, every unbuilt step is not available yet, none is a button', () => {
     const html = renderToStaticMarkup(createElement(StepperNav, { current: 'import', reached: 'import', available: BUILT_STEPS, onSelect: () => {} }));
-    expect(has(html, 'ui.stepper.upcoming', { name: 'Pre-screen' })).toBe(true);
-    for (const name of ['Send', 'Attack', 'Verdict', 'Fix', 'Re-attack', 'Export']) {
+    for (const name of ['Pre-screen', 'Send', 'Attack', 'Verdict']) expect(has(html, 'ui.stepper.upcoming', { name }), name).toBe(true);
+    for (const name of ['Fix', 'Re-attack', 'Export']) {
       expect(has(html, 'ui.stepper.unavailable', { name }), name).toBe(true);
       expect(has(html, 'ui.stepper.upcoming', { name }), name).toBe(false);
     }

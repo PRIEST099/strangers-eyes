@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { GpsPinLike } from '../tier0/gpsWarning';
 import type { ImportedPhoto, ImportResult } from '../tier0/importPhoto';
-import { CHECK_START, PRESCREEN_IDLE, checkReducer, type CheckState } from './checkState';
+import { CHECK_START, FLOW_IDLE, PRESCREEN_IDLE, checkReducer, type CheckState } from './checkState';
 import { Button } from './components/Button';
 import { ImportDropzone, type ImportDropzoneProps } from './components/ImportDropzone';
 import { PrescreenPanel } from './components/PrescreenPanel';
@@ -156,7 +156,7 @@ afterEach(() => {
 describe('checkReducer: the step and the import status are independent', () => {
   it('selectStep revisits a reached step and keeps the import status, whatever it is', () => {
     for (const importStatus of [IMPORT_IDLE, BUSY, HEIC_ERROR, READY]) {
-      const s: CheckState = { pos: { current: 'prescreen', reached: 'prescreen' }, importStatus, prescreen: PRESCREEN_IDLE, epoch: 0 };
+      const s: CheckState = { pos: { current: 'prescreen', reached: 'prescreen' }, importStatus, prescreen: PRESCREEN_IDLE, epoch: 0, flow: FLOW_IDLE };
       const back = checkReducer(s, { type: 'selectStep', step: 'import' });
       expect(back.pos).toEqual({ current: 'import', reached: 'prescreen' }); // a revisit keeps `reached`
       expect(back.importStatus).toBe(importStatus);
@@ -168,29 +168,29 @@ describe('checkReducer: the step and the import status are independent', () => {
 
   it('selectStep never jumps ahead of the furthest step reached (D-121)', () => {
     for (const importStatus of [IMPORT_IDLE, BUSY, HEIC_ERROR, READY]) {
-      const s: CheckState = { pos: STEPPER_START, importStatus, prescreen: PRESCREEN_IDLE, epoch: 0 };
+      const s: CheckState = { pos: STEPPER_START, importStatus, prescreen: PRESCREEN_IDLE, epoch: 0, flow: FLOW_IDLE };
       for (const step of ['prescreen', 'send', 'attack', 'export'] as const) expect(checkReducer(s, { type: 'selectStep', step })).toBe(s);
     }
   });
 
   it('continue moves Import → Pre-screen only while a photo is ready', () => {
     for (const importStatus of [IMPORT_IDLE, BUSY, HEIC_ERROR]) {
-      const s: CheckState = { pos: STEPPER_START, importStatus, prescreen: PRESCREEN_IDLE, epoch: 0 };
+      const s: CheckState = { pos: STEPPER_START, importStatus, prescreen: PRESCREEN_IDLE, epoch: 0, flow: FLOW_IDLE };
       expect(checkReducer(s, { type: 'continue' })).toBe(s);
     }
-    const ready: CheckState = { pos: STEPPER_START, importStatus: READY, prescreen: PRESCREEN_IDLE, epoch: 0 };
+    const ready: CheckState = { pos: STEPPER_START, importStatus: READY, prescreen: PRESCREEN_IDLE, epoch: 0, flow: FLOW_IDLE };
     expect(checkReducer(ready, { type: 'continue' }).pos).toEqual({ current: 'prescreen', reached: 'prescreen' });
   });
 
   it('importStatus replaces the status and drops every step after Import (a new photo; D-121)', () => {
-    const s: CheckState = { pos: { current: 'import', reached: 'send' }, importStatus: READY, prescreen: PRESCREEN_IDLE, epoch: 0 };
+    const s: CheckState = { pos: { current: 'import', reached: 'send' }, importStatus: READY, prescreen: PRESCREEN_IDLE, epoch: 0, flow: FLOW_IDLE };
     const busy = checkReducer(s, { type: 'importStatus', status: BUSY });
-    expect(busy).toEqual({ pos: STEPPER_START, importStatus: BUSY, prescreen: PRESCREEN_IDLE, epoch: 1 });
+    expect(busy).toEqual({ pos: STEPPER_START, importStatus: BUSY, prescreen: PRESCREEN_IDLE, epoch: 1, flow: { ...FLOW_IDLE, run: 1 } });
     expect(checkReducer(busy, { type: 'importStatus', status: HEIC_ERROR }).importStatus).toBe(HEIC_ERROR);
   });
 
   it('a new Check starts on Import, idle', () => {
-    expect(CHECK_START).toEqual({ pos: STEPPER_START, importStatus: IMPORT_IDLE, prescreen: PRESCREEN_IDLE, epoch: 0 });
+    expect(CHECK_START).toEqual({ pos: STEPPER_START, importStatus: IMPORT_IDLE, prescreen: PRESCREEN_IDLE, epoch: 0, flow: FLOW_IDLE });
     expect(Object.isFrozen(CHECK_START)).toBe(true);
   });
 });
@@ -256,7 +256,10 @@ describe("Check's own state: the import status survives a step round trip (the d
       .replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, ''); // the comments name importStatus too
     // Every dispatch( call, by the action type it sends (a non-literal action is listed as such, and fails).
     const sent = [...src.matchAll(/\bdispatch\s*\(\s*(?:\{\s*type:\s*'(\w+)')?/g)].map((m) => m[1] ?? '(not a literal action)');
-    expect(sent.sort()).toEqual(['continue', 'edit', 'importStatus', 'prescreenDone', 'prescreenStart', 'prescreenStep', 'retry', 'selectStep']);
+    expect(sent.sort()).toEqual([
+      'attackDone', 'cancelSend', 'continue', 'edit', 'importStatus', 'preflightDone', 'preflightStart', 'prescreenDone', 'prescreenStart',
+      'prescreenStep', 'retry', 'retryAttack', 'selectStep', 'sent', 'toSend', 'toVerdict',
+    ]);
     expect(src.match(/type:\s*'importStatus'/g)).toHaveLength(1); // only onImportStatus sends it
     expect(src).toMatch(/\bonImportStatus\s*=\s*useCallback\(\s*\(\s*status(?:\s*:\s*ImportStatus)?\s*\)\s*=>\s*dispatch\(\{\s*type:\s*'importStatus',\s*status\s*\}\)/);
     expect(src).toMatch(/\bonStatus=\{onImportStatus\}/);

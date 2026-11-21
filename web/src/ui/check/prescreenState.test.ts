@@ -5,7 +5,7 @@ import type { Clue } from '../../core/types';
 import { STRINGS } from '../../core/strings';
 import type { Tier0Finding } from '../../tier0/tier0';
 import {
-  CHECK_START, PENDING_LINES, PRESCREEN_IDLE, checkReducer, maskedCandidate, type CheckAction, type CheckState, type PrescreenOutcome,
+  CHECK_START, FLOW_IDLE, PENDING_LINES, PRESCREEN_IDLE, checkReducer, maskedCandidate, type CheckAction, type CheckState, type PrescreenOutcome,
 } from '../checkState';
 import { resultStatus } from '../importTransfer';
 import { clueLabelId, lineCopy, nanoLineCopy, readerLabelId, rowDetail, severityLabelId } from './prescreenView';
@@ -25,7 +25,7 @@ const OUTCOME: PrescreenOutcome = {
   findings: [{ clue: face }], failed: [], width: 800, height: 600, mode: 'standard',
   autoMaskTypes: ['name_text', 'house_number', 'plate', 'mail_or_document', 'screen'], padRatio: 0.15,
 };
-const onPrescreen: CheckState = { pos: { current: 'prescreen', reached: 'prescreen' }, importStatus: READY, prescreen: PRESCREEN_IDLE, epoch: 1 };
+const onPrescreen: CheckState = { pos: { current: 'prescreen', reached: 'prescreen' }, importStatus: READY, prescreen: PRESCREEN_IDLE, epoch: 1, flow: FLOW_IDLE };
 const run = (s: CheckState, ...as: CheckAction[]) => as.reduce(checkReducer, s);
 const ALL_DONE: CheckAction[] = (['metadata', 'faces', 'text', 'vault'] as const).map((step) => ({ type: 'prescreenStep', run: 1, report: { step, status: 'done', count: 1, ms: 5 } }));
 
@@ -72,7 +72,7 @@ describe('pre-screen transitions', () => {
   });
 
   it('reports and results of another run are ignored (a photo replaced mid-run)', () => {
-    const s = run({ ...onPrescreen, epoch: 2 }, { type: 'prescreenStart', run: 2, sha256: SHA });
+    const s = run({ ...onPrescreen, epoch: 2, flow: FLOW_IDLE }, { type: 'prescreenStart', run: 2, sha256: SHA });
     expect(run(s, { type: 'prescreenStep', run: 1, report: { step: 'faces', status: 'done', count: 9 } })).toBe(s);
     expect(run(s, { type: 'prescreenDone', run: 1, outcome: OUTCOME })).toBe(s);
     // the photo is replaced: the old run's result lands on an idle pre-screen and changes nothing
