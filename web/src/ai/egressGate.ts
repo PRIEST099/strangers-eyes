@@ -297,8 +297,8 @@ export interface GateDeps {
   vault: GateVault;
   /**
    * Is the active index built from the latest committed vault (D-80 generation check)? Asked before every permit;
-   * false → refresh, wait for the index and re-run the image and prompt checks. Absent until the vault store keeps a
-   * generation counter (open item).
+   * false → refresh, wait for the index and re-run the image and prompt checks. The app passes vaultScan.isFresh()
+   * (vault/generation.ts counter, bumped inside the vault lock by every save and burn).
    */
   vaultFresh?: () => Promise<boolean>;
   availabilityNow: (io: NanoIo) => Promise<NanoState>;
@@ -1448,6 +1448,7 @@ function appDeps(): GateDeps {
   return {
     cfg: liveCfg,
     vault: appVaultScan,
+    vaultFresh: async () => appVaultScan.isFresh(), // D-80: the generation check before every permit
     availabilityNow: import.meta.env.DEV ? devAvailabilityNow : liveAvailabilityNow, // D-147: DEV fake Nano
     prefs: appPrefs,
     caps: appCaps,

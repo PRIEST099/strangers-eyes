@@ -4,6 +4,7 @@
 // Vault strings and pins live here in memory only: never logged (R9), never persisted, never sent.
 import { finishPendingBurn, isGenericVaultString, loadVault } from '../vault/vaultStore';
 import { onVaultChange } from '../vault/sync';
+import { readVaultGeneration } from '../vault/generation';
 import { setVaultScanner, type VaultScanner } from './tripwire';
 import { CLOUD_TEXT_PROMPTS, fileText, MANIFEST, nonContentStrings, staticSegments } from './prompts';
 import {
@@ -198,6 +199,12 @@ export interface VaultScanDeps {
    * (AC-241), also where indexedDB.databases() is missing or fails.
    */
   finishPendingBurn?: () => Promise<void>;
+  /**
+   * D-80: the vault generation (vault/generation.ts), bumped inside the vault lock by every committed save and burn;
+   * null when this browser has no counter. Read BEFORE each real load, so a change that commits during the load makes
+   * the new index stale (one extra reload), never fresh.
+   */
+  generation?: () => number | null;
 }
 
 const BLOCK_ALL: VaultScanner = () => ({ vaultId: VAULT_UNAVAILABLE });
@@ -211,6 +218,7 @@ export function createVaultScan(deps: VaultScanDeps) {
   let theta = DEFAULT_FUZZY_THRESHOLD;
   let blocked = false;   // a BLOCK_ALL scanner is registered (index loading or unavailable)
   let gen = 0;           // bumped by every switch; a boot step that finishes after a newer switch is discarded
+  let builtFrom: number | null = null;   // D-80: the vault generation the installed real index was read at
 
   let bootResolve: () => void = noop;
   let bootReject: (e: unknown) => void = noop;
@@ -278,6 +286,7 @@ export function createVaultScan(deps: VaultScanDeps) {
           let items: readonly VaultItem[] = [];
           let failed = false;
           let error: unknown;
+          const startGen = deps.generation ? deps.generation() : null;
           try {
             items = await deps.loadReal();
           } catch (e) {
@@ -288,6 +297,7 @@ export function createVaultScan(deps: VaultScanDeps) {
           if (cur.again) continue;       // the vault changed while this load ran: its result may be stale
           if (failed) throw error;       // stays blocked
           install('real', items);
+          builtFrom = startGen;
           return;
         }
       } finally {
@@ -303,9 +313,8 @@ export function createVaultScan(deps: VaultScanDeps) {
    * rebuild: it resolves at once and registers nothing (the tripwire stays fail-closed, NO_SCANNER). It used to return
    * the boot promise, which never settles before init(): a Burn vault that failed before boot never settled either
    * (T-054 review round 3). In real mode the index is blocked synchronously, before refresh() returns.
-   * TODO(T-062): the gate must compare a monotonic vault generation (bumped inside the vault lock by saveUnlocked and
-   * burnUnlocked) with the generation this index was built from before EVERY permit; `ready` alone cannot tell that a
-   * change committed in another tab has not been announced here yet.
+   * D-80 (done): `ready` alone cannot tell that a change committed in another tab has not been announced here yet, so
+   * the gate also asks isFresh() before EVERY permit (the generation this index was read at vs the stored counter).
    */
   const refresh = (): Promise<void> => {
     if (mode === 'unset') return Promise.resolve();
@@ -316,6 +325,17 @@ export function createVaultScan(deps: VaultScanDeps) {
   return {
     /** Resolves once the active index is built (the gate awaits it before every call). Rejects if the real vault could not be read. */
     get ready(): Promise<void> { return ready; },
+    /**
+     * D-80, asked by the Egress Gate before EVERY permit: is the active index built from the latest committed vault?
+     * Judge Mode (fake vault) is always fresh; a blocked real index is not; without a counter (storage unavailable) the
+     * BroadcastChannel announcements are the only signal, as before.
+     */
+    isFresh(): boolean {
+      if (mode !== 'real') return true;
+      if (blocked) return false;
+      const now = deps.generation ? deps.generation() : null;
+      return now === null || builtFrom === now;
+    },
     mode: (): VaultScanMode => mode,
     activeTerms: (): readonly Term[] => terms,
     activePins: (): readonly PinRef[] => pins,
@@ -396,4 +416,4 @@ export type VaultScan = ReturnType<typeof createVaultScan>;
  * The app's one instance: the real vault from vaultStore, scanner registered with the tripwire, rebuilt on every vault
  * change; every boot (Judge Mode too) first finishes an interrupted burn.
  */
-export const vaultScan: VaultScan = createVaultScan({ loadReal: loadVault, register: setVaultScanner, onVaultChange, finishPendingBurn });
+export const vaultScan: VaultScan = createVaultScan({ loadReal: loadVault, register: setVaultScanner, onVaultChange, finishPendingBurn, generation: readVaultGeneration });

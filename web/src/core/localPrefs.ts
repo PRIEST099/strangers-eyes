@@ -5,6 +5,7 @@
 //   se.cap.<YYYY-MM-DD>     the daily cloud-attack counter, per LOCAL day (A+B pair = 1 run; ARCH §8.2 caps)
 //   se.dev.simulateNoNano   the developer simulations (AC-006, P1); they can only DOWNGRADE capability (AD-33)
 //   se.dev.simulateOffline
+//   se.vaultGen             D-80: the vault generation COUNTER (a number, no vault data), read UNCACHED (vault/generation.ts)
 // The app must work when storage throws (AC-275): private mode, blocked site data, a full quota, or no localStorage
 // at all. Every access is inside try/catch, and a per-tab cache is the truth for this page: a write that fails is
 // still applied for the session, and a read that fails falls back to the cache, then to the default.
@@ -25,6 +26,7 @@ export const PREF_KEYS = {
   capPrefix: 'se.cap.',
   simulateNoNano: 'se.dev.simulateNoNano',
   simulateOffline: 'se.dev.simulateOffline',
+  vaultGeneration: 'se.vaultGen',
 } as const;
 
 /** Every key this module owns starts with this (the storage listener ignores other keys). */
@@ -375,4 +377,23 @@ export const prefs = {
 export const caps = {
   usedToday: (): number => localPrefs.capUsedToday(),
   increment: (): number => localPrefs.incrementCap(),
+} as const;
+
+/**
+ * D-80: raw, UNCACHED access to the vault generation counter for vault/generation.ts. Unlike the prefs above it must
+ * see another tab's write at once (before the storage event or the BroadcastChannel message arrives), so it reads
+ * storage on every call. null when storage is unavailable or throws. Holds a number only, never vault data.
+ */
+export const generationStorage = {
+  read(): string | null | undefined {
+    try {
+      const s = browserStorage();
+      return s ? s.getItem(PREF_KEYS.vaultGeneration) : undefined;
+    } catch {
+      return undefined;
+    }
+  },
+  write(v: string): void {
+    try { browserStorage()?.setItem(PREF_KEYS.vaultGeneration, v); } catch { /* full or blocked: announcements still rebuild */ }
+  },
 } as const;

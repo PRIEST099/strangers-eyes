@@ -551,3 +551,52 @@ describe('PinRef label: a place_pin near the photo GPS shows its own label as {K
     expect(h.last()(['at 0.7001, -30.5002'])).toEqual({ vaultId: gym.id });
   });
 });
+
+describe('D-80: the vault generation check (isFresh, asked by the gate before every permit)', () => {
+  const kid = item('child_name', 'Ellery');
+  const judgeKid = item('child_name', 'Lucas');
+  function genHarness(load: () => Promise<readonly VaultItem[]>) {
+    let g: number | null = 0;
+    const registered: VaultScanner[] = [];
+    const loadReal = vi.fn(load);
+    const vs = createVaultScan({ loadReal, register: (fn) => { registered.push(fn); }, generation: () => g });
+    return { vs, loadReal, set: (v: number | null) => { g = v; }, get: () => g };
+  }
+
+  it('fresh after a load; stale once another tab commits (counter bumped, no announcement yet); fresh after refresh', async () => {
+    const h = genHarness(async () => [kid]);
+    await h.vs.init({ judge: false });
+    await h.vs.ready;
+    expect(h.vs.isFresh()).toBe(true);
+    h.set(1); // a save committed elsewhere
+    expect(h.vs.isFresh()).toBe(false);
+    await h.vs.refresh();
+    expect(h.vs.isFresh()).toBe(true);
+  });
+
+  it('a change that commits DURING a load leaves the new index stale (read before the load), never fresh', async () => {
+    const d = deferred<readonly VaultItem[]>();
+    const h = genHarness(() => d.promise);
+    const boot = h.vs.init({ judge: false });
+    expect(h.vs.isFresh()).toBe(false); // blocked while loading
+    await vi.waitFor(() => expect(h.loadReal).toHaveBeenCalledTimes(1));
+    h.set(1); // committed after the load started reading
+    d.resolve([kid]);
+    await boot;
+    await h.vs.ready;
+    expect(h.vs.isFresh()).toBe(false);
+  });
+
+  it('Judge Mode (fake vault) is always fresh; without a counter (storage unavailable) the old behaviour stands', async () => {
+    const h = genHarness(async () => [kid]);
+    await h.vs.init({ judge: true });
+    h.vs.useJudge([judgeKid]);
+    h.set(7);
+    expect(h.vs.isFresh()).toBe(true);
+    const n = genHarness(async () => [kid]);
+    n.set(null);
+    await n.vs.init({ judge: false });
+    await n.vs.ready;
+    expect(n.vs.isFresh()).toBe(true);
+  });
+});

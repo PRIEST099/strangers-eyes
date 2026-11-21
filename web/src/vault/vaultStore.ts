@@ -5,6 +5,7 @@
 import { get, set, type UseStore } from 'idb-keyval';
 import { closableStore } from './idb';
 import { announceVaultChange } from './sync';
+import { bumpVaultGeneration } from './generation';
 import { alnum, GENERIC_PIN_LABELS, normalize } from '../tier0/fuzzy';
 import { PIN_KINDS, VAULT_KINDS, VAULT_LABEL_MAX, VAULT_MAX_ITEMS, type Pin, type VaultItem, type VaultKind } from '../core/types';
 import {
@@ -149,6 +150,7 @@ async function loadUnlocked(lock: VaultLock): Promise<VaultItem[]> {
 async function saveUnlocked(items: VaultItem[], key: CryptoKey): Promise<void> {
   validateVault(items);
   await set(RECORD, await seal(items, key), data());
+  bumpVaultGeneration();   // D-80: inside the lock, before the announcement
   announceVaultChange();
 }
 
@@ -237,6 +239,7 @@ export function removeItem(id: string): Promise<void> {
  */
 async function burnUnlocked(lock: VaultLock, timeoutMs: number, retry: boolean): Promise<void> {
   await deleteVaultKey(lock);   // FIRST, with the BURN_PENDING marker in the same transaction (AC-271)
+  bumpVaultGeneration();         // D-80: every index built before this burn is stale from now on
   const listed = retry ? await listedDatabases() : null;
   const dbs = listed ? BURN_DBS.filter((db) => listed.has(db)) : BURN_DBS;
   const results = await Promise.allSettled(dbs.map((db) => deleteDatabase(db, timeoutMs)));
