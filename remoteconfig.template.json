@@ -18,7 +18,7 @@
     "face_min_confidence": {"defaultValue":{"value":"0.3"},"valueType":"NUMBER","description":"Face score that masks (Tier-0) AND blocks (gate). One value for both (clamped 0.2-0.6)."},
     "mask_pad_ratio": {"defaultValue":{"value":"0.15"},"valueType":"NUMBER","description":"Total mask padding as a fraction of box size (clamped 0-0.5); minimum 4 px."},
     "cloud_image_max_px": {"defaultValue":{"value":"1536"},"valueType":"NUMBER","description":"Longest side of the redacted JPEG sent to the cloud (clamped 768-2048)."},
-    "nano_image_max_px": {"defaultValue":{"value":"768"},"valueType":"NUMBER","description":"Longest side of the JPEG given to Gemini Nano."},
+    "nano_image_max_px": {"defaultValue":{"value":"768"},"valueType":"NUMBER","description":"Longest side of the JPEG given to Gemini Nano. Clamped 256-768 in code (floored first; D-98)."},
     "ocr_max_px": {"defaultValue":{"value":"1600"},"valueType":"NUMBER","description":"Longest side of the Tier-0 Tesseract canvas: a downscale of the <= 2048 px master, never upscaled (SPEC D-20). Clamped 800-2048 (D-83)."},
     "timeouts_ms": {"defaultValue":{"value":"{\"advA\":90000,\"advB\":60000,\"explain\":20000,\"deviceImage\":60000,\"deviceText\":30000}"},"valueType":"JSON","description":"Per-job timeouts."},
     "judge_mode_enabled": {"defaultValue":{"value":"true"},"valueType":"BOOLEAN","description":"Show Judge Mode."},

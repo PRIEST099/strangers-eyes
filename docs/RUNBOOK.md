@@ -504,7 +504,7 @@ git check-ignore -v web/.env.development.local ios/.appcheck-debug-token .scratc
 git status --short
 git add <explicit paths>                     # NEVER `git add -A` or `git add .`
 git diff --cached --name-only                # read the list
-node scripts/check-images.mjs                # once it exists (ARCH §3): no APP1/APP13 in JPEGs, no eXIf/tEXt/iTXt in PNGs
+node scripts/check-images.mjs                # (also in `npm --prefix web run check`) image metadata, coordinates, PRIV paths, secrets (D-106)
 git diff --cached -U0 | grep -nE '^\+.*-?[0-9]{1,3}\.[0-9]{4,}' || true   # review every coordinate-like hit
 git commit -m "T-0xx: <summary>"
 ```
@@ -1255,7 +1255,7 @@ Claude samples frames from `final.mp4` to check the numbers, captions, absence o
   T=$(sed -n 's/^VITE_APPCHECK_DEBUG_TOKEN=//p' web/.env.development.local); [ -n "$T" ] && git log -p --all | grep -qF "$T" && echo "TOKEN IN HISTORY"
   I=$(cat ios/.appcheck-debug-token 2>/dev/null); [ -n "$I" ] && git log -p --all | grep -qF "$I" && echo "iOS TOKEN IN HISTORY"
   ```
-- [ ] `node scripts/check-images.mjs` passes: no committed image carries APP1/APP13, GPS or PNG text chunks.
+- [ ] `node scripts/check-images.mjs` passes (D-106): no committed image carries APP1/APP13/APP11, PNG text/EXIF/C2PA chunks or WebP EXIF/XMP; no other image or video format; no coordinate-like decimal outside the allowlisted paths and the reviewed values in `scripts/check-images.allow.json` (re-read that file: every value must still be synthetic or a non-coordinate); no PRIV path, `truth*.csv`, `.env*.local`, debug-token file, key file or secret content; the secret paths are still git-ignored. It cannot judge whether a photo shows people or a real home: the image review above stays manual.
 - [ ] No real vault, pins, names or coordinates in fixtures or tests. Use the fictional "Lucas" and "City General Hospital"; coordinates only in the allowlisted sample files.
 - [ ] No files over 10 MB in git.
 - [ ] Clean-clone test passes (web build and check; iOS `xcodegen generate` + build) by following the README literally.

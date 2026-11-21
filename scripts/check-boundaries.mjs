@@ -103,6 +103,81 @@ export function stripComments(src) {
   return out;
 }
 
+/**
+ * T-090: escapes defeat the name-based rules: `m.generateContent(r)` is valid JS, and so is
+ * `m['generat\x65Content'](r)`. Takes comment-free code and returns it with every \xHH, \uHHHH and \u{H…} escape
+ * decoded inside string and template literals AND in code (identifiers), plus the offsets of the escapes found in code
+ * (outside string, template and regex literals: R24). Regex literals are kept as written. An escape that decodes to a
+ * quote, a backslash or a line terminator is kept as written, so literal boundaries and line numbers never move.
+ */
+export function decodeEscapes(code) {
+  let out = '';
+  const identEscapes = [];
+  const KEEP = new Set(["'", '"', '`', '\\', '\n', '\r', ' ', ' ']);
+  const decodeAt = (k) => { // code[k] === '\\' → [text, length] or null
+    let m;
+    const t = code[k + 1];
+    let d = null;
+    if (t === 'x' && (m = /^[0-9a-fA-F]{2}/.exec(code.slice(k + 2, k + 4)))) d = [String.fromCodePoint(parseInt(m[0], 16)), 4];
+    else if (t === 'u' && (m = /^\{([0-9a-fA-F]{1,6})\}/.exec(code.slice(k + 2, k + 10))) && parseInt(m[1], 16) <= 0x10ffff) d = [String.fromCodePoint(parseInt(m[1], 16)), 2 + m[0].length];
+    else if (t === 'u' && (m = /^[0-9a-fA-F]{4}/.exec(code.slice(k + 2, k + 6)))) d = [String.fromCodePoint(parseInt(m[0], 16)), 6];
+    if (!d) return null;
+    return KEEP.has(d[0]) ? [code.slice(k, k + d[1]), d[1]] : d;
+  };
+  let i = 0;
+  let mode = 'code'; // code | sq | dq | tpl (comments are already gone)
+  let lastSig = '';
+  let word = '';
+  const sig = (ch) => {
+    if (/\s/.test(ch)) return;
+    if (isIdent(ch)) word = isIdent(lastSig) ? word + ch : ch;
+    lastSig = ch;
+  };
+  while (i < code.length) {
+    const ch = code[i];
+    if (mode === 'code') {
+      if (ch === '\\' && (code[i + 1] === 'u' || code[i + 1] === 'x')) {
+        identEscapes.push(i);
+        const d = decodeAt(i);
+        if (d) { out += d[0]; sig(d[0].length === 1 && isIdent(d[0]) ? d[0] : 'a'); i += d[1]; continue; }
+        out += ch; i++; continue;
+      }
+      if (ch === '/') { // same regex-literal heuristic as stripComments
+        const regexAllowed = lastSig === '' || REGEX_PREFIX_PUNCT.has(lastSig) || (isIdent(lastSig) && REGEX_PREFIX_WORDS.has(word));
+        if (regexAllowed) {
+          out += ch; i++;
+          let inClass = false;
+          while (i < code.length) {
+            const r = code[i];
+            if (r === '\n') break;
+            out += r;
+            if (r === '\\') { out += code[i + 1] ?? ''; i += 2; continue; }
+            if (r === '[') inClass = true;
+            else if (r === ']') inClass = false;
+            else if (r === '/' && !inClass) { i++; break; }
+            i++;
+          }
+          lastSig = 'a'; word = '';
+          continue;
+        }
+        out += ch; sig(ch); i++; continue;
+      }
+      if (ch === "'" || ch === '"' || ch === '`') { mode = ch === "'" ? 'sq' : ch === '"' ? 'dq' : 'tpl'; out += ch; lastSig = ch; i++; continue; }
+      out += ch; sig(ch); i++; continue;
+    }
+    if (ch === '\\') {
+      const d = decodeAt(i);
+      if (d) { out += d[0]; i += d[1]; continue; }
+      out += ch + (code[i + 1] ?? ''); i += 2; continue;
+    }
+    out += ch;
+    if ((mode === 'sq' && ch === "'") || (mode === 'dq' && ch === '"') || (mode === 'tpl' && ch === '`')) { mode = 'code'; lastSig = ch; }
+    else if ((mode === 'sq' || mode === 'dq') && ch === '\n') mode = 'code';
+    i++;
+  }
+  return { code: out, identEscapes };
+}
+
 const norm = (p) => p.split(sep).join('/');
 const isTest = (rel) => /\.test\.(c|m)?(ts|js)x?$/.test(rel);
 const isDev = (rel) => rel.startsWith('web/src/dev/');
@@ -193,9 +268,187 @@ const WEB_RULES = [
 // Static imports (also multi-line, also `import type`), dynamic import() and re-exports, with ' " or ` specifiers.
 const IMPORT_RE = /(?:^|[^.\w$])import\s*(type\s+)?(?:[\w$*{}\s,]+?\s+from\s+)?(['"`])([^'"`$]+)\2|(?:^|[^.\w$])import\s*\(\s*(['"`])([^'"`$]+)\4\s*\)|(?:^|[^.\w$])export\s+(type\s+)?[\w$*{}\s,]+?\s+from\s+(['"`])([^'"`$]+)\7/gm;
 const DYNAMIC_ANY_RE = /(?:^|[^.\w$])import\s*\(/gm;
-const GLOB_RE = /\bimport\.meta\.glob\s*(?:<[^>]*>)?\s*\(\s*(\[[^\]]*\]|['"`][^'"`]*['"`])/gm;
 
 const lineOf = (code, idx) => code.slice(0, idx).split('\n').length;
+
+// R19 (T-090, from the T-053/T-054 round-7 verifier): import.meta.glob is an ALLOWLIST. Every occurrence (whitespace
+// and line breaks around the dots too, globEager, anything) goes through parseGlobCall, which accepts only what Vite
+// itself accepts: literal patterns (a string or an array of strings) and one literal options object. Whatever the
+// parser cannot consume fails closed (the old regex missed a `]` inside an array pattern, a call split across lines
+// and nested generics).
+const GLOB_ANY_RE = /\bimport\s*\.\s*meta\s*\.\s*glob/g;
+// `exhaustive` lifts Vite's node_modules exclusion, `base` moves the root that relative patterns resolve against, and
+// any other key is unknown: only these four may appear.
+const GLOB_OPTION_KEYS = new Set(['eager', 'import', 'query', 'as']);
+const GLOB_DYNAMIC = /[*?[\]{}()!+@|]/;
+const DOTDOT_SEG = /(^|[/{,(|])\.\.($|[/},)|])/;
+const QUOTES = ['"', "'", '`'];
+
+/** code[i] is a quote. → { value, end } (end = index after the closing quote), or null for a template with ${…}. */
+function readString(code, i) {
+  const q = code[i];
+  let value = '';
+  for (let j = i + 1; j < code.length; j++) {
+    const ch = code[j];
+    if (ch === '\\') { value += ch + (code[j + 1] ?? ''); j++; continue; }
+    if (ch === q) return { value, end: j + 1 };
+    if (q === '`' && ch === '$' && code[j + 1] === '{') return null;
+    if (q !== '`' && ch === '\n') return null;
+    value += ch;
+  }
+  return null;
+}
+
+/** Parse the import.meta.glob call that starts at `start`. → { patterns, keys, end } or { error }. */
+function parseGlobCall(code, start) {
+  const head = /import\s*\.\s*meta\s*\.\s*glob(?![\w$])/y;
+  head.lastIndex = start;
+  if (!head.exec(code)) return { error: 'not a plain import.meta.glob(…) call' };
+  let i = head.lastIndex;
+  const ws = () => { while (i < code.length && /\s/.test(code[i])) i++; };
+  const str = () => {
+    if (!QUOTES.includes(code[i])) return null;
+    const s = readString(code, i);
+    if (!s) return null;
+    i = s.end;
+    return s.value;
+  };
+  ws();
+  if (code[i] === '<') { // type arguments, nested generics included; the `>` of `=>` does not close them
+    let depth = 0;
+    while (i < code.length) {
+      const ch = code[i];
+      if (QUOTES.includes(ch)) { const s = readString(code, i); if (!s) return { error: 'unreadable type argument' }; i = s.end; continue; }
+      if (ch === '=' && code[i + 1] === '>') { i += 2; continue; }
+      i++;
+      if (ch === '<') depth++;
+      else if (ch === '>' && --depth === 0) break;
+    }
+    if (depth !== 0) return { error: 'unbalanced type arguments' };
+    ws();
+  }
+  if (code[i] !== '(') return { error: 'no argument list' };
+  i++; ws();
+  const patterns = [];
+  if (code[i] === '[') {
+    i++; ws();
+    while (code[i] !== ']') {
+      const v = str();
+      if (v === null) return { error: 'every pattern must be a plain string literal' };
+      patterns.push(v); ws();
+      if (code[i] === ',') { i++; ws(); } else if (code[i] !== ']') return { error: 'malformed pattern array' };
+    }
+    i++;
+  } else {
+    const v = str();
+    if (v === null) return { error: 'the pattern must be a plain string literal or an array of them' };
+    patterns.push(v);
+  }
+  if (!patterns.length) return { error: 'no pattern' };
+  ws();
+  const keys = [];
+  const parseObject = (depth) => { // code[i] === '{'
+    i++; ws();
+    while (code[i] !== '}') {
+      if (code[i] === '[') return { error: 'computed option key' };
+      if (code.startsWith('...', i)) return { error: 'spread in the options object' };
+      let key;
+      if (QUOTES.includes(code[i])) {
+        key = str();
+        if (key === null) return { error: 'option keys must be plain literals' };
+      } else {
+        const id = /[A-Za-z_$][\w$]*/y;
+        id.lastIndex = i;
+        const m = id.exec(code);
+        if (!m) return { error: 'malformed options object' };
+        key = m[0]; i = id.lastIndex;
+      }
+      if (depth === 0) keys.push(key);
+      ws();
+      if (code[i] !== ':') return { error: `option ${key} needs a literal value (no shorthand or method)` };
+      i++; ws();
+      if (code[i] === '{') {
+        if (depth > 0) return { error: 'options nested too deep' };
+        const e = parseObject(depth + 1);
+        if (e) return e;
+      } else if (QUOTES.includes(code[i])) {
+        if (str() === null) return { error: `option ${key} must be a literal` };
+      } else {
+        const lit = /(?:true|false|-?\d+(?:\.\d+)?)(?![\w$])/y;
+        lit.lastIndex = i;
+        if (!lit.exec(code)) return { error: `option ${key} must be a literal` };
+        i = lit.lastIndex;
+      }
+      ws();
+      if (code[i] === ',') { i++; ws(); } else if (code[i] !== '}') return { error: 'malformed options object' };
+    }
+    i++;
+    return null;
+  };
+  if (code[i] === ',') {
+    i++; ws();
+    if (code[i] === '{') {
+      const e = parseObject(0);
+      if (e) return e;
+      ws();
+      if (code[i] === ',') { i++; ws(); }
+    }
+  }
+  if (code[i] !== ')') return { error: 'unexpected argument (the options must be one object literal)' };
+  return { patterns, keys, end: i + 1 };
+}
+
+/** Resolve a relative path against a file's directory; null if it climbs above the scanned root. */
+function resolveWithin(fromRel, spec) {
+  const parts = fromRel.split('/').slice(0, -1);
+  for (const seg of spec.split('/')) {
+    if (seg === '.' || seg === '') continue;
+    if (seg === '..') { if (!parts.length) return null; parts.pop(); } else parts.push(seg);
+  }
+  return parts.join('/');
+}
+
+/** Why a glob pattern is not allowed, or null. `devVault`: the file is not DEV-only, so dev/ and vault/ are off-limits. */
+function globPatternProblem(rel, raw, devVault) {
+  const pat = raw.startsWith('!') ? raw.slice(1) : raw;
+  if (/node_modules/i.test(pat)) return 'names node_modules'; // before the alias exemption
+  if (/^@(prompts|strings|vectors)\//.test(pat)) return DOTDOT_SEG.test(pat) ? 'a shared-alias pattern may not contain a .. segment' : null;
+  if (!/^\.\.?\//.test(pat)) return 'must start with ./ or ../ and stay inside web/src, or start with @prompts/, @strings/ or @vectors/ (no @root, root-absolute or bare pattern)';
+  const firstDyn = pat.search(GLOB_DYNAMIC);
+  const cut = firstDyn < 0 ? pat.lastIndexOf('/') : pat.lastIndexOf('/', firstDyn);
+  const rest = pat.slice(cut + 1);
+  const dir = resolveWithin(rel, pat.slice(0, cut + 1));
+  if (dir === null || !inDir(dir, 'web/src')) return 'resolves outside web/src';
+  if (DOTDOT_SEG.test(rest)) return 'a .. segment after a wildcard can climb out of web/src';
+  if (devVault) {
+    const low = dir.toLowerCase(); // macOS's file system ignores case
+    if (inDir(low, 'web/src/dev') || inDir(low, 'web/src/vault')) return 'reaches dev/ or vault/';
+    const first = rest.split('/')[0];
+    if (low === 'web/src' && rest.includes('/') && (GLOB_DYNAMIC.test(first) || /^(dev|vault)$/i.test(first))) return 'a wildcard directory directly under web/src can reach dev/ or vault/';
+    if (rest.includes('**')) return 'a broad ** pattern outside the shared aliases';
+  }
+  return null;
+}
+
+/** R19: [line, message] for every glob problem in a non-test file. */
+function globIssues(rel, code, devVault) {
+  const out = [];
+  GLOB_ANY_RE.lastIndex = 0;
+  let g;
+  while ((g = GLOB_ANY_RE.exec(code))) {
+    const line = lineOf(code, g.index);
+    const call = parseGlobCall(code, g.index);
+    if (call.error) { out.push([line, `import.meta.glob that the checker cannot parse (${call.error}): patterns and options must be literals, as Vite requires (fail closed).`]); continue; }
+    if (code.slice(g.index, call.end).includes('\\')) out.push([line, 'import.meta.glob may not contain a backslash anywhere in the call (escapes hide patterns and option names).']);
+    const bad = call.keys.filter((k) => !GLOB_OPTION_KEYS.has(k));
+    if (bad.length) out.push([line, `import.meta.glob option ${bad.join(', ')} is not allowed: only eager, import, query and as (exhaustive lifts the node_modules exclusion; base moves the pattern root).`]);
+    for (const p of call.patterns) {
+      const why = globPatternProblem(rel, p, devVault);
+      if (why) out.push([line, `import.meta.glob pattern ${JSON.stringify(p)}: ${why}.`]);
+    }
+  }
+  return out;
+}
 
 function importsOf(code) {
   const out = [];
@@ -268,12 +521,22 @@ export function check(root) {
     const raw = readFileSync(abs, 'utf8');
     const code = stripComments(raw);
     const lines = code.split('\n');
+    // T-090: the line rules also run on a copy with every \x / \u escape decoded (same line numbers), so an escaped
+    // name in an identifier or a string literal is still seen.
+    const dec = decodeEscapes(code);
+    const decLines = dec.code.split('\n');
 
     for (const rule of WEB_RULES) {
       if (rule.exempt && rule.exempt(rel)) continue;
       if (rule.scope && !rule.scope(rel)) continue;
       if (rule.only.includes(rel)) continue;
-      lines.forEach((l, i) => { if (rule.re.test(l)) add(rule.id, rel, i + 1, rule.why); });
+      lines.forEach((l, i) => { if (rule.re.test(l) || (decLines[i] !== l && rule.re.test(decLines[i]))) add(rule.id, rel, i + 1, rule.why); });
+    }
+
+    // R24 (T-090): no \u or \x escape in code, i.e. outside string, template and regex literals (an identifier written
+    // as `generateContent` is the real name at run time). Tests are exempt, like the name rules.
+    if (!isTest(rel)) {
+      for (const at of dec.identEscapes) add('R24-ident-escape', rel, lineOf(code, at), 'No \\u / \\x escape outside string, template and regex literals: an escaped identifier hides its name from every name-based rule.');
     }
 
     const imps = importsOf(code);
@@ -311,6 +574,12 @@ export function check(root) {
       while ((k = IDB_KEYVAL_STRING_RE.exec(code))) {
         if (!typeOnlyAt.has(k.index)) add('R22-idb-keyval-default', rel, lineOf(code, k.index), R22_WHY);
       }
+      // T-090: and in the decoded copy, on the lines an escape changed ('idb-keyv\x61l')
+      IDB_KEYVAL_STRING_RE.lastIndex = 0;
+      while (dec.code !== code && (k = IDB_KEYVAL_STRING_RE.exec(dec.code))) {
+        const ln = lineOf(dec.code, k.index);
+        if (decLines[ln - 1] !== lines[ln - 1]) add('R22-idb-keyval-default', rel, ln, R22_WHY);
+      }
     }
 
     if (!isDev(rel) && !isTest(rel)) {
@@ -331,35 +600,16 @@ export function check(root) {
         const pos = code.indexOf('import', d.index);
         if (!literalPos.has(pos)) add('R18-dynamic-literal', rel, lineOf(code, pos), 'Dynamic import() needs a plain string literal so the boundary rules can see it.');
       }
-      // R19: import.meta.glob must not reach dev/ or vault/
-      GLOB_RE.lastIndex = 0;
-      let g;
-      while ((g = GLOB_RE.exec(code))) {
-        if (/(^|['"`/.])(dev|vault)\//.test(g[1]) || /\*\*/.test(g[1]) && !/@prompts|@strings|@vectors/.test(g[1])) {
-          add('R19-glob', rel, lineOf(code, g.index), 'import.meta.glob may not pull in dev/ or vault/ (or broad ** patterns outside the shared aliases).');
-        }
-      }
     }
 
     if (!isTest(rel)) {
-      // R19 (round-6 verifier), in EVERY non-test file, DEV-only ones included: a glob stays inside web/src or a shared
-      // alias. It may not name node_modules (any case), start at the project root ('/…'), climb out of web/src before
-      // its first wildcard ('../../*/idb-key*/…' reaches node_modules), or pass `exhaustive` (which lifts Vite's
-      // node_modules exclusion).
-      GLOB_RE.lastIndex = 0;
-      let g;
-      while ((g = GLOB_RE.exec(code))) {
-        const call = code.slice(g.index, code.indexOf(')', g.index + g[0].length) + 1 || g.index + 400);
-        const escapes = [...g[1].matchAll(/['"`]!?([^'"`]*)['"`]/g)].some(([, pat]) => {
-          if (/^@(prompts|strings|vectors)(\/|$)/.test(pat)) return false;
-          if (/node_modules/i.test(pat) || pat.startsWith('/')) return true;
-          const prefix = pat.slice(0, pat.search(/[*?{[]|$/));
-          return !inDir(resolveImport(rel, prefix.startsWith('.') ? prefix : `./${prefix}`).replace(/\/$/, ''), 'web/src');
-        });
-        if (escapes || /\bexhaustive\b/.test(call)) {
-          add('R19-glob', rel, lineOf(code, g.index), 'import.meta.glob must stay inside web/src or @prompts/@strings/@vectors: no node_modules, no root-absolute or climbing pattern, no `exhaustive` (any file, DEV-only too).');
-        }
-      }
+      // R19 (T-090 allowlist; round-6/7 verifiers), in EVERY non-test file, DEV-only ones included: each pattern starts
+      // with ./ or ../ and resolves wholly inside web/src (no .. after a wildcard), or is @prompts/ @strings/ @vectors/
+      // with no .. segment; node_modules (any case) is checked before the alias exemption; no backslash in the call;
+      // options only eager/import/query/as as literals (no computed key, spread or variable). Outside web/src/dev the
+      // pattern may also not reach dev/ or vault/ (directly, by case, or by a wildcard directory under web/src) nor use
+      // a broad ** outside the shared aliases. Every import.meta.glob the parser cannot consume fails.
+      for (const [line, msg] of globIssues(rel, code, !isDev(rel))) add('R19-glob', rel, line, msg);
       // R18 (round-6 verifier): a module specifier with a backslash escape ('idb-keyv\x61l') resolves to the real
       // package but hides it from every name-based rule.
       for (const im of imps) {
@@ -451,6 +701,30 @@ function selfTest() {
     // round-6 verifier: globs inside web/src or a shared alias stay allowed, in DEV-only files too
     w('web/src/core/globOk.ts', "export const icons = import.meta.glob('./icons/*.svg', { eager: true });\nexport const p = import.meta.glob('@prompts/*', { query: '?raw', import: 'default', eager: true });\n");
     w('web/src/dev/selftest/globOkDev.ts', `// ${DEV_MARKER}\nexport const f = import.meta.glob('../fixtures/*.ts');\n`);
+    // T-090: the glob parser consumes nested generics, a ']' inside an array pattern, a negated pattern, a nested
+    // query object, a trailing comma, a call split across lines, and a prefix that climbs out and back into web/src.
+    w('web/src/core/globParse.ts', [
+      'export const a = import.meta.glob<Record<string, () => Promise<unknown>>>(',
+      "  ['./icons/*.svg', '!./icons/[ab]*.svg'],",
+      "  { eager: false, query: { raw: true }, 'import': 'default', },",
+      ');',
+      "export const b = import.meta.glob<string>('@vectors/**/*.json', { eager: true });",
+      'export const c = import.meta',
+      "  .glob('../ui/*.tsx');",
+      "export const d = import.meta.glob('../../src/core/data/*.json');",
+      '',
+    ].join('\n'));
+    // T-090: escapes inside string, template and regex literals are fine (R24), and decode to harmless names; a test
+    // file is exempt from R24 and the name rules.
+    w('web/src/core/escClean.ts', [
+      "export const fold = (s: string) => s.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '');",
+      'export const key = (a: string, b: string) => `${a}\\u0000${b}`;',
+      "export const cafe = 'caf\\u00e9 \\x41 \\\\x61 \\u{1F600}';",
+      "export const quote = '\\x27 and \\u0022';",
+      '',
+    ].join('\n'));
+    w('web/src/tier0/fuzzy.ts', "export const soft = 'Lu\\u00ADcas';\n");
+    w('web/src/ui/esc.test.ts', 'export const x = (m: any) => m.generat\\u0065Content(r);\n');
     // round-5 verifier: a type-only import by a path into node_modules stays allowed (erased at build)
     w('web/src/core/kvTypesPath.ts', "import type { UseStore } from '../../node_modules/idb-keyval/dist/index.js';\nexport type S = UseStore;\n");
     w('web/src/core/kvTypes.ts', "import type { UseStore } from 'idb-keyval';\nimport type {\n  UseStore as U2,\n} from \"idb-keyval\";\nexport type { UseStore as U3 } from 'idb-keyval';\nexport type S = UseStore | U2;\n");
@@ -576,6 +850,49 @@ function selfTest() {
       ['R19-glob', 'web/src/core/globRoot.ts', "export const m = import.meta.glob('/*.json');\n"],
       ['R18-dynamic-literal', 'web/src/core/escSpec.ts', "import { get } from 'idb-keyv\\x61l';\nexport const g = () => get('k');\n"],
       ['R21-idb-open', 'web/src/core/idbPath.ts', "import * as raw from '../../node_modules/idb/build/index.js';\nexport const r = raw;\n"],
+      // T-090 (round-7 verifier): R19 as an allowlist. node_modules before the alias exemption, '..' in an alias (also
+      // inside braces), @root, a bare pattern, backslashes, computed/spread/shorthand/variable options, `base`, calls the
+      // old regex could not see (split across lines, nested generics, ']' in an array), unparsable calls (a variable,
+      // globEager, a template with ${}), '..' after a wildcard, climbing above the root, and dev/ reached by a wildcard
+      // directory, braces or case.
+      ['R19-glob', 'web/src/core/globAliasNm.ts', "export const m = import.meta.glob('@prompts/../../web/node_modules/idb-keyval/dist/*.js');\n"],
+      ['R19-glob', 'web/src/core/globAliasNm2.ts', "export const m = import.meta.glob('@vectors/**/node_modules/*.json');\n"],
+      ['R19-glob', 'web/src/core/globAliasUp.ts',"export const m = import.meta.glob('@strings/../../web/src/vault/*.ts');\n"],
+      ['R19-glob', 'web/src/core/globAliasBrace.ts', "export const m = import.meta.glob('@vectors/{..,x}/*.json');\n"],
+      ['R19-glob', 'web/src/core/globRootAlias.ts', "export const m = import.meta.glob('@root/*.md');\n"],
+      ['R19-glob', 'web/src/core/globBare.ts', "export const m = import.meta.glob('core/*.ts');\n"],
+      ['R19-glob', 'web/src/core/globBackslash.ts', "export const m = import.meta.glob('./*.ts', { query: '\\x3fraw' });\n"],
+      ['R19-glob', 'web/src/core/globBackslash2.ts', "export const m = import.meta.glob('./sub\\\\*.ts');\n"],
+      ['R19-glob', 'web/src/core/globComputed.ts', "export const m = import.meta.glob('./*.ts', { ['exhaus' + 'tive']: true });\n"],
+      ['R19-glob', 'web/src/core/globBase.ts', "export const m = import.meta.glob('./*.js', { base: '../../..' });\n"],
+      ['R19-glob', 'web/src/core/globOptVar.ts', "const o = { exhaustive: true };\nexport const m = import.meta.glob('./*.ts', o);\n"],
+      ['R19-glob', 'web/src/core/globSpread.ts', "const o = { exhaustive: true };\nexport const m = import.meta.glob('./*.ts', { ...o });\n"],
+      ['R19-glob', 'web/src/core/globShorthand.ts', "const eager = true;\nexport const m = import.meta.glob('./*.ts', { eager });\n"],
+      ['R19-glob', 'web/src/core/globVar.ts', "const P = ['../../node_modules/idb/build/*.js'];\nexport const m = import.meta.glob(P);\n"],
+      ['R19-glob', 'web/src/core/globSplit.ts', "export const m = import.meta\n  .glob('../../node_modules/idb/build/*.js');\n"],
+      ['R19-glob', 'web/src/core/globGeneric.ts', "export const m = import.meta.glob<Record<string, () => Promise<unknown>>>('../../node_modules/idb/build/*.js');\n"],
+      ['R19-glob', 'web/src/core/globBracket.ts', "export const m = import.meta.glob(['./[ab].ts', '../../node_modules/idb/build/*.js']);\n"],
+      ['R19-glob', 'web/src/core/globEager.ts', "export const m = import.meta.globEager('./*.ts');\n"],
+      ['R19-glob', 'web/src/core/globTemplate.ts', "const d = 'x';\nexport const m = import.meta.glob(`./${d}/*.ts`);\n"],
+      ['R19-glob', 'web/src/core/globDotdotAfter.ts', "export const m = import.meta.glob('./*/../../../../PLAN.md');\n"],
+      ['R19-glob', 'web/src/core/globUnderflow.ts', "export const m = import.meta.glob('../../../../../../web/src/*.ts');\n"],
+      ['R19-glob', 'web/src/App.tsx', "export const m = import.meta.glob('./*/x.ts');\n"],
+      ['R19-glob', 'web/src/core/globBraceDev.ts', "export const m = import.meta.glob('../{dev,ui}/x.ts');\n"],
+      ['R19-glob', 'web/src/App.tsx', "export const m = import.meta.glob('./DEV/x.ts');\n"],
+      // T-090 (round-7 verifier): escapes. An escaped identifier (R24 and the name rule it hides), \x outside a string,
+      // and string/template escapes decoded before R1, R6, R9, R17, R21 and R22.
+      ['R24-ident-escape', 'web/src/ui/escId.ts', 'export const x = (m: any) => m.generat\\u0065Content(r);\n'],
+      ['R1-ai-call', 'web/src/ui/escId.ts', 'export const x = (m: any) => m.generat\\u0065Content(r);\n'],
+      ['R1-ai-call', 'web/src/ui/escIdBrace.ts', 'export const x = (m: any) => m.\\u{67}enerateContent(r);\n'],
+      ['R24-ident-escape', 'web/src/ui/escIdX.ts', 'export const x = (m: any) => m.generat\\x65Content(r);\n'],
+      ['R1-ai-call', 'web/src/ui/escStr.ts', "export const x = (m: any) => m['generat\\x65Content'](r);\n"],
+      ['R1-ai-call', 'web/src/ui/escTpl.ts', 'export const x = (m: any) => m[`count\\u0054okens`]([]);\n'],
+      ['R6-firestore', 'web/src/core/escFs.ts', "export const f = () => import('firebase\\u002ffirestore');\n"],
+      ['R9-console-in-sensitive', 'web/src/ui/screens/Check.tsx', "export const f = (pins: unknown) => (globalThis as any)['c\\u006fnsole'].log(pins);\n"],
+      ['R9-console-in-sensitive', 'web/src/vault/escConsole.ts', "export const f = (v: unknown) => (globalThis as any)['\\x63onsole']['log'](v);\n"],
+      ['R17-raw-egress', 'web/src/ui/escBeacon.ts', "export const s = (n: any) => n['send\\x42eacon']('https://x', 'y');\n"],
+      ['R21-idb-open', 'web/src/core/escIdb.ts', "export const r = (globalThis as any)['indexed\\u{44}B'].open('se-ledger');\n"],
+      ['R22-idb-keyval-default', 'web/src/core/escKv.ts', "const m = ['idb-keyv\\x61l'];\nexport const g = (f: any) => f(m[0]);\n"],
       ['R1-ai-call', 'web/src/dev/selftest/bad.ts', `// ${DEV_MARKER}\nexport const x = (m: any) => m.generateContent(r);\n`],
       ['R7-localStorage', 'web/src/dev/bench/bad.ts', `// ${DEV_MARKER}\nlocalStorage.setItem('a', 'b');\n`],
       // R23: the cached UI snapshot outside web/src/ui (T-061 review): a gate import, a namespace member, a bracket

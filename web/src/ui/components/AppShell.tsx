@@ -5,15 +5,24 @@
 // (a `#main` link would change the hash route). On a route change, focus moves to main and the title updates.
 // A sheet belongs to the route it was opened on, so a route change (Back, Forward, a typed hash) closes it
 // (derived in render, no setState in an effect); focus then moves to main once the sheet has closed.
-// The capability chip and the SCR-02 panel share one useCapabilities view (T-061).
-// Placeholders until their tasks: connectivity cloud states (RC), Ledger
-// counters and entries (T-063), HUD lines (T-064), the Judge banner across the top (SPEC §8.2, T-105).
-import { useEffect, useRef, useState, type PropsWithChildren } from 'react';
+// The capability chip and the SCR-02 panel share one useCapabilities view (T-061); Settings reads it too (ShellContext).
+// "Use Gemini Nano" (Settings) and the developer simulations (AC-006: downgrade only) feed it, and simulated offline
+// feeds the connectivity chip (ARCH §8.2 online()). The SCR-22 system banners sit under the header (T-094); the same
+// cloud-off reason drives the connectivity chip and SCR-02 row 3 (ui/systemStatus.ts, D-105).
+// A Welcome finished on #/judge mounts the shell with SCR-02 open (capabilityOnStart; AC-071, D-103). A link in SCR-02
+// to the route already shown (no hash change, so no route change) closes the sheet and moves focus to main.
+// Placeholders until their tasks: Ledger counters and entries (T-063), HUD lines (T-064), the Judge banner across the
+// top (SPEC §8.2, T-105).
+import { useEffect, useRef, useState, type MouseEvent, type PropsWithChildren } from 'react';
 import { t } from '../../core/strings';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useCapabilities } from '../hooks/useCapabilities';
 import { useOnline } from '../hooks/useOnline';
+import { useCapUsed, useSettings, useSimulations } from '../hooks/usePrefs';
+import { useSystemStatus } from '../hooks/useSystemStatus';
 import { hrefFor, type AppRoute } from '../router';
+import { ShellContext } from '../shellContext';
+import { chipInputsOf, cloudOffReason, cloudRowOf, selectBanners, systemStatus } from '../systemStatus';
 import {
   LEDGER_RAIL_ID,
   LEDGER_RAIL_QUERY,
@@ -26,23 +35,43 @@ import { Header } from './Header';
 import { LedgerPanel } from './LedgerPanel';
 import { RouterHUD } from './RouterHUD';
 import { Sheet } from './Sheet';
+import { SystemBanner } from './SystemBanner';
 
 const RAIL_TITLE_ID = 'ledger-rail-title';
 
-export function AppShell({ route, children }: PropsWithChildren<{ route: AppRoute }>) {
-  const online = useOnline();
+/** The href of the link a click landed in, if any (the click may land on an icon inside the link). */
+function linkHref(target: EventTarget | null): string | null {
+  const el = target instanceof Element ? target.closest('a[href]') : null;
+  return el ? el.getAttribute('href') : null;
+}
+
+export interface AppShellProps {
+  route: AppRoute;
+  /** Open SCR-02 when the shell mounts (the `?judge=1` flow after Welcome; AC-071). */
+  capabilityOnStart?: boolean;
+}
+
+export function AppShell({ route, capabilityOnStart = false, children }: PropsWithChildren<AppShellProps>) {
+  const settings = useSettings();
+  const sims = useSimulations();
+  const online = useOnline() && !sims.offline; // simulate offline (AC-006): downgrade only
   const rail = useMediaQuery(LEDGER_RAIL_QUERY);
   // The routeKey each sheet was opened on, or null when closed.
   const [ledgerOpenOn, setLedgerOpenOn] = useState<string | null>(null);
-  const [capOpenOn, setCapOpenOn] = useState<string | null>(null);
+  const [capOpenOn, setCapOpenOn] = useState<string | null>(() => (capabilityOnStart ? hrefFor(route) : null));
   const mainRef = useRef<HTMLElement>(null);
   const railHeadingRef = useRef<HTMLHeadingElement>(null);
   const focusMainOnSheetClose = useRef(false);
 
   const counters = ZERO_COUNTERS;
-  const caps = useCapabilities({ online }); // ONE view for the chip and the panel (fails closed: Rules-only first)
+  // ONE view for the chip, the panel and Settings (fails closed: Rules-only first). Nano off or simulated "no Nano" → (c).
+  const caps = useCapabilities({ online, nanoEnabled: settings.useNano && !sims.noNano });
   const capability = caps.chip;
-  const connectivity = connectivityOf({ online });
+  const status = useSystemStatus();
+  const capUsed = useCapUsed();
+  const cloudOff = cloudOffReason(status, capUsed);
+  const banners = selectBanners(status, capUsed);
+  const connectivity = connectivityOf({ online, ...chipInputsOf(cloudOff) });
   const routeKey = hrefFor(route);
   const titleId = route.name === 'dev' ? SCREEN_TITLE.home : SCREEN_TITLE[route.name];
   const ledgerSheetOpen = ledgerOpenOn === routeKey && !rail;
@@ -81,6 +110,13 @@ export function AppShell({ route, children }: PropsWithChildren<{ route: AppRout
     focusMain();
   };
 
+  // A panel link to the route already shown changes nothing, so close the sheet here (main then takes focus).
+  const onCapabilityClick = (e: MouseEvent<HTMLDivElement>) => {
+    if (linkHref(e.target) !== routeKey) return;
+    focusMainOnSheetClose.current = true;
+    setCapOpenOn(null);
+  };
+
   const onLedger = () => {
     if (rail) {
       railHeadingRef.current?.focus();
@@ -112,10 +148,14 @@ export function AppShell({ route, children }: PropsWithChildren<{ route: AppRout
         onLedger={onLedger}
       />
 
+      <SystemBanner banners={banners} onDismiss={systemStatus.dismiss} />
+
       <div className="flex min-h-0 min-w-0 flex-1">
         {/* pb-24 keeps the last content scrollable above the HUD pill (AC-222). */}
         <main id="main" ref={mainRef} tabIndex={-1} className="min-w-0 flex-1 px-4 pt-5 pb-24 sm:px-6 lg:overflow-y-auto">
-          <div className="mx-auto w-full max-w-3xl">{children}</div>
+          <div className="mx-auto w-full max-w-3xl">
+            <ShellContext.Provider value={{ caps, openCapability: () => setCapOpenOn(routeKey) }}>{children}</ShellContext.Provider>
+          </div>
         </main>
         <aside
           id={LEDGER_RAIL_ID}
@@ -149,7 +189,9 @@ export function AppShell({ route, children }: PropsWithChildren<{ route: AppRout
         }}
         title={t('copy.cap.title')}
       >
-        <CapabilityPanel caps={caps} />
+        <div onClickCapture={onCapabilityClick}>
+          <CapabilityPanel caps={caps} cloud={cloudRowOf(cloudOff)} />
+        </div>
       </Sheet>
     </div>
   );

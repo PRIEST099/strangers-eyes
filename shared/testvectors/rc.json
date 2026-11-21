@@ -1,5 +1,5 @@
 {
-  "description": "Remote Config validation vectors (ARCH §7, §13; SPEC AC-020, AC-293). Single source of truth for web/src/core/routing.test.ts (Vitest) and the iOS RemoteConfigService XCTest port (ARCH §19.3; SPEC §10.7, AC-168). T-060 wrote the `routingPolicy` section (D-96); T-102 adds one sibling section per other RC key.",
+  "description": "Remote Config validation vectors (ARCH §7, §13; SPEC AC-020, AC-293). Single source of truth for web/src/core/routing.test.ts and web/src/firebase/rcParse.test.ts (Vitest) and the iOS RemoteConfigService XCTest port (ARCH §19.3; SPEC §10.7, AC-168). T-060 wrote the `routingPolicy` section (D-96); T-102 added one sibling section per other RC key, `keyConventions` and `effectiveConfig` (D-108).",
   "routingPolicy": {
     "conventions": [
       "Input forms: {\"absent\": true} = no RC value yet; {\"notString\": v} = a non-string value (web only: an iOS RemoteConfigValue is always a string, so iOS skips these); {\"raw\": s} = this exact string; {\"edits\": [...]} = apply the edits in order to a deep copy of `default`, then serialise it as compact JSON; {\"padTo\": n} = compact `default` with spaces inserted before its final \"}\" until it is n characters long; {\"repeat\": {\"text\": t, \"times\": n}} = t repeated n times.",
@@ -3625,6 +3625,5913 @@
         "expect": {
           "warning": "too_large",
           "policy": "default"
+        }
+      }
+    ]
+  },
+  "keyConventions": [
+    "Every RC key except routing_policy has one section, named by the key in camelCase (kill_switch → killSwitch). Each has `key`, `type` (the template valueType), `rule` (prose) and `cases`. routing_policy keeps its own section and format (routingPolicy, D-96).",
+    "Input forms: {\"raw\": s} = this exact string; {\"notString\": v} = a non-string value (web only: an iOS RemoteConfigValue is always a string, so iOS skips these); {\"repeat\": {\"text\": t, \"times\": n}} = t repeated n times; {\"padTo\": n} = the key's template default string with spaces inserted before its final character until it is n characters long.",
+    "expect.value is the parsed value (JSON). expect.warning is null, \"invalid\" (the whole value was refused: the default is used, except kill_switch → true and data_tier → \"free\"), \"clamped\" (a number was moved into range or floored/rounded) or \"partial\" (a JSON object was used but some entries took their defaults or were ignored).",
+    "Only ASCII space, tab, CR and LF around a boolean, number or enum value are ignored; never BOM, NBSP or zero-width characters. Case folding is ASCII only and only for booleans, thinking levels and data_tier; model ids are never trimmed or folded. Numbers must be JSON numbers (no \"+\", hex, Infinity, NaN or leading zeros) and finite.",
+    "Length caps (UTF-16 code units, checked before parsing): boolean 16, number 32, model id and enum 64, JSON 4096 (routing_policy: 8192)."
+  ],
+  "killSwitch": {
+    "key": "kill_switch",
+    "type": "BOOLEAN",
+    "rule": "BOOLEAN; a refused value is TRUE (fail closed: the cloud stays off), never the default (D-108)",
+    "cases": [
+      {
+        "name": "\"true\"",
+        "input": {
+          "raw": "true"
+        },
+        "expect": {
+          "value": true,
+          "warning": null
+        }
+      },
+      {
+        "name": "\"false\"",
+        "input": {
+          "raw": "false"
+        },
+        "expect": {
+          "value": false,
+          "warning": null
+        }
+      },
+      {
+        "name": "ASCII upper case",
+        "input": {
+          "raw": "TRUE"
+        },
+        "expect": {
+          "value": true,
+          "warning": null
+        }
+      },
+      {
+        "name": "mixed case",
+        "input": {
+          "raw": "False"
+        },
+        "expect": {
+          "value": false,
+          "warning": null
+        }
+      },
+      {
+        "name": "ASCII whitespace around it",
+        "input": {
+          "raw": " false\n"
+        },
+        "expect": {
+          "value": false,
+          "warning": null
+        }
+      },
+      {
+        "name": "\"1\" is not a boolean here",
+        "input": {
+          "raw": "1"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "\"yes\"",
+        "input": {
+          "raw": "yes"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "empty",
+        "input": {
+          "raw": ""
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "JSON string",
+        "input": {
+          "raw": "\"true\""
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "NBSP before it (not ASCII whitespace)",
+        "input": {
+          "raw": " true"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "BOM before it",
+        "input": {
+          "raw": "﻿true"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "zero-width space after it",
+        "input": {
+          "raw": "true​"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "Cyrillic e (homoglyph)",
+        "input": {
+          "raw": "truе"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "long s (upper-cases to S) is not an ASCII letter",
+        "input": {
+          "raw": "falſe"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "over 16 characters before trimming",
+        "input": {
+          "raw": "             true"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "not a string (web only)",
+        "input": {
+          "notString": true
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      }
+    ]
+  },
+  "adversaryModel": {
+    "key": "adversary_model",
+    "type": "STRING",
+    "rule": "Exact model id (ai/models.ts isExactModelId): ^[a-z0-9][a-z0-9.-]*$, at most 64 characters, never ending in -latest; never trimmed",
+    "cases": [
+      {
+        "name": "the default",
+        "input": {
+          "raw": "gemini-3.8-flash"
+        },
+        "expect": {
+          "value": "gemini-3.8-flash",
+          "warning": null
+        }
+      },
+      {
+        "name": "another exact id",
+        "input": {
+          "raw": "gemini-4-hydrogen"
+        },
+        "expect": {
+          "value": "gemini-4-hydrogen",
+          "warning": null
+        }
+      },
+      {
+        "name": "64 characters",
+        "input": {
+          "raw": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "expect": {
+          "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "warning": null
+        }
+      },
+      {
+        "name": "65 characters",
+        "input": {
+          "raw": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "expect": {
+          "value": "gemini-3.8-flash",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "-latest alias",
+        "input": {
+          "raw": "gemini-3.8-flash-latest"
+        },
+        "expect": {
+          "value": "gemini-3.8-flash",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "upper case",
+        "input": {
+          "raw": "Gemini-3.8-Flash"
+        },
+        "expect": {
+          "value": "gemini-3.8-flash",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "leading space (never trimmed)",
+        "input": {
+          "raw": " gemini-3.8-flash"
+        },
+        "expect": {
+          "value": "gemini-3.8-flash",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "trailing newline",
+        "input": {
+          "raw": "gemini-3.8-flash\n"
+        },
+        "expect": {
+          "value": "gemini-3.8-flash",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "inner spaces",
+        "input": {
+          "raw": "gemini 3.8 flash"
+        },
+        "expect": {
+          "value": "gemini-3.8-flash",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "resource path",
+        "input": {
+          "raw": "models/gemini-3.8-flash"
+        },
+        "expect": {
+          "value": "gemini-3.8-flash",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "query string",
+        "input": {
+          "raw": "gemini-3.8-flash?key=x"
+        },
+        "expect": {
+          "value": "gemini-3.8-flash",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "starts with a hyphen",
+        "input": {
+          "raw": "-gemini"
+        },
+        "expect": {
+          "value": "gemini-3.8-flash",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "Unicode hyphen U+2010",
+        "input": {
+          "raw": "gemini‐3.8‐flash"
+        },
+        "expect": {
+          "value": "gemini-3.8-flash",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "empty",
+        "input": {
+          "raw": ""
+        },
+        "expect": {
+          "value": "gemini-3.8-flash",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "not a string (web only)",
+        "input": {
+          "notString": 3.8
+        },
+        "expect": {
+          "value": "gemini-3.8-flash",
+          "warning": "invalid"
+        }
+      }
+    ]
+  },
+  "adversaryThinkingLevel": {
+    "key": "adversary_thinking_level",
+    "type": "STRING",
+    "rule": "LOW, MEDIUM or HIGH, ASCII case-insensitive; MINIMAL is refused (HTTP 400 on the adversary models)",
+    "cases": [
+      {
+        "name": "LOW",
+        "input": {
+          "raw": "LOW"
+        },
+        "expect": {
+          "value": "LOW",
+          "warning": null
+        }
+      },
+      {
+        "name": "MEDIUM",
+        "input": {
+          "raw": "MEDIUM"
+        },
+        "expect": {
+          "value": "MEDIUM",
+          "warning": null
+        }
+      },
+      {
+        "name": "HIGH",
+        "input": {
+          "raw": "HIGH"
+        },
+        "expect": {
+          "value": "HIGH",
+          "warning": null
+        }
+      },
+      {
+        "name": "lower case",
+        "input": {
+          "raw": "low"
+        },
+        "expect": {
+          "value": "LOW",
+          "warning": null
+        }
+      },
+      {
+        "name": "ASCII whitespace and mixed case",
+        "input": {
+          "raw": " High\t"
+        },
+        "expect": {
+          "value": "HIGH",
+          "warning": null
+        }
+      },
+      {
+        "name": "MINIMAL is refused",
+        "input": {
+          "raw": "MINIMAL"
+        },
+        "expect": {
+          "value": "MEDIUM",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "minimal is refused",
+        "input": {
+          "raw": "minimal"
+        },
+        "expect": {
+          "value": "MEDIUM",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "underscore suffix",
+        "input": {
+          "raw": "MEDIUM_HIGH"
+        },
+        "expect": {
+          "value": "MEDIUM",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "Turkish dotted capital I",
+        "input": {
+          "raw": "MEDİUM"
+        },
+        "expect": {
+          "value": "MEDIUM",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "dotless i upper-cases to an ASCII I",
+        "input": {
+          "raw": "hıgh"
+        },
+        "expect": {
+          "value": "MEDIUM",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "dotless i in MINIMAL / MEDIUM",
+        "input": {
+          "raw": "medıum"
+        },
+        "expect": {
+          "value": "MEDIUM",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "full-width M",
+        "input": {
+          "raw": "ＭEDIUM"
+        },
+        "expect": {
+          "value": "MEDIUM",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "SDK enum name",
+        "input": {
+          "raw": "THINKING_LEVEL_UNSPECIFIED"
+        },
+        "expect": {
+          "value": "MEDIUM",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "JSON string",
+        "input": {
+          "raw": "\"LOW\""
+        },
+        "expect": {
+          "value": "MEDIUM",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "empty",
+        "input": {
+          "raw": ""
+        },
+        "expect": {
+          "value": "MEDIUM",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "not a string (web only)",
+        "input": {
+          "notString": 2
+        },
+        "expect": {
+          "value": "MEDIUM",
+          "warning": "invalid"
+        }
+      }
+    ]
+  },
+  "explainCloudModel": {
+    "key": "explain_cloud_model",
+    "type": "STRING",
+    "rule": "As adversary_model",
+    "cases": [
+      {
+        "name": "the default",
+        "input": {
+          "raw": "gemini-3.5-flash-lite"
+        },
+        "expect": {
+          "value": "gemini-3.5-flash-lite",
+          "warning": null
+        }
+      },
+      {
+        "name": "another exact id",
+        "input": {
+          "raw": "gemini-4-hydrogen"
+        },
+        "expect": {
+          "value": "gemini-4-hydrogen",
+          "warning": null
+        }
+      },
+      {
+        "name": "64 characters",
+        "input": {
+          "raw": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "expect": {
+          "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "warning": null
+        }
+      },
+      {
+        "name": "65 characters",
+        "input": {
+          "raw": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "expect": {
+          "value": "gemini-3.5-flash-lite",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "-latest alias",
+        "input": {
+          "raw": "gemini-3.8-flash-latest"
+        },
+        "expect": {
+          "value": "gemini-3.5-flash-lite",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "upper case",
+        "input": {
+          "raw": "Gemini-3.8-Flash"
+        },
+        "expect": {
+          "value": "gemini-3.5-flash-lite",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "leading space (never trimmed)",
+        "input": {
+          "raw": " gemini-3.5-flash-lite"
+        },
+        "expect": {
+          "value": "gemini-3.5-flash-lite",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "trailing newline",
+        "input": {
+          "raw": "gemini-3.5-flash-lite\n"
+        },
+        "expect": {
+          "value": "gemini-3.5-flash-lite",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "inner spaces",
+        "input": {
+          "raw": "gemini 3.8 flash"
+        },
+        "expect": {
+          "value": "gemini-3.5-flash-lite",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "resource path",
+        "input": {
+          "raw": "models/gemini-3.8-flash"
+        },
+        "expect": {
+          "value": "gemini-3.5-flash-lite",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "query string",
+        "input": {
+          "raw": "gemini-3.8-flash?key=x"
+        },
+        "expect": {
+          "value": "gemini-3.5-flash-lite",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "starts with a hyphen",
+        "input": {
+          "raw": "-gemini"
+        },
+        "expect": {
+          "value": "gemini-3.5-flash-lite",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "Unicode hyphen U+2010",
+        "input": {
+          "raw": "gemini‐3.8‐flash"
+        },
+        "expect": {
+          "value": "gemini-3.5-flash-lite",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "empty",
+        "input": {
+          "raw": ""
+        },
+        "expect": {
+          "value": "gemini-3.5-flash-lite",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "not a string (web only)",
+        "input": {
+          "notString": 3.8
+        },
+        "expect": {
+          "value": "gemini-3.5-flash-lite",
+          "warning": "invalid"
+        }
+      }
+    ]
+  },
+  "explainThinkingLevel": {
+    "key": "explain_thinking_level",
+    "type": "STRING",
+    "rule": "MINIMAL, LOW, MEDIUM or HIGH, ASCII case-insensitive",
+    "cases": [
+      {
+        "name": "MINIMAL",
+        "input": {
+          "raw": "MINIMAL"
+        },
+        "expect": {
+          "value": "MINIMAL",
+          "warning": null
+        }
+      },
+      {
+        "name": "LOW",
+        "input": {
+          "raw": "LOW"
+        },
+        "expect": {
+          "value": "LOW",
+          "warning": null
+        }
+      },
+      {
+        "name": "MEDIUM",
+        "input": {
+          "raw": "MEDIUM"
+        },
+        "expect": {
+          "value": "MEDIUM",
+          "warning": null
+        }
+      },
+      {
+        "name": "HIGH",
+        "input": {
+          "raw": "HIGH"
+        },
+        "expect": {
+          "value": "HIGH",
+          "warning": null
+        }
+      },
+      {
+        "name": "lower case",
+        "input": {
+          "raw": "minimal"
+        },
+        "expect": {
+          "value": "MINIMAL",
+          "warning": null
+        }
+      },
+      {
+        "name": "ASCII whitespace and mixed case",
+        "input": {
+          "raw": " High\t"
+        },
+        "expect": {
+          "value": "HIGH",
+          "warning": null
+        }
+      },
+      {
+        "name": "NONE",
+        "input": {
+          "raw": "NONE"
+        },
+        "expect": {
+          "value": "LOW",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "underscore suffix",
+        "input": {
+          "raw": "MEDIUM_HIGH"
+        },
+        "expect": {
+          "value": "LOW",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "Turkish dotted capital I",
+        "input": {
+          "raw": "MEDİUM"
+        },
+        "expect": {
+          "value": "LOW",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "dotless i upper-cases to an ASCII I",
+        "input": {
+          "raw": "hıgh"
+        },
+        "expect": {
+          "value": "LOW",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "dotless i in MINIMAL / MEDIUM",
+        "input": {
+          "raw": "mınımal"
+        },
+        "expect": {
+          "value": "LOW",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "full-width M",
+        "input": {
+          "raw": "ＭEDIUM"
+        },
+        "expect": {
+          "value": "LOW",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "SDK enum name",
+        "input": {
+          "raw": "THINKING_LEVEL_UNSPECIFIED"
+        },
+        "expect": {
+          "value": "LOW",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "JSON string",
+        "input": {
+          "raw": "\"LOW\""
+        },
+        "expect": {
+          "value": "LOW",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "empty",
+        "input": {
+          "raw": ""
+        },
+        "expect": {
+          "value": "LOW",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "not a string (web only)",
+        "input": {
+          "notString": 2
+        },
+        "expect": {
+          "value": "LOW",
+          "warning": "invalid"
+        }
+      }
+    ]
+  },
+  "promptVersions": {
+    "key": "prompt_versions",
+    "type": "JSON",
+    "rule": "JSON object; each family takes its id only if that id is in shared/prompts/manifest.json and starts with \"<family>.\"; otherwise the default v1 id (partial). Unknown keys are ignored (partial). Not an object → invalid",
+    "cases": [
+      {
+        "name": "the default",
+        "input": {
+          "raw": "{\"advA\":\"advA.v1\",\"advB\":\"advB.v1\",\"nanoPre\":\"nanoPre.v1\",\"nanoVaultText\":\"nanoVaultText.v1\",\"nanoRef\":\"nanoRef.v1\",\"nanoFix\":\"nanoFix.v1\",\"explain\":\"explain.v1\",\"fmPre\":\"fmPre.v1\"}"
+        },
+        "expect": {
+          "value": {
+            "advA": "advA.v1",
+            "advB": "advB.v1",
+            "nanoPre": "nanoPre.v1",
+            "nanoVaultText": "nanoVaultText.v1",
+            "nanoRef": "nanoRef.v1",
+            "nanoFix": "nanoFix.v1",
+            "explain": "explain.v1",
+            "fmPre": "fmPre.v1"
+          },
+          "warning": null
+        }
+      },
+      {
+        "name": "the default, pretty-printed",
+        "input": {
+          "raw": "{\n  \"advA\": \"advA.v1\",\n  \"advB\": \"advB.v1\",\n  \"nanoPre\": \"nanoPre.v1\",\n  \"nanoVaultText\": \"nanoVaultText.v1\",\n  \"nanoRef\": \"nanoRef.v1\",\n  \"nanoFix\": \"nanoFix.v1\",\n  \"explain\": \"explain.v1\",\n  \"fmPre\": \"fmPre.v1\"\n}"
+        },
+        "expect": {
+          "value": {
+            "advA": "advA.v1",
+            "advB": "advB.v1",
+            "nanoPre": "nanoPre.v1",
+            "nanoVaultText": "nanoVaultText.v1",
+            "nanoRef": "nanoRef.v1",
+            "nanoFix": "nanoFix.v1",
+            "explain": "explain.v1",
+            "fmPre": "fmPre.v1"
+          },
+          "warning": null
+        }
+      },
+      {
+        "name": "an id that is not bundled",
+        "input": {
+          "raw": "{\"advA\":\"advA.v2\",\"advB\":\"advB.v1\",\"nanoPre\":\"nanoPre.v1\",\"nanoVaultText\":\"nanoVaultText.v1\",\"nanoRef\":\"nanoRef.v1\",\"nanoFix\":\"nanoFix.v1\",\"explain\":\"explain.v1\",\"fmPre\":\"fmPre.v1\"}"
+        },
+        "expect": {
+          "value": {
+            "advA": "advA.v1",
+            "advB": "advB.v1",
+            "nanoPre": "nanoPre.v1",
+            "nanoVaultText": "nanoVaultText.v1",
+            "nanoRef": "nanoRef.v1",
+            "nanoFix": "nanoFix.v1",
+            "explain": "explain.v1",
+            "fmPre": "fmPre.v1"
+          },
+          "warning": "partial"
+        }
+      },
+      {
+        "name": "an id of another family",
+        "input": {
+          "raw": "{\"advA\":\"advB.v1\",\"advB\":\"advB.v1\",\"nanoPre\":\"nanoPre.v1\",\"nanoVaultText\":\"nanoVaultText.v1\",\"nanoRef\":\"nanoRef.v1\",\"nanoFix\":\"nanoFix.v1\",\"explain\":\"explain.v1\",\"fmPre\":\"fmPre.v1\"}"
+        },
+        "expect": {
+          "value": {
+            "advA": "advA.v1",
+            "advB": "advB.v1",
+            "nanoPre": "nanoPre.v1",
+            "nanoVaultText": "nanoVaultText.v1",
+            "nanoRef": "nanoRef.v1",
+            "nanoFix": "nanoFix.v1",
+            "explain": "explain.v1",
+            "fmPre": "fmPre.v1"
+          },
+          "warning": "partial"
+        }
+      },
+      {
+        "name": "a prefix look-alike family",
+        "input": {
+          "raw": "{\"advA\":\"advA.v1\",\"advB\":\"advB.v1\",\"nanoPre\":\"nanoPreX.v1\",\"nanoVaultText\":\"nanoVaultText.v1\",\"nanoRef\":\"nanoRef.v1\",\"nanoFix\":\"nanoFix.v1\",\"explain\":\"explain.v1\",\"fmPre\":\"fmPre.v1\"}"
+        },
+        "expect": {
+          "value": {
+            "advA": "advA.v1",
+            "advB": "advB.v1",
+            "nanoPre": "nanoPre.v1",
+            "nanoVaultText": "nanoVaultText.v1",
+            "nanoRef": "nanoRef.v1",
+            "nanoFix": "nanoFix.v1",
+            "explain": "explain.v1",
+            "fmPre": "fmPre.v1"
+          },
+          "warning": "partial"
+        }
+      },
+      {
+        "name": "trailing space in an id",
+        "input": {
+          "raw": "{\"advA\":\"advA.v1\",\"advB\":\"advB.v1\",\"nanoPre\":\"nanoPre.v1\",\"nanoVaultText\":\"nanoVaultText.v1\",\"nanoRef\":\"nanoRef.v1\",\"nanoFix\":\"nanoFix.v1\",\"explain\":\"explain.v1 \",\"fmPre\":\"fmPre.v1\"}"
+        },
+        "expect": {
+          "value": {
+            "advA": "advA.v1",
+            "advB": "advB.v1",
+            "nanoPre": "nanoPre.v1",
+            "nanoVaultText": "nanoVaultText.v1",
+            "nanoRef": "nanoRef.v1",
+            "nanoFix": "nanoFix.v1",
+            "explain": "explain.v1",
+            "fmPre": "fmPre.v1"
+          },
+          "warning": "partial"
+        }
+      },
+      {
+        "name": "a number as an id",
+        "input": {
+          "raw": "{\"advA\":\"advA.v1\",\"advB\":1,\"nanoPre\":\"nanoPre.v1\",\"nanoVaultText\":\"nanoVaultText.v1\",\"nanoRef\":\"nanoRef.v1\",\"nanoFix\":\"nanoFix.v1\",\"explain\":\"explain.v1\",\"fmPre\":\"fmPre.v1\"}"
+        },
+        "expect": {
+          "value": {
+            "advA": "advA.v1",
+            "advB": "advB.v1",
+            "nanoPre": "nanoPre.v1",
+            "nanoVaultText": "nanoVaultText.v1",
+            "nanoRef": "nanoRef.v1",
+            "nanoFix": "nanoFix.v1",
+            "explain": "explain.v1",
+            "fmPre": "fmPre.v1"
+          },
+          "warning": "partial"
+        }
+      },
+      {
+        "name": "a family missing",
+        "input": {
+          "raw": "{\"advA\":\"advA.v1\",\"advB\":\"advB.v1\",\"nanoPre\":\"nanoPre.v1\",\"nanoVaultText\":\"nanoVaultText.v1\",\"nanoRef\":\"nanoRef.v1\",\"nanoFix\":\"nanoFix.v1\",\"explain\":\"explain.v1\"}"
+        },
+        "expect": {
+          "value": {
+            "advA": "advA.v1",
+            "advB": "advB.v1",
+            "nanoPre": "nanoPre.v1",
+            "nanoVaultText": "nanoVaultText.v1",
+            "nanoRef": "nanoRef.v1",
+            "nanoFix": "nanoFix.v1",
+            "explain": "explain.v1",
+            "fmPre": "fmPre.v1"
+          },
+          "warning": "partial"
+        }
+      },
+      {
+        "name": "an unknown key",
+        "input": {
+          "raw": "{\"advA\":\"advA.v1\",\"advB\":\"advB.v1\",\"nanoPre\":\"nanoPre.v1\",\"nanoVaultText\":\"nanoVaultText.v1\",\"nanoRef\":\"nanoRef.v1\",\"nanoFix\":\"nanoFix.v1\",\"explain\":\"explain.v1\",\"fmPre\":\"fmPre.v1\",\"zzz\":\"advA.v1\"}"
+        },
+        "expect": {
+          "value": {
+            "advA": "advA.v1",
+            "advB": "advB.v1",
+            "nanoPre": "nanoPre.v1",
+            "nanoVaultText": "nanoVaultText.v1",
+            "nanoRef": "nanoRef.v1",
+            "nanoFix": "nanoFix.v1",
+            "explain": "explain.v1",
+            "fmPre": "fmPre.v1"
+          },
+          "warning": "partial"
+        }
+      },
+      {
+        "name": "a \"__proto__\" key",
+        "input": {
+          "raw": "{\"__proto__\":{\"advA\":\"x\",\"polluted\":true},\"advA\":\"advA.v1\",\"advB\":\"advB.v1\",\"nanoPre\":\"nanoPre.v1\",\"nanoVaultText\":\"nanoVaultText.v1\",\"nanoRef\":\"nanoRef.v1\",\"nanoFix\":\"nanoFix.v1\",\"explain\":\"explain.v1\",\"fmPre\":\"fmPre.v1\"}"
+        },
+        "expect": {
+          "value": {
+            "advA": "advA.v1",
+            "advB": "advB.v1",
+            "nanoPre": "nanoPre.v1",
+            "nanoVaultText": "nanoVaultText.v1",
+            "nanoRef": "nanoRef.v1",
+            "nanoFix": "nanoFix.v1",
+            "explain": "explain.v1",
+            "fmPre": "fmPre.v1"
+          },
+          "warning": "partial"
+        }
+      },
+      {
+        "name": "an array",
+        "input": {
+          "raw": "[\"advA.v1\",\"advB.v1\",\"nanoPre.v1\",\"nanoVaultText.v1\",\"nanoRef.v1\",\"nanoFix.v1\",\"explain.v1\",\"fmPre.v1\"]"
+        },
+        "expect": {
+          "value": {
+            "advA": "advA.v1",
+            "advB": "advB.v1",
+            "nanoPre": "nanoPre.v1",
+            "nanoVaultText": "nanoVaultText.v1",
+            "nanoRef": "nanoRef.v1",
+            "nanoFix": "nanoFix.v1",
+            "explain": "explain.v1",
+            "fmPre": "fmPre.v1"
+          },
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "a JSON string",
+        "input": {
+          "raw": "\"advA.v1\""
+        },
+        "expect": {
+          "value": {
+            "advA": "advA.v1",
+            "advB": "advB.v1",
+            "nanoPre": "nanoPre.v1",
+            "nanoVaultText": "nanoVaultText.v1",
+            "nanoRef": "nanoRef.v1",
+            "nanoFix": "nanoFix.v1",
+            "explain": "explain.v1",
+            "fmPre": "fmPre.v1"
+          },
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "exactly 4096 characters",
+        "input": {
+          "padTo": 4096
+        },
+        "expect": {
+          "value": {
+            "advA": "advA.v1",
+            "advB": "advB.v1",
+            "nanoPre": "nanoPre.v1",
+            "nanoVaultText": "nanoVaultText.v1",
+            "nanoRef": "nanoRef.v1",
+            "nanoFix": "nanoFix.v1",
+            "explain": "explain.v1",
+            "fmPre": "fmPre.v1"
+          },
+          "warning": null
+        }
+      },
+      {
+        "name": "4097 characters",
+        "input": {
+          "padTo": 4097
+        },
+        "expect": {
+          "value": {
+            "advA": "advA.v1",
+            "advB": "advB.v1",
+            "nanoPre": "nanoPre.v1",
+            "nanoVaultText": "nanoVaultText.v1",
+            "nanoRef": "nanoRef.v1",
+            "nanoFix": "nanoFix.v1",
+            "explain": "explain.v1",
+            "fmPre": "fmPre.v1"
+          },
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "empty",
+        "input": {
+          "raw": ""
+        },
+        "expect": {
+          "value": {
+            "advA": "advA.v1",
+            "advB": "advB.v1",
+            "nanoPre": "nanoPre.v1",
+            "nanoVaultText": "nanoVaultText.v1",
+            "nanoRef": "nanoRef.v1",
+            "nanoFix": "nanoFix.v1",
+            "explain": "explain.v1",
+            "fmPre": "fmPre.v1"
+          },
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "truncated JSON",
+        "input": {
+          "raw": "{"
+        },
+        "expect": {
+          "value": {
+            "advA": "advA.v1",
+            "advB": "advB.v1",
+            "nanoPre": "nanoPre.v1",
+            "nanoVaultText": "nanoVaultText.v1",
+            "nanoRef": "nanoRef.v1",
+            "nanoFix": "nanoFix.v1",
+            "explain": "explain.v1",
+            "fmPre": "fmPre.v1"
+          },
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "null",
+        "input": {
+          "raw": "null"
+        },
+        "expect": {
+          "value": {
+            "advA": "advA.v1",
+            "advB": "advB.v1",
+            "nanoPre": "nanoPre.v1",
+            "nanoVaultText": "nanoVaultText.v1",
+            "nanoRef": "nanoRef.v1",
+            "nanoFix": "nanoFix.v1",
+            "explain": "explain.v1",
+            "fmPre": "fmPre.v1"
+          },
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "a number",
+        "input": {
+          "raw": "5"
+        },
+        "expect": {
+          "value": {
+            "advA": "advA.v1",
+            "advB": "advB.v1",
+            "nanoPre": "nanoPre.v1",
+            "nanoVaultText": "nanoVaultText.v1",
+            "nanoRef": "nanoRef.v1",
+            "nanoFix": "nanoFix.v1",
+            "explain": "explain.v1",
+            "fmPre": "fmPre.v1"
+          },
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "BOM before the JSON",
+        "input": {
+          "raw": "﻿{}"
+        },
+        "expect": {
+          "value": {
+            "advA": "advA.v1",
+            "advB": "advB.v1",
+            "nanoPre": "nanoPre.v1",
+            "nanoVaultText": "nanoVaultText.v1",
+            "nanoRef": "nanoRef.v1",
+            "nanoFix": "nanoFix.v1",
+            "explain": "explain.v1",
+            "fmPre": "fmPre.v1"
+          },
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "not a string (web only)",
+        "input": {
+          "notString": {
+            "a": 1
+          }
+        },
+        "expect": {
+          "value": {
+            "advA": "advA.v1",
+            "advB": "advB.v1",
+            "nanoPre": "nanoPre.v1",
+            "nanoVaultText": "nanoVaultText.v1",
+            "nanoRef": "nanoRef.v1",
+            "nanoFix": "nanoFix.v1",
+            "explain": "explain.v1",
+            "fmPre": "fmPre.v1"
+          },
+          "warning": "invalid"
+        }
+      }
+    ]
+  },
+  "groundingEnabled": {
+    "key": "grounding_enabled",
+    "type": "BOOLEAN",
+    "rule": "BOOLEAN; a refused value is the default. AppConfig.groundingEnabled is this AND data_tier = paid (see effectiveConfig)",
+    "cases": [
+      {
+        "name": "\"true\"",
+        "input": {
+          "raw": "true"
+        },
+        "expect": {
+          "value": true,
+          "warning": null
+        }
+      },
+      {
+        "name": "\"false\"",
+        "input": {
+          "raw": "false"
+        },
+        "expect": {
+          "value": false,
+          "warning": null
+        }
+      },
+      {
+        "name": "ASCII upper case",
+        "input": {
+          "raw": "TRUE"
+        },
+        "expect": {
+          "value": true,
+          "warning": null
+        }
+      },
+      {
+        "name": "mixed case",
+        "input": {
+          "raw": "False"
+        },
+        "expect": {
+          "value": false,
+          "warning": null
+        }
+      },
+      {
+        "name": "ASCII whitespace around it",
+        "input": {
+          "raw": " false\n"
+        },
+        "expect": {
+          "value": false,
+          "warning": null
+        }
+      },
+      {
+        "name": "\"1\" is not a boolean here",
+        "input": {
+          "raw": "1"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "\"yes\"",
+        "input": {
+          "raw": "yes"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "empty",
+        "input": {
+          "raw": ""
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "JSON string",
+        "input": {
+          "raw": "\"true\""
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "NBSP before it (not ASCII whitespace)",
+        "input": {
+          "raw": " true"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "BOM before it",
+        "input": {
+          "raw": "﻿true"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "zero-width space after it",
+        "input": {
+          "raw": "true​"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "Cyrillic e (homoglyph)",
+        "input": {
+          "raw": "truе"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "long s (upper-cases to S) is not an ASCII letter",
+        "input": {
+          "raw": "falſe"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "over 16 characters before trimming",
+        "input": {
+          "raw": "             true"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "not a string (web only)",
+        "input": {
+          "notString": true
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      }
+    ]
+  },
+  "dataTier": {
+    "key": "data_tier",
+    "type": "STRING",
+    "rule": "paid or free, ASCII case-insensitive; a refused value is FREE (the conservative consent copy, grounding off), never the default (D-108)",
+    "cases": [
+      {
+        "name": "paid",
+        "input": {
+          "raw": "paid"
+        },
+        "expect": {
+          "value": "paid",
+          "warning": null
+        }
+      },
+      {
+        "name": "free",
+        "input": {
+          "raw": "free"
+        },
+        "expect": {
+          "value": "free",
+          "warning": null
+        }
+      },
+      {
+        "name": "upper case",
+        "input": {
+          "raw": "FREE"
+        },
+        "expect": {
+          "value": "free",
+          "warning": null
+        }
+      },
+      {
+        "name": "ASCII whitespace and mixed case",
+        "input": {
+          "raw": " Paid\n"
+        },
+        "expect": {
+          "value": "paid",
+          "warning": null
+        }
+      },
+      {
+        "name": "unknown tier",
+        "input": {
+          "raw": "pro"
+        },
+        "expect": {
+          "value": "free",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "typo",
+        "input": {
+          "raw": "fre"
+        },
+        "expect": {
+          "value": "free",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "empty",
+        "input": {
+          "raw": ""
+        },
+        "expect": {
+          "value": "free",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "zero-width space after it",
+        "input": {
+          "raw": "paid​"
+        },
+        "expect": {
+          "value": "free",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "Cyrillic a (homoglyph)",
+        "input": {
+          "raw": "pаid"
+        },
+        "expect": {
+          "value": "free",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "JSON string",
+        "input": {
+          "raw": "\"paid\""
+        },
+        "expect": {
+          "value": "free",
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "not a string (web only)",
+        "input": {
+          "notString": 1
+        },
+        "expect": {
+          "value": "free",
+          "warning": "invalid"
+        }
+      }
+    ]
+  },
+  "dailyAdversaryCap": {
+    "key": "daily_adversary_cap",
+    "type": "NUMBER",
+    "rule": "NUMBER; floored, then clamped 1-200 (clamped when that changed it); not a JSON number → invalid",
+    "cases": [
+      {
+        "name": "the default",
+        "input": {
+          "raw": "20"
+        },
+        "expect": {
+          "value": 20,
+          "warning": null
+        }
+      },
+      {
+        "name": "lower bound",
+        "input": {
+          "raw": "1"
+        },
+        "expect": {
+          "value": 1,
+          "warning": null
+        }
+      },
+      {
+        "name": "upper bound",
+        "input": {
+          "raw": "200"
+        },
+        "expect": {
+          "value": 200,
+          "warning": null
+        }
+      },
+      {
+        "name": "exponent",
+        "input": {
+          "raw": "1e2"
+        },
+        "expect": {
+          "value": 100,
+          "warning": null
+        }
+      },
+      {
+        "name": "ASCII whitespace",
+        "input": {
+          "raw": " 50 "
+        },
+        "expect": {
+          "value": 50,
+          "warning": null
+        }
+      },
+      {
+        "name": "zero",
+        "input": {
+          "raw": "0"
+        },
+        "expect": {
+          "value": 1,
+          "warning": "clamped"
+        }
+      },
+      {
+        "name": "negative",
+        "input": {
+          "raw": "-5"
+        },
+        "expect": {
+          "value": 1,
+          "warning": "clamped"
+        }
+      },
+      {
+        "name": "negative zero",
+        "input": {
+          "raw": "-0"
+        },
+        "expect": {
+          "value": 1,
+          "warning": "clamped"
+        }
+      },
+      {
+        "name": "above the cap",
+        "input": {
+          "raw": "201"
+        },
+        "expect": {
+          "value": 200,
+          "warning": "clamped"
+        }
+      },
+      {
+        "name": "huge",
+        "input": {
+          "raw": "1000000"
+        },
+        "expect": {
+          "value": 200,
+          "warning": "clamped"
+        }
+      },
+      {
+        "name": "fraction floored",
+        "input": {
+          "raw": "20.9"
+        },
+        "expect": {
+          "value": 20,
+          "warning": "clamped"
+        }
+      },
+      {
+        "name": "below one after flooring",
+        "input": {
+          "raw": "0.5"
+        },
+        "expect": {
+          "value": 1,
+          "warning": "clamped"
+        }
+      },
+      {
+        "name": "empty",
+        "input": {
+          "raw": ""
+        },
+        "expect": {
+          "value": 20,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "letters",
+        "input": {
+          "raw": "abc"
+        },
+        "expect": {
+          "value": 20,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "trailing letters",
+        "input": {
+          "raw": "20abc"
+        },
+        "expect": {
+          "value": 20,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "leading plus",
+        "input": {
+          "raw": "+20"
+        },
+        "expect": {
+          "value": 20,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "hex",
+        "input": {
+          "raw": "0x14"
+        },
+        "expect": {
+          "value": 20,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "Infinity",
+        "input": {
+          "raw": "Infinity"
+        },
+        "expect": {
+          "value": 20,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "NaN",
+        "input": {
+          "raw": "NaN"
+        },
+        "expect": {
+          "value": 20,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "overflows to Infinity",
+        "input": {
+          "raw": "1e999"
+        },
+        "expect": {
+          "value": 20,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "decimal comma",
+        "input": {
+          "raw": "0,5"
+        },
+        "expect": {
+          "value": 20,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "full-width digits",
+        "input": {
+          "raw": "２０"
+        },
+        "expect": {
+          "value": 20,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "NBSP before it",
+        "input": {
+          "raw": " 20"
+        },
+        "expect": {
+          "value": 20,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "leading zero",
+        "input": {
+          "raw": "007"
+        },
+        "expect": {
+          "value": 20,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "bare fraction",
+        "input": {
+          "raw": ".5"
+        },
+        "expect": {
+          "value": 20,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "JSON string",
+        "input": {
+          "raw": "\"20\""
+        },
+        "expect": {
+          "value": 20,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "over 32 characters",
+        "input": {
+          "repeat": {
+            "text": "9",
+            "times": 33
+          }
+        },
+        "expect": {
+          "value": 20,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "not a string (web only)",
+        "input": {
+          "notString": 20
+        },
+        "expect": {
+          "value": 20,
+          "warning": "invalid"
+        }
+      }
+    ]
+  },
+  "maxFixRounds": {
+    "key": "max_fix_rounds",
+    "type": "NUMBER",
+    "rule": "NUMBER; a whole number 1-10, anything else → invalid (never clamped, D-108)",
+    "cases": [
+      {
+        "name": "the default",
+        "input": {
+          "raw": "3"
+        },
+        "expect": {
+          "value": 3,
+          "warning": null
+        }
+      },
+      {
+        "name": "lower bound",
+        "input": {
+          "raw": "1"
+        },
+        "expect": {
+          "value": 1,
+          "warning": null
+        }
+      },
+      {
+        "name": "upper bound",
+        "input": {
+          "raw": "10"
+        },
+        "expect": {
+          "value": 10,
+          "warning": null
+        }
+      },
+      {
+        "name": "written with a fraction",
+        "input": {
+          "raw": "3.0"
+        },
+        "expect": {
+          "value": 3,
+          "warning": null
+        }
+      },
+      {
+        "name": "exponent",
+        "input": {
+          "raw": "1e1"
+        },
+        "expect": {
+          "value": 10,
+          "warning": null
+        }
+      },
+      {
+        "name": "zero",
+        "input": {
+          "raw": "0"
+        },
+        "expect": {
+          "value": 3,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "above the range",
+        "input": {
+          "raw": "11"
+        },
+        "expect": {
+          "value": 3,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "negative",
+        "input": {
+          "raw": "-1"
+        },
+        "expect": {
+          "value": 3,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "a fraction",
+        "input": {
+          "raw": "2.5"
+        },
+        "expect": {
+          "value": 3,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "empty",
+        "input": {
+          "raw": ""
+        },
+        "expect": {
+          "value": 3,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "letters",
+        "input": {
+          "raw": "abc"
+        },
+        "expect": {
+          "value": 3,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "trailing letters",
+        "input": {
+          "raw": "3abc"
+        },
+        "expect": {
+          "value": 3,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "leading plus",
+        "input": {
+          "raw": "+3"
+        },
+        "expect": {
+          "value": 3,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "hex",
+        "input": {
+          "raw": "0x14"
+        },
+        "expect": {
+          "value": 3,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "Infinity",
+        "input": {
+          "raw": "Infinity"
+        },
+        "expect": {
+          "value": 3,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "NaN",
+        "input": {
+          "raw": "NaN"
+        },
+        "expect": {
+          "value": 3,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "overflows to Infinity",
+        "input": {
+          "raw": "1e999"
+        },
+        "expect": {
+          "value": 3,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "decimal comma",
+        "input": {
+          "raw": "0,5"
+        },
+        "expect": {
+          "value": 3,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "full-width digits",
+        "input": {
+          "raw": "２０"
+        },
+        "expect": {
+          "value": 3,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "NBSP before it",
+        "input": {
+          "raw": " 3"
+        },
+        "expect": {
+          "value": 3,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "leading zero",
+        "input": {
+          "raw": "007"
+        },
+        "expect": {
+          "value": 3,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "bare fraction",
+        "input": {
+          "raw": ".5"
+        },
+        "expect": {
+          "value": 3,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "JSON string",
+        "input": {
+          "raw": "\"3\""
+        },
+        "expect": {
+          "value": 3,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "over 32 characters",
+        "input": {
+          "repeat": {
+            "text": "9",
+            "times": 33
+          }
+        },
+        "expect": {
+          "value": 3,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "not a string (web only)",
+        "input": {
+          "notString": 3
+        },
+        "expect": {
+          "value": 3,
+          "warning": "invalid"
+        }
+      }
+    ]
+  },
+  "bandsM": {
+    "key": "bands_m",
+    "type": "JSON",
+    "rule": "JSON object; core/geo.ts bandThresholdsOrDefault: five finite metres, strictly increasing, street/neighbourhood/district locked to 250/1000/5000 (D-77); otherwise invalid. Unknown keys are ignored (partial)",
+    "cases": [
+      {
+        "name": "the default",
+        "input": {
+          "raw": "{\"street\":250,\"neighbourhood\":1000,\"district\":5000,\"city\":30000,\"country\":500000}"
+        },
+        "expect": {
+          "value": {
+            "street": 250,
+            "neighbourhood": 1000,
+            "district": 5000,
+            "city": 30000,
+            "country": 500000
+          },
+          "warning": null
+        }
+      },
+      {
+        "name": "city and country tuned",
+        "input": {
+          "raw": "{\"street\":250,\"neighbourhood\":1000,\"district\":5000,\"city\":20000,\"country\":300000}"
+        },
+        "expect": {
+          "value": {
+            "street": 250,
+            "neighbourhood": 1000,
+            "district": 5000,
+            "city": 20000,
+            "country": 300000
+          },
+          "warning": null
+        }
+      },
+      {
+        "name": "a fractional city",
+        "input": {
+          "raw": "{\"street\":250,\"neighbourhood\":1000,\"district\":5000,\"city\":30000.5,\"country\":500000}"
+        },
+        "expect": {
+          "value": {
+            "street": 250,
+            "neighbourhood": 1000,
+            "district": 5000,
+            "city": 30000.5,
+            "country": 500000
+          },
+          "warning": null
+        }
+      },
+      {
+        "name": "street moved (locked)",
+        "input": {
+          "raw": "{\"street\":300,\"neighbourhood\":1000,\"district\":5000,\"city\":30000,\"country\":500000}"
+        },
+        "expect": {
+          "value": {
+            "street": 250,
+            "neighbourhood": 1000,
+            "district": 5000,
+            "city": 30000,
+            "country": 500000
+          },
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "district moved (locked)",
+        "input": {
+          "raw": "{\"street\":250,\"neighbourhood\":1000,\"district\":4000,\"city\":30000,\"country\":500000}"
+        },
+        "expect": {
+          "value": {
+            "street": 250,
+            "neighbourhood": 1000,
+            "district": 5000,
+            "city": 30000,
+            "country": 500000
+          },
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "not increasing",
+        "input": {
+          "raw": "{\"street\":250,\"neighbourhood\":1000,\"district\":5000,\"city\":4000,\"country\":500000}"
+        },
+        "expect": {
+          "value": {
+            "street": 250,
+            "neighbourhood": 1000,
+            "district": 5000,
+            "city": 30000,
+            "country": 500000
+          },
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "country equal to city",
+        "input": {
+          "raw": "{\"street\":250,\"neighbourhood\":1000,\"district\":5000,\"city\":30000,\"country\":30000}"
+        },
+        "expect": {
+          "value": {
+            "street": 250,
+            "neighbourhood": 1000,
+            "district": 5000,
+            "city": 30000,
+            "country": 500000
+          },
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "country missing",
+        "input": {
+          "raw": "{\"street\":250,\"neighbourhood\":1000,\"district\":5000,\"city\":30000}"
+        },
+        "expect": {
+          "value": {
+            "street": 250,
+            "neighbourhood": 1000,
+            "district": 5000,
+            "city": 30000,
+            "country": 500000
+          },
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "numbers as strings",
+        "input": {
+          "raw": "{\"street\":\"250\",\"neighbourhood\":\"1000\",\"district\":\"5000\",\"city\":\"30000\",\"country\":\"500000\"}"
+        },
+        "expect": {
+          "value": {
+            "street": 250,
+            "neighbourhood": 1000,
+            "district": 5000,
+            "city": 30000,
+            "country": 500000
+          },
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "country overflows to Infinity",
+        "input": {
+          "raw": "{\"street\":250,\"neighbourhood\":1000,\"district\":5000,\"city\":30000,\"country\":1e999}"
+        },
+        "expect": {
+          "value": {
+            "street": 250,
+            "neighbourhood": 1000,
+            "district": 5000,
+            "city": 30000,
+            "country": 500000
+          },
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "an array",
+        "input": {
+          "raw": "[250,1000,5000,30000,500000]"
+        },
+        "expect": {
+          "value": {
+            "street": 250,
+            "neighbourhood": 1000,
+            "district": 5000,
+            "city": 30000,
+            "country": 500000
+          },
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "empty object",
+        "input": {
+          "raw": "{}"
+        },
+        "expect": {
+          "value": {
+            "street": 250,
+            "neighbourhood": 1000,
+            "district": 5000,
+            "city": 30000,
+            "country": 500000
+          },
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "an unknown key",
+        "input": {
+          "raw": "{\"street\":250,\"neighbourhood\":1000,\"district\":5000,\"city\":30000,\"country\":500000,\"planet\":1000000000}"
+        },
+        "expect": {
+          "value": {
+            "street": 250,
+            "neighbourhood": 1000,
+            "district": 5000,
+            "city": 30000,
+            "country": 500000
+          },
+          "warning": "partial"
+        }
+      },
+      {
+        "name": "a \"__proto__\" key",
+        "input": {
+          "raw": "{\"__proto__\":{\"street\":1},\"street\":250,\"neighbourhood\":1000,\"district\":5000,\"city\":30000,\"country\":500000}"
+        },
+        "expect": {
+          "value": {
+            "street": 250,
+            "neighbourhood": 1000,
+            "district": 5000,
+            "city": 30000,
+            "country": 500000
+          },
+          "warning": "partial"
+        }
+      },
+      {
+        "name": "4097 characters",
+        "input": {
+          "padTo": 4097
+        },
+        "expect": {
+          "value": {
+            "street": 250,
+            "neighbourhood": 1000,
+            "district": 5000,
+            "city": 30000,
+            "country": 500000
+          },
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "empty",
+        "input": {
+          "raw": ""
+        },
+        "expect": {
+          "value": {
+            "street": 250,
+            "neighbourhood": 1000,
+            "district": 5000,
+            "city": 30000,
+            "country": 500000
+          },
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "truncated JSON",
+        "input": {
+          "raw": "{"
+        },
+        "expect": {
+          "value": {
+            "street": 250,
+            "neighbourhood": 1000,
+            "district": 5000,
+            "city": 30000,
+            "country": 500000
+          },
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "null",
+        "input": {
+          "raw": "null"
+        },
+        "expect": {
+          "value": {
+            "street": 250,
+            "neighbourhood": 1000,
+            "district": 5000,
+            "city": 30000,
+            "country": 500000
+          },
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "a number",
+        "input": {
+          "raw": "5"
+        },
+        "expect": {
+          "value": {
+            "street": 250,
+            "neighbourhood": 1000,
+            "district": 5000,
+            "city": 30000,
+            "country": 500000
+          },
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "BOM before the JSON",
+        "input": {
+          "raw": "﻿{}"
+        },
+        "expect": {
+          "value": {
+            "street": 250,
+            "neighbourhood": 1000,
+            "district": 5000,
+            "city": 30000,
+            "country": 500000
+          },
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "not a string (web only)",
+        "input": {
+          "notString": {
+            "a": 1
+          }
+        },
+        "expect": {
+          "value": {
+            "street": 250,
+            "neighbourhood": 1000,
+            "district": 5000,
+            "city": 30000,
+            "country": 500000
+          },
+          "warning": "invalid"
+        }
+      }
+    ]
+  },
+  "autoMaskTypes": {
+    "key": "auto_mask_types",
+    "type": "JSON",
+    "rule": "JSON array of distinct CLUE_TYPES (at most 18; empty allowed); anything else → invalid (never partly used)",
+    "cases": [
+      {
+        "name": "the default",
+        "input": {
+          "raw": "[\"name_text\",\"house_number\",\"plate\",\"mail_or_document\",\"screen\"]"
+        },
+        "expect": {
+          "value": [
+            "name_text",
+            "house_number",
+            "plate",
+            "mail_or_document",
+            "screen"
+          ],
+          "warning": null
+        }
+      },
+      {
+        "name": "empty",
+        "input": {
+          "raw": "[]"
+        },
+        "expect": {
+          "value": [],
+          "warning": null
+        }
+      },
+      {
+        "name": "one type",
+        "input": {
+          "raw": "[\"plate\"]"
+        },
+        "expect": {
+          "value": [
+            "plate"
+          ],
+          "warning": null
+        }
+      },
+      {
+        "name": "every clue type",
+        "input": {
+          "raw": "[\"name_text\",\"house_number\",\"plate\",\"street_sign\",\"transit_sign\",\"storefront_text\",\"uniform_or_lanyard\",\"crest_or_logo\",\"mail_or_document\",\"screen\",\"window_view\",\"reflection\",\"landmark\",\"architecture\",\"road_or_street_furniture\",\"vegetation_or_terrain\",\"language_or_script\",\"other\"]"
+        },
+        "expect": {
+          "value": [
+            "name_text",
+            "house_number",
+            "plate",
+            "street_sign",
+            "transit_sign",
+            "storefront_text",
+            "uniform_or_lanyard",
+            "crest_or_logo",
+            "mail_or_document",
+            "screen",
+            "window_view",
+            "reflection",
+            "landmark",
+            "architecture",
+            "road_or_street_furniture",
+            "vegetation_or_terrain",
+            "language_or_script",
+            "other"
+          ],
+          "warning": null
+        }
+      },
+      {
+        "name": "\"face\" is not a clue type",
+        "input": {
+          "raw": "[\"face\"]"
+        },
+        "expect": {
+          "value": [
+            "name_text",
+            "house_number",
+            "plate",
+            "mail_or_document",
+            "screen"
+          ],
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "a duplicate",
+        "input": {
+          "raw": "[\"plate\",\"plate\"]"
+        },
+        "expect": {
+          "value": [
+            "name_text",
+            "house_number",
+            "plate",
+            "mail_or_document",
+            "screen"
+          ],
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "wrong case",
+        "input": {
+          "raw": "[\"Plate\"]"
+        },
+        "expect": {
+          "value": [
+            "name_text",
+            "house_number",
+            "plate",
+            "mail_or_document",
+            "screen"
+          ],
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "a number",
+        "input": {
+          "raw": "[1]"
+        },
+        "expect": {
+          "value": [
+            "name_text",
+            "house_number",
+            "plate",
+            "mail_or_document",
+            "screen"
+          ],
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "a null",
+        "input": {
+          "raw": "[\"plate\",null]"
+        },
+        "expect": {
+          "value": [
+            "name_text",
+            "house_number",
+            "plate",
+            "mail_or_document",
+            "screen"
+          ],
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "nineteen entries",
+        "input": {
+          "raw": "[\"name_text\",\"house_number\",\"plate\",\"street_sign\",\"transit_sign\",\"storefront_text\",\"uniform_or_lanyard\",\"crest_or_logo\",\"mail_or_document\",\"screen\",\"window_view\",\"reflection\",\"landmark\",\"architecture\",\"road_or_street_furniture\",\"vegetation_or_terrain\",\"language_or_script\",\"other\",\"plate\"]"
+        },
+        "expect": {
+          "value": [
+            "name_text",
+            "house_number",
+            "plate",
+            "mail_or_document",
+            "screen"
+          ],
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "an object",
+        "input": {
+          "raw": "{\"0\":\"plate\"}"
+        },
+        "expect": {
+          "value": [
+            "name_text",
+            "house_number",
+            "plate",
+            "mail_or_document",
+            "screen"
+          ],
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "\"__proto__\"",
+        "input": {
+          "raw": "[\"__proto__\"]"
+        },
+        "expect": {
+          "value": [
+            "name_text",
+            "house_number",
+            "plate",
+            "mail_or_document",
+            "screen"
+          ],
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "a bare word",
+        "input": {
+          "raw": "plate"
+        },
+        "expect": {
+          "value": [
+            "name_text",
+            "house_number",
+            "plate",
+            "mail_or_document",
+            "screen"
+          ],
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "a JSON string",
+        "input": {
+          "raw": "\"plate\""
+        },
+        "expect": {
+          "value": [
+            "name_text",
+            "house_number",
+            "plate",
+            "mail_or_document",
+            "screen"
+          ],
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "4097 characters",
+        "input": {
+          "padTo": 4097
+        },
+        "expect": {
+          "value": [
+            "name_text",
+            "house_number",
+            "plate",
+            "mail_or_document",
+            "screen"
+          ],
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "empty",
+        "input": {
+          "raw": ""
+        },
+        "expect": {
+          "value": [
+            "name_text",
+            "house_number",
+            "plate",
+            "mail_or_document",
+            "screen"
+          ],
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "truncated JSON",
+        "input": {
+          "raw": "{"
+        },
+        "expect": {
+          "value": [
+            "name_text",
+            "house_number",
+            "plate",
+            "mail_or_document",
+            "screen"
+          ],
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "null",
+        "input": {
+          "raw": "null"
+        },
+        "expect": {
+          "value": [
+            "name_text",
+            "house_number",
+            "plate",
+            "mail_or_document",
+            "screen"
+          ],
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "a number",
+        "input": {
+          "raw": "5"
+        },
+        "expect": {
+          "value": [
+            "name_text",
+            "house_number",
+            "plate",
+            "mail_or_document",
+            "screen"
+          ],
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "BOM before the JSON",
+        "input": {
+          "raw": "﻿{}"
+        },
+        "expect": {
+          "value": [
+            "name_text",
+            "house_number",
+            "plate",
+            "mail_or_document",
+            "screen"
+          ],
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "not a string (web only)",
+        "input": {
+          "notString": {
+            "a": 1
+          }
+        },
+        "expect": {
+          "value": [
+            "name_text",
+            "house_number",
+            "plate",
+            "mail_or_document",
+            "screen"
+          ],
+          "warning": "invalid"
+        }
+      }
+    ]
+  },
+  "strictModeDefault": {
+    "key": "strict_mode_default",
+    "type": "BOOLEAN",
+    "rule": "BOOLEAN; a refused value is the default",
+    "cases": [
+      {
+        "name": "\"true\"",
+        "input": {
+          "raw": "true"
+        },
+        "expect": {
+          "value": true,
+          "warning": null
+        }
+      },
+      {
+        "name": "\"false\"",
+        "input": {
+          "raw": "false"
+        },
+        "expect": {
+          "value": false,
+          "warning": null
+        }
+      },
+      {
+        "name": "ASCII upper case",
+        "input": {
+          "raw": "TRUE"
+        },
+        "expect": {
+          "value": true,
+          "warning": null
+        }
+      },
+      {
+        "name": "mixed case",
+        "input": {
+          "raw": "False"
+        },
+        "expect": {
+          "value": false,
+          "warning": null
+        }
+      },
+      {
+        "name": "ASCII whitespace around it",
+        "input": {
+          "raw": " false\n"
+        },
+        "expect": {
+          "value": false,
+          "warning": null
+        }
+      },
+      {
+        "name": "\"1\" is not a boolean here",
+        "input": {
+          "raw": "1"
+        },
+        "expect": {
+          "value": false,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "\"yes\"",
+        "input": {
+          "raw": "yes"
+        },
+        "expect": {
+          "value": false,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "empty",
+        "input": {
+          "raw": ""
+        },
+        "expect": {
+          "value": false,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "JSON string",
+        "input": {
+          "raw": "\"true\""
+        },
+        "expect": {
+          "value": false,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "NBSP before it (not ASCII whitespace)",
+        "input": {
+          "raw": " true"
+        },
+        "expect": {
+          "value": false,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "BOM before it",
+        "input": {
+          "raw": "﻿true"
+        },
+        "expect": {
+          "value": false,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "zero-width space after it",
+        "input": {
+          "raw": "true​"
+        },
+        "expect": {
+          "value": false,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "Cyrillic e (homoglyph)",
+        "input": {
+          "raw": "truе"
+        },
+        "expect": {
+          "value": false,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "long s (upper-cases to S) is not an ASCII letter",
+        "input": {
+          "raw": "falſe"
+        },
+        "expect": {
+          "value": false,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "over 16 characters before trimming",
+        "input": {
+          "raw": "             true"
+        },
+        "expect": {
+          "value": false,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "not a string (web only)",
+        "input": {
+          "notString": true
+        },
+        "expect": {
+          "value": false,
+          "warning": "invalid"
+        }
+      }
+    ]
+  },
+  "fuzzyThreshold": {
+    "key": "fuzzy_threshold",
+    "type": "NUMBER",
+    "rule": "NUMBER; clamped 0.6-0.98 (as tier0/fuzzy.ts clampFuzzyThreshold)",
+    "cases": [
+      {
+        "name": "the default",
+        "input": {
+          "raw": "0.8"
+        },
+        "expect": {
+          "value": 0.8,
+          "warning": null
+        }
+      },
+      {
+        "name": "lower bound",
+        "input": {
+          "raw": "0.6"
+        },
+        "expect": {
+          "value": 0.6,
+          "warning": null
+        }
+      },
+      {
+        "name": "upper bound",
+        "input": {
+          "raw": "0.98"
+        },
+        "expect": {
+          "value": 0.98,
+          "warning": null
+        }
+      },
+      {
+        "name": "inside",
+        "input": {
+          "raw": "0.85"
+        },
+        "expect": {
+          "value": 0.85,
+          "warning": null
+        }
+      },
+      {
+        "name": "exponent",
+        "input": {
+          "raw": "8e-1"
+        },
+        "expect": {
+          "value": 0.8,
+          "warning": null
+        }
+      },
+      {
+        "name": "too low",
+        "input": {
+          "raw": "0.5"
+        },
+        "expect": {
+          "value": 0.6,
+          "warning": "clamped"
+        }
+      },
+      {
+        "name": "one",
+        "input": {
+          "raw": "1"
+        },
+        "expect": {
+          "value": 0.98,
+          "warning": "clamped"
+        }
+      },
+      {
+        "name": "just above",
+        "input": {
+          "raw": "0.99"
+        },
+        "expect": {
+          "value": 0.98,
+          "warning": "clamped"
+        }
+      },
+      {
+        "name": "negative",
+        "input": {
+          "raw": "-1"
+        },
+        "expect": {
+          "value": 0.6,
+          "warning": "clamped"
+        }
+      },
+      {
+        "name": "underflows to zero",
+        "input": {
+          "raw": "1e-400"
+        },
+        "expect": {
+          "value": 0.6,
+          "warning": "clamped"
+        }
+      },
+      {
+        "name": "trailing dot",
+        "input": {
+          "raw": "0.8."
+        },
+        "expect": {
+          "value": 0.8,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "percent",
+        "input": {
+          "raw": "80%"
+        },
+        "expect": {
+          "value": 0.8,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "empty",
+        "input": {
+          "raw": ""
+        },
+        "expect": {
+          "value": 0.8,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "letters",
+        "input": {
+          "raw": "abc"
+        },
+        "expect": {
+          "value": 0.8,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "trailing letters",
+        "input": {
+          "raw": "0.8abc"
+        },
+        "expect": {
+          "value": 0.8,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "leading plus",
+        "input": {
+          "raw": "+0.8"
+        },
+        "expect": {
+          "value": 0.8,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "hex",
+        "input": {
+          "raw": "0x14"
+        },
+        "expect": {
+          "value": 0.8,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "Infinity",
+        "input": {
+          "raw": "Infinity"
+        },
+        "expect": {
+          "value": 0.8,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "NaN",
+        "input": {
+          "raw": "NaN"
+        },
+        "expect": {
+          "value": 0.8,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "overflows to Infinity",
+        "input": {
+          "raw": "1e999"
+        },
+        "expect": {
+          "value": 0.8,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "decimal comma",
+        "input": {
+          "raw": "0,5"
+        },
+        "expect": {
+          "value": 0.8,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "full-width digits",
+        "input": {
+          "raw": "２０"
+        },
+        "expect": {
+          "value": 0.8,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "NBSP before it",
+        "input": {
+          "raw": " 0.8"
+        },
+        "expect": {
+          "value": 0.8,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "leading zero",
+        "input": {
+          "raw": "007"
+        },
+        "expect": {
+          "value": 0.8,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "bare fraction",
+        "input": {
+          "raw": ".5"
+        },
+        "expect": {
+          "value": 0.8,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "JSON string",
+        "input": {
+          "raw": "\"0.8\""
+        },
+        "expect": {
+          "value": 0.8,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "over 32 characters",
+        "input": {
+          "repeat": {
+            "text": "9",
+            "times": 33
+          }
+        },
+        "expect": {
+          "value": 0.8,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "not a string (web only)",
+        "input": {
+          "notString": 0.8
+        },
+        "expect": {
+          "value": 0.8,
+          "warning": "invalid"
+        }
+      }
+    ]
+  },
+  "faceMinConfidence": {
+    "key": "face_min_confidence",
+    "type": "NUMBER",
+    "rule": "NUMBER; clamped 0.2-0.6 (as tier0/faces.ts clampFaceMinConfidence)",
+    "cases": [
+      {
+        "name": "the default",
+        "input": {
+          "raw": "0.3"
+        },
+        "expect": {
+          "value": 0.3,
+          "warning": null
+        }
+      },
+      {
+        "name": "lower bound",
+        "input": {
+          "raw": "0.2"
+        },
+        "expect": {
+          "value": 0.2,
+          "warning": null
+        }
+      },
+      {
+        "name": "upper bound",
+        "input": {
+          "raw": "0.6"
+        },
+        "expect": {
+          "value": 0.6,
+          "warning": null
+        }
+      },
+      {
+        "name": "inside",
+        "input": {
+          "raw": "0.45"
+        },
+        "expect": {
+          "value": 0.45,
+          "warning": null
+        }
+      },
+      {
+        "name": "too low",
+        "input": {
+          "raw": "0.1"
+        },
+        "expect": {
+          "value": 0.2,
+          "warning": "clamped"
+        }
+      },
+      {
+        "name": "zero",
+        "input": {
+          "raw": "0"
+        },
+        "expect": {
+          "value": 0.2,
+          "warning": "clamped"
+        }
+      },
+      {
+        "name": "too high",
+        "input": {
+          "raw": "0.9"
+        },
+        "expect": {
+          "value": 0.6,
+          "warning": "clamped"
+        }
+      },
+      {
+        "name": "empty",
+        "input": {
+          "raw": ""
+        },
+        "expect": {
+          "value": 0.3,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "letters",
+        "input": {
+          "raw": "abc"
+        },
+        "expect": {
+          "value": 0.3,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "trailing letters",
+        "input": {
+          "raw": "0.3abc"
+        },
+        "expect": {
+          "value": 0.3,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "leading plus",
+        "input": {
+          "raw": "+0.3"
+        },
+        "expect": {
+          "value": 0.3,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "hex",
+        "input": {
+          "raw": "0x14"
+        },
+        "expect": {
+          "value": 0.3,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "Infinity",
+        "input": {
+          "raw": "Infinity"
+        },
+        "expect": {
+          "value": 0.3,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "NaN",
+        "input": {
+          "raw": "NaN"
+        },
+        "expect": {
+          "value": 0.3,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "overflows to Infinity",
+        "input": {
+          "raw": "1e999"
+        },
+        "expect": {
+          "value": 0.3,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "decimal comma",
+        "input": {
+          "raw": "0,5"
+        },
+        "expect": {
+          "value": 0.3,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "full-width digits",
+        "input": {
+          "raw": "２０"
+        },
+        "expect": {
+          "value": 0.3,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "NBSP before it",
+        "input": {
+          "raw": " 0.3"
+        },
+        "expect": {
+          "value": 0.3,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "leading zero",
+        "input": {
+          "raw": "007"
+        },
+        "expect": {
+          "value": 0.3,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "bare fraction",
+        "input": {
+          "raw": ".5"
+        },
+        "expect": {
+          "value": 0.3,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "JSON string",
+        "input": {
+          "raw": "\"0.3\""
+        },
+        "expect": {
+          "value": 0.3,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "over 32 characters",
+        "input": {
+          "repeat": {
+            "text": "9",
+            "times": 33
+          }
+        },
+        "expect": {
+          "value": 0.3,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "not a string (web only)",
+        "input": {
+          "notString": 0.3
+        },
+        "expect": {
+          "value": 0.3,
+          "warning": "invalid"
+        }
+      }
+    ]
+  },
+  "maskPadRatio": {
+    "key": "mask_pad_ratio",
+    "type": "NUMBER",
+    "rule": "NUMBER; clamped 0-0.5 (as core/boxes.ts clampPadRatio); -0 reads as 0",
+    "cases": [
+      {
+        "name": "the default",
+        "input": {
+          "raw": "0.15"
+        },
+        "expect": {
+          "value": 0.15,
+          "warning": null
+        }
+      },
+      {
+        "name": "zero",
+        "input": {
+          "raw": "0"
+        },
+        "expect": {
+          "value": 0,
+          "warning": null
+        }
+      },
+      {
+        "name": "negative zero",
+        "input": {
+          "raw": "-0"
+        },
+        "expect": {
+          "value": 0,
+          "warning": null
+        }
+      },
+      {
+        "name": "upper bound",
+        "input": {
+          "raw": "0.5"
+        },
+        "expect": {
+          "value": 0.5,
+          "warning": null
+        }
+      },
+      {
+        "name": "small",
+        "input": {
+          "raw": "1e-3"
+        },
+        "expect": {
+          "value": 0.001,
+          "warning": null
+        }
+      },
+      {
+        "name": "negative",
+        "input": {
+          "raw": "-0.1"
+        },
+        "expect": {
+          "value": 0,
+          "warning": "clamped"
+        }
+      },
+      {
+        "name": "too high",
+        "input": {
+          "raw": "0.75"
+        },
+        "expect": {
+          "value": 0.5,
+          "warning": "clamped"
+        }
+      },
+      {
+        "name": "empty",
+        "input": {
+          "raw": ""
+        },
+        "expect": {
+          "value": 0.15,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "letters",
+        "input": {
+          "raw": "abc"
+        },
+        "expect": {
+          "value": 0.15,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "trailing letters",
+        "input": {
+          "raw": "0.15abc"
+        },
+        "expect": {
+          "value": 0.15,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "leading plus",
+        "input": {
+          "raw": "+0.15"
+        },
+        "expect": {
+          "value": 0.15,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "hex",
+        "input": {
+          "raw": "0x14"
+        },
+        "expect": {
+          "value": 0.15,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "Infinity",
+        "input": {
+          "raw": "Infinity"
+        },
+        "expect": {
+          "value": 0.15,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "NaN",
+        "input": {
+          "raw": "NaN"
+        },
+        "expect": {
+          "value": 0.15,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "overflows to Infinity",
+        "input": {
+          "raw": "1e999"
+        },
+        "expect": {
+          "value": 0.15,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "decimal comma",
+        "input": {
+          "raw": "0,5"
+        },
+        "expect": {
+          "value": 0.15,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "full-width digits",
+        "input": {
+          "raw": "２０"
+        },
+        "expect": {
+          "value": 0.15,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "NBSP before it",
+        "input": {
+          "raw": " 0.15"
+        },
+        "expect": {
+          "value": 0.15,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "leading zero",
+        "input": {
+          "raw": "007"
+        },
+        "expect": {
+          "value": 0.15,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "bare fraction",
+        "input": {
+          "raw": ".5"
+        },
+        "expect": {
+          "value": 0.15,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "JSON string",
+        "input": {
+          "raw": "\"0.15\""
+        },
+        "expect": {
+          "value": 0.15,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "over 32 characters",
+        "input": {
+          "repeat": {
+            "text": "9",
+            "times": 33
+          }
+        },
+        "expect": {
+          "value": 0.15,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "not a string (web only)",
+        "input": {
+          "notString": 0.15
+        },
+        "expect": {
+          "value": 0.15,
+          "warning": "invalid"
+        }
+      }
+    ]
+  },
+  "cloudImageMaxPx": {
+    "key": "cloud_image_max_px",
+    "type": "NUMBER",
+    "rule": "NUMBER; floored, then clamped 768-2048 (as core/frames.ts clampMaxPx(\"cloud\"), D-98)",
+    "cases": [
+      {
+        "name": "the default",
+        "input": {
+          "raw": "1536"
+        },
+        "expect": {
+          "value": 1536,
+          "warning": null
+        }
+      },
+      {
+        "name": "lower bound",
+        "input": {
+          "raw": "768"
+        },
+        "expect": {
+          "value": 768,
+          "warning": null
+        }
+      },
+      {
+        "name": "upper bound",
+        "input": {
+          "raw": "2048"
+        },
+        "expect": {
+          "value": 2048,
+          "warning": null
+        }
+      },
+      {
+        "name": "inside",
+        "input": {
+          "raw": "1024"
+        },
+        "expect": {
+          "value": 1024,
+          "warning": null
+        }
+      },
+      {
+        "name": "fraction floored",
+        "input": {
+          "raw": "1536.6"
+        },
+        "expect": {
+          "value": 1536,
+          "warning": "clamped"
+        }
+      },
+      {
+        "name": "too small",
+        "input": {
+          "raw": "512"
+        },
+        "expect": {
+          "value": 768,
+          "warning": "clamped"
+        }
+      },
+      {
+        "name": "zero",
+        "input": {
+          "raw": "0"
+        },
+        "expect": {
+          "value": 768,
+          "warning": "clamped"
+        }
+      },
+      {
+        "name": "negative",
+        "input": {
+          "raw": "-1536"
+        },
+        "expect": {
+          "value": 768,
+          "warning": "clamped"
+        }
+      },
+      {
+        "name": "too big",
+        "input": {
+          "raw": "4096"
+        },
+        "expect": {
+          "value": 2048,
+          "warning": "clamped"
+        }
+      },
+      {
+        "name": "unit suffix",
+        "input": {
+          "raw": "1536px"
+        },
+        "expect": {
+          "value": 1536,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "empty",
+        "input": {
+          "raw": ""
+        },
+        "expect": {
+          "value": 1536,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "letters",
+        "input": {
+          "raw": "abc"
+        },
+        "expect": {
+          "value": 1536,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "trailing letters",
+        "input": {
+          "raw": "1536abc"
+        },
+        "expect": {
+          "value": 1536,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "leading plus",
+        "input": {
+          "raw": "+1536"
+        },
+        "expect": {
+          "value": 1536,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "hex",
+        "input": {
+          "raw": "0x14"
+        },
+        "expect": {
+          "value": 1536,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "Infinity",
+        "input": {
+          "raw": "Infinity"
+        },
+        "expect": {
+          "value": 1536,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "NaN",
+        "input": {
+          "raw": "NaN"
+        },
+        "expect": {
+          "value": 1536,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "overflows to Infinity",
+        "input": {
+          "raw": "1e999"
+        },
+        "expect": {
+          "value": 1536,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "decimal comma",
+        "input": {
+          "raw": "0,5"
+        },
+        "expect": {
+          "value": 1536,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "full-width digits",
+        "input": {
+          "raw": "２０"
+        },
+        "expect": {
+          "value": 1536,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "NBSP before it",
+        "input": {
+          "raw": " 1536"
+        },
+        "expect": {
+          "value": 1536,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "leading zero",
+        "input": {
+          "raw": "007"
+        },
+        "expect": {
+          "value": 1536,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "bare fraction",
+        "input": {
+          "raw": ".5"
+        },
+        "expect": {
+          "value": 1536,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "JSON string",
+        "input": {
+          "raw": "\"1536\""
+        },
+        "expect": {
+          "value": 1536,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "over 32 characters",
+        "input": {
+          "repeat": {
+            "text": "9",
+            "times": 33
+          }
+        },
+        "expect": {
+          "value": 1536,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "not a string (web only)",
+        "input": {
+          "notString": 1536
+        },
+        "expect": {
+          "value": 1536,
+          "warning": "invalid"
+        }
+      }
+    ]
+  },
+  "nanoImageMaxPx": {
+    "key": "nano_image_max_px",
+    "type": "NUMBER",
+    "rule": "NUMBER; floored, then clamped 256-768 (as core/frames.ts clampMaxPx(\"nano768\"), D-98)",
+    "cases": [
+      {
+        "name": "the default",
+        "input": {
+          "raw": "768"
+        },
+        "expect": {
+          "value": 768,
+          "warning": null
+        }
+      },
+      {
+        "name": "lower bound",
+        "input": {
+          "raw": "256"
+        },
+        "expect": {
+          "value": 256,
+          "warning": null
+        }
+      },
+      {
+        "name": "inside",
+        "input": {
+          "raw": "512"
+        },
+        "expect": {
+          "value": 512,
+          "warning": null
+        }
+      },
+      {
+        "name": "too big",
+        "input": {
+          "raw": "1024"
+        },
+        "expect": {
+          "value": 768,
+          "warning": "clamped"
+        }
+      },
+      {
+        "name": "too small",
+        "input": {
+          "raw": "100"
+        },
+        "expect": {
+          "value": 256,
+          "warning": "clamped"
+        }
+      },
+      {
+        "name": "fraction floored",
+        "input": {
+          "raw": "767.9"
+        },
+        "expect": {
+          "value": 767,
+          "warning": "clamped"
+        }
+      },
+      {
+        "name": "empty",
+        "input": {
+          "raw": ""
+        },
+        "expect": {
+          "value": 768,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "letters",
+        "input": {
+          "raw": "abc"
+        },
+        "expect": {
+          "value": 768,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "trailing letters",
+        "input": {
+          "raw": "768abc"
+        },
+        "expect": {
+          "value": 768,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "leading plus",
+        "input": {
+          "raw": "+768"
+        },
+        "expect": {
+          "value": 768,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "hex",
+        "input": {
+          "raw": "0x14"
+        },
+        "expect": {
+          "value": 768,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "Infinity",
+        "input": {
+          "raw": "Infinity"
+        },
+        "expect": {
+          "value": 768,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "NaN",
+        "input": {
+          "raw": "NaN"
+        },
+        "expect": {
+          "value": 768,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "overflows to Infinity",
+        "input": {
+          "raw": "1e999"
+        },
+        "expect": {
+          "value": 768,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "decimal comma",
+        "input": {
+          "raw": "0,5"
+        },
+        "expect": {
+          "value": 768,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "full-width digits",
+        "input": {
+          "raw": "２０"
+        },
+        "expect": {
+          "value": 768,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "NBSP before it",
+        "input": {
+          "raw": " 768"
+        },
+        "expect": {
+          "value": 768,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "leading zero",
+        "input": {
+          "raw": "007"
+        },
+        "expect": {
+          "value": 768,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "bare fraction",
+        "input": {
+          "raw": ".5"
+        },
+        "expect": {
+          "value": 768,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "JSON string",
+        "input": {
+          "raw": "\"768\""
+        },
+        "expect": {
+          "value": 768,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "over 32 characters",
+        "input": {
+          "repeat": {
+            "text": "9",
+            "times": 33
+          }
+        },
+        "expect": {
+          "value": 768,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "not a string (web only)",
+        "input": {
+          "notString": 768
+        },
+        "expect": {
+          "value": 768,
+          "warning": "invalid"
+        }
+      }
+    ]
+  },
+  "ocrMaxPx": {
+    "key": "ocr_max_px",
+    "type": "NUMBER",
+    "rule": "NUMBER; rounded, then clamped 800-2048 (as tier0/ocr.ts clampOcrMaxPx, D-83)",
+    "cases": [
+      {
+        "name": "the default",
+        "input": {
+          "raw": "1600"
+        },
+        "expect": {
+          "value": 1600,
+          "warning": null
+        }
+      },
+      {
+        "name": "lower bound",
+        "input": {
+          "raw": "800"
+        },
+        "expect": {
+          "value": 800,
+          "warning": null
+        }
+      },
+      {
+        "name": "upper bound",
+        "input": {
+          "raw": "2048"
+        },
+        "expect": {
+          "value": 2048,
+          "warning": null
+        }
+      },
+      {
+        "name": "rounds up",
+        "input": {
+          "raw": "1599.5"
+        },
+        "expect": {
+          "value": 1600,
+          "warning": "clamped"
+        }
+      },
+      {
+        "name": "rounds down",
+        "input": {
+          "raw": "1599.4"
+        },
+        "expect": {
+          "value": 1599,
+          "warning": "clamped"
+        }
+      },
+      {
+        "name": "rounds up to the bound",
+        "input": {
+          "raw": "799.6"
+        },
+        "expect": {
+          "value": 800,
+          "warning": "clamped"
+        }
+      },
+      {
+        "name": "too small",
+        "input": {
+          "raw": "500"
+        },
+        "expect": {
+          "value": 800,
+          "warning": "clamped"
+        }
+      },
+      {
+        "name": "too big",
+        "input": {
+          "raw": "3000"
+        },
+        "expect": {
+          "value": 2048,
+          "warning": "clamped"
+        }
+      },
+      {
+        "name": "empty",
+        "input": {
+          "raw": ""
+        },
+        "expect": {
+          "value": 1600,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "letters",
+        "input": {
+          "raw": "abc"
+        },
+        "expect": {
+          "value": 1600,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "trailing letters",
+        "input": {
+          "raw": "1600abc"
+        },
+        "expect": {
+          "value": 1600,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "leading plus",
+        "input": {
+          "raw": "+1600"
+        },
+        "expect": {
+          "value": 1600,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "hex",
+        "input": {
+          "raw": "0x14"
+        },
+        "expect": {
+          "value": 1600,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "Infinity",
+        "input": {
+          "raw": "Infinity"
+        },
+        "expect": {
+          "value": 1600,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "NaN",
+        "input": {
+          "raw": "NaN"
+        },
+        "expect": {
+          "value": 1600,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "overflows to Infinity",
+        "input": {
+          "raw": "1e999"
+        },
+        "expect": {
+          "value": 1600,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "decimal comma",
+        "input": {
+          "raw": "0,5"
+        },
+        "expect": {
+          "value": 1600,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "full-width digits",
+        "input": {
+          "raw": "２０"
+        },
+        "expect": {
+          "value": 1600,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "NBSP before it",
+        "input": {
+          "raw": " 1600"
+        },
+        "expect": {
+          "value": 1600,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "leading zero",
+        "input": {
+          "raw": "007"
+        },
+        "expect": {
+          "value": 1600,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "bare fraction",
+        "input": {
+          "raw": ".5"
+        },
+        "expect": {
+          "value": 1600,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "JSON string",
+        "input": {
+          "raw": "\"1600\""
+        },
+        "expect": {
+          "value": 1600,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "over 32 characters",
+        "input": {
+          "repeat": {
+            "text": "9",
+            "times": 33
+          }
+        },
+        "expect": {
+          "value": 1600,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "not a string (web only)",
+        "input": {
+          "notString": 1600
+        },
+        "expect": {
+          "value": 1600,
+          "warning": "invalid"
+        }
+      }
+    ]
+  },
+  "timeoutsMs": {
+    "key": "timeouts_ms",
+    "type": "JSON",
+    "rule": "JSON object; each of advA, advB, explain, deviceImage, deviceText takes a finite JSON number, rounded and clamped 1000-600000 ms (ai/models.ts); a missing or non-number entry takes its default; unknown keys are ignored. Any of that is partial. Not an object → invalid",
+    "cases": [
+      {
+        "name": "the default",
+        "input": {
+          "raw": "{\"advA\":90000,\"advB\":60000,\"explain\":20000,\"deviceImage\":60000,\"deviceText\":30000}"
+        },
+        "expect": {
+          "value": {
+            "advA": 90000,
+            "advB": 60000,
+            "explain": 20000,
+            "deviceImage": 60000,
+            "deviceText": 30000
+          },
+          "warning": null
+        }
+      },
+      {
+        "name": "all tuned",
+        "input": {
+          "raw": "{\"advA\":120000,\"advB\":45000,\"explain\":10000,\"deviceImage\":30000,\"deviceText\":15000}"
+        },
+        "expect": {
+          "value": {
+            "advA": 120000,
+            "advB": 45000,
+            "explain": 10000,
+            "deviceImage": 30000,
+            "deviceText": 15000
+          },
+          "warning": null
+        }
+      },
+      {
+        "name": "above ten minutes",
+        "input": {
+          "raw": "{\"advA\":999999,\"advB\":60000,\"explain\":20000,\"deviceImage\":60000,\"deviceText\":30000}"
+        },
+        "expect": {
+          "value": {
+            "advA": 600000,
+            "advB": 60000,
+            "explain": 20000,
+            "deviceImage": 60000,
+            "deviceText": 30000
+          },
+          "warning": "partial"
+        }
+      },
+      {
+        "name": "below one second",
+        "input": {
+          "raw": "{\"advA\":90000,\"advB\":10,\"explain\":20000,\"deviceImage\":60000,\"deviceText\":30000}"
+        },
+        "expect": {
+          "value": {
+            "advA": 90000,
+            "advB": 1000,
+            "explain": 20000,
+            "deviceImage": 60000,
+            "deviceText": 30000
+          },
+          "warning": "partial"
+        }
+      },
+      {
+        "name": "negative",
+        "input": {
+          "raw": "{\"advA\":-5,\"advB\":60000,\"explain\":20000,\"deviceImage\":60000,\"deviceText\":30000}"
+        },
+        "expect": {
+          "value": {
+            "advA": 1000,
+            "advB": 60000,
+            "explain": 20000,
+            "deviceImage": 60000,
+            "deviceText": 30000
+          },
+          "warning": "partial"
+        }
+      },
+      {
+        "name": "a fraction",
+        "input": {
+          "raw": "{\"advA\":90000,\"advB\":60000,\"explain\":20000.4,\"deviceImage\":60000,\"deviceText\":30000}"
+        },
+        "expect": {
+          "value": {
+            "advA": 90000,
+            "advB": 60000,
+            "explain": 20000,
+            "deviceImage": 60000,
+            "deviceText": 30000
+          },
+          "warning": "partial"
+        }
+      },
+      {
+        "name": "a number as a string",
+        "input": {
+          "raw": "{\"advA\":90000,\"advB\":60000,\"explain\":20000,\"deviceImage\":60000,\"deviceText\":\"30000\"}"
+        },
+        "expect": {
+          "value": {
+            "advA": 90000,
+            "advB": 60000,
+            "explain": 20000,
+            "deviceImage": 60000,
+            "deviceText": 30000
+          },
+          "warning": "partial"
+        }
+      },
+      {
+        "name": "overflows to Infinity",
+        "input": {
+          "raw": "{\"advA\":1e999,\"advB\":60000,\"explain\":20000,\"deviceImage\":60000,\"deviceText\":30000}"
+        },
+        "expect": {
+          "value": {
+            "advA": 90000,
+            "advB": 60000,
+            "explain": 20000,
+            "deviceImage": 60000,
+            "deviceText": 30000
+          },
+          "warning": "partial"
+        }
+      },
+      {
+        "name": "a job missing",
+        "input": {
+          "raw": "{\"advA\":90000,\"advB\":60000,\"explain\":20000,\"deviceText\":30000}"
+        },
+        "expect": {
+          "value": {
+            "advA": 90000,
+            "advB": 60000,
+            "explain": 20000,
+            "deviceImage": 60000,
+            "deviceText": 30000
+          },
+          "warning": "partial"
+        }
+      },
+      {
+        "name": "empty object",
+        "input": {
+          "raw": "{}"
+        },
+        "expect": {
+          "value": {
+            "advA": 90000,
+            "advB": 60000,
+            "explain": 20000,
+            "deviceImage": 60000,
+            "deviceText": 30000
+          },
+          "warning": "partial"
+        }
+      },
+      {
+        "name": "an unknown key",
+        "input": {
+          "raw": "{\"advA\":90000,\"advB\":60000,\"explain\":20000,\"deviceImage\":60000,\"deviceText\":30000,\"foo\":1}"
+        },
+        "expect": {
+          "value": {
+            "advA": 90000,
+            "advB": 60000,
+            "explain": 20000,
+            "deviceImage": 60000,
+            "deviceText": 30000
+          },
+          "warning": "partial"
+        }
+      },
+      {
+        "name": "a \"__proto__\" key",
+        "input": {
+          "raw": "{\"__proto__\":{\"advA\":1},\"advA\":90000,\"advB\":60000,\"explain\":20000,\"deviceImage\":60000,\"deviceText\":30000}"
+        },
+        "expect": {
+          "value": {
+            "advA": 90000,
+            "advB": 60000,
+            "explain": 20000,
+            "deviceImage": 60000,
+            "deviceText": 30000
+          },
+          "warning": "partial"
+        }
+      },
+      {
+        "name": "an array",
+        "input": {
+          "raw": "[90000,60000,20000,60000,30000]"
+        },
+        "expect": {
+          "value": {
+            "advA": 90000,
+            "advB": 60000,
+            "explain": 20000,
+            "deviceImage": 60000,
+            "deviceText": 30000
+          },
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "4097 characters",
+        "input": {
+          "padTo": 4097
+        },
+        "expect": {
+          "value": {
+            "advA": 90000,
+            "advB": 60000,
+            "explain": 20000,
+            "deviceImage": 60000,
+            "deviceText": 30000
+          },
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "empty",
+        "input": {
+          "raw": ""
+        },
+        "expect": {
+          "value": {
+            "advA": 90000,
+            "advB": 60000,
+            "explain": 20000,
+            "deviceImage": 60000,
+            "deviceText": 30000
+          },
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "truncated JSON",
+        "input": {
+          "raw": "{"
+        },
+        "expect": {
+          "value": {
+            "advA": 90000,
+            "advB": 60000,
+            "explain": 20000,
+            "deviceImage": 60000,
+            "deviceText": 30000
+          },
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "null",
+        "input": {
+          "raw": "null"
+        },
+        "expect": {
+          "value": {
+            "advA": 90000,
+            "advB": 60000,
+            "explain": 20000,
+            "deviceImage": 60000,
+            "deviceText": 30000
+          },
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "a number",
+        "input": {
+          "raw": "5"
+        },
+        "expect": {
+          "value": {
+            "advA": 90000,
+            "advB": 60000,
+            "explain": 20000,
+            "deviceImage": 60000,
+            "deviceText": 30000
+          },
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "BOM before the JSON",
+        "input": {
+          "raw": "﻿{}"
+        },
+        "expect": {
+          "value": {
+            "advA": 90000,
+            "advB": 60000,
+            "explain": 20000,
+            "deviceImage": 60000,
+            "deviceText": 30000
+          },
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "not a string (web only)",
+        "input": {
+          "notString": {
+            "a": 1
+          }
+        },
+        "expect": {
+          "value": {
+            "advA": 90000,
+            "advB": 60000,
+            "explain": 20000,
+            "deviceImage": 60000,
+            "deviceText": 30000
+          },
+          "warning": "invalid"
+        }
+      }
+    ]
+  },
+  "judgeModeEnabled": {
+    "key": "judge_mode_enabled",
+    "type": "BOOLEAN",
+    "rule": "BOOLEAN; a refused value is the default",
+    "cases": [
+      {
+        "name": "\"true\"",
+        "input": {
+          "raw": "true"
+        },
+        "expect": {
+          "value": true,
+          "warning": null
+        }
+      },
+      {
+        "name": "\"false\"",
+        "input": {
+          "raw": "false"
+        },
+        "expect": {
+          "value": false,
+          "warning": null
+        }
+      },
+      {
+        "name": "ASCII upper case",
+        "input": {
+          "raw": "TRUE"
+        },
+        "expect": {
+          "value": true,
+          "warning": null
+        }
+      },
+      {
+        "name": "mixed case",
+        "input": {
+          "raw": "False"
+        },
+        "expect": {
+          "value": false,
+          "warning": null
+        }
+      },
+      {
+        "name": "ASCII whitespace around it",
+        "input": {
+          "raw": " false\n"
+        },
+        "expect": {
+          "value": false,
+          "warning": null
+        }
+      },
+      {
+        "name": "\"1\" is not a boolean here",
+        "input": {
+          "raw": "1"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "\"yes\"",
+        "input": {
+          "raw": "yes"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "empty",
+        "input": {
+          "raw": ""
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "JSON string",
+        "input": {
+          "raw": "\"true\""
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "NBSP before it (not ASCII whitespace)",
+        "input": {
+          "raw": " true"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "BOM before it",
+        "input": {
+          "raw": "﻿true"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "zero-width space after it",
+        "input": {
+          "raw": "true​"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "Cyrillic e (homoglyph)",
+        "input": {
+          "raw": "truе"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "long s (upper-cases to S) is not an ASCII letter",
+        "input": {
+          "raw": "falſe"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "over 16 characters before trimming",
+        "input": {
+          "raw": "             true"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "not a string (web only)",
+        "input": {
+          "notString": true
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      }
+    ]
+  },
+  "judgeCachedFallback": {
+    "key": "judge_cached_fallback",
+    "type": "BOOLEAN",
+    "rule": "BOOLEAN; a refused value is the default",
+    "cases": [
+      {
+        "name": "\"true\"",
+        "input": {
+          "raw": "true"
+        },
+        "expect": {
+          "value": true,
+          "warning": null
+        }
+      },
+      {
+        "name": "\"false\"",
+        "input": {
+          "raw": "false"
+        },
+        "expect": {
+          "value": false,
+          "warning": null
+        }
+      },
+      {
+        "name": "ASCII upper case",
+        "input": {
+          "raw": "TRUE"
+        },
+        "expect": {
+          "value": true,
+          "warning": null
+        }
+      },
+      {
+        "name": "mixed case",
+        "input": {
+          "raw": "False"
+        },
+        "expect": {
+          "value": false,
+          "warning": null
+        }
+      },
+      {
+        "name": "ASCII whitespace around it",
+        "input": {
+          "raw": " false\n"
+        },
+        "expect": {
+          "value": false,
+          "warning": null
+        }
+      },
+      {
+        "name": "\"1\" is not a boolean here",
+        "input": {
+          "raw": "1"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "\"yes\"",
+        "input": {
+          "raw": "yes"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "empty",
+        "input": {
+          "raw": ""
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "JSON string",
+        "input": {
+          "raw": "\"true\""
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "NBSP before it (not ASCII whitespace)",
+        "input": {
+          "raw": " true"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "BOM before it",
+        "input": {
+          "raw": "﻿true"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "zero-width space after it",
+        "input": {
+          "raw": "true​"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "Cyrillic e (homoglyph)",
+        "input": {
+          "raw": "truе"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "long s (upper-cases to S) is not an ASCII letter",
+        "input": {
+          "raw": "falſe"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "over 16 characters before trimming",
+        "input": {
+          "raw": "             true"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "not a string (web only)",
+        "input": {
+          "notString": true
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      }
+    ]
+  },
+  "judgeAutoplayDefault": {
+    "key": "judge_autoplay_default",
+    "type": "BOOLEAN",
+    "rule": "BOOLEAN; a refused value is the default",
+    "cases": [
+      {
+        "name": "\"true\"",
+        "input": {
+          "raw": "true"
+        },
+        "expect": {
+          "value": true,
+          "warning": null
+        }
+      },
+      {
+        "name": "\"false\"",
+        "input": {
+          "raw": "false"
+        },
+        "expect": {
+          "value": false,
+          "warning": null
+        }
+      },
+      {
+        "name": "ASCII upper case",
+        "input": {
+          "raw": "TRUE"
+        },
+        "expect": {
+          "value": true,
+          "warning": null
+        }
+      },
+      {
+        "name": "mixed case",
+        "input": {
+          "raw": "False"
+        },
+        "expect": {
+          "value": false,
+          "warning": null
+        }
+      },
+      {
+        "name": "ASCII whitespace around it",
+        "input": {
+          "raw": " false\n"
+        },
+        "expect": {
+          "value": false,
+          "warning": null
+        }
+      },
+      {
+        "name": "\"1\" is not a boolean here",
+        "input": {
+          "raw": "1"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "\"yes\"",
+        "input": {
+          "raw": "yes"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "empty",
+        "input": {
+          "raw": ""
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "JSON string",
+        "input": {
+          "raw": "\"true\""
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "NBSP before it (not ASCII whitespace)",
+        "input": {
+          "raw": " true"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "BOM before it",
+        "input": {
+          "raw": "﻿true"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "zero-width space after it",
+        "input": {
+          "raw": "true​"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "Cyrillic e (homoglyph)",
+        "input": {
+          "raw": "truе"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "long s (upper-cases to S) is not an ASCII letter",
+        "input": {
+          "raw": "falſe"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "over 16 characters before trimming",
+        "input": {
+          "raw": "             true"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "not a string (web only)",
+        "input": {
+          "notString": true
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      }
+    ]
+  },
+  "atlasEnabled": {
+    "key": "atlas_enabled",
+    "type": "BOOLEAN",
+    "rule": "BOOLEAN; a refused value is the default",
+    "cases": [
+      {
+        "name": "\"true\"",
+        "input": {
+          "raw": "true"
+        },
+        "expect": {
+          "value": true,
+          "warning": null
+        }
+      },
+      {
+        "name": "\"false\"",
+        "input": {
+          "raw": "false"
+        },
+        "expect": {
+          "value": false,
+          "warning": null
+        }
+      },
+      {
+        "name": "ASCII upper case",
+        "input": {
+          "raw": "TRUE"
+        },
+        "expect": {
+          "value": true,
+          "warning": null
+        }
+      },
+      {
+        "name": "mixed case",
+        "input": {
+          "raw": "False"
+        },
+        "expect": {
+          "value": false,
+          "warning": null
+        }
+      },
+      {
+        "name": "ASCII whitespace around it",
+        "input": {
+          "raw": " false\n"
+        },
+        "expect": {
+          "value": false,
+          "warning": null
+        }
+      },
+      {
+        "name": "\"1\" is not a boolean here",
+        "input": {
+          "raw": "1"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "\"yes\"",
+        "input": {
+          "raw": "yes"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "empty",
+        "input": {
+          "raw": ""
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "JSON string",
+        "input": {
+          "raw": "\"true\""
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "NBSP before it (not ASCII whitespace)",
+        "input": {
+          "raw": " true"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "BOM before it",
+        "input": {
+          "raw": "﻿true"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "zero-width space after it",
+        "input": {
+          "raw": "true​"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "Cyrillic e (homoglyph)",
+        "input": {
+          "raw": "truе"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "long s (upper-cases to S) is not an ASCII letter",
+        "input": {
+          "raw": "falſe"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "over 16 characters before trimming",
+        "input": {
+          "raw": "             true"
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "not a string (web only)",
+        "input": {
+          "notString": true
+        },
+        "expect": {
+          "value": true,
+          "warning": "invalid"
+        }
+      }
+    ]
+  },
+  "extensionEnabled": {
+    "key": "extension_enabled",
+    "type": "BOOLEAN",
+    "rule": "BOOLEAN; a refused value is the default",
+    "cases": [
+      {
+        "name": "\"true\"",
+        "input": {
+          "raw": "true"
+        },
+        "expect": {
+          "value": true,
+          "warning": null
+        }
+      },
+      {
+        "name": "\"false\"",
+        "input": {
+          "raw": "false"
+        },
+        "expect": {
+          "value": false,
+          "warning": null
+        }
+      },
+      {
+        "name": "ASCII upper case",
+        "input": {
+          "raw": "TRUE"
+        },
+        "expect": {
+          "value": true,
+          "warning": null
+        }
+      },
+      {
+        "name": "mixed case",
+        "input": {
+          "raw": "False"
+        },
+        "expect": {
+          "value": false,
+          "warning": null
+        }
+      },
+      {
+        "name": "ASCII whitespace around it",
+        "input": {
+          "raw": " false\n"
+        },
+        "expect": {
+          "value": false,
+          "warning": null
+        }
+      },
+      {
+        "name": "\"1\" is not a boolean here",
+        "input": {
+          "raw": "1"
+        },
+        "expect": {
+          "value": false,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "\"yes\"",
+        "input": {
+          "raw": "yes"
+        },
+        "expect": {
+          "value": false,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "empty",
+        "input": {
+          "raw": ""
+        },
+        "expect": {
+          "value": false,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "JSON string",
+        "input": {
+          "raw": "\"true\""
+        },
+        "expect": {
+          "value": false,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "NBSP before it (not ASCII whitespace)",
+        "input": {
+          "raw": " true"
+        },
+        "expect": {
+          "value": false,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "BOM before it",
+        "input": {
+          "raw": "﻿true"
+        },
+        "expect": {
+          "value": false,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "zero-width space after it",
+        "input": {
+          "raw": "true​"
+        },
+        "expect": {
+          "value": false,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "Cyrillic e (homoglyph)",
+        "input": {
+          "raw": "truе"
+        },
+        "expect": {
+          "value": false,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "long s (upper-cases to S) is not an ASCII letter",
+        "input": {
+          "raw": "falſe"
+        },
+        "expect": {
+          "value": false,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "over 16 characters before trimming",
+        "input": {
+          "raw": "             true"
+        },
+        "expect": {
+          "value": false,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "not a string (web only)",
+        "input": {
+          "notString": true
+        },
+        "expect": {
+          "value": false,
+          "warning": "invalid"
+        }
+      }
+    ]
+  },
+  "adversarySeed": {
+    "key": "adversary_seed",
+    "type": "NUMBER",
+    "rule": "NUMBER; a whole number in the signed 32-bit range (0 = not sent), anything else → invalid (never clamped, D-108)",
+    "cases": [
+      {
+        "name": "the default",
+        "input": {
+          "raw": "0"
+        },
+        "expect": {
+          "value": 0,
+          "warning": null
+        }
+      },
+      {
+        "name": "positive",
+        "input": {
+          "raw": "42"
+        },
+        "expect": {
+          "value": 42,
+          "warning": null
+        }
+      },
+      {
+        "name": "negative",
+        "input": {
+          "raw": "-7"
+        },
+        "expect": {
+          "value": -7,
+          "warning": null
+        }
+      },
+      {
+        "name": "int32 max",
+        "input": {
+          "raw": "2147483647"
+        },
+        "expect": {
+          "value": 2147483647,
+          "warning": null
+        }
+      },
+      {
+        "name": "int32 min",
+        "input": {
+          "raw": "-2147483648"
+        },
+        "expect": {
+          "value": -2147483648,
+          "warning": null
+        }
+      },
+      {
+        "name": "exponent",
+        "input": {
+          "raw": "1e3"
+        },
+        "expect": {
+          "value": 1000,
+          "warning": null
+        }
+      },
+      {
+        "name": "just above int32",
+        "input": {
+          "raw": "2147483648"
+        },
+        "expect": {
+          "value": 0,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "beyond 2^53",
+        "input": {
+          "raw": "9007199254740993"
+        },
+        "expect": {
+          "value": 0,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "a fraction",
+        "input": {
+          "raw": "1.5"
+        },
+        "expect": {
+          "value": 0,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "empty",
+        "input": {
+          "raw": ""
+        },
+        "expect": {
+          "value": 0,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "letters",
+        "input": {
+          "raw": "abc"
+        },
+        "expect": {
+          "value": 0,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "trailing letters",
+        "input": {
+          "raw": "0abc"
+        },
+        "expect": {
+          "value": 0,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "leading plus",
+        "input": {
+          "raw": "+0"
+        },
+        "expect": {
+          "value": 0,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "hex",
+        "input": {
+          "raw": "0x14"
+        },
+        "expect": {
+          "value": 0,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "Infinity",
+        "input": {
+          "raw": "Infinity"
+        },
+        "expect": {
+          "value": 0,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "NaN",
+        "input": {
+          "raw": "NaN"
+        },
+        "expect": {
+          "value": 0,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "overflows to Infinity",
+        "input": {
+          "raw": "1e999"
+        },
+        "expect": {
+          "value": 0,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "decimal comma",
+        "input": {
+          "raw": "0,5"
+        },
+        "expect": {
+          "value": 0,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "full-width digits",
+        "input": {
+          "raw": "２０"
+        },
+        "expect": {
+          "value": 0,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "NBSP before it",
+        "input": {
+          "raw": " 0"
+        },
+        "expect": {
+          "value": 0,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "bare fraction",
+        "input": {
+          "raw": ".5"
+        },
+        "expect": {
+          "value": 0,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "JSON string",
+        "input": {
+          "raw": "\"0\""
+        },
+        "expect": {
+          "value": 0,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "over 32 characters",
+        "input": {
+          "repeat": {
+            "text": "9",
+            "times": 33
+          }
+        },
+        "expect": {
+          "value": 0,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "not a string (web only)",
+        "input": {
+          "notString": 0
+        },
+        "expect": {
+          "value": 0,
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "leading zeros",
+        "input": {
+          "raw": "007"
+        },
+        "expect": {
+          "value": 0,
+          "warning": "invalid"
+        }
+      }
+    ]
+  },
+  "effectiveConfig": {
+    "rule": "AppConfig fields computed from several keys. raw = the RC strings given (every other key takes its default)",
+    "cases": [
+      {
+        "name": "paid tier keeps grounding",
+        "raw": {
+          "data_tier": "paid",
+          "grounding_enabled": "true"
+        },
+        "expect": {
+          "groundingEnabled": true,
+          "dataTier": "paid"
+        }
+      },
+      {
+        "name": "free tier forces grounding off",
+        "raw": {
+          "data_tier": "free",
+          "grounding_enabled": "true"
+        },
+        "expect": {
+          "groundingEnabled": false,
+          "dataTier": "free"
+        }
+      },
+      {
+        "name": "a refused tier is free, so grounding is off",
+        "raw": {
+          "data_tier": "gold",
+          "grounding_enabled": "true"
+        },
+        "expect": {
+          "groundingEnabled": false,
+          "dataTier": "free"
+        }
+      },
+      {
+        "name": "grounding switched off on the paid tier",
+        "raw": {
+          "data_tier": "paid",
+          "grounding_enabled": "false"
+        },
+        "expect": {
+          "groundingEnabled": false,
+          "dataTier": "paid"
+        }
+      },
+      {
+        "name": "a refused kill switch blocks the cloud",
+        "raw": {
+          "kill_switch": "on"
+        },
+        "expect": {
+          "killSwitch": true
         }
       }
     ]

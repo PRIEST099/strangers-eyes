@@ -15,13 +15,77 @@
 //   - if remoteconfig.template.json exists at the repo root, every prompt_versions value is a manifest prompt ID.
 //   - against git HEAD's manifest (when the repo has one): a prompt released at HEAD stays released, and every file it
 //     locks (plus enums.v1.json) keeps HEAD's hash. This closes the "flip released back to false" bypass.
-import { execFileSync } from 'node:child_process';
+//   node scripts/check-prompts.mjs --root <dir>  verify another tree (no self-test)
+// Every verify run first proves itself on planted violations in a temporary tree (T-090), unless --no-self-test.
+import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, lstatSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join, relative, resolve, sep } from 'node:path';
+import { existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const REPO = resolve(fileURLToPath(new URL('..', import.meta.url)));
+const ARGS = process.argv.slice(2);
+const ROOT_IDX = ARGS.indexOf('--root');
+const REPO = ROOT_IDX >= 0 ? resolve(ARGS[ROOT_IDX + 1]) : resolve(fileURLToPath(new URL('..', import.meta.url)));
+
+// T-090 self-test: the script, run as a child on a tiny fixture tree, passes it clean and fails every planted violation.
+function selfTest() {
+  const self = fileURLToPath(import.meta.url);
+  const hash = (s) => createHash('sha256').update(s).digest('hex');
+  const A = 'system text v1\n';
+  const B = '{ "type": "object" }\n';
+  const base = () => ({
+    'shared/prompts/a.v1.txt': A,
+    'shared/prompts/b.v1.json': B,
+    'shared/prompts/README.md': 'not hashed\n',
+    'shared/prompts/manifest.json': JSON.stringify({
+      files: { 'a.v1.txt': hash(A), 'b.v1.json': hash(B) },
+      prompts: { 'p.v1': { system: 'a.v1.txt', schema: 'b.v1.json', released: false } },
+    }),
+    'remoteconfig.template.json': JSON.stringify({ parameters: { prompt_versions: { defaultValue: { value: JSON.stringify({ job: 'p.v1' }) } } } }),
+  });
+  const withManifest = (f) => { const t = base(); const m = JSON.parse(t['shared/prompts/manifest.json']); f(m); t['shared/prompts/manifest.json'] = JSON.stringify(m); return t; };
+  const run = (tree, extra = []) => {
+    const dir = mkdtempSync(join(tmpdir(), 'se-prompts-'));
+    try {
+      for (const [rel, body] of Object.entries(tree)) {
+        if (body === null) continue;
+        mkdirSync(dirname(join(dir, rel)), { recursive: true });
+        writeFileSync(join(dir, rel), body);
+      }
+      const r = spawnSync(process.execPath, [self, '--root', dir, '--no-self-test', ...extra], { encoding: 'utf8' });
+      return { status: r.status, out: `${r.stdout}${r.stderr}`, manifest: readFileSync(join(dir, 'shared/prompts/manifest.json'), 'utf8') };
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  };
+  const clean = run(base());
+  if (clean.status !== 0) throw new Error(`clean fixture failed: ${clean.out}`);
+  const planted = [
+    ['a draft file whose hash differs', { ...base(), 'shared/prompts/a.v1.txt': 'edited\n' }],
+    ['a file missing from manifest.files', { ...base(), 'shared/prompts/c.v1.txt': 'new\n' }],
+    ['a listed file that does not exist', { ...base(), 'shared/prompts/b.v1.json': null }],
+    ['a released prompt whose file changed', { ...withManifest((m) => { m.prompts['p.v1'].released = true; }), 'shared/prompts/a.v1.txt': 'edited\n' }],
+    ['a prompt without a boolean released', withManifest((m) => { delete m.prompts['p.v1'].released; })],
+    ['a prompt referencing an unhashed file', withManifest((m) => { m.prompts['p.v1'].user = 'missing.v1.txt'; })],
+    ['an RC prompt_versions id that is not a manifest prompt', { ...base(), 'remoteconfig.template.json': JSON.stringify({ parameters: { prompt_versions: { defaultValue: { value: '{"job":"p.v9"}' } } } }) }],
+  ];
+  const failures = planted.filter(([, tree]) => run(tree).status !== 1).map(([what]) => `did not fail on ${what}`);
+  // --write must refuse a changed released file and leave the manifest untouched
+  const locked = { ...withManifest((m) => { m.prompts['p.v1'].released = true; }), 'shared/prompts/a.v1.txt': 'edited\n' };
+  const w = run(locked, ['--write']);
+  if (w.status !== 1 || w.manifest !== locked['shared/prompts/manifest.json']) failures.push('--write did not refuse a changed released file');
+  if (failures.length) throw new Error(failures.join('\n'));
+  return planted.length + 1;
+}
+if (ROOT_IDX < 0 && !ARGS.includes('--no-self-test') && !ARGS.includes('--write')) {
+  try {
+    console.log(`check-prompts: self-test ok (${selfTest()} planted violations caught, clean fixture passes)`);
+  } catch (e) {
+    console.error(`check-prompts: SELF-TEST FAILED\n${e.message}`);
+    process.exit(1);
+  }
+}
 const DIR = join(REPO, 'shared', 'prompts');
 const MANIFEST = join(DIR, 'manifest.json');
 const SKIP = new Set(['manifest.json', 'README.md']);

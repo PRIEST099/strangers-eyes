@@ -1,0 +1,22 @@
+{
+  "about": "Reviewed coordinate-like decimals that are NOT true coordinates (T-090, D-106). scripts/check-images.mjs (rule C1) fails on every other decimal with 4+ significant fraction digits and an integer part of 0-180, in any file git could commit, outside web/public/samples/*.json, shared/testvectors/*.json and lock files. One entry per file: exact values as written (sign included). Add a value only after checking it is synthetic (prefer the open-ocean test area near 0.5, -30.5), a public reference point, or not a coordinate at all, and say why. A value no longer in its file prints a warning: remove it.",
+  "entries": [
+    {"file": "benchmark/spike/score-spike.mjs", "values": ["0.2501", "12.3456789"], "why": "Not coordinates: a band edge in km in the scorer self-test, and the fake value that proves report() refuses coordinate-like numbers."},
+    {"file": "docs/API-NOTES.md", "values": ["48.8566", "2.3522"], "why": "Paris city centre in the public Berlin to Paris haversine test vector (ARCH §12)."},
+    {"file": "docs/ARCHITECTURE.md", "values": ["48.8566", "2.3522"], "why": "Paris city centre in the public Berlin to Paris haversine test vector (ARCH §12)."},
+    {"file": "research/day1-artifacts/web-ref/src/selftest.ts", "values": ["48.8566", "2.3522"], "why": "Paris city centre in the public Berlin to Paris haversine test vector (Day-1 reference code)."},
+    {"file": "research/workflow-planning/verification-notes.md", "values": ["48.8566", "2.3522"], "why": "Paris city centre in the public Berlin to Paris haversine test vector."},
+    {"file": "research/day1-artifacts/ios-ref/probes/mac_out3.txt", "values": ["26.03126299381256", "9.727572083473206"], "why": "Day-1 probe output: latencies in seconds."},
+    {"file": "research/day1-artifacts/ios-ref/probes/sim_out.txt", "values": ["29.449831008911133"], "why": "Day-1 probe output: a latency in seconds."},
+    {"file": "research/day1-artifacts/ios-ref/probes/sim_out2.txt", "values": ["18.011757969856262", "25.924896001815796"], "why": "Day-1 probe output: latencies in seconds."},
+    {"file": "research/day1-artifacts/ios-ref/probes/vis_out.txt", "values": ["60.34481484976658", "96.77419261579905", "58.22580718994139", "62.16297435768985", "73.99057006835936"], "why": "Day-1 Vision probe output: text bounding boxes in pixels."},
+    {"file": "web/src/ai/vaultScan.test.ts", "values": ["-30.5002", "-30.5003", "-30.5022", "0.2004", "0.5031", "0.6031", "0.7001", "0.9004"], "why": "Synthetic pins and probes in the open South Atlantic (no land within 100 km)."},
+    {"file": "web/src/core/geo.test.ts", "values": ["52.5201"], "why": "About 10 m from the public Berlin reference point of the haversine vector."},
+    {"file": "web/src/core/referee.test.ts", "values": ["10.123456", "-30.654321"], "why": "Synthetic sequential digits in the open Atlantic."},
+    {"file": "web/src/tier0/ocr.test.ts", "values": ["0.78125"], "why": "A scale factor (1600/2048), not a coordinate."},
+    {"file": "web/src/ui/vaultUi.test.ts", "values": ["51.123456", "-0.987654"], "why": "Synthetic sequential digits for a GPS pin fixture. It falls on land in southern England, so the owner should move it to the open-ocean test area (T-090 report)."},
+    {"file": "web/src/vault/geolocation.test.ts", "values": ["90.0001"], "why": "An out-of-range latitude input for the range check."},
+    {"file": "web/src/vault/vaultStore.test.ts", "values": ["0.51234", "-30.56789", "30.56789"], "why": "Synthetic pin in the open South Atlantic (and its unsigned digits)."},
+    {"file": "web/src/vault/vaultTerms.test.ts", "values": ["0.51234", "-30.56789", "0.61234", "-30.66789", "0.71234", "-30.76789", "0.81234", "-30.86789"], "why": "Synthetic pins in the open South Atlantic."}
+  ]
+}

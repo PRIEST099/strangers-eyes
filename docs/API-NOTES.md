@@ -634,6 +634,7 @@ export const authReady = new Promise<string | null>(res => {
 
 - `signInAnonymously` waits for the persisted state and **returns the existing anonymous user** instead of creating a new one.
 - Firebase limits new anonymous sign-ups per IP.
+- A rejected `signInAnonymously` (offline, provider disabled) is not retried by the SDK `[VERIFIED: src auth 1.13.11]`. A promise made once at start-up therefore stays `null` all session; the app's `ensureAuth()` (`firebase/init.ts`, D-110) retries on the next call and shares one in-flight attempt.
 - **Enable the provider:** in the console (Security → Authentication → Sign-in method → Anonymous), or as code with `"auth": { "providers": { "anonymous": true } }` in `firebase.json` plus `firebase deploy --only auth` (U-17).
 
 Sources: https://firebase.google.com/docs/auth/web/anonymous-auth, https://firebase.google.com/docs/auth/configure-providers-cli
@@ -651,7 +652,7 @@ rc.settings.fetchTimeoutMillis = 8_000;                                         
 rc.defaultConfig = RC_DEFAULTS;   // derived from the imported /remoteconfig.template.json at import time (ARCH §13.4, AD-28)
 export async function loadConfig() {
   await ensureInitialized(rc);              // loads last-ACTIVATED config from IndexedDB (works offline)
-  try { await fetchAndActivate(rc); } catch { /* offline → 'remoteconfig/fetch-client-network'; keep cached/defaults */ }
+  void fetchAndActivate(rc).catch(() => { /* offline → 'remoteconfig/fetch-client-network'; keep cached/defaults */ }); // never awaited (D-109): on a lie-fi network it can take fetchTimeoutMillis
 }
 const v = getValue(rc, 'adversary_model'); v.asString(); v.asBoolean(); v.asNumber(); v.getSource(); // 'static'|'default'|'remote'
 ```
@@ -668,6 +669,10 @@ const v = getValue(rc, 'adversary_model'); v.asString(); v.asBoolean(); v.asNumb
 - **Never put secrets or prompt text in Remote Config** (ARCH AD-14).
 - `isSupported()` checks for IndexedDB.
 - Real-time updates: `onConfigUpdate(rc, { next, error, complete })`. ARCH uses it so the kill switch applies within seconds.
+  - `next` fires after the SDK has **fetched** the new template itself (a realtime fetch with `cacheMaxAgeMillis: 0`) and only when some key changed, but **nothing is activated**: the listener must call `activate(rc)` and re-read. `complete` is never called. `[VERIFIED: src remote-config 0.10.0, RealtimeHandler.fetchLatestConfig]`
+  - The stream needs the Remote Config Realtime API on the project `[UNVERIFIED: whether it is on by default for strangers-eyes; if not, error fires and a flipped kill switch applies at the next start or fetch]`.
+- `Value.asNumber()` is `Number(value) || 0` and `asBoolean()` is true for "1", "true", "t", "yes", "y", "on" (case-insensitive) `[VERIFIED: typings 0.10.0]`: junk silently becomes 0 or false. The app reads `asString()` only and validates it itself (`firebase/rcParse.ts`, D-108).
+- `getRemoteConfig` falls back to in-memory storage when IndexedDB is unavailable and itself starts `ensureInitialized` at construction `[VERIFIED: src 0.10.0 remoteConfigFactory]`. A key with neither an activated nor a default value reads as `''` with source `'static'`; that never happens here because `defaultConfig` holds every template key.
 - **No `temperature` key** (§1.11).
 
 **As code:**

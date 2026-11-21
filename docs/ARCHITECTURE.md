@@ -211,9 +211,13 @@ The canonical version pins live in **API-NOTES §11**. This table only lists the
 │   ├── check-boundaries.mjs       §4.2 rules over web/src AND ios/; exit 1 on violation; self-test with a planted violation
 │   ├── check-prompts.mjs          sha256 of shared/prompts/* vs manifest.json; every RC-selectable id exists; released files unchanged
 │   ├── check-dist.mjs             web postbuild: fails if the DEV marker `__SE_DEV_ONLY__` appears anywhere in web/dist (AC-065, §4.2 R20)
-│   └── check-images.mjs           tracked images: JPEG has no APP1/APP13, PNG has no eXIf/tEXt/iTXt; tracked text files have no
-│                                  coordinate-like decimals (/-?\d{1,3}\.\d{4,}/) outside an allowlist
-│                                  (web/public/samples/*.json after the USER's T-018c OK, shared/testvectors/*.json (synthetic only), lock files)
+│   ├── check-images.mjs           every file `git add` could commit (tracked + untracked-not-ignored; D-106): JPEG has no APP1/APP13/APP11,
+│   │                              PNG no eXIf/tEXt/iTXt/zTXt/caBX, WebP no EXIF/XMP/C2PA, other image/video formats fail closed; text files
+│   │                              have no coordinate-like decimal (token-anchored, integer 0–180, 4+ significant digits) outside
+│   │                              web/public/samples/*.json (after the USER's T-018c OK), shared/testvectors/*.json (synthetic only) and
+│   │                              lock files, except exact reviewed values; no images or base64 under benchmark/; no PRIV paths or
+│   │                              truth*.csv; no secret paths or secret contents; .gitignore still ignores the secret paths; self-test
+│   └── check-images.allow.json    reviewed coordinate-like values that are not true coordinates: { file, values (exact), why } per file
 ├── shared/
 │   ├── prompts/                   §10 — versioned, immutable once released; used by web AND iOS
 │   ├── strings/en.json            every SPEC §11 copy.* string keyed by copy id (web + iOS); explain templates live in
@@ -253,13 +257,14 @@ web/
 │   └── icons/icon-192.png icon-512.png maskable-512.png
 ├── src/
 │   ├── main.tsx                   LINE 1: `import './ai/tripwire-install';` then `import { boot } from './boot';` (§15.1)
-│   ├── boot.ts                    loadConfig → vaultScan.init → render
+│   ├── boot.ts                    loadConfig → vaultScan.init → render; each wait bounded (3 s), never blocks the render (§15.1, D-109)
 │   ├── App.tsx                    hash router (§3.4); DEV-only routes through `if (import.meta.env.DEV) import('./dev/…')`
 │   ├── index.css                  @import "tailwindcss"; design tokens; dark default #0b0b0f
 │   ├── firebase/
 │   │   ├── config.ts              firebaseConfig (from `firebase apps:sdkconfig WEB`) + RECAPTCHA_ENTERPRISE_SITE_KEY (public)
-│   │   ├── init.ts                initializeApp → [DEV debug flag] → initializeAppCheck → getAuth + signInAnonymously → getAI. authReady
-│   │   ├── remoteConfig.ts        defaults from @root/remoteconfig.template.json; loadConfig(); cfg(): AppConfig (§13.4)
+│   │   ├── init.ts                initializeApp → [DEV debug flag] → initializeAppCheck → getAuth + signInAnonymously → getAI. authReady; ensureAuth() (retryable, D-110)
+│   │   ├── remoteConfig.ts        the SDK side: settings, loadConfig(), cfg(), subscribeConfig(), real-time kill switch (§13.4)
+│   │   ├── rcParse.ts             pure: RC_DEFAULTS from @root/remoteconfig.template.json; parseKey / parseConfig → AppConfig (D-108)
 │   │   └── atlas.ts               lazy Firestore singleton; incrementAtlas(types, weekId); readAtlas(weekId); isoWeekId()
 │   ├── ai/
 │   │   ├── tripwire.ts            fetch wrapper (§8.5) [compiled]
@@ -328,10 +333,15 @@ web/
 │   │   │                          (canvas + box overlay), ClueList, ManualMaskTool, CropTool (P1), ConsentSheet, NotesView (pass A),
 │   │   │                          GroundingChip (shadow DOM), SourceList, VerdictCard, FixPanel, CompareView, ExplainPopover,
 │   │   │                          LedgerPanel (rail/sheet + receipt), CloudSawToggle, RouterHUD (Calls + Policy tabs), GateToast,
-│   │   │                          SystemBanner, OfflineBadge, QueuedChecks, JudgeModeBanner, CoachMark, BurnVaultDialog,
+│   │   │                          SystemBanner, UnsupportedPage, Toggle, OfflineBadge, QueuedChecks, JudgeModeBanner, CoachMark, BurnVaultDialog,
 │   │   │                          ShareCardDialog, AtlasCard, Badge (ON_DEVICE/IN_CLOUD/RULES_ONLY/CACHED/BLOCKED/QUEUED), Sheet, Button, VaultItemForm, PinButton
 │   │   ├── screens/               Welcome (SCR-01, 18+; not a route), Home, Vault, Check, Settings, About, Judge, Atlas (P1). The Ledger is components/LedgerPanel (rail/sheet), not a screen
-│   │   ├── hooks/                 useSession, useLedger, useCapabilities, useOnline, useConfig, useToasts, usePrefs
+│   │   ├── hooks/                 useSession, useLedger, useCapabilities, useOnline, useConfig, useToasts, usePrefs (useAck18/useSettings/
+│   │   │                          useSimulations/useCapUsed), useSystemStatus, useBrowserSupport
+│   │   ├── gate.ts                before any route: unsupported page → Welcome (no 18+ ack) → app; capabilityAfterWelcome; ?debug=1 (D-103)
+│   │   ├── systemStatus.ts        SCR-22: selectBanners/cloudOffReason (one cloud-off banner by precedence) + the store RC, boot and the
+│   │   │                          gate feed: set(), markTripwire() (one way), report(event), dismiss() (D-105)
+│   │   ├── shellContext.ts        AppShell → screens: the one capability view + openCapability() (Settings › On-device AI)
 │   │   ├── importTransfer.ts      pure drop/paste classifier (a web address or page markup → noUrl, D-78) and importAndSettle
 │   │   ├── checkState.ts          Check's pure reducer: stepper position + last import status (kept with the master)
 │   │   └── markdown.ts            minimal escaped Markdown → React (### headings, bullets, **bold**); no raw HTML
@@ -415,7 +425,7 @@ Not routes:
 - SCR-13 Cloud Ledger is a rail at ≥1024 px and a bottom sheet below that (SPEC §8.2).
 
 Query parameters read once at boot:
-- `?judge=1`: Welcome (fresh profile) → capability panel → `#/judge` (AC-071).
+- `?judge=1`: Welcome (fresh profile) → capability panel → `#/judge` (AC-071). main.tsx turns it into `#/judge` before the first render; a Welcome finished on `#/judge` mounts AppShell with SCR-02 open, and a SCR-02 link to the route already shown closes the sheet. A returning profile goes straight to `#/judge`. DEV pages skip Welcome (D-103).
 - `?debug=1`: shows Settings › Developer.
 
 ---
@@ -457,7 +467,7 @@ Query parameters read once at boot:
 
 ### 4.2 Import and call-site rules (`scripts/check-boundaries.mjs`)
 
-The script ignores comments but **not** string contents, so `m['generateContent']` is caught. It scans `.ts .tsx .js .jsx .mts .cts .mjs .cjs` under `web/src` and `.swift` under `ios/`. Every run first proves itself on planted violations (113 as of Nov 21, including every evasion found in the T-023, T-053 and T-054 reviews and five R23 cases from the T-061 review), then checks the repo. Test files (`*.test.*`) are exempt from the global-access rows only.
+The script ignores comments but **not** string contents, so `m['generateContent']` is caught. It scans `.ts .tsx .js .jsx .mts .cts .mjs .cjs` under `web/src` and `.swift` under `ios/`. Every line rule also runs on a copy with every `\x`/`\u` escape decoded (same line numbers), and so does R22 (T-090, D-107). Every run first proves itself on planted violations (149 as of Nov 21, including every evasion found in the T-023, T-053 and T-054 reviews, five R23 cases from the T-061 review, and 36 R19, R24 and escape cases from T-090), then checks the repo. Test files (`*.test.*`) are exempt from the global-access rows only.
 
 | Rule | Symbol, import or pattern | Allowed only in |
 |---|---|---|
@@ -480,7 +490,8 @@ The script ignores comments but **not** string contents, so `m['generateContent'
 | R23 | The identifiers `uiCapabilities` and `peekUiCapabilities` (the cached UI snapshot, up to 30 s old), in any form: import, re-export under another name, `ns.x`, `ns['x']` | `web/src/ui/**` and `web/src/ai/capabilities.ts` (which defines them). Tests exempt. The gate decides only with `availabilityNow` / `deviceReadyNow`, fresh on every call (AC-007, D-03; T-061 review) |
 | R14 | `web/src/dev/**` | imported only from `App.tsx`, only as `import.meta.env.DEV ? lazy(() => import('./dev/…'))`, `import.meta.env.DEV && import(…)` or inside `if (import.meta.env.DEV) { … }`. A negated guard (`!import.meta.env.DEV`) fails (AC-065) |
 | R18 | `import(…)` with a non-literal specifier; any import/export specifier containing a backslash escape | the first: nowhere outside `web/src/dev` and tests (the checker must see every specifier); the second: nowhere |
-| R19 | `import.meta.glob` reaching `dev/` or `vault/`, or a broad `**` pattern outside `@prompts`/`@strings`/`@vectors`; and, in EVERY non-test file (DEV-only too), a glob that names `node_modules` (any case), starts at the root (`/…`), climbs out of `web/src` before its first wildcard, or passes `exhaustive` | nowhere |
+| R19 | `import.meta.glob` is an **allowlist** (T-090, D-107), in EVERY non-test file (DEV-only too). Every occurrence (also split across lines, `globEager`, nested generics) must parse as literal patterns (a string or an array of strings) plus at most one literal options object, else it fails. Each pattern starts with `./` or `../` and resolves wholly inside `web/src` (no `..` after a wildcard, no climbing above the root), or is `@prompts/`, `@strings/` or `@vectors/` with no `..` segment; `node_modules` (any case) fails even under an alias; `@root`, bare and root-absolute patterns fail; no backslash anywhere in the call; option keys only `eager`, `import`, `query`, `as` (no `exhaustive`, no `base`, no computed key, spread, shorthand or variable). Outside `web/src/dev` also: nothing reaching `dev/` or `vault/` (any case, or through a wildcard or brace directory directly under `web/src`), and no broad `**` outside the shared aliases | nowhere |
+| R24 | A `\u` or `\x` escape outside string, template and regex literals (an escaped identifier such as `generateContent` hides its name from the name rules) | nowhere (tests exempt) |
 | R20 | Every non-test file under `web/src/dev/**` contains the marker string `__SE_DEV_ONLY__` | `scripts/check-dist.mjs` (web `postbuild`) fails the build if the marker appears anywhere in `web/dist` |
 | R1–R4 exemption | The AI call-site rows above, inside `web/src/dev/spikes/**` | allowlisted: the Day-1 spikes (T-030–T-032) predate the gate and never ship. `dev/bench`, `dev/slice` and `dev/selftest` are **not** allowlisted; their AI calls go through `ai/egressGate.ts` |
 | R16 | iOS: `.respond(`, `.streamResponse(`, `.startChat(`, `.sendMessage(`, `.sendMessageStream(`, `.countTokens(`, `generateContent`, `generateContentStream`, `HybridModel(` (also when split across lines) | `ios/StrangersEyes/AI/EgressGate.swift`; test targets; and `ios/StrangersEyes/Dev/**`, whose files must begin with `#if DEBUG` (the T-033 spike) |
@@ -2489,7 +2500,7 @@ All values are strings: booleans are `"true"`/`"false"` and JSON is stringified.
 
 | Key | Type | Default | Meaning and validation |
 |---|---|---|---|
-| `kill_switch` | BOOLEAN | `false` | Blocks every cloud-capable call. S2/S4 fall back to device or template; Judge Mode uses CACHED. Applied in real time via `onConfigUpdate` |
+| `kill_switch` | BOOLEAN | `false` | Blocks every cloud-capable call. S2/S4 fall back to device or template; Judge Mode uses CACHED. Applied in real time via `onConfigUpdate`. A refused value reads as `true` (fail closed, D-108) |
 | `routing_policy` | JSON | §7 | Nested `{version, classes, jobs}`, merged with the hard floor |
 | `adversary_model` | STRING | `gemini-3.8-flash` | Exact ID, never `-latest` |
 | `adversary_thinking_level` | STRING | `MEDIUM` | LOW, MEDIUM or HIGH (MINIMAL rejected) |
@@ -2497,9 +2508,9 @@ All values are strings: booleans are `"true"`/`"false"` and JSON is stringified.
 | `explain_thinking_level` | STRING | `LOW` | MINIMAL, LOW, MEDIUM or HIGH |
 | `prompt_versions` | JSON | `{"advA":"advA.v1",…,"fmPre":"fmPre.v1"}` | Full IDs. Must exist in the bundled manifest; otherwise the bundled v1 is used |
 | `grounding_enabled` | BOOLEAN | `true` | Pass A on or off |
-| `data_tier` | STRING | `paid` | `paid` or `free`. `free` forces grounding off and selects `copy.consent.tierFree` |
+| `data_tier` | STRING | `paid` | `paid` or `free`. `free` forces grounding off and selects `copy.consent.tierFree`. A refused value reads as `free` (D-108) |
 | `daily_adversary_cap` | NUMBER | `20` | Attack runs per installation per **local** day; an A+B pair counts as 1. Clamped 1–200. Keep project-wide grounded queries well below 1,500 a day |
-| `max_fix_rounds` | NUMBER | `3` | Fix and re-attack rounds per photo |
+| `max_fix_rounds` | NUMBER | `3` | Fix and re-attack rounds per photo. A whole number 1–10; anything else falls back to the default, never moved into range (D-108) |
 | `bands_m` | JSON | `{"street":250,"neighbourhood":1000,"district":5000,"city":30000,"country":500000}` | Must be strictly increasing; city and country are placeholders. street/neighbourhood/district are locked to 250/1000/5000 (D-77): only city and country are tunable; any other table falls back to the defaults |
 | `auto_mask_types` | JSON | `["name_text","house_number","plate","mail_or_document","screen"]` | High-severity Nano pre-screen clue types masked in Standard mode when located by OCR (SPEC SCR-06, AC-112; §11.3). Subset of CLUE_TYPES |
 | `strict_mode_default` | BOOLEAN | `false` | D-16 |
@@ -2507,15 +2518,17 @@ All values are strings: booleans are `"true"`/`"false"` and JSON is stringified.
 | `face_min_confidence` | NUMBER | `0.3` | Used by both Tier-0 and the gate. Clamped 0.2–0.6 |
 | `mask_pad_ratio` | NUMBER | `0.15` | Total padding as a fraction of box size. Clamped 0–0.5; minimum 4 px |
 | `cloud_image_max_px` | NUMBER | `1536` | Clamped 768–2048 |
-| `nano_image_max_px` | NUMBER | `768` | |
+| `nano_image_max_px` | NUMBER | `768` | Clamped 256–768 in code (floored first; D-98): never above the size Nano was verified with |
 | `ocr_max_px` | NUMBER | `1600` | Longest side of the Tier-0 OCR canvas: a downscale of the ≤ 2048 master, never upscaled (SPEC D-20, SCR-06). Clamped 800–2048 (D-83). The gate and the consent dry run OCR the outgoing JPEG at its own size instead |
-| `timeouts_ms` | JSON | `{"advA":90000,"advB":60000,"explain":20000,"deviceImage":60000,"deviceText":30000}` | Per-job timeouts |
+| `timeouts_ms` | JSON | `{"advA":90000,"advB":60000,"explain":20000,"deviceImage":60000,"deviceText":30000}` | Per-job timeouts. Each entry is rounded and kept within 1,000–600,000 ms (the model factories' limits); a missing or non-number entry takes its default (D-108) |
 | `judge_mode_enabled` | BOOLEAN | `true` | |
 | `judge_cached_fallback` | BOOLEAN | `true` | AD-09 |
 | `judge_autoplay_default` | BOOLEAN | `true` | |
 | `atlas_enabled` | BOOLEAN | `true` | Hides the Atlas when false |
 | `extension_enabled` | BOOLEAN | `false` | Stretch |
-| `adversary_seed` | NUMBER | `0` | [UNVERIFIED] cast experiment; 0 means not sent |
+| `adversary_seed` | NUMBER | `0` | [UNVERIFIED] cast experiment; 0 means not sent. A whole number in the signed 32-bit range; anything else falls back to 0 (D-108) |
+
+**Validation (D-108; `web/src/firebase/rcParse.ts`, vectors in `shared/testvectors/rc.json`).** Every value is a string. Booleans are `true`/`false` (ASCII case-insensitive); numbers must be JSON numbers; only ASCII whitespace around a value is ignored; length caps are checked before parsing (boolean 16, number 32, string 64, JSON 4096 characters; `routing_policy` 8192). A refused value falls back to its default with a HUD warning `{key, reason: 'invalid'}`; a number outside its clamp is moved into range (`clamped`); a JSON object with some bad entries keeps the good ones (`partial`). Warnings name the key and the reason, never the value. Every template default is parsed at import and must pass its own rule, or `npm run check` fails.
 
 **Renames applied to the other docs (§25).** The old names must not appear in code.
 
@@ -2559,7 +2572,7 @@ The generated copy `research/day1-artifacts/arch/remoteconfig.template.json` pre
     "face_min_confidence": {"defaultValue":{"value":"0.3"},"valueType":"NUMBER","description":"Face score that masks (Tier-0) AND blocks (gate). One value for both (clamped 0.2-0.6)."},
     "mask_pad_ratio": {"defaultValue":{"value":"0.15"},"valueType":"NUMBER","description":"Total mask padding as a fraction of box size (clamped 0-0.5); minimum 4 px."},
     "cloud_image_max_px": {"defaultValue":{"value":"1536"},"valueType":"NUMBER","description":"Longest side of the redacted JPEG sent to the cloud (clamped 768-2048)."},
-    "nano_image_max_px": {"defaultValue":{"value":"768"},"valueType":"NUMBER","description":"Longest side of the JPEG given to Gemini Nano."},
+    "nano_image_max_px": {"defaultValue":{"value":"768"},"valueType":"NUMBER","description":"Longest side of the JPEG given to Gemini Nano. Clamped 256-768 in code (floored first; D-98)."},
     "ocr_max_px": {"defaultValue":{"value":"1600"},"valueType":"NUMBER","description":"Longest side of the Tier-0 Tesseract canvas: a downscale of the <= 2048 px master, never upscaled (SPEC D-20). Clamped 800-2048 (D-83)."},
     "timeouts_ms": {"defaultValue":{"value":"{\"advA\":90000,\"advB\":60000,\"explain\":20000,\"deviceImage\":60000,\"deviceText\":30000}"},"valueType":"JSON","description":"Per-job timeouts."},
     "judge_mode_enabled": {"defaultValue":{"value":"true"},"valueType":"BOOLEAN","description":"Show Judge Mode."},
@@ -2575,7 +2588,7 @@ The generated copy `research/day1-artifacts/arch/remoteconfig.template.json` pre
 ### 13.4 Client loading (`web/src/firebase/remoteConfig.ts`)
 
 ```ts
-// [UNVERIFIED: our composition; compile on first use — the JSON import needs the '@root' alias + tsconfig paths]
+// [sketch; built and tested in T-102 as firebase/rcParse.ts (pure parse) + firebase/remoteConfig.ts (SDK), D-108/D-109: the code wins where it differs]
 import { getRemoteConfig, ensureInitialized, fetchAndActivate, activate, onConfigUpdate } from 'firebase/remote-config';
 import template from '@root/remoteconfig.template.json';
 import { app } from './init';
@@ -2594,7 +2607,7 @@ export async function loadConfig(): Promise<void> {
 }
 ```
 
-`cfg(): AppConfig` parses every key with validation and clamping. An invalid value falls back to the default and logs a HUD warning (AC-293). `source` is `'remote' | 'cached' | 'default'`, taken from `getValue().getSource()` plus `lastFetchStatus`.
+`cfg(): AppConfig` parses every key with validation and clamping. An invalid value falls back to the default and logs a HUD warning (AC-293). `source` is `'remote' | 'cached' | 'default'`, taken from `getValue().getSource()` plus whether a fetch or real-time activation succeeded in this page load (`lastFetchStatus` is persisted across loads, so it cannot tell an offline start from a fresh fetch).
 
 ```ts
 export interface AppConfig {
@@ -2609,8 +2622,15 @@ export interface AppConfig {
   judgeModeEnabled: boolean; judgeCachedFallback: boolean; judgeAutoplayDefault: boolean;
   atlasEnabled: boolean; extensionEnabled: boolean; adversarySeed: number;
   source: 'remote' | 'cached' | 'default';
+  warnings: readonly { key: RcKey; reason: 'invalid' | 'clamped' | 'partial' }[];   // never the value (D-108)
 }
 ```
+
+**As built (T-102; D-108, D-109).**
+- `rcParse.ts` is pure (no SDK): `RC_DEFAULTS` from the template, `parseKey(key, raw)` per key (`RC_SPECS`; `routing_policy` stays with `core/routing.ts` `effectivePolicy`), `parseConfig(raw, source)` → a deep-frozen `AppConfig`. The validation rules are the §13.2 table plus its **Validation** note; every template default is parsed at import and must pass cleanly. The per-key cases live in `shared/testvectors/rc.json` (one section per key, `keyConventions`, `effectiveConfig`).
+- `remoteConfig.ts` owns the SDK: the settings above; `loadConfig()` waits for `ensureInitialized` at most 2 s (a hung IndexedDB starts on the defaults and picks up the cached values when the read finishes), never reads a value before it resolves, then starts `fetchAndActivate` **without awaiting it** and one `onConfigUpdate` listener whose `next` activates and re-parses (all keys, so the kill switch applies within seconds). Idempotent.
+- `cfg()` keeps the same frozen object until a value really changes; `subscribeConfig(listener)` fires after each change (for `useSyncExternalStore`, the kill-switch banner and `vaultScan.setFuzzyThreshold`, which `boot.ts` wires).
+- `groundingEnabled` is the effective value (`grounding_enabled && data_tier === 'paid'`). The gate still enforces the kill switch, the cap and grounding per call (T-103).
 
 iOS: `RemoteConfigService.swift` parses the bundled template into `[String: NSObject]` and calls `setDefaults`. The same validation is tested with `shared/testvectors/rc.json`.
 
@@ -2697,8 +2717,11 @@ main.tsx
   1. import './ai/tripwire-install';     ← line 1: fetch is wrapped before anything else evaluates (§8.5)
   2. import { boot } from './boot';      ← evaluating boot → firebase/init runs initializeApp → [DEV debug flag]
                                             → initializeAppCheck → getAuth + signInAnonymously → getAI
-boot():
-  3. await loadConfig()                  ← ensureInitialized; fetch in background (§13.4)
+                                            (then remoteConfig's getRemoteConfig)
+boot():                                  ← as built (D-109): each await is bounded (BOOT_STEP_TIMEOUT_MS 3 s) and the
+                                            render always happens; a failed or slow step leaves the safe state behind
+  3. await loadConfig()                  ← ensureInitialized (≤ 2 s); fetch in background (§13.4); then
+                                            vaultScan.setFuzzyThreshold(cfg().fuzzyThreshold), kept in sync via subscribeConfig
   4. await vaultScan.init()              ← first, in BOTH modes, finish an interrupted burn (finishPendingBurn: reads only the
                                             burn-pending marker, never the record or key, creates no database; §16.4, D-80).
                                             Judge Mode may proceed while it cannot finish yet; real mode fails closed.
@@ -2710,31 +2733,36 @@ boot():
 ```
 
 ```ts
-// web/src/firebase/init.ts  [UNVERIFIED: our composition; each call VERIFIED (tsc/docs) in API-NOTES §1.2/§2.3]
+// web/src/firebase/init.ts  [built; order asserted by firebase/init.test.ts and boot.test.ts (AC-291), T-101; the code wins]
 import { initializeApp, getApps } from 'firebase/app';
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check';
-import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
+import { getAuth, signInAnonymously } from 'firebase/auth';
 import { getAI, GoogleAIBackend } from 'firebase/ai';
 import { firebaseConfig, RECAPTCHA_ENTERPRISE_SITE_KEY } from './config';
 
 declare global { var FIREBASE_APPCHECK_DEBUG_TOKEN: boolean | string | undefined; }   // not in public typings
-if (import.meta.env.DEV) self.FIREBASE_APPCHECK_DEBUG_TOKEN = import.meta.env.VITE_APPCHECK_DEBUG_TOKEN || true; // BEFORE initializeAppCheck
 
 export const app = getApps()[0] ?? initializeApp(firebaseConfig);                        // reuses the app on hot reload
+if (import.meta.env.DEV) self.FIREBASE_APPCHECK_DEBUG_TOKEN = import.meta.env.VITE_APPCHECK_DEBUG_TOKEN || true; // AFTER initializeApp, BEFORE initializeAppCheck (AC-291)
 export const appCheck = initializeAppCheck(app, {
   provider: new ReCaptchaEnterpriseProvider(RECAPTCHA_ENTERPRISE_SITE_KEY),
   isTokenAutoRefreshEnabled: true,                                                        // default is FALSE
 });
 export const auth = getAuth(app);                                                         // after App Check, before getAI
-export const authReady: Promise<string | null> = new Promise(res => {
-  const off = onAuthStateChanged(auth, u => { if (u) { off(); res(u.uid); } });
-  signInAnonymously(auth).catch(() => res(null));                                         // offline → null (copy.err.auth when online)
-});
+let signingIn: Promise<string | null> | null = null;
+export function ensureAuth(): Promise<string | null> {                                  // D-110: the gate awaits THIS before every cloud call
+  if (auth.currentUser) return Promise.resolve(auth.currentUser.uid);
+  signingIn ??= signInAnonymously(auth).then(c => c.user.uid, () => null)                // offline → null (copy.err.auth when online)
+    .finally(() => { signingIn = null; });                                                // a failed attempt is retried by the next call
+  return signingIn;
+}
+export const authReady: Promise<string | null> = ensureAuth();                           // the first attempt, started at import
 export const ai = getAI(app, { backend: new GoogleAIBackend() });                         // useLimitedUseAppCheckTokens: off (latency)
 ```
 
 Notes:
 - `signInAnonymously` returns the persisted anonymous user rather than creating a new one.
+- `authReady` alone would stay `null` for the whole session after an offline start (F-136), so a session queued offline (§5.3) could never send. The gate must `await ensureAuth()` before every cloud call (AC-291) and treat `null` as `CLOUD_AUTH` (`copy.err.auth`).
 - The SDK logs the debug token as `Firebase App Check debug token: <uuid>`.
 - In debug mode the reCAPTCHA provider still loads `enterprise.js`, and domain warnings on localhost are harmless.
 - `vite preview` on localhost has **no** debug token, because `import.meta.env.DEV` is false. Test production builds on a Hosting preview channel whose domain has been added to the reCAPTCHA key [UNVERIFIED: U-46].
@@ -2872,7 +2900,7 @@ export default defineConfig(({ mode }) => ({
 | IDB `se-ledger` / `entries` | `core/ledger.ts` | Ledger entries (newest 500): IDs, kinds, hashes and numbers only | no (AC-045 guarantees there are no strings) |
 | IDB `keyval-store` / `keyval` | tesseract.js | `./eng.traineddata` cache. **Never clear it; never use the default idb-keyval store for anything else** | n/a |
 | `firebase_remote_config`, `firebase-app-check-database`, `firebaseLocalStorageDb`, Firestore cache | Firebase SDKs | n/a | n/a |
-| `localStorage` (`core/localPrefs.ts` only, in try/catch) | UI conveniences | `se.ack18.v1`, `se.settings.v1` (Standard/Strict, show vault labels, live notes, notes on re-attack, use Nano, HUD, ledger rail, Atlas opt-in), `se.cap.<YYYY-MM-DD>`, `se.dev.*` simulations | no; never vault data |
+| `localStorage` (`core/localPrefs.ts` only, in try/catch) | UI conveniences | `se.ack18.v1`, `se.settings.v1` (Standard/Strict, show vault labels, live notes, notes on re-attack, use Nano, HUD, ledger rail, Atlas opt-in), `se.cap.<YYYY-MM-DD>` (local day; read fresh, earlier days dropped on increment), `se.dev.simulateNoNano` / `se.dev.simulateOffline` (downgrade only). A per-tab cache is the session's truth: a refused write still applies for the visit (D-104) | no; never vault data |
 
 idb-keyval allows one object store per database, which is why every owner has its own database. The app works when storage throws (AC-275).
 
@@ -3100,10 +3128,12 @@ actor EgressGate {
 | `core/ledger.test.ts` | the serialised Ledger and receipt contain no fixture vault strings, coordinates or pixels (AC-045, AC-212) |
 | `core/atlasClues.test.ts` | ISO week for 2026-11-19 = 2026-W47; types deduplicated and from pass B r1 only; static check that `firebase/atlas.ts` imports nothing from verdict, geo, referee, fix or vault (AC-282) |
 | `core/shareCard.test.ts` | text built only from the allowlist; injected labels, evidence and area names never appear (AC-261) |
-| `firebase/remoteConfig.test.ts` | defaults equal the template; every key's validation and clamping (`rc.json`, AC-293); `prompt_versions` IDs resolve |
-| `firebase/init.test.ts` | module order initializeApp → initializeAppCheck → getAuth → getAI (AC-291) |
+| `firebase/rcParse.test.ts` | defaults equal the template and ARCH §13.2 (AC-295); every key's validation and clamping over `rc.json`'s per-key sections (AC-293); `prompt_versions` IDs resolve; parity with the consumers' own clamp helpers; a broken template default throws at import |
+| `firebase/remoteConfig.test.ts` | mocked SDK: settings; no read before `ensureInitialized`; offline, hung-IndexedDB and lie-fi starts use cached values or defaults at once (AC-294); real-time kill switch; `source`; cfg() identity |
+| `firebase/init.test.ts` | module order initializeApp → debug flag → initializeAppCheck → getAuth → signInAnonymously → getAI (AC-291); `ensureAuth` retries after a failed sign-in |
+| `boot.test.ts` | tripwire → firebase/init → Remote Config at import; boot steps 3–5 in order; Judge-route detection; render despite a failed or hung vault step |
 | `core/strings.test.ts` (was planned as `copy.test.ts`) | every value in `shared/strings/en.json`, `explain-fallback.v1.json` and verdict output: no `/\bsafe\b/i` except allowlisted `copy.about.notGuarantee` (AC-304); every copy ID used in code exists |
-| `scripts/*.test.mjs` | `check-boundaries.mjs` fails on a planted violation; `check-prompts.mjs` fails on a modified released file; `check-images.mjs` fails on a JPEG with APP1 |
+| script self-tests (each runs first on every `check`; no separate `scripts/*.test.mjs`) | `check-boundaries.mjs`: 149 planted violations and a clean fixture with false-positive traps; `check-prompts.mjs`: 7 planted violations (changed draft hash, unlisted file, missing file, changed released file, no `released`, unhashed reference, unknown RC id) plus a refused `--write`; `check-images.mjs`: 78 planted violations in a throwaway git tree (APP1/APP13/APP11, signatures, trailers, PNG/WebP chunks, unverifiable formats, coordinates, benchmark pixels, PRIV and secret paths, `.gitignore` regressions, secret contents, symlinks) (T-090) |
 
 ### 20.2 Playwright and the egress audit (Chromium; `npm --prefix web run test:e2e`)
 

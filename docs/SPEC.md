@@ -592,7 +592,7 @@ Each screen lists its purpose, layout, behaviour, states (a)–(e), copy IDs and
   - **Continue**, disabled until the box is ticked.
 - **Behaviour:**
   - The confirmation is stored locally (localStorage, inside try/catch) and the screen is not shown again.
-  - `?judge=1` still shows this screen first, then goes to `#/judge`.
+  - `?judge=1` still shows this screen first, then goes to `#/judge` with SCR-02 open (its "Try Judge Mode" closes it). A returning profile goes straight to `#/judge` (D-103).
 - **States:** (a)–(c) same as default; (d) works offline once cached.
 - **ACs**
   - **AC-070 (P0) [e2e]** Continue stays disabled until the age box is ticked. After continuing, a reload skips SCR-01.
@@ -1225,7 +1225,7 @@ Each screen lists its purpose, layout, behaviour, states (a)–(e), copy IDs and
 - **Privacy:** pre-mask mode (Standard/Strict); "Show vault labels in results" (on); "Include live search notes" default (on); "Notes on re-attack" (on).
 - **Display:** Router HUD (on); Ledger rail (on).
 - **Community:** Leak Atlas opt-in (off), SCR-21.
-- **Developer** (shown with `?debug=1`): "Simulate: no Nano / offline" (downgrade only, AC-006); show RC values and their source; force an RC fetch.
+- **Developer** (shown with `?debug=1`, and while a simulation is on so it can be turned off; D-104): "Simulate: no Nano / offline" (downgrade only, AC-006); show RC values and their source; force an RC fetch.
 
 **About (P0):**
 - the version and commit;
@@ -1280,6 +1280,7 @@ Each screen lists its purpose, layout, behaviour, states (a)–(e), copy IDs and
 | S0/S1 tripwire or BREACH (AC-022) | A persistent red banner; the session is RULES-ONLY; the cloud is off until reload | `copy.gate.tripwire` |
 | Unsupported browser (no WebAssembly or IndexedDB) | A full-page message | `copy.err.browser` |
 
+- **Precedence (D-105):** while the cloud is off, one banner only, the most severe: tripwire > kill switch > App Check > sign-in > daily cap. The per-call rows (429, 400, network) show only while the cloud is on and can be dismissed; the 429 banner clears itself after 60 s. The header chip and SCR-02 row 3 follow the same reason.
 - **AC-290 (P0) [e2e]** Each condition, produced by a mock or an RC override, shows its copy and leaves the on-device features working.
 - **AC-291 (P0) [unit]** Firebase initialises in the order `initializeApp → (debug flag, DEV only) → initializeAppCheck → getAuth → getAI`, asserted by a test. Every cloud call awaits `authReady`.
 - **AC-292 (P0) [manual]** On the hosted URL, AI Logic requests carry `X-Firebase-AppCheck` (seen in DevTools), and the console's App Check APIs tab shows AI Logic as **Enforced** [USER confirms].

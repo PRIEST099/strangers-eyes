@@ -134,7 +134,7 @@ describe('remoteconfig.template.json', () => {
       clamps++;
       expect(params[key].description.toLowerCase(), key).toContain(`clamped ${m[1]}-${m[2]}`);
     }
-    expect(clamps).toBe(6); // daily cap, fuzzy, face, mask pad, cloud px, OCR px
+    expect(clamps).toBe(7); // daily cap, fuzzy, face, mask pad, cloud px, nano px (D-98, added by T-102), OCR px
   });
 
   it('is byte-identical to the ARCH §13.3 block', () => {
