@@ -10,13 +10,15 @@
 // T-057: the Tesseract worker is kept warm while this screen is open (useOcrWarm; ARCH §18).
 // T-068: "Continue to pre-screen" moves to the Pre-screen step (AC-100), which runs Tier-0 once per photo on this
 // device (ui/check/runPrescreen.ts) and then shows the mask editor. Its result is the masked frame candidate
-// (checkState.maskedCandidate) that the Send step (T-069) will show; nothing is sent from here. Steps that are not
+// (checkState.maskedCandidate) that the Send step (T-069) will show; nothing is sent from here. T-066: the same run
+// then asks Gemini Nano (S1, on this device only, through the gate) for clues; they join the Tier-0 findings. Steps that are not
 // built yet are shown as not available (BUILT_STEPS, D-121).
 // T-069/T-071/T-086 (D-137..D-139): "Check with the cloud attacker" opens the Send step. Its consent dry run builds the
 // cloud JPEG from candidate.masks and checks those exact bytes (ui/check/runSend.ts); "Send this image" mints the consent
 // token for that sha256 and runs pass B through the Egress Gate (ai/jobs/adversaryB.ts); a final outcome opens the
-// Verdict: the rules referee over pass B's validated JSON → buildVerdict → VerdictCard (Referee: RULES-ONLY, its
-// latency). Each photo is one session (a fresh sessionId per import epoch) with its own pass-B cache. The sent image
+// Verdict: the referee over pass B's validated JSON → buildVerdict → VerdictCard. T-074: the referee runs on this
+// device through the gate (ui/check/runSend.runReferee → ai/jobs/referee.ts, S0): Gemini Nano unioned with the rules
+// (Referee: ON-DEVICE + latency), or RULES-ONLY when Nano is absent, off or fails (an honest note says which). Each photo is one session (a fresh sessionId per import epoch) with its own pass-B cache. The sent image
 // and its token stay in a ref (memory only).
 // T-078..T-080 (D-142..D-144): from a verdict built on a pass-B result, "Fix it on this device" opens the Fix step: the
 // RULES-ONLY plan (core/fixPlan over the NEWEST pass-B result and the verdict built from it) as a checklist; Apply adds
@@ -26,7 +28,8 @@
 // the Before → After rows and the receipt line. At most RC max_fix_rounds re-attacks; none after any decline. Export
 // is not built.
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import type { AdvBCache } from '../../ai/jobs/adversaryB';
+import type { AdvBCache, AttackOutcome } from '../../ai/jobs/adversaryB';
+import type { RefereeOutcome } from '../../ai/jobs/referee';
 import { vaultScan } from '../../ai/vaultScan';
 import { t } from '../../core/strings';
 import type { VaultItem } from '../../core/types';
@@ -36,7 +39,7 @@ import { pinsWhenReady, type GpsPinLike } from '../../tier0/gpsWarning';
 import type { ImportedPhoto } from '../../tier0/importPhoto';
 import type { EditorOp } from '../check/editor';
 import { runPrescreen } from '../check/runPrescreen';
-import { consentTo, newAttackCache, runAttack, runConsentDryRun, type SentImage } from '../check/runSend';
+import { consentTo, newAttackCache, runAttack, runConsentDryRun, runReferee, type SentImage } from '../check/runSend';
 import { consentTierCopy, userUnmaskedBoxes, verdictOf } from '../check/sendFlow';
 import { compareRows, receiptParams } from '../check/fixFlow';
 import { FixPanel } from '../check/FixPanel';
@@ -162,15 +165,45 @@ export function Check() {
     return () => { live = false; };
   }, [attackKind, flowRun]);
   const outcome = state.flow.attack.kind === 'done' ? state.flow.attack.outcome : null;
+  // T-074: one referee run per pass-B result and vault, on this device (Nano through the gate, else RULES-ONLY).
+  const [refs, setRefs] = useState<{ vault: readonly VaultItem[] | null; by: ReadonlyMap<AttackOutcome, RefereeOutcome> }>({ vault: null, by: new Map() });
+  const refPending = useRef<{ vault: readonly VaultItem[] | null; started: Set<AttackOutcome> }>({ vault: null, started: new Set() });
+  const refOf = useCallback((o: AttackOutcome | null): RefereeOutcome | undefined => (o && refs.vault === vault ? refs.by.get(o) : undefined), [refs, vault]);
+  const latest = latestResult(state);
+  const afterOutcome = settledReattack(state);
+  useEffect(() => {
+    if (!vault) return;
+    if (refPending.current.vault !== vault) refPending.current = { vault, started: new Set() };
+    const batch = refPending.current;
+    for (const o of [outcome, afterOutcome, latest]) {
+      if (!o || o.kind !== 'result' || batch.started.has(o)) continue;
+      batch.started.add(o);
+      void runReferee(o.result, vault, session.current.id, vaultScan.threshold()).then((r) => {
+        setRefs((cur) => {
+          if (refPending.current !== batch) return cur; // the vault was re-read meanwhile: this run is stale
+          const by = new Map(cur.vault === vault ? cur.by : []);
+          by.set(o, r);
+          return { vault, by };
+        });
+      });
+    }
+  }, [outcome, afterOutcome, latest, vault]);
+  /** The VerdictCard referee row: the referee's route and latency, and the honest note when the rules decided. */
+  const refereeRow = useCallback((r: RefereeOutcome | undefined, rulesMs: number) => {
+    if (!r) return { route: 'RULES_ONLY' as const, latencyMs: rulesMs };
+    const note = r.route === 'ON_DEVICE' ? null : r.fallback === 'device_failed' ? t('ui.verdict.refFallback') : r.fallback === 'no_device' ? t('copy.ref.rules') : null;
+    return { route: r.route, latencyMs: r.latencyMs, note };
+  }, []);
   const verdict = useMemo(() => {
     if (!outcome || !vault) return null;
+    const ref = refOf(outcome);
+    if (outcome.kind === 'result' && !ref) return null; // the referee is still running
     const t0 = performance.now();
-    const v = verdictOf(outcome, vault, candidate, { theta: vaultScan.threshold(), ...(rc ? { bands: rc.bandsM } : {}) });
-    return { v, ms: Math.round(performance.now() - t0) };
-  }, [outcome, vault, candidate, rc]);
+    const v = verdictOf(outcome, vault, candidate, { theta: vaultScan.threshold(), ...(rc ? { bands: rc.bandsM } : {}), ...(ref ? { matches: ref.matches } : {}) });
+    return { v, ms: Math.round(performance.now() - t0), ref };
+  }, [outcome, vault, candidate, rc, refOf]);
   // ---------- Fix → Re-attack (T-078..T-080) ----------
   const maxRounds = rc?.maxFixRounds ?? 3;
-  const latest = latestResult(state);
   const blocked = fixBlocked(state, maxRounds);
   const blockedCopy = blocked === 'declined' ? t('ui.fix.declined') : blocked === 'noResult' ? t('ui.fix.needsResult') : blocked === 'maxRounds' ? t('copy.fix.maxRounds') : null;
   const re = state.reattack;
@@ -180,11 +213,12 @@ export function Check() {
   const fixMasks = useMemo(() => [...sentMasks, ...(applied?.masks ?? [])], [sentMasks, applied]);
   const plan = useMemo(() => {
     const m = master.current;
-    if (!latest || !vault || !m || !candidate) return null;
-    const v = verdictOf(latest, vault, candidate, { theta: vaultScan.threshold(), ...(rc ? { bands: rc.bandsM } : {}) });
+    const ref = refOf(latest);
+    if (!latest || !vault || !m || !candidate || !ref) return null;
+    const v = verdictOf(latest, vault, candidate, { theta: vaultScan.threshold(), ...(rc ? { bands: rc.bandsM } : {}), matches: ref.matches });
     const input = { adv: latest.result, verdict: v, vault, width: m.canvas.width, height: m.canvas.height, padRatio: rc?.maskPadRatio ?? 0.15 };
     return { input, fix: deterministicFix(input) };
-  }, [latest, vault, candidate, rc]);
+  }, [latest, vault, candidate, rc, refOf]);
   const unchecked = state.fix.unchecked;
   const cropOff = state.fix.cropOff;
   const residual = useMemo(() => (plan ? residualAfter(plan.input, plan.fix, new Set(unchecked), cropOff) : null), [plan, unchecked, cropOff]);
@@ -236,20 +270,23 @@ export function Check() {
     dispatch({ type: 'retryReattack', run });
     reattack(run, `r${rounds + 1}`);
   }, [reattack, rounds]);
-  const afterOutcome = settledReattack(state);
   const compare = useMemo(() => {
     if (!afterOutcome || !vault || !verdict) return null;
+    const ref = refOf(afterOutcome);
+    if (afterOutcome.kind === 'result' && !ref) return null; // the referee is still running
     const t0 = performance.now();
-    const after = verdictOf(afterOutcome, vault, candidate, { theta: vaultScan.threshold(), phase: 'after_fix', ...(rc ? { bands: rc.bandsM } : {}) });
-    return { cmp: compareVerdicts(verdict.v, after), ms: Math.round(performance.now() - t0) };
-  }, [afterOutcome, vault, verdict, candidate, rc]);
+    const after = verdictOf(afterOutcome, vault, candidate, { theta: vaultScan.threshold(), phase: 'after_fix', ...(rc ? { bands: rc.bandsM } : {}), ...(ref ? { matches: ref.matches } : {}) });
+    return { cmp: compareVerdicts(verdict.v, after), ms: Math.round(performance.now() - t0), ref };
+  }, [afterOutcome, vault, verdict, candidate, rc, refOf]);
   const allOutcomes = useMemo(() => (outcome ? [outcome, ...re.history] : [...re.history]), [outcome, re.history]);
+  const onDeviceCalls = allOutcomes.filter((o) => refOf(o)?.route === 'ON_DEVICE').length;
   const prevSentMasks = re.lastSentMasks;
   const fixAction = blocked === null && latest ? (
     <Button variant="primary" data-action="fix" onClick={onToFix}>{state.reattack.rounds > 0 ? t('ui.fix.again') : t('copy.fix.button')}</Button>
   ) : null;
 
   const devFake = import.meta.env.DEV && typeof location !== 'undefined' ? new URLSearchParams(location.search).get('fakeAdv') : null;
+  const devNano = import.meta.env.DEV && typeof location !== 'undefined' ? new URLSearchParams(location.search).get('fakeNano') : null;
 
   // Tier-0 runs once per photo, when the Pre-screen step is first shown (and again after Try again). The run number is
   // the epoch (D-133): never started twice for one epoch (StrictMode runs an effect twice in dev), and the reducer
@@ -263,7 +300,7 @@ export function Check() {
     void runPrescreen(
       { canvas: m.canvas, jpeg: m.jpeg },
       (report) => dispatch({ type: 'prescreenStep', run, report }),
-      { isCurrent: () => epochNow.current === run },
+      { isCurrent: () => epochNow.current === run, sessionId: session.current.id },
     ).then((outcome) => dispatch({ type: 'prescreenDone', run, outcome }));
   }, [current, prescreenKind, epoch]);
 
@@ -299,6 +336,9 @@ export function Check() {
         {devFake && (current === 'send' || current === 'attack' || current === 'reattack') && (
           <p className="mt-2 rounded-md border border-dashed border-line px-2 py-1 font-mono text-xs text-muted">{t('ui.dev.fakeAdversary', { mode: devFake })}</p>
         )}
+        {devNano && (current === 'prescreen' || current === 'verdict' || current === 'fix' || current === 'reattack') && (
+          <p className="mt-2 rounded-md border border-dashed border-line px-2 py-1 font-mono text-xs text-muted">{t('ui.dev.fakeNano', { mode: devNano })}</p>
+        )}
         {current === 'send' && (
           <ConsentPanel
             send={state.flow.send} candidate={candidate} tierCopy={consentTierCopy(rc?.dataTier ?? 'free')}
@@ -312,13 +352,13 @@ export function Check() {
           verdict && vault ? (
             <div className="mt-3 flex flex-col gap-3">
               <VerdictCard
-                verdict={verdict.v} vault={vault} referee={{ route: 'RULES_ONLY', latencyMs: verdict.ms }} headingLevel={3}
+                verdict={verdict.v} vault={vault} referee={refereeRow(verdict.ref, verdict.ms)} headingLevel={3}
                 actions={fixAction ?? (blockedCopy ? <p className="text-sm text-muted">{blockedCopy}</p> : null)}
               />
               <p className="text-sm text-muted">{t('ui.verdict.nextSoon')}</p>
             </div>
           ) : (
-            <p className="mt-3 text-sm text-muted">{t('ui.verdict.loading')}</p>
+            <p className="mt-3 text-sm text-muted">{outcome?.kind === 'result' && vault ? t('copy.ref.running') : t('ui.verdict.loading')}</p>
           )
         )}
         {current === 'fix' && (
@@ -349,7 +389,7 @@ export function Check() {
             <div className="mt-3 flex flex-col gap-3" data-testid="compare">
               <p className="text-xs text-muted">{t('ui.fix.round', { n: rounds, max: maxRounds })}</p>
               <VerdictCard
-                verdict={compare.cmp.after} comparison={compare.cmp} vault={vault} referee={{ route: 'RULES_ONLY', latencyMs: compare.ms }} headingLevel={3}
+                verdict={compare.cmp.after} comparison={compare.cmp} vault={vault} referee={refereeRow(compare.ref, compare.ms)} headingLevel={3}
                 actions={fixAction ?? (blockedCopy ? <p className="text-sm text-muted">{blockedCopy}</p> : null)}
               />
               {compareRows(compare.cmp.before, compare.cmp.after, vault).length > 0 && (
@@ -360,7 +400,7 @@ export function Check() {
                   </ul>
                 </div>
               )}
-              <p className="font-mono text-xs text-muted" data-testid="receipt">{t('copy.receipt.line', receiptParams(allOutcomes))}</p>
+              <p className="font-mono text-xs text-muted" data-testid="receipt">{t('copy.receipt.line', receiptParams(allOutcomes, onDeviceCalls))}</p>
               <p className="text-sm text-muted">{t('ui.verdict.nextSoon')}</p>
             </div>
           ) : (

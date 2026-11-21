@@ -1,19 +1,19 @@
 {
   "matches": [
     {
-      "claim_id": "i9",
+      "claim_id": "c9",
       "vault_id": "v2",
       "strength": "exact",
       "reason": "Invented claim id"
     },
     {
-      "claim_id": "i1",
+      "claim_id": "c1",
       "vault_id": "v77",
       "strength": "likely",
       "reason": "Invented vault id"
     },
     {
-      "claim_id": "i1",
+      "claim_id": "c1",
       "vault_id": "v2",
       "strength": "likely",
       "reason": "The only valid pair"

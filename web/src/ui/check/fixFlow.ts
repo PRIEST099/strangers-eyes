@@ -42,11 +42,11 @@ export function compareRows(before: Verdict, after: Verdict, vault: readonly Vau
 
 /**
  * copy.receipt.line's numbers for this photo: images and requests = pass-B calls that reached the model (route
- * IN_CLOUD; cached and blocked calls sent nothing), k = on-device AI calls (0 until the Nano referee/planner, T-074),
- * r = local checks (the pre-screen, one consent dry run per send, one referee pass per result).
+ * IN_CLOUD; cached and blocked calls sent nothing), k = on-device AI calls (the Nano referee runs that answered ON_DEVICE,
+ * T-074: `onDevice`), r = local checks (the pre-screen, one consent dry run per send, one referee pass per result).
  */
-export function receiptParams(outcomes: readonly AttackOutcome[]): { images: number; requests: number; k: number; r: number } {
+export function receiptParams(outcomes: readonly AttackOutcome[], onDevice = 0): { images: number; requests: number; k: number; r: number } {
   const sent = outcomes.filter((o) => o.call.route === 'IN_CLOUD').length;
   const referee = outcomes.filter((o) => o.kind === 'result').length;
-  return { images: sent, requests: sent, k: 0, r: 1 + outcomes.length + referee };
+  return { images: sent, requests: sent, k: Math.max(0, Math.floor(onDevice)), r: 1 + outcomes.length + referee };
 }

@@ -10,6 +10,7 @@
     {"file": "research/day1-artifacts/ios-ref/probes/sim_out.txt", "values": ["29.449831008911133"], "why": "Day-1 probe output: a latency in seconds."},
     {"file": "research/day1-artifacts/ios-ref/probes/sim_out2.txt", "values": ["18.011757969856262", "25.924896001815796"], "why": "Day-1 probe output: latencies in seconds."},
     {"file": "research/day1-artifacts/ios-ref/probes/vis_out.txt", "values": ["60.34481484976658", "96.77419261579905", "58.22580718994139", "62.16297435768985", "73.99057006835936"], "why": "Day-1 Vision probe output: text bounding boxes in pixels."},
+    {"file": "web/src/ai/jobs/referee.test.ts", "values": ["0.51234", "-30.48765", "0.53321", "-30.44987"], "why": "Synthetic pins in the open South Atlantic test area, used to prove the referee prompt carries no coordinates (AC-162)."},
     {"file": "web/src/ai/vaultScan.test.ts", "values": ["-30.5002", "-30.5003", "-30.5022", "0.2004", "0.5031", "0.6031", "0.7001", "0.9004"], "why": "Synthetic pins and probes in the open South Atlantic (no land within 100 km)."},
     {"file": "web/src/core/geo.test.ts", "values": ["52.5201"], "why": "About 10 m from the public Berlin reference point of the haversine vector."},
     {"file": "web/src/core/referee.test.ts", "values": ["10.123456", "-30.654321"], "why": "Synthetic sequential digits in the open Atlantic."},

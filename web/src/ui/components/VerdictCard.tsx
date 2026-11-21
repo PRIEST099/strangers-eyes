@@ -31,8 +31,11 @@ export interface VerdictCardProps {
   comparison?: VerdictComparison | null;
   /** Overrides Settings › "Show vault labels in results" (on by default). */
   showVaultLabels?: boolean;
-  /** Who graded the attacker and how long it took (SCR-09 "Referee: ON-DEVICE 1.3 s"). */
-  referee?: { route: Route; latencyMs: number | null } | null;
+  /**
+   * Who graded the attacker and how long it took (SCR-09 "Referee: ON-DEVICE 1.3 s"). `note`: the honest line under a
+   * RULES-ONLY referee (copy.ref.rules, or why on-device AI did not decide this time; T-074).
+   */
+  referee?: { route: Route; latencyMs: number | null; note?: string | null } | null;
   /** Fix / Export buttons (the Check screen owns the flow). */
   actions?: ReactNode;
   /** Called with the open line's clue IDs (to highlight them on the image), or null when no "Why?" is open. */
@@ -173,6 +176,7 @@ export function VerdictCard({
         )}
         <span>{t('ui.verdict.distances')}</span>
       </p>
+      {referee?.note && <p className="text-xs text-muted" data-testid="referee-note">{referee.note}</p>}
 
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
 

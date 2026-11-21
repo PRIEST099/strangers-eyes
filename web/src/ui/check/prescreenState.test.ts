@@ -8,7 +8,7 @@ import {
   CHECK_START, FIX_IDLE, FLOW_IDLE, PENDING_LINES, PRESCREEN_IDLE, REATTACK_IDLE, checkReducer, maskedCandidate, type CheckAction, type CheckState, type PrescreenOutcome,
 } from '../checkState';
 import { resultStatus } from '../importTransfer';
-import { clueLabelId, lineCopy, nanoLineCopy, readerLabelId, rowDetail, severityLabelId } from './prescreenView';
+import { clueLabelId, lineCopy, nanoLineCopy, nanoResultLine, readerLabelId, rowDetail, severityLabelId } from './prescreenView';
 import { vaultIndexReady, withTimeout } from './runPrescreen';
 import { createEditor } from './editor';
 
@@ -161,8 +161,15 @@ describe('prescreenView', () => {
     expect(STRINGS['ui.prescreen.metadataName']).toBe('Removing metadata');
   });
 
-  it('nanoLineCopy: honest per capability state until T-066', () => {
-    expect(nanoLineCopy('a')).toBe('ui.prescreen.nanoPending');
+  it('nanoResultLine (T-066): what the gate did, then the capability state before it answers', () => {
+    expect(nanoResultLine({ route: 'ON_DEVICE', latencyMs: 812, count: 2, fallback: null }, 'c')).toEqual({ id: 'ui.prescreen.nanoDone', params: { n: 2 }, route: 'ON_DEVICE', ms: 812 });
+    expect(nanoResultLine({ route: 'RULES_ONLY', latencyMs: 5, count: 0, fallback: 'device_failed' }, 'a')).toMatchObject({ id: 'ui.prescreen.nanoFailed', route: 'RULES_ONLY' });
+    expect(nanoResultLine({ route: 'RULES_ONLY', latencyMs: 1, count: 0, fallback: 'no_device' }, 'a').id).toBe('ui.prescreen.nanoUnavailable');
+    expect(nanoResultLine({ route: 'RULES_ONLY', latencyMs: 1, count: 0, fallback: 'no_device' }, 'c').id).toBe('copy.prescreen.rulesOnly');
+    expect(nanoResultLine(undefined, 'a')).toEqual({ id: 'ui.prescreen.nanoRunning', route: 'RULES_ONLY' });
+  });
+  it('nanoLineCopy: honest per capability state before Nano answers', () => {
+    expect(nanoLineCopy('a')).toBe('ui.prescreen.nanoRunning');
     expect(nanoLineCopy('a-prime')).toBe('copy.prescreen.textOnly');
     expect(nanoLineCopy('b')).toBe('copy.prescreen.rulesOnly');
     expect(nanoLineCopy('c')).toBe('copy.prescreen.rulesOnly');

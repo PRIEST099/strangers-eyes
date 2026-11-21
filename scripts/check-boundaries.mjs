@@ -246,7 +246,9 @@ const WEB_RULES = [
   { id: 'R9-console-in-sensitive', re: /\bconsole\b/, only: [],
     scope: (r) => !isTest(r) && (r.startsWith('web/src/vault/')
       // T-068 / T-077: the pre-screen state and editor (vault text) and the verdict line components (vault labels)
-      || r.startsWith('web/src/ui/check/') || r.startsWith('web/src/ui/components/verdict/') || [
+      || r.startsWith('web/src/ui/check/') || r.startsWith('web/src/ui/components/verdict/')
+      // T-074 / T-066 / T-071: the on-device jobs fill prompts with vault terms and pins; pass B results join vault IDs
+      || r.startsWith('web/src/ai/jobs/') || [
       'web/src/ai/vaultScan.ts', 'web/src/core/referee.ts', 'web/src/tier0/fuzzy.ts',
       // T-053: vault pins + the EXIF point (S0), and the original photo's GPS (readExifFacts, sniff.webpExifPayload)
       'web/src/tier0/gpsWarning.ts', 'web/src/tier0/importPhoto.ts', 'web/src/tier0/sniff.ts',
@@ -854,6 +856,7 @@ function selfTest() {
       ['R7-localStorage', 'web/src/ui/bad7.ts', "localStorage.setItem('a', 'b');\n"],
       ['R8-url-input', 'web/src/ui/components/ImportDropzone.tsx', 'export const I = () => <input type="url" />;\n'],
       ['R9-console-in-sensitive', 'web/src/vault/bad9.ts', "console.log('vault');\n"],
+      ['R9-console-in-sensitive', 'web/src/ai/jobs/newJob.ts', "export const f = (t: string) => console.info(t);\n"],
       ['R9-console-in-sensitive', 'web/src/ui/components/VaultItemForm.tsx', "export const f = (label: string) => console.log(label);\n"],
       ['R9-console-in-sensitive', 'web/src/ui/components/PinButton.tsx', "export const f = (lat: number) => console.debug(lat);\n"],
       ['R9-console-in-sensitive', 'web/src/vault/bad9b.ts', "console.error('vault');\n"],

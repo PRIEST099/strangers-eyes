@@ -36,6 +36,10 @@ const DevVerdictGallery: LazyExoticComponent<ComponentType> | null = import.meta
 if (import.meta.env.DEV) {
   void import('./dev/fakeAdversary').then((m) => m.installFakeAdversary(), () => undefined);
 }
+// D-147: DEV builds may answer the on-device jobs from a fake Gemini Nano (`?fakeNano=ok|empty|invalid|timeout`).
+if (import.meta.env.DEV) {
+  void import('./dev/fakeNano').then((m) => m.installFakeNano(), () => undefined);
+}
 
 /** The route → screen map. Exported so ui/shell.test.ts asserts App's own mapping, not a copy of it. */
 export function Screen({ route }: { route: AppRoute }) {

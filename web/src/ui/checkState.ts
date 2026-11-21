@@ -58,6 +58,15 @@ export interface PrescreenOutcome {
   readonly mode: PreTickMode;
   readonly autoMaskTypes: readonly ClueType[];
   readonly padRatio: number;
+  /** T-066: the Gemini Nano pre-screen line (route, latency, how many clues it added); absent = not run. */
+  readonly nano?: PrescreenNanoLine;
+}
+/** The pre-screen's Nano line: ON_DEVICE with its clue count, or RULES_ONLY and why (SPEC SCR-06 states a–c). */
+export interface PrescreenNanoLine {
+  readonly route: 'ON_DEVICE' | 'RULES_ONLY';
+  readonly latencyMs: number;
+  readonly count: number;
+  readonly fallback: 'no_device' | 'device_failed' | null;
 }
 
 export type PrescreenState =
@@ -65,7 +74,7 @@ export type PrescreenState =
   | { readonly kind: 'running'; readonly run: number; readonly sha256: string; readonly lines: ProgressLines }
   | {
     readonly kind: 'done'; readonly run: number; readonly sha256: string; readonly lines: ProgressLines;
-    readonly failed: readonly Tier0StepId[]; readonly editor: EditorState;
+    readonly failed: readonly Tier0StepId[]; readonly editor: EditorState; readonly nano?: PrescreenNanoLine;
   };
 export const PRESCREEN_IDLE: PrescreenState = Object.freeze({ kind: 'idle' });
 
@@ -239,7 +248,7 @@ export function checkReducer(s: CheckState, a: CheckAction): CheckState {
       const lines = { ...p.lines };
       for (const st of failed) if (lines[st].status !== 'failed') lines[st] = { status: 'failed', ...(lines[st].ms !== undefined ? { ms: lines[st].ms } : {}) };
       const editor = createEditor(o.findings, { width: o.width, height: o.height }, { mode: o.mode, autoMaskTypes: o.autoMaskTypes, padRatio: o.padRatio });
-      return { ...s, prescreen: { kind: 'done', run: p.run, sha256: p.sha256, lines, failed, editor } };
+      return { ...s, prescreen: { kind: 'done', run: p.run, sha256: p.sha256, lines, failed, editor, ...(o.nano ? { nano: o.nano } : {}) } };
     }
     case 'retry':
       if (s.prescreen.kind !== 'done' || s.prescreen.failed.length === 0) return s;

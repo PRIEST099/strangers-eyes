@@ -1,6 +1,7 @@
 // web/src/ui/components/PrescreenPanel.tsx: the Pre-screen step (SPEC SCR-06; T-068). The progress list (each line with
-// its route badge and latency: Tier-0 is RULES-ONLY), then the photo with its masks and the side list. Until T-066 the
-// "Looking for clues" line is RULES-ONLY and says why, by capability state (prescreenView.nanoLineCopy). A failed
+// its route badge and latency: Tier-0 is RULES-ONLY), then the photo with its masks and the side list. T-066: the
+// "Looking for clues" line is the Nano pre-screen's: ON-DEVICE with its count and latency when Gemini Nano answered,
+// else RULES-ONLY and why (prescreenView.nanoResultLine; before it answers, by capability state). A failed
 // reader blocks the photo (fail closed, D-123) and offers Try again; after it, focus goes to the progress list, which
 // stays mounted (all pending) while the run restarts (D-132). "Check with the cloud attacker" opens the Send step
 // (T-069) when the candidate may be sent; Export stays disabled until T-079. Nothing here sends anything.
@@ -9,7 +10,7 @@ import { useRef } from 'react';
 import { t } from '../../core/strings';
 import { TIER0_STEPS } from '../../tier0/tier0';
 import type { EditorOp } from '../check/editor';
-import { lineCopy, nanoLineCopy } from '../check/prescreenView';
+import { lineCopy, nanoResultLine } from '../check/prescreenView';
 import { PENDING_LINES, type PrescreenState, type ProgressLine } from '../checkState';
 import { useOnline } from '../hooks/useOnline';
 import { useShell } from '../shellContext';
@@ -47,6 +48,7 @@ export function PrescreenPanel({ master, state, onOp, onRetry, canSend = false, 
   const lines = state.kind === 'idle' ? PENDING_LINES : state.lines;
   const running = state.kind !== 'done';
   const capState = shell?.caps.checked ? shell.caps.capability.state : null;
+  const nanoLine = nanoResultLine(state.kind === 'done' ? state.nano : undefined, capState);
   const retry = () => {
     onRetry();
     progressRef.current?.focus(); // the alert and its button go away: focus stays on the step, never on <body>
@@ -78,10 +80,11 @@ export function PrescreenPanel({ master, state, onOp, onRetry, canSend = false, 
             </li>
           );
         })}
-        <li data-step="nano" className="flex items-start gap-2">
+        <li data-step="nano" data-route={nanoLine.route} className="flex items-start gap-2">
           <span className="inline-flex h-5 w-4 shrink-0 items-center justify-center"><Icon name="chip" className="size-4 text-muted" /></span>
           <span className="min-w-0">
-            {t(nanoLineCopy(capState))} <Badge route="RULES_ONLY" className="align-middle" />
+            {t(nanoLine.id, nanoLine.params)} <Badge route={nanoLine.route} className="align-middle" />{' '}
+            {nanoLine.ms !== undefined && <span className="font-mono text-xs text-muted">{t('ui.prescreen.ms', { ms: nanoLine.ms })}</span>}
           </span>
         </li>
       </ul>

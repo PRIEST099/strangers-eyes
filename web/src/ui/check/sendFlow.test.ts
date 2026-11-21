@@ -134,6 +134,16 @@ describe('sendFlow helpers', () => {
     expect(p.level).toBe('PARTIAL');
     expect(p.pinBands).toEqual([]);
   });
+  it('verdictOf with the referee outcome\'s matches (T-074): they replace the rules referee; [] links nothing', () => {
+    const c = maskedCandidate(onPrescreen, SHA);
+    const o = { kind: 'result' as const, result: result(), call };
+    const claimId = result().inferences[0]?.id ?? 'i1';
+    const dev = verdictOf(o, VAULT, c, { matches: [{ claimId, vaultId: 'vi_000000000003', strength: 'likely', reason: 'device', clueIds: [], route: 'ON_DEVICE' }] });
+    expect(dev.lines.find((l) => l.vaultId === 'vi_000000000003')).toMatchObject({ strength: 'likely' });
+    const none = verdictOf(o, VAULT, c, { matches: [] });
+    expect(none.lines.some((l) => l.vaultId === 'vi_000000000003' && l.strength)).toBe(false);
+    expect(receiptParams([o], 1).k).toBe(1);
+  });
 });
 
 // T-078..T-080 (D-142, D-143): Fix → Re-attack in ui/checkState.ts, and the compare helpers in ui/check/fixFlow.ts.

@@ -5,7 +5,7 @@ import type { StringId, StringParams } from '../../core/strings';
 import type { Confidence, Readers } from '../../core/types';
 import type { CapState } from '../../ai/capabilities';
 import type { Tier0StepId } from '../../tier0/tier0';
-import type { ProgressLine } from '../checkState';
+import type { PrescreenNanoLine, ProgressLine } from '../checkState';
 import type { EditorItem } from './editor';
 
 export interface Copy { id: StringId; params?: StringParams }
@@ -40,15 +40,25 @@ export function lineCopy(step: Tier0StepId, line: ProgressLine): { id: StringId;
 }
 
 /**
- * The "Looking for clues" line until T-066 (SPEC SCR-06 states): (a′) copy.prescreen.textOnly; (b) and (c)
- * copy.prescreen.rulesOnly; (a) Nano is ready but its pre-screen is not built yet, so the honest line is
- * ui.prescreen.nanoPending (copy.prescreen.rulesOnly would claim this browser has no on-device AI). Unknown (the
- * first availability check has not returned) reads as (c), like the capability chip.
+ * The "Looking for clues" line before the Nano pre-screen has answered (SPEC SCR-06 states): (a) Nano is ready, so it
+ * is running (ui.prescreen.nanoRunning); (a′) copy.prescreen.textOnly; (b) and (c) copy.prescreen.rulesOnly. Unknown
+ * (the first availability check has not returned) reads as (c), like the capability chip.
  */
 export function nanoLineCopy(state: CapState | null): StringId {
-  if (state === 'a') return 'ui.prescreen.nanoPending';
+  if (state === 'a') return 'ui.prescreen.nanoRunning';
   if (state === 'a-prime') return 'copy.prescreen.textOnly';
   return 'copy.prescreen.rulesOnly';
+}
+
+/** T-066: the Nano line once the pre-screen finished: what the gate actually did, not what the chip expected. */
+export function nanoResultLine(
+  nano: PrescreenNanoLine | undefined, state: CapState | null,
+): { id: StringId; params?: StringParams; route: 'ON_DEVICE' | 'RULES_ONLY'; ms?: number } {
+  if (!nano) return { id: nanoLineCopy(state), route: 'RULES_ONLY' };
+  if (nano.route === 'ON_DEVICE') return { id: 'ui.prescreen.nanoDone', params: { n: nano.count }, route: 'ON_DEVICE', ms: nano.latencyMs };
+  if (nano.fallback === 'device_failed') return { id: 'ui.prescreen.nanoFailed', route: 'RULES_ONLY' };
+  if (state === 'a') return { id: 'ui.prescreen.nanoUnavailable', route: 'RULES_ONLY' };
+  return { id: nanoLineCopy(state), route: 'RULES_ONLY' };
 }
 
 /** The type label of a side-list row ("Face", "Phone number", "Name or text"…). */

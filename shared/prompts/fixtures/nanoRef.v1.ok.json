@@ -1,7 +1,7 @@
 {
   "matches": [
     {
-      "claim_id": "i1",
+      "claim_id": "c1",
       "vault_id": "v2",
       "strength": "likely",
       "reason": "Hospital staff lanyard points to the hospital workplace"

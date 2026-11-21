@@ -19,7 +19,7 @@ const prop = (s: unknown, ...path: string[]): S => path.reduce((acc: S, k) => ((
 // The shared fixture scenario (shared/prompts/README.md).
 const TEXT_IDS = ['w1', 'p1'];
 const VAULT_IDS = ['v1', 'v2', 'v3'];
-const CLAIM_IDS = ['i1', 'i2', 'h1', 'h2'];
+const CLAIM_IDS = ['c1', 'c2', 'c3', 'c4']; // per-call claim aliases (D-145)
 const REMOVABLE = ['c1', 'c2', 'c3'];
 
 describe('schema shape (hand-written structural check)', () => {

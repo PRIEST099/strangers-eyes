@@ -7,15 +7,21 @@
 //     the vault step FAILS (fail closed, D-123); it never reports "0 matches" without having looked.
 // The heavy readers are loaded with dynamic imports, so MediaPipe and Tesseract stay out of the first bundle; a chunk
 // that fails to load fails its step. Nothing here makes a network request beyond the app's own files.
-// TODO(T-066): the Nano pre-screen (S1, ONLY_ON_DEVICE, fail closed) runs here once the Egress Gate exists; its
-// localised clues join `findings` (core/pretick already handles `nano_prescreen` clues) and the route becomes ON_DEVICE.
+// T-066: after Tier-0, the Nano pre-screen (ai/jobs/prescreen.ts: S1 through the Egress Gate, ONLY_ON_DEVICE, fail
+// closed) looks at the ORIGINAL master as a nano768 JPEG; its clues are localised by the OCR words Tier-0 read and join
+// `findings` (core/pretick handles `nano_prescreen` clues). The outcome's `nano` line says ON_DEVICE (with its clue
+// count and latency) or RULES_ONLY and why. A Nano failure never fails the pre-screen: Tier-0 stands alone (AC-114).
+// T-067 seam: the Nano vault-text match will take `words` and the Nano clue texts here.
 // LOCAL ONLY: words, matched texts and vault kinds stay in memory on this device; nothing is logged.
 import { vaultScan } from '../../ai/vaultScan';
 import { DEFAULT_AUTO_MASK_TYPES, type PreTickMode } from '../../core/pretick';
 import { DEFAULT_MASK_PAD_RATIO } from '../../core/boxes';
 import type { ClueType, OcrWord } from '../../core/types';
+import type { OutgoingImage } from '../../ai/egressGate';
 import { runTier0, type Tier0StepReport, type VaultWordHit } from '../../tier0/tier0';
-import type { PrescreenOutcome } from '../checkState';
+import type { PrescreenNanoLine, PrescreenOutcome } from '../checkState';
+import type { Tier0Finding } from '../../tier0/tier0';
+import { mergeNanoFindings } from '../../ai/jobs/prescreenClues';
 
 /** How long the vault step waits for the active index before it fails closed. */
 export const VAULT_WAIT_MS = 5_000;
@@ -51,10 +57,10 @@ export async function vaultIndexReady(src: Pick<VaultIndexLike, 'mode' | 'ready'
 }
 
 /** The RC values the pre-screen uses, read once per run (defaults when RC cannot be loaded). */
-interface PrescreenConfig { faceMinConfidence: number; ocrMaxPx: number; padRatio: number; autoMaskTypes: readonly ClueType[]; mode: PreTickMode }
+interface PrescreenConfig { faceMinConfidence: number; ocrMaxPx: number; padRatio: number; autoMaskTypes: readonly ClueType[]; mode: PreTickMode; nanoMaxPx: number }
 
 async function loadConfig(): Promise<PrescreenConfig> {
-  let rc: { faceMinConfidence: number; ocrMaxPx: number; maskPadRatio: number; autoMaskTypes: readonly ClueType[]; strictModeDefault: boolean } | null = null;
+  let rc: { faceMinConfidence: number; ocrMaxPx: number; maskPadRatio: number; autoMaskTypes: readonly ClueType[]; strictModeDefault: boolean; nanoImageMaxPx: number } | null = null;
   try {
     rc = (await import('../../firebase/remoteConfig')).cfg();
   } catch {
@@ -72,6 +78,7 @@ async function loadConfig(): Promise<PrescreenConfig> {
     padRatio: rc?.maskPadRatio ?? DEFAULT_MASK_PAD_RATIO,
     autoMaskTypes: rc?.autoMaskTypes ?? DEFAULT_AUTO_MASK_TYPES,
     mode: premask ?? (rc?.strictModeDefault ? 'strict' : 'standard'),
+    nanoMaxPx: rc?.nanoImageMaxPx ?? 768,
   };
 }
 
@@ -97,12 +104,47 @@ export interface PrescreenOptions {
   index?: VaultIndexLike;
   faceLoadMs?: number;
   faceDetectMs?: number;
+  /** The check session (one per photo); the gate's Ledger groups the Nano call under it. */
+  sessionId?: string;
+  /** The Nano pre-screen step (T-066); injectable for tests. Default: nanoStep (the gate, S1). */
+  nano?: (master: HTMLCanvasElement, words: readonly OcrWord[], c: { sessionId: string; maxPx: number }) => Promise<{ findings: Tier0Finding[]; line: PrescreenNanoLine }>;
+}
+
+async function sha256Hex(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
+  const d = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(d), (b) => b.toString(16).padStart(2, '0')).join('');
+}
+function toBase64(b: Uint8Array): string {
+  let s = '';
+  for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode(...b.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+
+/**
+ * The Nano pre-screen on the ORIGINAL master (S1; it never leaves the device: the gate runs it ONLY_ON_DEVICE or not at
+ * all). Never rejects: a failure (including a chunk that does not load) is no Nano clues and a RULES_ONLY line.
+ */
+export async function nanoStep(master: HTMLCanvasElement, words: readonly OcrWord[], c: { sessionId: string; maxPx: number }): Promise<{ findings: Tier0Finding[]; line: PrescreenNanoLine }> {
+  const t0 = performance.now();
+  try {
+    const { buildFrameJpeg } = await import('../../core/frames');
+    const job = await import('../../ai/jobs/prescreen');
+    const built = await buildFrameJpeg('nano768', master, { maxPx: c.maxPx });
+    const bytes = new Uint8Array(await built.jpeg.arrayBuffer());
+    const image: OutgoingImage = { jpeg: built.jpeg, base64: toBase64(bytes), sha256: await sha256Hex(bytes), frame: built.frame, mime: 'image/jpeg' };
+    const o = await job.nanoPrescreen({ sessionId: c.sessionId, image });
+    const findings = job.localiseNanoClues(o.clues, words, master.width, master.height);
+    return { findings, line: { route: o.route, latencyMs: o.latencyMs, count: findings.length, fallback: o.fallback } };
+  } catch {
+    return { findings: [], line: { route: 'RULES_ONLY', latencyMs: Math.round(performance.now() - t0), count: 0, fallback: 'device_failed' } };
+  }
 }
 
 /** Run the Tier-0 pre-screen on Check's master. Never rejects: failures are in `outcome.failed`. */
 export async function runPrescreen(m: PrescreenInput, onStep: (r: Tier0StepReport) => void, opts: PrescreenOptions = {}): Promise<PrescreenOutcome> {
   const index = opts.index ?? vaultScan;
   const c = await loadConfig();
+  let words: readonly OcrWord[] = [];
   const r = await runTier0(m.canvas, m.jpeg, {
     assertClean: async (jpeg) => (await import('../../tier0/exif')).assertCleanJpeg(jpeg),
     detectFaces: async (master) => {
@@ -110,13 +152,20 @@ export async function runPrescreen(m: PrescreenInput, onStep: (r: Tier0StepRepor
       await withTimeout(faces.getFaceDetector(), opts.faceLoadMs ?? FACE_LOAD_TIMEOUT_MS, 'face model');
       return withTimeout(faces.detectFaces(master, c.faceMinConfidence), opts.faceDetectMs ?? FACE_DETECT_TIMEOUT_MS, 'face detection');
     },
-    ocr: async (master) => (await import('../../tier0/ocr')).ocrMaster(master, { maxPx: c.ocrMaxPx }),
+    ocr: async (master) => { words = await (await import('../../tier0/ocr')).ocrMaster(master, { maxPx: c.ocrMaxPx }); return words; },
     matchVault: async (words) => ((await vaultIndexReady(index)) ? index.matchWords(words, 'image') : null),
     now: () => performance.now(),
     isCurrent: opts.isCurrent,
   }, onStep);
+  let findings: Tier0Finding[] = r.findings;
+  let nano: PrescreenNanoLine | undefined;
+  if (opts.isCurrent?.() !== false) {
+    const n = await (opts.nano ?? nanoStep)(m.canvas, words, { sessionId: opts.sessionId ?? 'prescreen', maxPx: c.nanoMaxPx });
+    findings = mergeNanoFindings(r.findings, n.findings);
+    nano = n.line;
+  }
   return {
-    findings: r.findings, failed: r.failed, width: m.canvas.width, height: m.canvas.height,
-    mode: c.mode, autoMaskTypes: c.autoMaskTypes, padRatio: c.padRatio,
+    findings, failed: r.failed, width: m.canvas.width, height: m.canvas.height,
+    mode: c.mode, autoMaskTypes: c.autoMaskTypes, padRatio: c.padRatio, ...(nano ? { nano } : {}),
   };
 }

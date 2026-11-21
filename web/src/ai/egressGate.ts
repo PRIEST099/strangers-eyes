@@ -1376,7 +1376,51 @@ function devFakeModel(r: DevFakeReply): GateModel {
     async generateContentStream() { throw new Error('__SE_DEV_ONLY__ fake adversary: pass B is not streamed'); },
   };
 }
+// ---------- DEV ONLY: the fake Gemini Nano (D-147) ----------
+// A DEV build can answer the on-device jobs (referee, pre-screen…) from web/src/dev/fakeNano.ts, so the ON_DEVICE path
+// can be shown in a browser without Gemini Nano (8 GB machines, a Chrome not set up). While it is active (`?fakeNano=`
+// in the URL), availability() reports 'available' AND every device-capable model is the fake: the two are switched
+// together, so the gate never builds a real SDK device model on a fake 'available' (a model without the browser's
+// on-device API would run in the cloud, F-125). Only availability and the model are swapped: the gate's class rules,
+// the interlock, the device queue, the route check (an answer must say on_device), the parse and the Ledger run for
+// real. A production build has none of it (appDeps picks these only under import.meta.env.DEV; the marker strings
+// make scripts/check-dist.mjs fail if any of it ships).
+/** One fake on-device answer: fixed text, text computed from the prompt the gate built, or a hang. */
+export interface DevNanoReply { text?: string; textFor?: (prompt: string) => string; hang?: boolean; delayMs?: number }
+interface DevNano { active(): boolean; reply(job: JobName): DevNanoReply | null }
+let devNano: DevNano | null = null;
+/** DEV ONLY: install (or clear, null) the fake Gemini Nano. Does nothing in a production build. */
+export function devSetFakeNano(fake: DevNano | null): void {
+  if (!import.meta.env.DEV) return;
+  devNano = fake;
+}
+const devNanoActive = (): boolean => {
+  try { return devNano?.active() === true; } catch { return false; }
+};
+function devNanoModel(r: DevNanoReply | null): GateModel {
+  const answer = async (opts?: GateCallOptions, parts: readonly Part[] = []): Promise<GateResponse> => {
+    if (!r) throw new Error('__SE_DEV_ONLY__ fake nano: no answer for this job');
+    const signal = opts?.signal;
+    await new Promise<void>((res, rej) => {
+      const id = r.hang ? undefined : setTimeout(res, r.delayMs ?? 0);
+      signal?.addEventListener('abort', () => { clearTimeout(id); rej(new DOMException('aborted', 'AbortError')); });
+    });
+    const prompt = parts.map((p) => (typeof (p as { text?: unknown }).text === 'string' ? (p as { text: string }).text : '')).join('');
+    const text = r.textFor ? r.textFor(prompt) : r.text ?? '';
+    return { text: () => text, inferenceSource: 'on_device', candidates: [{ finishReason: 'STOP' }] };
+  };
+  return {
+    async generateContent(parts, opts) { return { response: await answer(opts, parts) }; },
+    async generateContentStream() { throw new Error('__SE_DEV_ONLY__ fake nano: not streamed'); },
+  };
+}
+async function devAvailabilityNow(io: NanoIo): Promise<NanoState> {
+  return devNanoActive() ? 'available' : liveAvailabilityNow(io);
+}
+
 function devBuildModel(spec: ModelSpec, mode: GateMode, config: AppConfig, job: JobName): GateModel {
+  const cloudOnly = spec.kind === 'adversaryA' || spec.kind === 'adversaryB' || mode === 'ONLY_IN_CLOUD';
+  if (!cloudOnly && devNanoActive()) return devNanoModel(devNano?.reply(job) ?? null);
   const r = spec.kind === 'adversaryB' && devFake ? devFake(job) : null;
   return r ? devFakeModel(r) : sdkModel(spec, mode, config, job);
 }
@@ -1400,7 +1444,7 @@ function appDeps(): GateDeps {
   return {
     cfg: liveCfg,
     vault: appVaultScan,
-    availabilityNow: liveAvailabilityNow,
+    availabilityNow: import.meta.env.DEV ? devAvailabilityNow : liveAvailabilityNow, // D-147: DEV fake Nano
     prefs: appPrefs,
     caps: appCaps,
     online: () => (typeof navigator === 'undefined' || navigator.onLine !== false) && !appPrefs.simulateOffline(),

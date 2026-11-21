@@ -5,11 +5,13 @@
 // dynamic import, as in runPrescreen; so do the gate and the pass-B job (they pull in Firebase, which the Check screen's
 // first render and its Node tests must not load). Nothing here sends anything: pass B goes through the gate (invariant 4).
 import type { AdvBCache, AttackOutcome } from '../../ai/jobs/adversaryB';
+import type { RefereeOutcome } from '../../ai/jobs/referee';
 import { runPreflight, type DryRun } from '../../ai/preflight';
 import { vaultScan } from '../../ai/vaultScan';
 import type { OutgoingImage } from '../../ai/egressGate';
 import { buildFrameJpeg } from '../../core/frames';
-import type { ConsentToken, PxRect } from '../../core/types';
+import { refereeClaims, refereeVaultItems, rulesReferee } from '../../core/referee';
+import type { AdversaryResult, ConsentToken, PxRect, VaultItem } from '../../core/types';
 import { FACE_DETECT_TIMEOUT_MS, FACE_LOAD_TIMEOUT_MS, vaultIndexReady, withTimeout } from './runPrescreen';
 
 async function rc() {
@@ -73,4 +75,20 @@ export async function runAttack(sent: SentImage, cache: AdvBCache, runId = 'r1')
 export function newAttackCache(): AdvBCache {
   const m = new Map<string, AttackOutcome>();
   return { get: (k) => m.get(k), set: (k, v) => { m.set(k, v); } };
+}
+
+/**
+ * The referee for one pass-B result (T-074): the on-device referee through the gate (S0, ONLY_ON_DEVICE; RULES-ONLY
+ * when Nano is absent, off or fails), unioned with the rules referee. Never rejects.
+ */
+export async function runReferee(adv: AdversaryResult, vault: readonly VaultItem[], sessionId: string, theta?: number): Promise<RefereeOutcome> {
+  const t0 = performance.now();
+  try {
+    const { referee } = await import('../../ai/jobs/referee');
+    return await referee({ sessionId, adv, vault, ...(theta !== undefined ? { theta } : {}) });
+  } catch {
+    // The job's chunk did not load: no device call was made; the rules referee decides, labelled as a failure.
+    const matches = rulesReferee(refereeClaims(adv), refereeVaultItems(vault), theta);
+    return { matches, route: 'RULES_ONLY', latencyMs: Math.round(performance.now() - t0), ledgerId: null, notes: ['fallback: INTERNAL'], fallback: 'device_failed' };
+  }
 }

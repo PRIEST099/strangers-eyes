@@ -1148,7 +1148,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
   - Rules: no temperature or penalties; `textPart()`/`jpegPart()` always set `type`; plain-object schemas.
   - Verify: `tsc`; a unit spy asserts that model, tools and generationConfig sit under `inCloudParams` and that there is no `temperature` key.
 
-- [ ] T-066 [CLAUDE] Nano pre-screen (S1) and the two readers. Due: Mon Nov 23 · Deps: T-057, T-058, T-062, T-065 · AC: AC-111, AC-114, AC-117
+- [ ] T-066 [CLAUDE] Nano pre-screen (S1) and the two readers. Due: Mon Nov 23 · Deps: T-057, T-058, T-062, T-065 · AC: AC-111, AC-114, AC-117 (**Built Nov 21, not ticked:** D-146, F-217. `ai/jobs/prescreen.ts` (S1 through the gate on the nano768 JPEG of the original master) + `ai/jobs/prescreenClues.ts` (AC-114 parse, §11.4 OCR localisation, merge with readers `both`), hooked into `ui/check/runPrescreen.ts` after Tier-0; the Nano line shows ON-DEVICE + count + ms, or RULES-ONLY and why (`prescreenView.nanoResultLine`). Tests: `ai/jobs/prescreen.test.ts` (12). Browser: no Nano → RULES-ONLY line; `?fakeNano=ok` → "Gemini Nano looked for clues (2 found) ON-DEVICE", two dashed approximate rows. **Open:** real Nano in Chrome (HUD needs T-064), AC-111 e2e with the LUCAS prop, AC-117 video, release nanoPre.v1 (D-62); T-067 seam is `runPrescreen`'s `words` + the Nano clue texts.)
   - **Release (D-62):** once this run is recorded in PROGRESS, set `"released": true` for nanoPre.v1, nanoVaultText.v1 (if not already released by T-032) in `shared/prompts/manifest.json` and run `node scripts/check-prompts.mjs`. From then on those files are frozen; any change needs a `*.v2.*` file.
   - Read: SPEC SCR-06; ARCH §9.1, §10.7
   - Files: `web/src/ai/jobs.ts` (`preScreen`), `web/src/ai/parse.ts` (`parsePreScreen`).
@@ -1238,7 +1238,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
   - Do: draw pass-B boxes mapped to the working image, labelled with ID, type and severity. The best guess shows level, area label and confidence only, **never** lat/lng, radius, a map or an address.
   - Verify: grep `web/src/ui` for any rendering of `lat`, `lng` or `radius`; review.
 
-- [ ] T-074 [CLAUDE] Nano referee (S0, nanoRef.v1). Due: Mon Nov 23 · Deps: T-062, T-065, T-071 · AC: AC-161, AC-162
+- [ ] T-074 [CLAUDE] Nano referee (S0, nanoRef.v1). Due: Mon Nov 23 · Deps: T-062, T-065, T-071 · AC: AC-161, AC-162 (**Built Nov 21, not ticked:** D-145, F-216, F-218, F-219. `ai/jobs/referee.ts` (S0 through the gate, aliases c1../v1.., strict `parseRefereeText`, union with the rules), `ui/check/runSend.runReferee`, Check waits for it and VerdictCard's referee row shows ON-DEVICE + latency or RULES-ONLY with an honest note; `receiptParams` k. Tests: `ai/jobs/referee.test.ts` (17: AC-161 drops, AC-162 no coordinate-like number, gate paths ON_DEVICE / no Nano / Nano off / invalid ×2 / timeout / in_cloud BREACH / skipped). Browser (Nano 'unavailable', synthetic image, `?fakeAdv=ok`): RULES-ONLY + copy.ref.rules, verdict reached, no googleapis request; with the DEV fake Nano (D-147) `?fakeNano=ok` ON-DEVICE 0.7 s, `?fakeNano=invalid` RULES-ONLY + `ui.verdict.refFallback`. **Open:** the manual check with real Nano (LUCAS / City General) in the user's Chrome (T-007), then release nanoRef.v1 (D-62); Judge Mode still runs it as S0 (S4 PREFER_ON_DEVICE not wired); add `ai/jobs/referee.ts` to check-boundaries R9 (scripts owner).)
   - Read: SPEC SCR-09, D-09; ARCH §10.9
   - Files: `web/src/ai/jobs.ts` (`referee`).
   - Do:

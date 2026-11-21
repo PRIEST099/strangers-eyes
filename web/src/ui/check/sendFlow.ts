@@ -5,13 +5,15 @@
 //     grounding is allowed AND pass A exists (it does not yet: T-070), so on the free tier it is always hidden.
 //   - consentCounts: the checklist's "n areas masked (f faces, v vault, u yours)".
 //   - userUnmaskedBoxes: the boxes of private items the user deliberately un-ticked (the dry run never re-masks them).
-//   - verdictOf: the rules referee (§10.3) over pass B's validated JSON → buildVerdict. Pass B is the ONLY input from
-//     the cloud (invariant 8). A refusal is the partial verdict (SCR-09 e); any other failure is partial too.
+//   - verdictOf: the referee's matches over pass B's validated JSON → buildVerdict. The matches are the on-device
+//     referee's union (ai/jobs/referee.ts, T-074) when the caller has them, else the rules referee (§10.3) computed
+//     here. Pass B is the ONLY input from the cloud (invariant 8). A refusal is the partial verdict (SCR-09 e); any
+//     other failure is partial too.
 // LOCAL ONLY: vault labels and clue texts flow through here; no logging, nothing persisted or sent.
 import type { AttackOutcome } from '../../ai/jobs/adversaryB';
 import type { DryRun, PreflightFailure } from '../../ai/preflight';
 import type { StringId } from '../../core/strings';
-import type { BandThresholdsM, ClueType, PxRect, VaultItem, Verdict } from '../../core/types';
+import type { BandThresholdsM, ClueType, PxRect, RefereeMatch, VaultItem, Verdict } from '../../core/types';
 import { refereeClaims, refereeVaultItems, rulesReferee } from '../../core/referee';
 import { buildVerdict, type CaughtItem } from '../../core/verdict';
 import { cloudOffReason, type SystemStatus } from '../systemStatus';
@@ -69,15 +71,14 @@ export function caughtOf(c: MaskedFrameCandidate | null): CaughtItem[] {
 
 export function verdictOf(
   o: AttackOutcome, vault: readonly VaultItem[], c: MaskedFrameCandidate | null,
-  opts: { theta?: number; bands?: BandThresholdsM; phase?: Verdict['phase'] } = {},
+  opts: { theta?: number; bands?: BandThresholdsM; phase?: Verdict['phase']; matches?: readonly RefereeMatch[] } = {},
 ): Verdict {
   const caught = caughtOf(c);
   const types = c ? [...new Set(c.clues.flatMap((x): ClueType[] => (x.source !== 'manual' && x.type !== 'face' ? [x.type] : [])))] : [];
   const prescreenFlags = c ? { types, route: c.route } : null;
   const base = { vault, caught, prescreenFlags, ...(opts.bands ? { bands: opts.bands } : {}), ...(opts.phase ? { phase: opts.phase } : {}) };
   if (o.kind === 'result') {
-    const claims = refereeClaims(o.result);
-    const matches = rulesReferee(claims, refereeVaultItems(vault), opts.theta);
+    const matches = opts.matches ? [...opts.matches] : rulesReferee(refereeClaims(o.result), refereeVaultItems(vault), opts.theta);
     return buildVerdict({ ...base, adv: o.result, matches, echoedVaultIds: o.result.echoedVaultIds });
   }
   return buildVerdict({ ...base, adv: null, matches: [], refused: o.kind === 'refused' });
