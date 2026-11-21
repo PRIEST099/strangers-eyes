@@ -249,6 +249,7 @@ How a flaw was found:
 | F-229 | Nov 21 | D-153 | self (zoomed review) | major | The castle-courtyard sample's first masks missed a visitor in a red shirt by the café (a person would have been published) | Mask extended in two passes after zoomed crops; every mask now checked at zoom (RUNBOOK §6.2b step 2) |
 | F-230 | Nov 21 | D-153 | self (browser) | minor | The stand-in "after fix" answers dropped clues that the deterministic fix never masks (they were cited only by a guess that set no pin band), so the coverage check correctly replayed the first answer and sample 1 stayed RED | First-pass street-level guesses cite every clue; all three samples now go red → green |
 | F-231 | Nov 21 | D-153 | self (tests) | minor | Two Judge replay tests hard-coded the placeholder boxes (`[700, 300, 860, 470]`, the first mask in the list) | Rewritten against the data: the recorded box for a full-frame crop, and the top-most removable clue for the mask/crop cases |
+| F-232 | Nov 21 | T-062 | self (run) | minor | `tier0/sniff.test.ts` (30 MB eXIf chunk) timed out once at 5.4 s while Xcode built in parallel; passes alone in 1 s of its budget | Logged as load-sensitive; re-run alone before treating as a failure (no code change) |
 
 ---
 
@@ -403,7 +404,8 @@ How a flaw was found:
 ### Nov 21 (night): real Nano confirmed, and real photos for Judge Mode (D-153, D-154)
 - Claude cannot drive the user's Chrome, so the app gained a developer-only page that runs the real on-device jobs and writes a small report to a local file. Opened in the user's own Chrome, Gemini Nano answered both jobs on the device through the Egress Gate: the referee matched the made-up "City General Hospital" employer, and the pre-screen found two clues on a drawn test image (about 6 and 10 s once warm). The two prompts are now frozen.
 - The user chose openly licensed photos over a staged shoot, to be disclosed in the submission. Three CC0 photos of public places in Ljubljana replace the drawn placeholders: a station forecourt (no text of the user's, yet the scene alone places them near home), a bike-share path with a drawn hospital staff badge, and a castle courtyard with a drawn "LUCAS" lunchbox. Every person, an advert showing a person and every real plate got a solid mask; the props and the vault are made up; the pins sit in a park and a square.
-- The app's own reader caught the badge and the name tag and masked them on the device, and all three samples go red → "Risk reduced" on the recorded path. The recorded attacker answers are still team-written stand-ins, labelled as such, until real recordings replace them.
+- The app's own reader caught the badge and the name tag and masked them on the device, and all three samples go red → "Risk reduced" on the recorded path.
+- Two privacy fixes landed the same night: the gate now notices a vault change made in another tab even before that tab's message arrives (a shared change counter, D-80), and Burn vault now also forgets this tab's in-memory ledger and the redacted images it kept. The recorded attacker answers are still team-written stand-ins, labelled as such, until real recordings replace them.
 
 ### Nov 21 (evening): the full flow goes public (T-107, hosting only)
 - With the user's go-ahead the hosted site moved from Thursday's walking skeleton to the whole demo flow: check, fix, re-attack, HUD, ledger and Judge Mode. Only Hosting was deployed; Remote Config stays on the free-tier override until Blaze.
