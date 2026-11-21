@@ -10,7 +10,7 @@
     "fn vaultItems: refereeVaultItems(items) -> expect, the referee VAULT: {id, kind, label, aliases} only (never a pin's coordinates), generic-label items dropped, generic aliases dropped, input order kept.",
     "Synonym-class words and artefact terms are compared as whole tokens after normalisation (no similarity), so 'badges' is not 'badge'. Label tokens are compared with the matcher's token similarity (>= threshold; tokens of <= 3 characters must be equal).",
     "fn referee: rulesReferee(claims, [vault keys]) -> expect.matches, in claim order then vault order, one per (claim, vault item) pair. reason is the ARCH §12.1 template of the winning rule (local only); route is RULES_ONLY; clueIds are the claim's.",
-    "fn merge: mergeMatches(device, rules) -> expect {matches, notes}. Union per (claim, vault) pair, keeping the stronger strength (device wins a tie). When the device found the pair, route is the device match's own route (ON_DEVICE, or IN_CLOUD for an S4 Judge Mode run), even if the rules strength is kept; else RULES_ONLY; reason and clueIds come from the side whose strength is kept. notes is ['+rules'] when at least one valid rules match entered the union, else []. A match whose strength is not exact | likely | possible is dropped. Output order: device pairs first (first occurrence), then rules-only pairs.",
+    "fn merge: mergeMatches(device, rules) -> expect {matches, notes}. Union per (claim, vault) pair, keeping the stronger strength (device wins a tie). When the device found the pair, route is the device match's own route (ON_DEVICE, or IN_CLOUD for an S4 Judge Mode run), even if the rules strength is kept; else RULES_ONLY; reason and clueIds come from the side whose strength is kept. notes is ['+rules'] when at least one valid rules match entered the union, else []. A match whose strength is not exact | likely | possible is dropped. Output order: device pairs first (first occurrence), then rules-only pairs. D-157: a device match for a pair that NO valid rules match links is capped at 'possible' AFTER the union (generic-word false positives from Nano/FM); notes then end with 'device-only: capped at possible'.",
     "All values are synthetic: no real people, homes, schools or plates (CLAUDE.md invariant 9)."
   ],
   "threshold": 0.8,
@@ -269,13 +269,13 @@
       "expect": { "matches": [
         { "claimId": "i1", "vaultId": "v-work", "strength": "likely", "reason": "hospital lanyard", "clueIds": ["c1"], "route": "ON_DEVICE" }
       ], "notes": ["+rules"] } },
-    { "fn": "merge", "name": "union: device pairs first, then rules-only pairs",
+    { "fn": "merge", "name": "union: device pairs first, then rules-only pairs (the device-only likely is capped at possible, D-157)",
       "device": [ { "claimId": "i2", "vaultId": "v-work", "strength": "likely", "reason": "hospital badge", "clueIds": ["c2"], "route": "ON_DEVICE" } ],
       "rules": [ { "claimId": "i1", "vaultId": "v-school", "strength": "possible", "reason": "same category: school", "clueIds": ["c1"], "route": "RULES_ONLY" } ],
       "expect": { "matches": [
-        { "claimId": "i2", "vaultId": "v-work", "strength": "likely", "reason": "hospital badge", "clueIds": ["c2"], "route": "ON_DEVICE" },
+        { "claimId": "i2", "vaultId": "v-work", "strength": "possible", "reason": "hospital badge", "clueIds": ["c2"], "route": "ON_DEVICE" },
         { "claimId": "i1", "vaultId": "v-school", "strength": "possible", "reason": "same category: school", "clueIds": ["c1"], "route": "RULES_ONLY" }
-      ], "notes": ["+rules"] } },
+      ], "notes": ["+rules", "device-only: capped at possible"] } },
     { "fn": "merge", "name": "S4 device match that ran in the cloud keeps IN_CLOUD",
       "device": [ { "claimId": "i1", "vaultId": "v-work", "strength": "possible", "reason": "a hospital", "clueIds": ["c1"], "route": "IN_CLOUD" } ],
       "rules": [ { "claimId": "i1", "vaultId": "v-work", "strength": "exact", "reason": "named in the claim", "clueIds": ["c1"], "route": "RULES_ONLY" } ],
@@ -294,7 +294,7 @@
       "expect": { "matches": [
         { "claimId": "i1", "vaultId": "v-work", "strength": "possible", "reason": "a hospital", "clueIds": ["c1"], "route": "ON_DEVICE" }
       ], "notes": [] } },
-    { "fn": "merge", "name": "duplicate device pair keeps the stronger, unknown strength dropped",
+    { "fn": "merge", "name": "duplicate device pair keeps the stronger, unknown strength dropped; then the device-only exact is capped at possible (D-157)",
       "device": [
         { "claimId": "i1", "vaultId": "v-work", "strength": "possible", "reason": "first", "clueIds": ["c1"], "route": "ON_DEVICE" },
         { "claimId": "i1", "vaultId": "v-work", "strength": "exact", "reason": "second", "clueIds": ["c1"], "route": "ON_DEVICE" },
@@ -302,7 +302,19 @@
       ],
       "rules": [],
       "expect": { "matches": [
-        { "claimId": "i1", "vaultId": "v-work", "strength": "exact", "reason": "second", "clueIds": ["c1"], "route": "ON_DEVICE" }
-      ], "notes": [] } }
+        { "claimId": "i1", "vaultId": "v-work", "strength": "possible", "reason": "second", "clueIds": ["c1"], "route": "ON_DEVICE" }
+      ], "notes": ["device-only: capped at possible"] } },
+    { "fn": "merge", "name": "D-157: a device-only exact on a generic word ('A coastal city' vs City General Hospital) is capped at possible",
+      "device": [ { "claimId": "h9", "vaultId": "v-work", "strength": "exact", "reason": "city", "clueIds": ["c5"], "route": "ON_DEVICE" } ],
+      "rules": [],
+      "expect": { "matches": [
+        { "claimId": "h9", "vaultId": "v-work", "strength": "possible", "reason": "city", "clueIds": ["c5"], "route": "ON_DEVICE" }
+      ], "notes": ["device-only: capped at possible"] } },
+    { "fn": "merge", "name": "D-157: with ANY rules match for the pair the device may still upgrade (likely to exact)",
+      "device": [ { "claimId": "i1", "vaultId": "v-work", "strength": "exact", "reason": "hospital lanyard", "clueIds": ["c2"], "route": "ON_DEVICE" } ],
+      "rules": [ { "claimId": "i1", "vaultId": "v-work", "strength": "likely", "reason": "lanyard + same category: hospital", "clueIds": ["c2"], "route": "RULES_ONLY" } ],
+      "expect": { "matches": [
+        { "claimId": "i1", "vaultId": "v-work", "strength": "exact", "reason": "hospital lanyard", "clueIds": ["c2"], "route": "ON_DEVICE" }
+      ], "notes": ["+rules"] } }
   ]
 }

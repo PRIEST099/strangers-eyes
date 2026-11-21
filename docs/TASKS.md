@@ -1657,7 +1657,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
 - Follow the T-033 path (default Path A, exactly 12.19.3).
 - Quit Chrome while FM runs. Run `xcrun simctl shutdown all` when done.
 
-- [ ] T-120 [CLAUDE] iOS foundation. Due: Thu Nov 26 · Deps: T-027, T-033, T-102
+- [ ] T-120 [CLAUDE] iOS foundation. Due: Thu Nov 26 · Deps: T-027, T-033, T-102 **Partly done Nov 21:** no anonymous Auth, RC fetch or debug screen yet.
   - Read: ARCH §19.1–19.2; API-NOTES §3.3, §3.12
   - Do:
     - Configure: App Check debug factory → `FirebaseApp.configure()`.
@@ -1667,13 +1667,13 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
     - A debug screen showing UID, RC values and FM availability.
   - Verify: build (Appendix B); runs in SIM; the debug screen shows the values. AC-320.
 
-- [ ] T-121 [CLAUDE] Swift core ports and XCTest parity. Due: Thu Nov 26 (start Wed Nov 25 evening as filler) · Deps: T-027, T-088 · AC: AC-352 (parity)
+- [ ] T-121 [CLAUDE] Swift core ports and XCTest parity. Due: Thu Nov 26 (start Wed Nov 25 evening as filler) · Deps: T-027, T-088 · AC: AC-352 (parity) **Partly done Nov 21:** parity for bands/fuzzy/referee/verdict vectors; no rc/box2d/crop parity.
   - **From T-053/T-054 (D-78, D-79):** label and alias lengths count `unicodeScalars.count` (web: code points, no normalisation). `termsOf` drops every empty or generic string, label or alias, of any kind; the new fuzzy.json termsOf case pins it. Port `sniff`'s limits and caps if iOS imports files (30,000,000 bytes, 40 MP, 1024 segments/chunks/boxes).
   - Read: ARCH §19.1, §20.4
   - Files: `ios/StrangersEyes/Core/{Types,Geo,Boxes,FuzzyMatcher,RulesReferee,VerdictBuilder,FixPlanner,Parsers}.swift`, `ios/StrangersEyesTests/*`. The tests consume `shared/testvectors/*.json` and `shared/prompts/fixtures/*`.
   - Verify: `xcodebuild … test` is green on the same vectors as Vitest.
 
-- [ ] T-122 [CLAUDE] iOS vault (I1). Due: Thu Nov 26 · Deps: T-121 · AC: AC-321
+- [ ] T-122 [CLAUDE] iOS vault (I1). Due: Thu Nov 26 · Deps: T-121 · AC: AC-321 **Partly done Nov 21:** file with complete file protection (not Keychain, F-239); no CoreLocation.
   - Read: SPEC §14.2 (I1); API-NOTES §4.4–4.5
   - Do:
     - Keychain with `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`, never synchronizable.
@@ -1683,7 +1683,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
     - Burn vault; the lock badge.
   - Verify: `xcrun simctl location <SIM> set <public-place lat>,<lng>`; add and burn items by hand; XCTest round trip on an app target.
 
-- [ ] T-123 [CLAUDE] iOS Tier-0 (I2) and Core Image masks. Due: Thu Nov 26 · Deps: T-121 · AC: AC-322, AC-323
+- [ ] T-123 [CLAUDE] iOS Tier-0 (I2) and Core Image masks. Due: Thu Nov 26 · Deps: T-121 · AC: AC-322, AC-323 **Mostly done Nov 21:** Vision faces + OCR, solid masks, pixels-only JPEG; U-26 unchecked.
   - Read: API-NOTES §4.1–4.3, §4.6; ARCH §19.3
   - Do:
     - `PhotosPicker` import. Record whether the picked data keeps GPS EXIF (U-26).
@@ -1692,7 +1692,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
     - Solid masks, 15% padding.
   - Verify: XCTest on JPEG, HEIC and PNG fixtures with GPS generated in-test (stripped and upright); a manual face check with a local, uncommitted image.
 
-- [ ] T-124 [CLAUDE] Swift EgressGate, Ledger and HUD. Due: Fri Nov 27 · Deps: T-122, T-123 · AC: AC-325, AC-329
+- [x] T-124 [CLAUDE] Swift EgressGate, Ledger and HUD. Due: Fri Nov 27 · Deps: T-122, T-123 · AC: AC-325, AC-329 **Ticked Nov 21 (D-155):** Swift EgressGate/Ledger/HUD; 14 GateTests (class floors, fail-closed RULES-ONLY for every FM unavailable state, no availability cache, S3 blocks on consent hash, metadata, face, vault text, prompt vault/pin/extra text); HUD shows S0 ON-DEVICE with latency.
   - Read: ARCH §19.3; API-NOTES §3.5–3.6; SPEC §14.6
   - Files: `ios/StrangersEyes/AI/EgressGate.swift`, `Ledger/Ledger.swift`, `UI/RouterHUD.swift`. Extend `scripts/check-boundaries.mjs` to `ios/`: `respond(`, `streamResponse(` and `generateContent` may appear only in `EgressGate.swift` and in the DEBUG-only `ios/StrangersEyes/Dev/**` (ARCH §4.2).
   - Do:
@@ -1711,7 +1711,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
     - A new session per call; progress UI (`copy.ios.slow`); RULES_ONLY fallback.
   - Verify: a SIM run on the hero photo; the HUD shows ON-DEVICE (Apple FM).
 
-- [ ] T-126 [CLAUDE] FM vault-text match, referee and fix (I4, S0). Due: Fri Nov 27 · Deps: T-125 · AC: AC-324, AC-325, AC-326
+- [ ] T-126 [CLAUDE] FM vault-text match, referee and fix (I4, S0). Due: Fri Nov 27 · Deps: T-125 · AC: AC-324, AC-325, AC-326 **Partly done Nov 21:** FM referee (I4a) done with the D-157 cap; FM vault-text match and fix planner not done.
   - Read: SPEC §14.2 (I4); ARCH §10.8–10.10, §10.1, §19.3–19.4 (static Generable, IDs validated in code)
   - Do:
     - Shared prompts with `@Generable` results. Unknown IDs are dropped in code; avoid dynamic schemas.
@@ -1720,7 +1720,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
     - With 20 vault items and 12 claims, stay under 4,096 tokens; trim by priority if over.
   - Verify: SIM run on LUCAS/City General gives the expected matches; the AC-326 token test.
 
-- [ ] T-127 [CLAUDE] iOS consent and cloud pass B (C2). Due: Fri Nov 27 · Deps: T-124 · AC: AC-327, AC-332
+- [ ] T-127 [CLAUDE] iOS consent and cloud pass B (C2). Due: Fri Nov 27 · Deps: T-124 · AC: AC-327, AC-332 **Partly done Nov 21:** consent sheet + gate done; real Gemini path compiled, never run (quota).
   - Read: API-NOTES §3.7; ARCH §19.3
   - Do:
     - A consent sheet showing the exact image.
@@ -1731,7 +1731,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
     - Never show coordinates or a map.
   - Verify: SIM run with the debug token; boxes drawn correctly; the ledger shows 0 faces and 0 vault items.
 
-- [ ] T-128 [CLAUDE] iOS verdict, rules fix and apply. Due: Sat Nov 28 · Deps: T-126, T-127 · AC: AC-329
+- [x] T-128 [CLAUDE] iOS verdict, rules fix and apply. Due: Sat Nov 28 · Deps: T-126, T-127 · AC: AC-329 **Ticked Nov 21 (D-155):** verdict, rules fix (4 masks) and re-attack in the Simulator; "Risk reduced"; Ledger 0 · 0.
   - Read: SPEC §10, §14.3
   - Do: the verdict view (same contract as the web); apply the fix; no "safe" anywhere; a ledger receipt. Save to Photos is P2 (SPEC I6b, D-32) and lives in T-134.
   - Verify: a full loop in SIM; the Ledger counters read 0 · 0 (AC-329).
@@ -1741,12 +1741,12 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
   - Do: `HybridModel(primary: FirebaseAI.SystemLanguageModel.default, secondary: ai.geminiModel(name: explain_cloud_model))`. Public clue text only, and the gate scans it first. The badge comes from `modelVersion`. Demonstrate the fallback (Apple Intelligence off, or an oversized public prompt).
   - Verify: one ON-DEVICE run and one fallback run are captured. (Cut order step 5.)
 
-- [ ] T-130 [CLAUDE] iOS capability state and safety copy. Due: Sat Nov 28 · Deps: T-120
+- [x] T-130 [CLAUDE] iOS capability state and safety copy. Due: Sat Nov 28 · Deps: T-120 **Ticked Nov 21 (D-155):** all 4 FM states mapped to copy (only `.available` observed in the Simulator).
   - Read: SPEC §14.3–14.4
   - Do: an availability switch (`.available`, `.modelNotReady`, `.appleIntelligenceNotEnabled`, `.deviceNotEligible`) with `copy.ios.*`, the 18+ notice and the data notice.
   - Verify: screenshot review.
 
-- [ ] T-131 [CLAUDE] iOS end-to-end run and screenshots. Due: Sat Nov 28 · Deps: T-128 · AC: AC-320, AC-324, AC-329, AC-362
+- [x] T-131 [CLAUDE] iOS end-to-end run and screenshots. Due: Sat Nov 28 · Deps: T-128 · AC: AC-320, AC-324, AC-329, AC-362 **Ticked Nov 21 (D-155):** Simulator run with the DEBUG fake attacker and real Apple FM referee; screenshots in `ios/screenshots/` (not yet copied to docs/img/).
   - Read: RUNBOOK §2.7–2.8
   - Do: the full loop in SIM with Chrome quit; screenshots to `docs/img/ios-*.png`; a latency log in PROGRESS; then `xcrun simctl shutdown all`.
   - Verify: screenshots committed; PROGRESS entry written.

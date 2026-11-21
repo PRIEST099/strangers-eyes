@@ -8,27 +8,19 @@ import FirebaseAppCheck
 
 @main
 struct StrangersEyesApp: App {
+  @State private var model: AppModel
+
   init() {
     #if DEBUG
     AppCheck.setAppCheckProviderFactory(AppCheckDebugProviderFactory())
     #endif
     FirebaseApp.configure()
+    _model = State(initialValue: AppModel())
   }
 
   var body: some Scene {
     WindowGroup {
-      RootView()
+      ContentView().environment(model)
     }
-  }
-}
-
-/// Placeholder root until the iOS screens land (T-1xx). All copy comes from shared/strings/en.json.
-struct RootView: View {
-  var body: some View {
-    VStack(spacing: 12) {
-      Text(Strings.t("ui.app.name")).font(.largeTitle.bold())
-      Text(Strings.t("copy.app.tagline")).font(.body).multilineTextAlignment(.center)
-    }
-    .padding(24)
   }
 }

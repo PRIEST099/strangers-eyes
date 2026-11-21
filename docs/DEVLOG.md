@@ -250,6 +250,13 @@ How a flaw was found:
 | F-230 | Nov 21 | D-153 | self (browser) | minor | The stand-in "after fix" answers dropped clues that the deterministic fix never masks (they were cited only by a guess that set no pin band), so the coverage check correctly replayed the first answer and sample 1 stayed RED | First-pass street-level guesses cite every clue; all three samples now go red → green |
 | F-231 | Nov 21 | D-153 | self (tests) | minor | Two Judge replay tests hard-coded the placeholder boxes (`[700, 300, 860, 470]`, the first mask in the list) | Rewritten against the data: the recorded box for a full-frame crop, and the top-most removable clue for the mask/crop cases |
 | F-232 | Nov 21 | T-062 | self (run) | minor | `tier0/sniff.test.ts` (30 MB eXIf chunk) timed out once at 5.4 s while Xcode built in parallel; passes alone in 1 s of its budget | Logged as load-sensitive; re-run alone before treating as a failure (no code change) |
+| F-233 | Nov 21 | T-126 | iOS agent (Simulator) | major | Apple FM graded "A coastal city" vs "City General Hospital" as exact on the generic word "city"; the union kept it, so the after-fix verdict stayed RED beside "Risk reduced" (web Nano could do the same) | D-157: device-only matches capped at possible after the union, both platforms, shared vectors |
+| F-234 | Nov 21 | T-121 | iOS agent (vectors) | minor | Swift `max`/`min` drop NaN where JavaScript propagates it, breaking 4 band vectors | NaN handled explicitly in `haversineMeters` / `effectiveMeters`; caught by the shared vectors |
+| F-235 | Nov 21 | T-121 | main session (check-images) | minor | A coordinate-like literal (a tiny degree offset) in an iOS test | Removed by the agent |
+| F-236 | Nov 21 | T-131 | main session (check-images) | minor | Simulator PNG screenshots carried eXIf/iTXt chunks | `ios/tools/strip-png.py`; must be re-run after any new UI-test capture |
+| F-237 | Nov 21 | T-124 | iOS agent (self) | minor | The HUD labelled the DEBUG fake attacker IN CLOUD | Shows CACHED SAMPLE |
+| F-238 | Nov 21 | T-124 | iOS agent (self) | minor | Open: schema propertyOrdering is a heuristic; HUD pill slot shows the class not the route; consent copy always shows the free-tier notice; Ledger 0 · 0 is asserted by the checks, not measured; a failed tokenCount skips the budget check (call stays on device) | Open, listed in ios/NOTES.md |
+| F-239 | Nov 21 | T-122 | iOS agent (deviation) | minor | The iOS vault is a file with complete file protection, not the Keychain the plan named | Accepted for the demo; noted in ios/NOTES.md |
 
 ---
 
@@ -400,6 +407,11 @@ How a flaw was found:
 - The HUD at the bottom left now lists every AI call as it happens: which job, its privacy class, where it ran (ON-DEVICE, IN CLOUD, RULES-ONLY, BLOCKED), the engine, how long it took, how many bytes left, and tags such as "fallback: no on-device model" or "Nano off". Collapsed, the pill shows the last call. Everything comes from the Ledger, which only holds ids, kinds, hashes and numbers.
 - The Cloud Ledger rail shows live counters and "What the cloud saw": the exact redacted JPEG of the last cloud send, kept in memory and shown only when the hash of its own bytes equals the hash the gate recorded, with the same 8-character prefix the consent sheet shows. The original photo is never registered. It all lives in memory for this page; nothing is stored or sent.
 - No real AI call was made. Browser check with the DEV fake Nano and fake adversary on a synthetic image: pre-screen and referee ON-DEVICE, pass B IN CLOUD, matching hashes. Found F-220..F-222.
+
+### Nov 21 (late night): an iOS app, and a referee that no longer over-reads
+- A lean SwiftUI app now runs the same check on iOS: vault, on-device text and face reading with solid masks, one gate for every AI call, Apple's on-device model as the referee with the rules as its floor, a consent sheet, the fix and the re-attack. In the Simulator it went red → "Risk reduced" with Apple's model answering on the device; the cloud attacker was a labelled debug stand-in (no quota spent). The shared test files keep both platforms' rules identical, and they caught a Swift difference in how missing numbers behave.
+- The iOS run exposed a real weakness: on-device models sometimes call a match "exact" because of a common word ("a coastal city" vs "City General Hospital"). A device answer with no support at all from the rules now counts as "possible" at most, on web and iOS alike.
+- Judge Mode now falls back to its labelled recording when the live attacker times out or the server fails, not only when it is offline.
 
 ### Nov 21 (night): real Nano confirmed, and real photos for Judge Mode (D-153, D-154)
 - Claude cannot drive the user's Chrome, so the app gained a developer-only page that runs the real on-device jobs and writes a small report to a local file. Opened in the user's own Chrome, Gemini Nano answered both jobs on the device through the Egress Gate: the referee matched the made-up "City General Hospital" employer, and the pre-screen found two clues on a drawn test image (about 6 and 10 s once warm). The two prompts are now frozen.

@@ -62,7 +62,27 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
     dependencies:
       - target: StrangersEyes
+  StrangersEyesUITests: # DEBUG demo run: real taps through the full flow with the fake attacker (ios/NOTES.md)
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: StrangersEyesUITests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.strangerseyes.app.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: StrangersEyes
+    dependencies:
+      - target: StrangersEyes
 schemes:
+  StrangersEyesDemo:
+    build:
+      targets:
+        StrangersEyes: all
+        StrangersEyesUITests: [test]
+    test:
+      targets:
+        - StrangersEyesUITests
   StrangersEyes:
     build:
       targets:

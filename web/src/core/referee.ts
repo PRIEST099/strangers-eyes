@@ -251,10 +251,22 @@ export function mergeMatches(device: readonly RefereeMatch[], rules: readonly Re
   };
   for (const m of device) if (isStrength(m.strength)) take(m, m.route);
   let rulesUsed = false;
+  const ruled = new Set<string>();
   for (const m of rules) {
     if (!isStrength(m.strength)) continue;
     rulesUsed = true;
+    ruled.add(key(m));
     take(m, 'RULES_ONLY');
   }
-  return { matches: [...out.values()], notes: rulesUsed ? [RULES_NOTE] : [] };
+  // D-157: a device match for a pair that NO rules match links is capped at 'possible' (after the union). Nano and Apple
+  // FM grade generic-word overlaps ("A coastal city" vs "City General Hospital") as exact; any rules evidence (a shared
+  // distinctive token, an acronym, a synonym class) lets the device upgrade as before (D-90).
+  let capped = false;
+  for (const [k, m] of out) {
+    if (!ruled.has(k) && RANK[m.strength] > RANK.possible) { out.set(k, { ...m, strength: 'possible' }); capped = true; }
+  }
+  return { matches: [...out.values()], notes: [...(rulesUsed ? [RULES_NOTE] : []), ...(capped ? [DEVICE_CAP_NOTE] : [])] };
 }
+
+/** The HUD note when D-157 capped a device-only match. */
+export const DEVICE_CAP_NOTE = 'device-only: capped at possible';
