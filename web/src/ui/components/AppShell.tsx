@@ -11,6 +11,9 @@
 // cloud-off reason drives the connectivity chip and SCR-02 row 3 (ui/systemStatus.ts, D-105).
 // A Welcome finished on #/judge mounts the shell with SCR-02 open (capabilityOnStart; AC-071, D-103). A link in SCR-02
 // to the route already shown (no hash change, so no route change) closes the sheet and moves focus to main.
+// Focus is never left on <body> (D-117): after Welcome the shell focuses main; when a sheet closes and its opener is
+// gone (focus fell back to <body>), main takes it; dismissing a banner moves it to main.
+// "Simulate: no Nano" shows state (c) as a browser without the Prompt API would (ui/simulate.ts, AC-072).
 // Placeholders until their tasks: Ledger counters and entries (T-063), HUD lines (T-064), the Judge banner across the
 // top (SPEC §8.2, T-105).
 import { useEffect, useRef, useState, type MouseEvent, type PropsWithChildren } from 'react';
@@ -22,6 +25,7 @@ import { useCapUsed, useSettings, useSimulations } from '../hooks/usePrefs';
 import { useSystemStatus } from '../hooks/useSystemStatus';
 import { hrefFor, type AppRoute } from '../router';
 import { ShellContext } from '../shellContext';
+import { simulateNoNano } from '../simulate';
 import { chipInputsOf, cloudOffReason, cloudRowOf, selectBanners, systemStatus } from '../systemStatus';
 import {
   LEDGER_RAIL_ID,
@@ -45,13 +49,19 @@ function linkHref(target: EventTarget | null): string | null {
   return el ? el.getAttribute('href') : null;
 }
 
+/** No element has focus: it fell back to <body> (its element went away). */
+const focusLost = (): boolean =>
+  typeof document !== 'undefined' && (document.activeElement === null || document.activeElement === document.body);
+
 export interface AppShellProps {
   route: AppRoute;
   /** Open SCR-02 when the shell mounts (the `?judge=1` flow after Welcome; AC-071). */
   capabilityOnStart?: boolean;
+  /** Focus main when the shell mounts (straight after Welcome, whose Continue button is gone). */
+  focusMainOnStart?: boolean;
 }
 
-export function AppShell({ route, capabilityOnStart = false, children }: PropsWithChildren<AppShellProps>) {
+export function AppShell({ route, capabilityOnStart = false, focusMainOnStart = false, children }: PropsWithChildren<AppShellProps>) {
   const settings = useSettings();
   const sims = useSimulations();
   const online = useOnline() && !sims.offline; // simulate offline (AC-006): downgrade only
@@ -64,8 +74,10 @@ export function AppShell({ route, capabilityOnStart = false, children }: PropsWi
   const focusMainOnSheetClose = useRef(false);
 
   const counters = ZERO_COUNTERS;
-  // ONE view for the chip, the panel and Settings (fails closed: Rules-only first). Nano off or simulated "no Nano" → (c).
-  const caps = useCapabilities({ online, nanoEnabled: settings.useNano && !sims.noNano });
+  // ONE view for the chip, the panel and Settings (fails closed: Rules-only first). Nano off → (c) 'disabled'; simulated
+  // "no Nano" → (c) exactly as a browser without the Prompt API shows it.
+  const realCaps = useCapabilities({ online, nanoEnabled: settings.useNano });
+  const caps = sims.noNano ? simulateNoNano(realCaps, { nanoEnabled: settings.useNano, online }) : realCaps;
   const capability = caps.chip;
   const status = useSystemStatus();
   const capUsed = useCapUsed();
@@ -86,6 +98,21 @@ export function AppShell({ route, capabilityOnStart = false, children }: PropsWi
     window.scrollTo(0, 0);
     m.focus({ preventScroll: true });
   };
+  /** Focus main where the page is (no scroll): for a focus that would otherwise be lost. */
+  const focusMainInPlace = () => mainRef.current?.focus({ preventScroll: true });
+
+  // Straight after Welcome its Continue button is gone: start in main (unless SCR-02 opened and holds focus).
+  const startFocus = useRef(focusMainOnStart && !capabilityOnStart);
+  useEffect(() => {
+    if (!startFocus.current) return;
+    startFocus.current = false;
+    focusMainInPlace();
+  }, []);
+
+  // Per-call event banners are about a cloud that has since gone off: drop them, so they never reappear later (D-117).
+  useEffect(() => {
+    if (cloudOff !== null) systemStatus.clearEvents();
+  }, [cloudOff]);
 
   // Title on every route; focus to main only on a real change (not on first load, not on a StrictMode re-run).
   const lastKey = useRef(routeKey);
@@ -105,9 +132,12 @@ export function AppShell({ route, capabilityOnStart = false, children }: PropsWi
   }, [routeKey, route.name, titleId, sheetOnOldRoute]);
 
   const afterSheetClose = () => {
-    if (!focusMainOnSheetClose.current) return;
-    focusMainOnSheetClose.current = false;
-    focusMain();
+    if (focusMainOnSheetClose.current) {
+      focusMainOnSheetClose.current = false;
+      focusMain();
+    } else if (focusLost()) {
+      focusMainInPlace(); // the sheet's opener is gone (e.g. SCR-02 opened on mount after Welcome)
+    }
   };
 
   // A panel link to the route already shown changes nothing, so close the sheet here (main then takes focus).
@@ -148,7 +178,13 @@ export function AppShell({ route, capabilityOnStart = false, children }: PropsWi
         onLedger={onLedger}
       />
 
-      <SystemBanner banners={banners} onDismiss={systemStatus.dismiss} />
+      <SystemBanner
+        banners={banners}
+        onDismiss={(kind) => {
+          systemStatus.dismiss(kind);
+          focusMainInPlace(); // the Dismiss button is gone
+        }}
+      />
 
       <div className="flex min-h-0 min-w-0 flex-1">
         {/* pb-24 keeps the last content scrollable above the HUD pill (AC-222). */}

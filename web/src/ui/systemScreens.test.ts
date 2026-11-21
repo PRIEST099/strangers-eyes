@@ -2,7 +2,7 @@
 // unsupported-browser page. Interaction (ticking the box, toggles, App's gate) is in welcomeSettings.test.ts.
 import { createElement, type ComponentType } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import pkg from '../../package.json';
 import { t, type StringId } from '../core/strings';
 import { PAYLOAD_CLASSES } from '../ai/capabilities';
@@ -12,6 +12,10 @@ import { UnsupportedPage } from './components/UnsupportedPage';
 import { parseHash } from './router';
 import { About, REPO_URL, commitOf, howItWorksPoints } from './screens/About';
 import { Settings, showDeveloper, writeNotice, type SettingsDeps } from './screens/Settings';
+import { Toggle } from './components/Toggle';
+import { simulateNoNano } from './simulate';
+import { capabilityOf } from '../ai/capabilities';
+import type { CapabilitiesView } from './hooks/useCapabilities';
 import { Welcome } from './screens/Welcome';
 import { CLOUD_OFF_ORDER, INITIAL_STATUS, TRANSIENT_EVENTS, selectBanners, systemStatus, type CloudOff, type SystemStatus } from './systemStatus';
 
@@ -149,6 +153,33 @@ describe('SCR-20 About (static, AC-276)', () => {
     expect(has(out, 'ui.about.versionNoCommit', { version: pkg.version })).toBe(true);
   });
 
+  it('shows the build commit when the build records one (vite.config.ts defines VITE_GIT_SHA)', () => {
+    vi.stubEnv('VITE_GIT_SHA', '062f98f');
+    try {
+      expect(has(html(About, {}), 'ui.about.version', { version: pkg.version, commit: '062f98f' })).toBe(true);
+      vi.stubEnv('VITE_GIT_SHA', 'unknown'); // no git at build time
+      expect(has(html(About, {}), 'ui.about.versionNoCommit', { version: pkg.version })).toBe(true);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it('lists exactly the libraries of THIRD_PARTY_NOTICES, in order', () => {
+    const list = /<ul data-about="libraries"[^>]*>(.*?)<\/ul>/.exec(out)?.[1] ?? '';
+    const items = [...list.matchAll(/<li>([^<]*)<\/li>/g)].map((m) => m[1]);
+    expect(items).toEqual(
+      (['ui.about.lib.mediapipe', 'ui.about.lib.tesseract', 'ui.about.lib.traineddata', 'ui.about.lib.exifr', 'ui.about.lib.idbKeyval',
+        'ui.about.lib.firebase', 'ui.about.lib.react'] as const).map((id) => esc(t(id))),
+    );
+  });
+
+  it('honest routing words: S2 and S4 may reach the cloud when Nano is off; the attacker only gets the approved copy', () => {
+    expect(t('ui.about.leaves.S2')).toMatch(/Gemini Nano is turned off/);
+    expect(t('ui.about.leaves.S4')).toMatch(/Gemini Nano is turned off/);
+    expect(t('ui.about.gemini')).toMatch(/only ever gets the redacted copy you approve/);
+    expect(t('ui.about.gemini')).toMatch(/Public explanations and Judge Mode samples also use Gemini/);
+  });
+
   it('shows every SPEC item', () => {
     for (const id of [
       'copy.about.notGuarantee', 'copy.about.reattackDisclosure', 'copy.about.support', 'copy.ledger.otherTraffic',
@@ -253,5 +284,56 @@ describe('SCR-20 Settings (static)', () => {
     expect(showDeveloper(true, { noNano: false, offline: false })).toBe(true);
     expect(showDeveloper(false, { noNano: true, offline: false })).toBe(true);
     expect(showDeveloper(false, { noNano: false, offline: true })).toBe(true);
+  });
+});
+
+describe('Toggle accessibility', () => {
+  it('the name is the label only; the hint is the description', () => {
+    const out = html(Toggle, { label: 'Use Gemini Nano when available', hint: 'A hint.', checked: true, onChange: () => {} });
+    const input = /<input [^>]*\/>/.exec(out)?.[0] ?? '';
+    const labelledBy = /aria-labelledby="([^"]+)"/.exec(input)?.[1];
+    const describedBy = /aria-describedby="([^"]+)"/.exec(input)?.[1];
+    expect(labelledBy).toBeTruthy();
+    expect(describedBy).toBeTruthy();
+    expect(labelledBy).not.toBe(describedBy);
+    expect(out).toContain(`id="${labelledBy}" class="block font-medium">Use Gemini Nano when available</span>`);
+    expect(out).toContain(`id="${describedBy}" class="mt-0.5 block text-sm text-muted">A hint.</span>`);
+    expect(input).toContain('role="switch"');
+  });
+
+  it('without a hint there is no aria-describedby', () => {
+    const out = html(Toggle, { label: 'Simulate: offline', checked: false, onChange: () => {} });
+    expect(/<input [^>]*\/>/.exec(out)?.[0]).not.toContain('aria-describedby');
+  });
+});
+
+describe('simulateNoNano (Settings › Developer, AC-006/AC-072)', () => {
+  const real = (): CapabilitiesView => ({
+    checked: true,
+    capability: capabilityOf({ text: 'available', image: 'downloadable', nanoEnabled: true, online: true }),
+    chip: { kind: 'nano' },
+    download: { kind: 'running', pct: 40 },
+    startDownload: vi.fn(),
+    onPanelShown: vi.fn(),
+    chromeDesktop: true,
+    swReady: true,
+  });
+
+  it('turns any real state into (c) no-api: Rules-only chip, no download, no Download action', () => {
+    const r = real();
+    const v = simulateNoNano(r, { nanoEnabled: true, online: true });
+    expect(v.capability).toEqual(capabilityOf({ text: 'no-api', image: 'no-api', nanoEnabled: true, online: true }));
+    expect(v.capability).toMatchObject({ state: 'c', noNano: 'no-api', downloadIo: null });
+    expect(v.chip).toEqual({ kind: 'rulesOnly' });
+    expect(v.download).toEqual({ kind: 'idle' });
+    v.startDownload();
+    expect(r.startDownload).not.toHaveBeenCalled();
+    expect(v.onPanelShown).toBe(r.onPanelShown);
+    expect(v.chromeDesktop).toBe(true); // so the Chrome how-to shows, as in a real (c)
+  });
+
+  it('keeps the "Use Gemini Nano" off precedence and the offline flag', () => {
+    expect(simulateNoNano(real(), { nanoEnabled: false, online: true }).capability.noNano).toBe('disabled');
+    expect(simulateNoNano(real(), { nanoEnabled: true, online: false }).capability.offline).toBe(true);
   });
 });

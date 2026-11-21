@@ -12,8 +12,9 @@ import { DEFAULT_CONFIG, parseConfig, RC_DEFAULTS, RC_KEYS, sameConfig, type App
 export type { AppConfig, ConfigSource, RcWarning, RcWarningReason } from './rcParse';
 export { DEFAULT_CONFIG, RC_DEFAULTS, RC_KEYS } from './rcParse';
 
-/** SPEC §16: 60 s in dev, 1 h in production (the SDK default is 12 h). */
-export const RC_MIN_FETCH_INTERVAL_MS = import.meta.env.DEV ? 60_000 : 3_600_000;
+/** SPEC §16: 60 s in dev, 1 h in production (the SDK default is 12 h). A function so the production value is testable. */
+export const minFetchIntervalMs = (dev: boolean): number => (dev ? 60_000 : 3_600_000);
+export const RC_MIN_FETCH_INTERVAL_MS = minFetchIntervalMs(import.meta.env.DEV);
 /** SPEC §16: 8 s (the SDK default is 60 s). */
 export const RC_FETCH_TIMEOUT_MS = 8_000;
 /**
@@ -27,8 +28,7 @@ rc.settings.minimumFetchIntervalMillis = RC_MIN_FETCH_INTERVAL_MS;
 rc.settings.fetchTimeoutMillis = RC_FETCH_TIMEOUT_MS;
 rc.defaultConfig = { ...RC_DEFAULTS };
 
-let current: AppConfig = DEFAULT_CONFIG; // the template defaults until ensureInitialized resolves
-let initialized = false; // getValue is never read before ensureInitialized resolves (API-NOTES §2.4)
+let current: AppConfig = DEFAULT_CONFIG; // the template defaults until the SDK's values are readable
 let fetchedThisSession = false; // a fetch or real-time activation succeeded in this page load
 let loading: Promise<void> | null = null;
 const listeners = new Set<() => void>();
@@ -42,9 +42,11 @@ export function subscribeConfig(listener: () => void): () => void {
   return () => { listeners.delete(listener); };
 }
 
-/** Re-read every key from the SDK and publish a new cfg() if anything changed. */
+/**
+ * Re-read every key from the SDK and publish a new cfg() if anything changed. Called ONLY once values are readable:
+ * ensureInitialized resolved, or a fetch or real-time activation succeeded (API-NOTES §2.4: never read before that).
+ */
 function refresh(): void {
-  if (!initialized) return;
   const raw: Record<string, string> = {};
   let anyRemote = false;
   for (const k of RC_KEYS) {
@@ -60,12 +62,6 @@ function refresh(): void {
   for (const l of [...listeners]) l();
 }
 
-function markInitialized(): void {
-  if (initialized) return;
-  initialized = true;
-  refresh();
-}
-
 /**
  * ARCH §15.1 step 3. Resolves as soon as the last activated values are readable (or after RC_INIT_TIMEOUT_MS); the
  * fetch and the real-time listener run in the background and never reject this promise. Idempotent.
@@ -79,17 +75,19 @@ export function loadConfig(): Promise<void> {
       new Promise<false>((res) => { timer = setTimeout(() => res(false), RC_INIT_TIMEOUT_MS); }),
     ]);
     clearTimeout(timer);
-    if (settled) markInitialized();
-    else void init.then(markInitialized, () => {}); // slow or broken IndexedDB: defaults now, cached values if it recovers
+    if (settled) refresh();
+    else void init.then(refresh, () => {}); // slow or broken IndexedDB: defaults now, cached values if it recovers
 
     // Background fetch: offline it rejects ('remoteconfig/fetch-client-network') and the cached/default values stay.
     void fetchAndActivate(rc).then(
-      () => { fetchedThisSession = true; markInitialized(); refresh(); },
+      () => { fetchedThisSession = true; refresh(); },
       () => {},
     );
     // Real time: the SDK fetches the new template itself; activating it applies the kill switch within seconds.
     onConfigUpdate(rc, {
       next: () => {
+        // An activation makes values readable by itself: after a failed ensureInitialized (broken IndexedDB) and an
+        // offline first fetch, this is the first moment they are, and the kill switch must reach cfg() (F-159).
         void activate(rc).then(() => { fetchedThisSession = true; refresh(); }, () => {});
       },
       error: () => {}, // e.g. offline or the real-time API unavailable: polling at the next start still applies

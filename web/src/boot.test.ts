@@ -22,6 +22,7 @@ const h = vi.hoisted(() => {
     rc: { settings: {}, defaultConfig: {} as Record<string, string> },
     observers: [] as ConfigUpdateObserver[],
     vault: 'ok' as 'ok' | 'fail' | 'hang',
+    rcInit: 'ok' as 'ok' | 'hang',
   };
 });
 
@@ -47,7 +48,10 @@ vi.mock('firebase/ai', async (importOriginal) => ({
 }));
 vi.mock('firebase/remote-config', () => ({
   getRemoteConfig: vi.fn(() => { h.calls.push('getRemoteConfig'); return h.rc; }),
-  ensureInitialized: vi.fn(() => { h.calls.push('ensureInitialized'); return Promise.resolve(); }),
+  ensureInitialized: vi.fn(() => {
+    h.calls.push('ensureInitialized');
+    return h.rcInit === 'hang' ? new Promise<void>(() => {}) : Promise.resolve();
+  }),
   fetchAndActivate: vi.fn(() => { h.calls.push('fetchAndActivate'); return Promise.reject(new Error('offline')); }),
   activate: vi.fn(() => Promise.resolve(true)),
   onConfigUpdate: vi.fn((_rc: unknown, o: ConfigUpdateObserver) => { h.calls.push('onConfigUpdate'); h.observers.push(o); return () => {}; }),
@@ -80,6 +84,7 @@ beforeEach(() => {
   h.active = {};
   h.observers = [];
   h.vault = 'ok';
+  h.rcInit = 'ok';
 });
 afterEach(() => { vi.useRealTimers(); vi.clearAllMocks(); });
 
@@ -102,14 +107,14 @@ describe('module evaluation (ARCH §15.1 steps 1–2, AC-291)', () => {
 });
 
 describe('boot() steps 3–5', () => {
-  it('Remote Config → fuzzy threshold → vault scanner → render, once each', async () => {
+  it('threshold subscription → Remote Config and vault scanner started together → render, once each', async () => {
     const { boot } = await loadBoot();
     h.calls.length = 0;
     const render = vi.fn(() => { h.calls.push('render'); });
     const r = await boot({ judge: false, render });
     expect(r).toEqual({ judge: false, config: 'ok', vault: 'ok' });
     expect(h.calls).toEqual([
-      'ensureInitialized', 'fetchAndActivate', 'onConfigUpdate', 'setFuzzyThreshold(0.8)', 'vaultScan.init(real)', 'render',
+      'setFuzzyThreshold(0.8)', 'ensureInitialized', 'vaultScan.init(real)', 'fetchAndActivate', 'onConfigUpdate', 'render',
     ]);
     expect(Object.isFrozen(r)).toBe(true);
     const { cfg, DEFAULT_CONFIG } = await import('./firebase/remoteConfig');
@@ -119,8 +124,9 @@ describe('boot() steps 3–5', () => {
   it('uses the cached RC threshold, and follows a real-time change of it (only when it changes)', async () => {
     h.active = { fuzzy_threshold: '0.9' };
     const { boot } = await loadBoot();
-    await boot({ judge: false, render: () => {} });
+    await boot({ judge: false, render: () => { h.calls.push('render'); } });
     expect(h.calls).toContain('setFuzzyThreshold(0.9)');
+    expect(h.calls.indexOf('setFuzzyThreshold(0.9)')).toBeLessThan(h.calls.indexOf('render')); // applied before any UI exists
     const { activate } = await import('firebase/remote-config');
     vi.mocked(activate).mockImplementation(() => { h.active = { fuzzy_threshold: '0.7' }; return Promise.resolve(true); });
     h.observers[0].next({ getUpdatedKeys: () => new Set(['fuzzy_threshold']) });
@@ -160,6 +166,23 @@ describe('boot() steps 3–5', () => {
     expect(render).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(1);
     expect(render).toHaveBeenCalledTimes(1);
+    await expect(p).resolves.toEqual({ judge: false, config: 'ok', vault: 'timeout' });
+  });
+
+  it('a hung IndexedDB costs the longer wait, not both: steps 3 and 4 run concurrently (D-118)', async () => {
+    vi.useFakeTimers();
+    h.rcInit = 'hang';
+    h.vault = 'hang';
+    const { boot, BOOT_STEP_TIMEOUT_MS } = await loadBoot();
+    const { RC_INIT_TIMEOUT_MS } = await import('./firebase/remoteConfig');
+    expect(RC_INIT_TIMEOUT_MS).toBeLessThan(BOOT_STEP_TIMEOUT_MS);
+    const render = vi.fn();
+    const p = boot({ judge: false, render });
+    expect(h.calls.filter((c) => c === 'ensureInitialized' || c === 'vaultScan.init(real)')).toEqual(['ensureInitialized', 'vaultScan.init(real)']);
+    await vi.advanceTimersByTimeAsync(BOOT_STEP_TIMEOUT_MS - 1);
+    expect(render).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(render).toHaveBeenCalledTimes(1); // at 3 s; in sequence it would have been 2 s + 3 s
     await expect(p).resolves.toEqual({ judge: false, config: 'ok', vault: 'timeout' });
   });
 

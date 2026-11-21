@@ -211,13 +211,16 @@ The canonical version pins live in **API-NOTES §11**. This table only lists the
 │   ├── check-boundaries.mjs       §4.2 rules over web/src AND ios/; exit 1 on violation; self-test with a planted violation
 │   ├── check-prompts.mjs          sha256 of shared/prompts/* vs manifest.json; every RC-selectable id exists; released files unchanged
 │   ├── check-dist.mjs             web postbuild: fails if the DEV marker `__SE_DEV_ONLY__` appears anywhere in web/dist (AC-065, §4.2 R20)
-│   ├── check-images.mjs           every file `git add` could commit (tracked + untracked-not-ignored; D-106): JPEG has no APP1/APP13/APP11,
-│   │                              PNG no eXIf/tEXt/iTXt/zTXt/caBX, WebP no EXIF/XMP/C2PA, other image/video formats fail closed; text files
-│   │                              have no coordinate-like decimal (token-anchored, integer 0–180, 4+ significant digits) outside
-│   │                              web/public/samples/*.json (after the USER's T-018c OK), shared/testvectors/*.json (synthetic only) and
-│   │                              lock files, except exact reviewed values; no images or base64 under benchmark/; no PRIV paths or
-│   │                              truth*.csv; no secret paths or secret contents; .gitignore still ignores the secret paths; self-test
-│   └── check-images.allow.json    reviewed coordinate-like values that are not true coordinates: { file, values (exact), why } per file
+│   ├── check-images.mjs           every file a commit could take, work-tree file AND staged blob (tracked + untracked-not-ignored;
+│   │                              D-106, D-119): JPEG only APP0 JFIF / APP2 ICC / APP14 Adobe (no other APPn, no COM), PNG and WebP
+│   │                              chunk allowlists, other image/video formats fail closed; binaries outside .tflite/.wasm/.woff(2)
+│   │                              fail closed, and no binary or text hides an image with metadata (signatures, embedded JPEG/PNG,
+│   │                              data:image / base64 runs); text (UTF-8 or UTF-16) has no coordinate-like value (decimal, decimal
+│   │                              comma, DMS, XMP GPS) outside web/public/samples/*.json (after the USER's T-018c OK),
+│   │                              shared/testvectors/*.json (synthetic only) and the repo's lock files, except exact reviewed values; no
+│   │                              images, binaries or base64 under benchmark/; no PRIV paths or truth*.csv; no secret paths (never read)
+│   │                              or secret contents; a committed .gitignore still ignores the secret paths; self-test
+│   └── check-images.allow.json    reviewed coordinate-like values that are not true coordinates: ONE { file, values (exact), why (≥ 20 chars) } per file
 ├── shared/
 │   ├── prompts/                   §10 — versioned, immutable once released; used by web AND iOS
 │   ├── strings/en.json            every SPEC §11 copy.* string keyed by copy id (web + iOS); explain templates live in
@@ -296,7 +299,7 @@ web/
 │   │   ├── ocr.ts                 Tesseract worker singleton (PSM.SPARSE_TEXT, {blocks:true}); ocrWords(canvas) → OcrWord[]
 │   │   ├── regex.ts               plate / phone / house-number candidates from OCR words
 │   │   ├── fuzzy.ts               THE text matcher (§8.4) [compiled + ran]; the referee rules over it are core/referee.ts (D-90)
-│   │   └── tier0.ts               runTier0(master, terms, cfg) → { clues, words, timings }
+│   │   └── tier0.ts               runTier0(master, jpeg, deps, onStep) → { findings, counts, failed } (readers and the vault matcher injected; D-123)
 │   ├── vault/
 │   │   ├── crypto.ts              non-extractable AES-GCM-256 key in IDB 'se-vault-keys'; ensureVaultKey (single-flight), seal(value, key) /
 │   │   │                          unseal (fresh 12-byte IV per write); withVaultLock (tab queue + navigator.locks)
@@ -315,6 +318,7 @@ web/
 │   │   ├── boxes.ts               pure: box2dToPx, box2dToMaster, cloudToMaster, frameToMaster, masterToFrame, padRect, preferOcrBoxes, gridCellRect, clampRect, iou, minimalCrop, bestCrop (§11.5)
 │   │   ├── mask.ts                fillSolid(ctx, rects) and applyMasks(master, rects, crop) → canvas (solid #000, alpha 1, source-over)
 │   │   ├── frames.ts              deriveFrame (ImageFrame bookkeeping), renderFrame, buildFrameJpeg (master + masks + crop → JPEG → assertCleanJpeg) (§11.1)
+│   │   ├── pretick.ts             preTickOf / applyPreTick: the SPEC SCR-06 pre-tick table (AC-112; D-123)
 │   │   ├── referee.ts             rulesStrength, rulesReferee, refereeClaims, refereeVaultItems (over tier0/fuzzy), mergeMatches(device, rules) (§12.1, D-90) [built T-075]
 │   │   ├── verdict.ts             buildVerdict, compareVerdicts (SPEC §10) → view models with copy ids, no coordinates
 │   │   ├── fixPlanner.ts          deterministicFix, validateDevicePlan
@@ -342,8 +346,9 @@ web/
 │   │   ├── systemStatus.ts        SCR-22: selectBanners/cloudOffReason (one cloud-off banner by precedence) + the store RC, boot and the
 │   │   │                          gate feed: set(), markTripwire() (one way), report(event), dismiss() (D-105)
 │   │   ├── shellContext.ts        AppShell → screens: the one capability view + openCapability() (Settings › On-device AI)
+│   │   ├── check/                 editor.ts (mask editor ops, MaskedFrameCandidate), runPrescreen.ts (Tier-0 glue, vault wait), prescreenView.ts (D-122, D-123)
+│   │   ├── checkState.ts          Check reducer: stepper (BUILT_STEPS), import status, pre-screen; maskedCandidate() for T-069 (D-121)
 │   │   ├── importTransfer.ts      pure drop/paste classifier (a web address or page markup → noUrl, D-78) and importAndSettle
-│   │   ├── checkState.ts          Check's pure reducer: stepper position + last import status (kept with the master)
 │   │   └── markdown.ts            minimal escaped Markdown → React (### headings, bullets, **bold**); no raw HTML
 │   └── dev/ (DEV only)            spikes/{PlumbingSpike,AdversarySpike,NanoSpike}.tsx; selftest/ (port of web-ref selftest.ts); slice/Slice.tsx (T-086);
 │                                  bench/{BenchPage.tsx,runner.ts,metrics.ts}. Reached only via App.tsx's `import.meta.env.DEV` dynamic import (#/dev/*)
@@ -467,7 +472,7 @@ Query parameters read once at boot:
 
 ### 4.2 Import and call-site rules (`scripts/check-boundaries.mjs`)
 
-The script ignores comments but **not** string contents, so `m['generateContent']` is caught. It scans `.ts .tsx .js .jsx .mts .cts .mjs .cjs` under `web/src` and `.swift` under `ios/`. Every line rule also runs on a copy with every `\x`/`\u` escape decoded (same line numbers), and so does R22 (T-090, D-107). Every run first proves itself on planted violations (149 as of Nov 21, including every evasion found in the T-023, T-053 and T-054 reviews, five R23 cases from the T-061 review, and 36 R19, R24 and escape cases from T-090), then checks the repo. Test files (`*.test.*`) are exempt from the global-access rows only.
+The script ignores comments but **not** string contents, so `m['generateContent']` is caught. It scans `.ts .tsx .js .jsx .mts .cts .mjs .cjs` under `web/src` and `.swift` under `ios/`. Every line rule also runs on a copy with every `\x`/`\u` escape decoded (same line numbers), and so does R22 (T-090, D-107); and on a third copy where every escape is decoded whatever the literal state (a regex-vs-division mistake after `}` cannot hide one) and every line continuation (`'generate\⏎Content'`) is joined (D-120). **Accepted limits (D-120):** the rules match names, not values, so a name built at run time (`'generate' + 'Content'`, a template `${}` splitting it, `String.fromCharCode`, a key read from data) is not caught. That is deliberate evasion, not a slip; review and the gate's ledger (every real call is logged) cover it. Every run first proves itself on planted violations (165 as of Nov 21, 16 added by the D-120 fix round; including every evasion found in the T-023, T-053 and T-054 reviews, five R23 cases from the T-061 review, and 36 R19, R24 and escape cases from T-090), then checks the repo. Test files (`*.test.*`) are exempt from the global-access rows only.
 
 | Rule | Symbol, import or pattern | Allowed only in |
 |---|---|---|
@@ -482,7 +487,7 @@ The script ignores comments but **not** string contents, so `m['generateContent'
 | R13 | `vault/*` imports, including the `../vault` directory form | not from `firebase/*` or `tier0/*` (Tier-0 receives terms as plain arguments) |
 | R7 | `localStorage` | `web/src/core/localPrefs.ts` |
 | R8 | `type="url"`, `new URL(` in `ui/components/ImportDropzone.tsx` | nowhere |
-| R9 | The word `console` in any form (`console.x(…)`, `console['x']`, `console?.x`, an alias, destructuring, `globalThis.console`; also inside strings; comments ignored) | not in any non-test file of `vault/`, nor in `ai/vaultScan.ts`, `core/referee.ts`, `tier0/fuzzy.ts`, `tier0/gpsWarning.ts`, `tier0/importPhoto.ts`, `tier0/sniff.ts`, `ui/components/ImportDropzone.tsx`, `ui/screens/Check.tsx`, `ui/importTransfer.ts`, `ui/checkState.ts`, `ui/screens/Vault.tsx`, `ui/components/VaultItemForm.tsx`, `ui/components/PinButton.tsx` or `ui/components/BurnVaultDialog.tsx`: wherever vault data, pins or the original photo's GPS flow (SR-15; T-053/T-054 reviews) |
+| R9 | The word `console` in any form (`console.x(…)`, `console['x']`, `console?.x`, an alias, destructuring, `globalThis.console`; also inside strings; comments ignored) | not in any non-test file of `vault/`, nor in `ai/vaultScan.ts`, `core/referee.ts`, `tier0/fuzzy.ts`, `tier0/gpsWarning.ts`, `tier0/importPhoto.ts`, `tier0/sniff.ts`, `ui/components/ImportDropzone.tsx`, `ui/screens/Check.tsx`, `ui/importTransfer.ts`, `ui/checkState.ts`, `ui/screens/Vault.tsx`, `ui/components/VaultItemForm.tsx`, `ui/components/PinButton.tsx`, `ui/components/BurnVaultDialog.tsx`, `core/verdict.ts` (vault item IDs and pin bands), any file in `ui/check/` or `ui/components/verdict/`, `tier0/tier0.ts`, `ui/components/ClueList.tsx`, `ui/components/PhotoStage.tsx`, `ui/components/PrescreenPanel.tsx` or `ui/components/VerdictCard.tsx` (pre-screen vault text and verdict vault labels): wherever vault data, pins or the original photo's GPS flow (SR-15; T-053/T-054 reviews) |
 | R21 | Opening IndexedDB: every `createStore` identifier (whatever package), `IDBFactory`, `openDB`, the specifier `'idb'` / `'idb/…'` or a path into `node_modules/…/idb` (any case: macOS's file system ignores it; a `?query` or `#hash` suffix too), and every `indexedDB` except `indexedDB.deleteDatabase(` / `.databases(` on the same line, a `typeof [globalThis\|window\|self.]indexedDB[.deleteDatabase\|.databases]` feature test followed by a comparison or punctuation (never a call or another member), and the string in `'indexedDB' in X` | `web/src/vault/idb.ts` (`closableStore`, which closes on `versionchange` so Burn vault never blocks, and `databaseExists`), plus the test helper `vault/idb.testutil.ts`. Test files are exempt; DEV-only files are not |
 | R22 | Any `'idb-keyval'` string, as a bare specifier, a subpath or any path segment (e.g. into `node_modules` or Vite's deps), in any case and with a `?query` or `#hash` suffix, outside an `import type` / `export type` (value imports, re-exports, `import()`, `require()`, computed specifiers; `import { type X }` counts as a value import) | `vault/idb.ts`, `vault/crypto.ts`, `vault/vaultStore.ts`, `dev/selftest/vaultStorageCheck.ts`, each of which passes its own closable store to every call. Tests exempt. idb-keyval calls without a store use the default `keyval-store` (the Tesseract cache, §16.3), which Burn vault never deletes and whose connection never closes |
 | R10 | `AdversaryNotes` (the type) | only `core/types.ts`, `ai/jobs.ts`, `ai/parse.ts` (`isDeclinedNotes`), `core/session.ts` and `ui/components/NotesView.tsx`. The pass-A notes **component** is `NotesView` (D-54), so screens can import it without naming the type |
@@ -805,7 +810,9 @@ export interface VerdictLine {
   vaultId?: string;
   band?: DistanceBand;
   strength?: MatchStrength;
-  confidence?: Confidence;
+  confidence?: Confidence;      // attacker confidence: the claim's (match, pin_match) or the band's hypothesis (pin) (AC-164)
+  bandConfidence?: Confidence;  // pin_match only: the band hypothesis's confidence (D-115)
+  reason?: string;              // match, pin_match: the referee's reason for "Why?". LOCAL ONLY
   clueIds: string[];
   route: Route;
 }
@@ -818,6 +825,8 @@ export interface Verdict {
   pinBands: PinBand[];
   matches: RefereeMatch[];
   noVault: boolean;
+  /** No pin item with a pin (an empty vault too): the level falls back to the attacker's precision; show the noVault prompt (D-127). Always set by buildVerdict. */
+  noPins?: boolean;
 }
 export interface VerdictComparison {
   riskReduced: boolean;         // the ONLY thing ever coloured green
@@ -1035,7 +1044,7 @@ async gate(req, opts?):                                     // opts = { reuseLed
   if cloudCapable:
      if cls = S3 ∧ caps.usedToday() ≥ cfg().dailyAdversaryCap      BLOCK(DAILY_CAP)        // local day; A+B pair = 1 run
      if cls = S3 ∧ (¬req.consent ∨ expired(req.consent))           BLOCK(NO_CONSENT)
-     await withTimeout(authReady, 5 s)                             // authenticated-users mode needs the Auth header
+     if (await ensureAuth()) = null                               fail CLOUD_AUTH, no request   // bounded 5 s, retried next call (D-110); authenticated-users mode needs the Auth header
 
   ── 2. IMAGE RE-CHECK (every image of a cloud-capable call; same code as preflight) ──────
   if cloudCapable:
@@ -1068,7 +1077,7 @@ async gate(req, opts?):                                     // opts = { reuseLed
   catch e: trip ← tripwire.lastTrip() if it occurred during this call; if ¬trip: classify (§17)
   finally: interlock.exit(id)                                      // exitLocal(), or revokeCloud(id) if the permit was never used
   if trip:                                                         // handled AFTER the interlock is released
-     LOCAL_LOCK (only an S0/S1 call can hold the lock)           → step 5 BREACH handling
+     LOCAL_LOCK (only a device-only call holds the lock: S0/S1, or S2/S4 run ONLY_ON_DEVICE) → step 5 BREACH handling (D-113)
      VAULT_TEXT (refused before leaving; no compromise)          → cls = S2 ? RECLASSIFY(req, { vaultId: trip.vaultId })
                                                                     : BLOCK(VAULT_TEXT_IN_PROMPT, { vaultId: trip.vaultId, kind: kindOf(trip.vaultId) })
      NO_PERMIT, NO_SCANNER (developer bug, AD-31)                → BLOCK(CLASS_MISMATCH)
@@ -1118,7 +1127,19 @@ Notes:
 - `DEVICE_JOBS = {preScreen, vaultTextMatch, referee, fixPlan, explain}` is `routing.JUDGE_DEVICE_JOBS` (§7 step 4), and `routing.jobClass` applies it.
 - `vaultScan.activeTerms()` / `activePins()` are the **active** vault's index (§8.4): `JUDGE_VAULT` in Judge Mode, the real vault otherwise. In Judge Mode the real vault is never unsealed or loaded (D-37, AC-241), and S4 skips the image vault-OCR check, the prompt scan and the tripwire text scan, which the sample allowlist replaces (AD-17).
 - An S0 call that arrives through `RECLASSIFY` passes step 1 because `expected = 'S2'` and `cls = 'S0'` is the allowed tightening. It reuses the S2 call's Ledger entry (`opts.reuseLedgerId`), so the call still has exactly one entry, `pending` → `done`, noted `RECLASSIFIED S2→S0` (SPEC §7.1 step 10, AC-210).
-- `caps` and `prefs` both live in `core/localPrefs.ts`. The cap key is `se.cap.<YYYY-MM-DD local>`.
+- `caps` and `prefs` both live in `core/localPrefs.ts`. The cap key is `se.cap.<YYYY-MM-DD local>`. `prefs.nanoEnabled()` is already false while "Simulate: no Nano" is on, so a check of it alone (the RECLASSIFY path above) honours the simulation; check `simulateNoNano()` first to choose the note `simulated` over `Nano off` (D-117).
+
+**As built (T-062, D-111..D-114; `web/src/ai/egressGate.ts` is canonical where this sketch differs):**
+- `createEgressGate(deps)` holds the algorithm; every collaborator is injected (cfg, vault index, `availabilityNow`, prefs, caps, online, `ensureAuth`, interlock, tripwire, device queue, `buildModel`, Ledger, `systemStatus`, notices, the sample allowlist, image checks, sha256, clocks). `gate(req)` / `gateState()` use the app wiring. `buildSdkModel` maps spec × mode onto the §9.3 factories (S2/S4 device-only → `deviceTextModel` / `deviceJsonModel`; Nano off → `explainModel` / `judgeJsonModel` with `ONLY_IN_CLOUD`).
+- Contract additions: `GateRequest.isDeclined?(value)`; `ParseMeta.inferenceSource`; `GateResult.payloadClass` (S0 after RECLASSIFY) and `checksMs` (AC-046's number). Toasts and banners go out on `gateNotices` (memory only; `{TEXT}`, `{KIND}`, `{cap}`); BREACH also calls `systemStatus.markTripwire()`; final failures call `systemStatus.report(…)`; `ensureAuth()` null sets `authFailed`, a 401/403 sets `appCheckFailed` and a cloud success clears it.
+- Step 1 also checks: the job's spec (`specFitsJob`), the image count the spec takes, the prompt id is of the job's family, the user turn is exactly `render(promptId, …)`'s structure (static text verbatim; for S3 checked after the prompt scan), and S3's system instruction and pass-B schema equal the registered template's. A request whose `judge` disagrees with `vaultScan.mode()` is refused (non-Judge while the fake vault is active → `CLASS_MISMATCH`; Judge without it → `NOT_SYNTHETIC` for S4, `CLASS_MISMATCH` otherwise), and the mode is re-checked after every wait. `adversaryA` while `groundingEnabled` is false → `CLASS_MISMATCH` (D-113).
+- Policy edges (D-113): S3 `cloud: false` → `KILL_SWITCH`; S2/S4 `cloud: false` → device-only (fresh check) or RULES_ONLY; RC `PREFER_IN_CLOUD` for S2/S4 runs as `ONLY_IN_CLOUD`; Nano off → `ONLY_IN_CLOUD` unless the mode is device-only (then RULES_ONLY). Kill switch, offline and sign-in failure send S2/S4 to the device when Nano is on and fresh-ready, else to RULES_ONLY; S3 gets `KILL_SWITCH` / `OFFLINE` / `CLOUD_AUTH`. `online()` adds "a cloud request failed with a network error less than 15 s ago".
+- Step 2 runs on the bytes decoded from `base64` (what the SDK sends): they must equal the `jpeg` Blob and hash to `sha256` (else S3 `NO_CONSENT`, S4 `NOT_SYNTHETIC`), start with a JPEG SOI, pass `checkCleanJpeg`, then decode at their own size for faces and OCR. A check that cannot run (face model, OCR, decode, hash) fails closed as `CHECK_FAILED`, never as `FACE` (D-112).
+- Step 3 scans every dynamic segment **and any "static" segment that is not template text**, so a caller cannot hide a value by flagging it static (F-143).
+- Step 4: S0/S1 and every device-only S2/S4 call re-check `availabilityNow` inside the device slot, then build the model (never cached); `NoDeviceModelError` → RULES_ONLY. Each attempt has its own `AbortController` deadline, also raced against every stream chunk and body read. A trip counts only if `tripwire.lastTrip()` is newer than the attempt and its `tripwire:<reason>` text is in the attempt's error. `LOCAL_LOCK` during a device-only call (any class) is a BREACH; a cloud fetch refused because another call held the lock is a retryable `CLOUD_NETWORK`. `VAULT_TEXT` with `vault-unavailable` waits for the index and retries once, then `VAULT_UNAVAILABLE` (never a leak, never a BREACH); `template-canary` → `CLASS_MISMATCH` with Ledger `error: TEMPLATE_CANARY` (D-112).
+- Retries draw on one budget per family (`errors.retryBucket`), at most 3 each; none once a streamed chunk was shown. `MAX_TOKENS` with nothing shown → `CLOUD_TRUNCATED`. After a refusal or any S3 decline the session gets no further S3 call (`CLOUD_REFUSED`, no request; invariant 7).
+- Outcomes (D-111): a block → `BLOCKED` + reason; a deterministic fallback → `RULES_ONLY` (+ `error` when it follows a failure); an S3 failure → the route it tried (`IN_CLOUD`, real `bytesOut`, often 0) + `error`, thrown as `GateError`; an "on-device" answer whose request the tripwire saw is recorded `IN_CLOUD`. `caps.increment()` after pass B reached the cloud (success, decline, or a refusal after bytes left).
+- Not yet wired (open): the D-80 generation check is the injectable `vaultFresh()` hook (asked before every permit; a stale index is refreshed and steps 2–3 re-run); the vault store keeps no generation counter yet. `setSampleAllowlist(manifest.samples)` must be called by Judge Mode.
 
 ### 8.3 Preflight: the consent dry run (`ai/preflight.ts`; AD-22, D-30)
 
@@ -1439,6 +1460,7 @@ installTripwire();
 ### 8.6 Ledger (`core/ledger.ts`)
 
 - **Write pattern:** `begin()` writes a `pending` entry before the call; `commit()` completes it. Two routes are written outside the gate with `ledger.record(entry)` (status `done`, `bytesOut 0`): `QUEUED` when the pipeline queues an S3 check offline (SPEC SCR-18, §5.3), and `CACHED` when Judge Mode replays a recorded pass B (SPEC SCR-17).
+- **As built (T-062, D-111):** `web/src/core/ledger.ts` defines the `Ledger` interface the gate uses (`begin`, `commit` (throws on a second commit or an unknown id), `record`, `entries`, `subscribe`, `clear`) with an **in-memory** implementation (`createMemoryLedger`, newest 500) as `ledger`. A pending entry reads `BLOCKED`, 0 B until committed. T-063 replaces the implementation with the persistent `se-ledger` store behind the same interface.
 - **Storage:** IndexedDB `se-ledger/entries`, **unsealed** (AD-26), keeping the newest 500. It never contains vault strings, coordinates or pixels: IDs, kinds, hashes and numbers only (AC-045).
 - **Clearing:** "Clear history" clears it. Burn vault always deletes `se-ledger` as well (SPEC D-31: no partial option, no checkbox).
 - **Counters (SPEC SCR-13):**
@@ -1465,7 +1487,7 @@ SPEC §7.2 owns this mapping and SPEC §11 owns the strings; this table restates
 | `VAULT_TEXT_IN_PROMPT`, `PIN_IN_PROMPT` | `copy.gate.blockedPrompt` (`{KIND}` = `KIND_DISPLAY` of the matched item, SPEC §17.3). S3 only; S2 is reclassified instead |
 | `NO_CONSENT` | `copy.gate.blockedConsent` |
 | `CLASS_FLOOR`, `CLASS_MISMATCH`, `NOT_SYNTHETIC` | `copy.gate.blockedClass` (also logged as a developer error) |
-| `KILL_SWITCH` | banner `copy.err.killSwitch` |
+| `KILL_SWITCH` | banner `copy.err.killSwitch`. Also S3 when RC sets `classes.S3.cloud: false` (an operator switched the adversary off; D-113) |
 | `DAILY_CAP` | banner `copy.err.dailyCap` |
 | `OFFLINE` | `copy.queue.queued`; the session is queued (the pipeline normally queues S3 before calling the gate, §5.3). `copy.err.network` belongs to the `CLOUD_NETWORK` error (§17), not to this reason |
 | `TRIPWIRE` | persistent banner `copy.gate.tripwire` (BREACH only, AD-31) |
@@ -2292,6 +2314,8 @@ Every box (faces, OCR, Nano, Gemini) is computed on, or mapped onto, the **same*
 
 ### 11.2 Tier-0 (`tier0/tier0.ts`)
 
+**As built (T-068, D-123):** `runTier0(master, jpeg, deps, onStep)` with the readers and the active vault's matcher injected (`ui/check/runPrescreen.ts` binds them to RC). Steps: metadata re-check, faces ∥ OCR, then vault match and regex. A reader that fails, OCR that failed (so the vault step too), or a vault index not built within 5 s fails its step, and the pre-screen's masked frame candidate carries it in `blockedBy` (fail closed). Two OCR readings of one item (D-81's union) become one finding. The stage and the candidate's `masks` are built as in §11.1/§11.5; user-drawn masks are painted as drawn, unpadded (D-122).
+
 1. Decode and orient. If `createImageBitmap` fails (HEIC in desktop Chrome [UNVERIFIED: U-32]), show `copy.import.heic`. Size limits are 30 MB and 40 MP (`copy.import.tooLarge`).
 2. **Faces:** MediaPipe full-range on the CPU delegate. One detector per model is built at the RC floor (0.2), and RC `face_min_confidence` (0.3, clamped 0.2–0.6) is applied to the scores in code (D-83): the same faces and scores as a detector built at the threshold, while boxes may shift slightly (weighted NMS). Boxes are clamped to the image and rounded outward. Each face becomes a clue `{type:'face', removable:true, masked:true, maskReason:'face'}`.
 3. **OCR (`ocrMaster`, T-057):** on a canvas downscaled from the master to `ocr_max_px` (1600, SPEC D-20; never upscaled), with `PSM.SPARSE_TEXT` set once.
@@ -2418,7 +2442,10 @@ export function pinBand(vaultId: string, pin: Pin, hs: AdversaryHypothesis[], t:
 - Thresholds come from RC `bands_m`. The `city` (30 km) and `country` (500 km) values are placeholders [UNVERIFIED: U-35]; confirm them after the benchmark and log a decision. street/neighbourhood/district are locked to 250/1000/5000 because the band words name them (D-77): `bandThresholdsOrDefault` falls back to the defaults for any other table.
 - Hypotheses count only when `audit_status = 'ok'`.
 
-### 12.3 Verdict (`core/verdict.ts`; SPEC §10 verbatim)
+### 12.3 Verdict (`core/verdict.ts`; SPEC §10 verbatim) [built T-076, D-115; vectors `shared/testvectors/verdict.json`]
+
+**As built (D-115):** `buildVerdict({ adv, matches, vault, caught?, echoedVaultIds?, prescreenFlags?, bands?, refused?, phase? })`, where `adv` is the validated pass B or null, `caught` is `{vaultId, route}[]` and `prescreenFlags` is `{types, route}`. PARTIAL also covers a missing pass B and any status other than `ok` / `no_location_signal`, and keeps echo lines (F-149, F-150). A match on a pin in band country/none is a plain `match` line. Ties: strength, then attacker confidence, then claim order. Echo, caught and found-on-device lines carry no confidence (code findings); `pin_match` adds `bandConfidence`. `pinBands[].effectiveKm` is always null (F-151). Attacker text (best-guess label, referee reasons) goes through `scrubAttackerText` (every digit run with its unit or degree marks → "…"); the user's own label in KIND through `scrubNumbers` (decimals only) (D-127, F-181). `noPins` (optional on `Verdict`, always set): no pin item carries a pin, so the level is at least the finest hypothesis level's (D-127, F-182). Copy helpers: `lineText`, `headlineCopyId`, `bestGuessCopy`, `notLinkedCopy`. The sketch below is the original plan; where it differs, D-115 and D-127 win.
+
 
 `buildVerdict({ adv, matches, vault, caught, echoedVaultIds, prescreenFlags, bands, refused })`:
 
@@ -2449,7 +2476,10 @@ export function pinBand(vaultId: string, pin: Pin, hs: AdversaryHypothesis[], t:
 
 UI colours: HIGH red, MEDIUM amber, INFO grey, CAUGHT teal. **Green is used only for "Risk reduced"** (§12.4).
 
-### 12.4 "Risk reduced" (`compareVerdicts(before, after)`; SPEC §10.6)
+### 12.4 "Risk reduced" (`compareVerdicts(before, after)`; SPEC §10.6) [built T-076, D-116]
+
+**As built (D-116, D-128):** `riskReduced` additionally needs: no vault item's worst line severity rose, `worstPinBand` not finer, and the same vault item ids on both sides (F-183). `worstRemainingLineId` = the first most severe line of `after` (HIGH > MEDIUM > INFO, caught never). `comparisonHeadline(cmp)`: after PARTIAL → `copy.verdict.partial`; reduced → band words when the worst pin band got coarser, else the two level headlines' text; not reduced with after LOW and no HIGH/MEDIUM line → `copy.verdict.low`; else still, naming the worst remaining line's text, else the best-guess text. Never a raw enum name.
+
 
 ```
 levelRank: RED=2, AMBER=1, LOW=0. PARTIAL on either side → riskReduced = false.
@@ -2507,7 +2537,7 @@ All values are strings: booleans are `"true"`/`"false"` and JSON is stringified.
 | `explain_cloud_model` | STRING | `gemini-3.5-flash-lite` | Cloud side of S2 and S4 |
 | `explain_thinking_level` | STRING | `LOW` | MINIMAL, LOW, MEDIUM or HIGH |
 | `prompt_versions` | JSON | `{"advA":"advA.v1",…,"fmPre":"fmPre.v1"}` | Full IDs. Must exist in the bundled manifest; otherwise the bundled v1 is used |
-| `grounding_enabled` | BOOLEAN | `true` | Pass A on or off |
+| `grounding_enabled` | BOOLEAN | `true` | Pass A on or off. A refused value reads as `false` (fail safe, D-118) |
 | `data_tier` | STRING | `paid` | `paid` or `free`. `free` forces grounding off and selects `copy.consent.tierFree`. A refused value reads as `free` (D-108) |
 | `daily_adversary_cap` | NUMBER | `20` | Attack runs per installation per **local** day; an A+B pair counts as 1. Clamped 1–200. Keep project-wide grounded queries well below 1,500 a day |
 | `max_fix_rounds` | NUMBER | `3` | Fix and re-attack rounds per photo. A whole number 1–10; anything else falls back to the default, never moved into range (D-108) |
@@ -2528,7 +2558,7 @@ All values are strings: booleans are `"true"`/`"false"` and JSON is stringified.
 | `extension_enabled` | BOOLEAN | `false` | Stretch |
 | `adversary_seed` | NUMBER | `0` | [UNVERIFIED] cast experiment; 0 means not sent. A whole number in the signed 32-bit range; anything else falls back to 0 (D-108) |
 
-**Validation (D-108; `web/src/firebase/rcParse.ts`, vectors in `shared/testvectors/rc.json`).** Every value is a string. Booleans are `true`/`false` (ASCII case-insensitive); numbers must be JSON numbers; only ASCII whitespace around a value is ignored; length caps are checked before parsing (boolean 16, number 32, string 64, JSON 4096 characters; `routing_policy` 8192). A refused value falls back to its default with a HUD warning `{key, reason: 'invalid'}`; a number outside its clamp is moved into range (`clamped`); a JSON object with some bad entries keeps the good ones (`partial`). Warnings name the key and the reason, never the value. Every template default is parsed at import and must pass its own rule, or `npm run check` fails.
+**Validation (D-108; `web/src/firebase/rcParse.ts`, vectors in `shared/testvectors/rc.json`).** Every value is a string. Booleans are `true`/`false` (ASCII case-insensitive); numbers must be JSON numbers; only ASCII whitespace around a value is ignored; length caps are checked before parsing (boolean 16, number 32, string 64, JSON 4096 characters; `routing_policy` 8192). A refused value falls back to its default with a HUD warning `{key, reason: 'invalid'}` (three keys fail safe instead: `kill_switch` → `true`, `data_tier` → `free`, `grounding_enabled` → `false`; D-118); a number outside its clamp is moved into range (`clamped`); a JSON object with some bad entries keeps the good ones (`partial`). Warnings name the key and the reason, never the value. Every template default is parsed at import and must pass its own rule, or `npm run check` fails.
 
 **Renames applied to the other docs (§25).** The old names must not appear in code.
 
@@ -2720,9 +2750,10 @@ main.tsx
                                             (then remoteConfig's getRemoteConfig)
 boot():                                  ← as built (D-109): each await is bounded (BOOT_STEP_TIMEOUT_MS 3 s) and the
                                             render always happens; a failed or slow step leaves the safe state behind
-  3. await loadConfig()                  ← ensureInitialized (≤ 2 s); fetch in background (§13.4); then
-                                            vaultScan.setFuzzyThreshold(cfg().fuzzyThreshold), kept in sync via subscribeConfig
-  4. await vaultScan.init()              ← first, in BOTH modes, finish an interrupted burn (finishPendingBurn: reads only the
+     (first: vaultScan.setFuzzyThreshold(cfg().fuzzyThreshold), kept in sync via subscribeConfig from then on)
+  3. loadConfig()                        ← ensureInitialized (≤ 2 s); fetch in background (§13.4)
+  4. vaultScan.init()                    ← started together with 3 and both awaited (D-118: a hung IndexedDB costs the
+                                            longer wait, 3 s, not both). First, in BOTH modes, finish an interrupted burn (finishPendingBurn: reads only the
                                             burn-pending marker, never the record or key, creates no database; §16.4, D-80).
                                             Judge Mode may proceed while it cannot finish yet; real mode fails closed.
                                             Then, if the boot route is Judge Mode (`#/judge` or `?judge=1`): do NOT unseal the real
@@ -2749,11 +2780,14 @@ export const appCheck = initializeAppCheck(app, {
   isTokenAutoRefreshEnabled: true,                                                        // default is FALSE
 });
 export const auth = getAuth(app);                                                         // after App Check, before getAI
+export const AUTH_TIMEOUT_MS = 5_000;                                                     // SPEC §7.1 step 4
 let signingIn: Promise<string | null> | null = null;
 export function ensureAuth(): Promise<string | null> {                                  // D-110: the gate awaits THIS before every cloud call
   if (auth.currentUser) return Promise.resolve(auth.currentUser.uid);
-  signingIn ??= signInAnonymously(auth).then(c => c.user.uid, () => null)                // offline → null (copy.err.auth when online)
-    .finally(() => { signingIn = null; });                                                // a failed attempt is retried by the next call
+  signingIn ??= Promise.race([
+    signInAnonymously(auth).then(c => c.user.uid, () => null),                            // offline → null (copy.err.auth when online)
+    new Promise<null>(res => setTimeout(() => res(null), AUTH_TIMEOUT_MS)),               // 5 s: Auth's start-up awaits IndexedDB unbounded (F-160)
+  ]).finally(() => { signingIn = null; });                                                // a failed or timed-out attempt is retried by the next call
   return signingIn;
 }
 export const authReady: Promise<string | null> = ensureAuth();                           // the first attempt, started at import
@@ -2776,7 +2810,7 @@ Notes:
 5. Create a score-based reCAPTCHA Enterprise **Web** key for `PROJECT_ID.web.app` and `PROJECT_ID.firebaseapp.com`. **Never add localhost.** Register it under App Check → Apps.
 6. Register the debug tokens (web and iOS). Confirm **APIs → Firebase AI Logic = Enforced**; this can take 15 minutes to apply.
 7. Enable the Anonymous provider: in the console, or through `firebase.json` with `deploy --only auth` [UNVERIFIED: U-17].
-8. Optional: authenticated-users mode. Anonymous counts as authenticated, and the gate already awaits `authReady`.
+8. Optional: authenticated-users mode. Anonymous counts as authenticated, and the gate awaits `ensureAuth()` before every cloud call (D-110).
 9. Set the **per-user quota** ("Generate content requests") from 100 to **30 RPM**. That leaves room for the benchmark (≤ 20 RPM pacing) and Judge "Run all" (about 8–12 requests a minute at peak; API-NOTES §1.14). The [USER] does this in RUNBOOK §1.11 (T-111).
 10. iOS: decide the bundle ID **before** registering the iOS app (§19.1), then download `GoogleService-Info.plist`.
 
@@ -2853,6 +2887,7 @@ import { fileURLToPath } from 'node:url';
 const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 const PRIV = '/Users/mac/StrangersEyes-private';
 export default defineConfig(({ mode }) => ({
+  define: { 'import.meta.env.VITE_GIT_SHA': JSON.stringify(gitSha()) },   // About's commit (AC-276): env VITE_GIT_SHA, else `git rev-parse --short HEAD`, else 'unknown' (D-117)
   build: { license: { fileName: 'third-party-licenses.md' } },              // bundled npm licenses (minifier strips comments); non-dot path for Hosting
   resolve: { alias: { '@prompts': r('../shared/prompts'), '@strings': r('../shared/strings'),
                       '@vectors': r('../shared/testvectors'), '@root': r('..') } },
@@ -2867,7 +2902,9 @@ export default defineConfig(({ mode }) => ({
     workbox: {
       globPatterns: ['**/*.{js,css,html,svg,png,ico,wasm,tflite,gz,jpg,json}'],  // explicit; replaces defaults; NOT webmanifest
       maximumFileSizeToCacheInBytes: 32 * 1024 * 1024,                         // vision_wasm_internal.wasm ≈ 14.7 MB (build ERRORS otherwise)
-      navigateFallback: 'index.html', navigateFallbackDenylist: [/^\/__\//],   // keep Firebase reserved URLs
+      navigateFallback: 'index.html',
+      navigateFallbackDenylist: [/^\/__\//, /\.md$/, /^\/vendor\//, /^\/models\//], // Firebase reserved URLs + real files (About's licence notices
+                                                                               // would open the app shell otherwise; check-dist asserts *.md and /__/, D-117)
       cleanupOutdatedCaches: true,
       skipWaiting: true, clientsClaim: true,                                   // T-023 review: with injectRegister:false the plugin does not set these for autoUpdate
       runtimeCaching: [],                                                      // NEVER cache googleapis / AI responses
@@ -2945,7 +2982,7 @@ export type GateErrorCode = 'DEVICE_UNAVAILABLE' | 'DEVICE_BUSY' | 'DEVICE_INPUT
 | PARSE_FAILED (pass B) | JSON or validation failure | 1, identical | status `unreadable`; Judge Mode → CACHED | `copy.adv.truncated` |
 | CLOUD_QUOTA | `fetch-error` with `customErrorData.status === 429` | back off 2 s then 6 s (up to 2) | Judge Mode → CACHED | `copy.err.rateLimit`; Try again enabled after 60 s |
 | CLOUD_AUTH | status 401 or 403 (App Check missing or invalid; authenticated-users mode) | none | Judge Mode → CACHED | `copy.err.appCheck` or `copy.err.auth` (DEV hint: register the debug token) |
-| CLOUD_BAD_REQUEST | 400 (wrong thinking level, schema too large, …) | none | Judge Mode → CACHED; Ledger error | `copy.adv.truncated`; bug logged |
+| CLOUD_BAD_REQUEST | 400 (wrong thinking level, schema too large, …); other 4xx; 403 `api-not-enabled` | none | Judge Mode → CACHED; Ledger error | `copy.err.cloudFailed` (SPEC SCR-22 wins, F-128, D-112); bug logged |
 | CLOUD_SERVER / CLOUD_NETWORK | 5xx, or `fetch-error` without a status | 1 after 2 s | network → the session goes to the queue | `copy.err.network` |
 | TIMEOUT | cloud: `generateContent(parts, { timeout })` using `timeouts_ms`; device: `Promise.race` | cloud 1; device 0 (`AbortSignal` doesn't reach the device) | deterministic, or Try again | `copy.adv.truncated` |
 | BREACH | tripwire `LOCAL_LOCK`, or S0/S1 returned `in_cloud` | **none** | AD-31: `gateState.compromised` until reload; S0/S1 RULES_ONLY; S2/S4 deterministic (RULES_ONLY); S3 BLOCKED `TRIPWIRE` with no fetch; one Ledger entry `BLOCKED TRIPWIRE` for the breaching call | persistent banner `copy.gate.tripwire` |
@@ -2954,6 +2991,7 @@ Rules:
 - A refusal is never re-prompted (Gemini API terms: no bypassing safety; AC-303). Retries always resend the **identical** request.
 - Aborting a request does not stop billing.
 - Every error writes a Ledger entry with `error`. Retries are counted per call, and `withRetry` uses jittered delays.
+- **As built (T-062, D-112):** `web/src/ai/errors.ts` (`classifyError`, `retryBucket`, `retriesAllowed` (≤ 3 per family), `retryDelayMs` (±20 % jitter), `errorCopy`, `statusEventFor`, `blockCopy`, `GateError`, `GateBlocked`, `GateTimeoutError`). Four more codes: `VAULT_UNAVAILABLE` (index reloading or unreadable; nothing sent; one retry after the index is ready), `TEMPLATE_CANARY` (device-only prompt text in a cloud body; recorded with block reason `CLASS_MISMATCH`), `CHECK_FAILED` (a pre-send check could not run; fails closed) and `INTERNAL` (a gate bug; the entry still closes). All four show `copy.err.cloudFailed`. The SDK wraps a failed `fetch()` (offline, the tripwire's throw) as code `error` with "Error fetching from …": that is `CLOUD_NETWORK`. `CLOUD_AUTH` from a failed `ensureAuth()` shows `copy.err.auth`, from a 401/403 `copy.err.appCheck`. The SCR-22 per-call banners are reported only after the last retry: 429 → `rateLimit`, network/5xx/cloud timeout → `network`, 400 → `cloudFailed`.
 
 **Abuse and cost guards:**
 - App Check, enforced;

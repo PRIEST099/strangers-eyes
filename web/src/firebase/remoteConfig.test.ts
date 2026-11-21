@@ -71,6 +71,11 @@ describe('settings (SPEC §16)', () => {
     expect(h.rc.defaultConfig).toEqual(m.RC_DEFAULTS);
     expect(h.rc.defaultConfig).not.toBe(m.RC_DEFAULTS); // the SDK gets its own mutable copy
   });
+  it('the production interval is 1 h (Vitest always runs DEV, so the flag is injected)', async () => {
+    const m = await load();
+    expect(m.minFetchIntervalMs(false)).toBe(3_600_000);
+    expect(m.minFetchIntervalMs(true)).toBe(60_000);
+  });
 });
 
 describe('loadConfig', () => {
@@ -195,6 +200,36 @@ describe('loadConfig', () => {
     await m.loadConfig();
     await flush();
     expect(m.cfg()).toMatchObject({ atlasEnabled: false, source: 'remote' });
+  });
+
+  it('a broken IndexedDB plus an offline first fetch: a later real-time kill switch still reaches cfg() (F-159)', async () => {
+    h.state.init = 'fail';
+    const m = await load();
+    await m.loadConfig();
+    await flush();
+    expect(m.cfg()).toBe(m.DEFAULT_CONFIG);
+    expect(h.state.reads).toBe(0); // nothing was readable yet
+    const fn = vi.fn();
+    m.subscribeConfig(fn);
+    h.state.fetched = { kill_switch: 'true' };
+    h.state.observers[0].next({ getUpdatedKeys: () => new Set(['kill_switch']) });
+    await flush();
+    expect(m.cfg()).toMatchObject({ killSwitch: true, source: 'remote' });
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+
+  it('a failed real-time activation reads nothing and changes nothing', async () => {
+    vi.useFakeTimers();
+    h.state.init = 'hang';
+    const m = await load();
+    void m.loadConfig();
+    await vi.advanceTimersByTimeAsync(m.RC_INIT_TIMEOUT_MS);
+    const { activate } = await import('firebase/remote-config');
+    vi.mocked(activate).mockImplementationOnce(() => Promise.reject(new Error('idb')));
+    h.state.observers[0].next({ getUpdatedKeys: () => new Set(['kill_switch']) });
+    await flush();
+    expect(h.state.reads).toBe(0);
+    expect(m.cfg()).toBe(m.DEFAULT_CONFIG);
   });
 
   it('is idempotent: one ensureInitialized, one fetch, one real-time listener', async () => {

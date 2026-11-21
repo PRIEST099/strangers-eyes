@@ -128,6 +128,28 @@ describe('ensureAuth / authReady', () => {
     await expect(m.authReady).resolves.toBeNull(); // the first attempt's promise stays what it was
   });
 
+  it('a sign-in that never settles resolves null after AUTH_TIMEOUT_MS and the next call tries again (F-160)', async () => {
+    vi.useFakeTimers();
+    try {
+      h.signIn.mode = 'hang'; // e.g. Auth waiting on a hung IndexedDB
+      const m = await loadInit();
+      expect(m.AUTH_TIMEOUT_MS).toBe(5_000); // SPEC §7.1 step 4: up to 5 s
+      let first: string | null | undefined;
+      void m.ensureAuth().then((v) => { first = v; });
+      await vi.advanceTimersByTimeAsync(m.AUTH_TIMEOUT_MS - 1);
+      expect(first).toBeUndefined();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(first).toBeNull();
+      await expect(m.authReady).resolves.toBeNull();
+      h.signIn.mode = 'ok';
+      await expect(m.ensureAuth()).resolves.toBe('uid-2'); // a fresh attempt, not the hung promise
+      expect(h.signIn.n).toBe(2);
+      expect(vi.getTimerCount()).toBe(0); // the successful attempt cleared its timer
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('shares one in-flight sign-in between concurrent callers', async () => {
     h.signIn.mode = 'hang';
     const m = await loadInit();

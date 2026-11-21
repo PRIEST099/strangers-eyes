@@ -2,7 +2,9 @@
 // Verdict › Fix › Re-attack › Export. The current step is highlighted (and aria-current="step") with an accent
 // bar, not the focus colour, so it never looks like keyboard focus. Steps already reached are buttons that
 // revisit them without re-running any call: finished ones are marked done, the furthest one is not (it may still
-// be in progress). Later steps are plain text. It wraps instead of scrolling sideways at 375 px (AC-060).
+// be in progress). Later steps are plain text, never buttons: screen readers hear "(not reached yet)", and a step that
+// is not built yet is shown in italics and read as "(not available yet)" (T-068, D-121). It wraps instead of scrolling sideways
+// at 375 px (AC-060).
 import { t } from '../../core/strings';
 import { CHECK_STEPS, stepLabelId, stepStatus, type CheckStep } from '../layout';
 import { Icon } from './Icon';
@@ -12,9 +14,11 @@ export interface StepperNavProps {
   /** The furthest step reached so far. */
   reached: CheckStep;
   onSelect: (step: CheckStep) => void;
+  /** The steps that exist (checkState.BUILT_STEPS). Default: all of them. */
+  available?: readonly CheckStep[];
 }
 
-export function StepperNav({ current, reached, onSelect }: StepperNavProps) {
+export function StepperNav({ current, reached, onSelect, available = CHECK_STEPS }: StepperNavProps) {
   const ci = CHECK_STEPS.indexOf(current);
   const ri = CHECK_STEPS.indexOf(reached);
   return (
@@ -55,7 +59,13 @@ export function StepperNav({ current, reached, onSelect }: StepperNavProps) {
                 </button>
               )}
               {status === 'upcoming' && (
-                <span className="inline-flex min-h-11 items-center px-2.5 text-muted">{name}</span>
+                <span
+                  data-available={available.includes(step) ? 'true' : 'false'}
+                  className={`inline-flex min-h-11 items-center px-2.5 text-muted${available.includes(step) ? '' : ' italic'}`}
+                >
+                  <span className="sr-only">{t(available.includes(step) ? 'ui.stepper.upcoming' : 'ui.stepper.unavailable', { name })}</span>
+                  <span aria-hidden="true">{name}</span>
+                </span>
               )}
             </li>
           );

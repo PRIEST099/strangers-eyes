@@ -200,6 +200,18 @@ describe('parseConfig', () => {
     expect(() => { (c.autoMaskTypes as string[]).push('plate'); }).toThrow(TypeError);
   });
 
+  it('hands out frozen fallback values from parseKey, so no caller can change a default', async () => {
+    vi.resetModules(); // a fresh module: no earlier parseConfig() has frozen the shared defaults as a side effect
+    const fresh = await import('./rcParse');
+    for (const k of ['prompt_versions', 'bands_m', 'auto_mask_types', 'timeouts_ms'] as const) {
+      const r = fresh.parseKey(k, 'junk');
+      expect(r.warning, k).toBe('invalid');
+      expect(Object.isFrozen(r.value), k).toBe(true);
+    }
+    expect(() => { (parseKey('bands_m', 'junk').value as { city: number }).city = 1; }).toThrow(TypeError);
+    expect(parseKey('bands_m', 'junk').value.city).toBe(30000);
+  });
+
   it('refuses a non-string value of any key (web only)', () => {
     const c = parseConfig({ max_fix_rounds: 5, kill_switch: false, bands_m: { street: 250 } });
     expect(c.maxFixRounds).toBe(3);

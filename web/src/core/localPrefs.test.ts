@@ -1,13 +1,17 @@
 // T-091/T-092: core/localPrefs, the only localStorage user (R7). Settings validation, the 18+ acknowledgement, the
 // simulations, the daily cap counter, cross-tab events, and AC-275: everything keeps working when storage throws.
-import { describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
   DEFAULT_SETTINGS,
   PREF_KEYS,
   SIMS_NONE,
   capKey,
+  caps,
   createLocalPrefs,
   localDay,
+  localPrefs,
+  msToNextLocalMidnight,
+  prefs,
   parseCount,
   parseSettings,
   sanitizePatch,
@@ -256,6 +260,14 @@ describe('the daily cap counter (se.cap.<local day>)', () => {
     expect(prefs.incrementCap()).toBe(1);
   });
 
+  it('incrementCap itself reads fresh: another tab’s runs count even with no read in between', () => {
+    const { prefs, storage } = setup();
+    expect(prefs.incrementCap()).toBe(1); // this tab's cache now says 1
+    storage.data.set(capKey(NOV21), '5'); // another tab ran 4 more
+    expect(prefs.incrementCap()).toBe(6);
+    expect(storage.data.get(capKey(NOV21))).toBe('6');
+  });
+
   it('reads fresh from storage, so another tab’s runs count without an event', () => {
     const { prefs, storage } = setup();
     prefs.incrementCap();
@@ -338,5 +350,137 @@ describe('subscribe, version and cross-tab storage events', () => {
     events.fire(PREF_KEYS.ack18);
     events.fire(null);
     expect(prefs.ack18()).toBe(true);
+  });
+});
+
+describe('local day, where the local and UTC days differ (TZ pinned to UTC+14 for this block)', () => {
+  const savedTz = process.env.TZ;
+  beforeAll(() => { process.env.TZ = 'Pacific/Kiritimati'; });
+  afterAll(() => { if (savedTz === undefined) delete process.env.TZ; else process.env.TZ = savedTz; });
+
+  it('uses the LOCAL date and month, never UTC (05:00 on 1 Dec local is 30 Nov in UTC)', () => {
+    const d = new Date(2026, 11, 1, 5, 0);
+    expect(d.getUTCDate()).toBe(30); // the zone really is ahead of UTC here
+    expect(d.getUTCMonth()).toBe(10);
+    expect(localDay(d)).toBe('2026-12-01');
+    expect(capKey(d)).toBe('se.cap.2026-12-01');
+  });
+
+  it('the year too (05:00 on 1 Jan local is 31 Dec in UTC)', () => {
+    expect(localDay(new Date(2027, 0, 1, 5, 0))).toBe('2027-01-01');
+  });
+
+  it('the next local midnight', () => {
+    expect(msToNextLocalMidnight(new Date(2026, 11, 1, 23, 0, 0))).toBe(3_601_000);
+  });
+});
+
+describe('the daily cap clears at local midnight without a write (the banner and chip must update)', () => {
+  function clockedSetup() {
+    let now = new Date(2026, 10, 21, 23, 0, 0);
+    const timers = new Map<number, { fn: () => void; ms: number }>();
+    let id = 0;
+    const vis = new Set<() => void>();
+    const storage = new FakeStorage();
+    const p = createLocalPrefs({
+      storage: () => storage, now: () => now, events: null,
+      timers: { setTimeout: (fn, ms) => { timers.set(++id, { fn, ms }); return id; }, clearTimeout: (h) => { timers.delete(h as number); } },
+      visibility: {
+        addEventListener: (_: 'visibilitychange', fn: () => void) => void vis.add(fn),
+        removeEventListener: (_: 'visibilitychange', fn: () => void) => void vis.delete(fn),
+      },
+    });
+    const fireTimers = () => { for (const [k, t] of [...timers]) { timers.delete(k); t.fn(); } };
+    return { p, timers, vis, storage, setNow: (d: Date) => { now = d; }, fireTimers };
+  }
+
+  it('msToNextLocalMidnight: one second past the next local midnight, never under a second', () => {
+    expect(msToNextLocalMidnight(new Date(2026, 10, 21, 23, 0, 0))).toBe(3_601_000);
+    expect(msToNextLocalMidnight(new Date(2026, 10, 21, 0, 0, 0))).toBe(86_401_000);
+    expect(msToNextLocalMidnight(new Date(2026, 10, 21, 23, 59, 59, 999))).toBeGreaterThanOrEqual(1_000);
+  });
+
+  it('a subscriber hears the day turn over at the timer, and the cap reads 0 for the new day', () => {
+    const { p, timers, setNow, fireTimers } = clockedSetup();
+    p.incrementCap();
+    const l = vi.fn();
+    p.subscribe(l);
+    expect([...timers.values()].map((t) => t.ms)).toEqual([3_601_000]);
+    setNow(new Date(2026, 10, 22, 0, 0, 1));
+    fireTimers();
+    expect(l).toHaveBeenCalledTimes(1);
+    expect(p.capUsedToday()).toBe(0);
+    expect(timers.size).toBe(1); // re-armed for the next midnight
+  });
+
+  it('a timer that fires early (same day) announces nothing', () => {
+    const { p, setNow, fireTimers } = clockedSetup();
+    const l = vi.fn();
+    p.subscribe(l);
+    setNow(new Date(2026, 10, 21, 23, 59, 0));
+    fireTimers();
+    expect(l).not.toHaveBeenCalled();
+  });
+
+  it('becoming visible after a sleep past midnight announces the new day once', () => {
+    const { p, vis, setNow } = clockedSetup();
+    const l = vi.fn();
+    p.subscribe(l);
+    for (const f of vis) f(); // same day: nothing
+    expect(l).not.toHaveBeenCalled();
+    setNow(new Date(2026, 10, 22, 8, 0, 0));
+    for (const f of vis) f();
+    for (const f of vis) f();
+    expect(l).toHaveBeenCalledTimes(1);
+  });
+
+  it('the last unsubscribe stops the timer and the visibility listener', () => {
+    const { p, timers, vis } = clockedSetup();
+    const a = p.subscribe(() => {});
+    const b = p.subscribe(() => {});
+    expect(timers.size).toBe(1);
+    a();
+    a(); // a second call is a no-op
+    expect(timers.size).toBe(1);
+    b();
+    expect(timers.size).toBe(0);
+    expect(vis.size).toBe(0);
+  });
+});
+
+describe('the gate-facing exports (ARCH §8.2 names) on the app instance', () => {
+  afterEach(() => {
+    localPrefs.updateSettings({ useNano: true });
+    localPrefs.setSimulation('noNano', false);
+    localPrefs.setSimulation('offline', false);
+  });
+
+  it('prefs.nanoEnabled() is false when the setting is off OR "Simulate: no Nano" is on (downgrade only)', () => {
+    expect(prefs.nanoEnabled()).toBe(true);
+    localPrefs.updateSettings({ useNano: false });
+    expect(prefs.nanoEnabled()).toBe(false);
+    localPrefs.updateSettings({ useNano: true });
+    localPrefs.setSimulation('noNano', true);
+    expect(prefs.nanoEnabled()).toBe(false);
+    expect(prefs.simulateNoNano()).toBe(true);
+    localPrefs.updateSettings({ useNano: false });
+    expect(prefs.nanoEnabled()).toBe(false);
+    localPrefs.setSimulation('noNano', false);
+    localPrefs.updateSettings({ useNano: true });
+    expect(prefs.nanoEnabled()).toBe(true);
+  });
+
+  it('prefs.simulateOffline() mirrors the simulation', () => {
+    expect(prefs.simulateOffline()).toBe(false);
+    localPrefs.setSimulation('offline', true);
+    expect(prefs.simulateOffline()).toBe(true);
+    expect(prefs.simulateNoNano()).toBe(false);
+  });
+
+  it('caps.increment() counts one run and caps.usedToday() reads it', () => {
+    const before = caps.usedToday();
+    expect(caps.increment()).toBe(before + 1);
+    expect(caps.usedToday()).toBe(before + 1);
+    expect(localPrefs.capUsedToday()).toBe(before + 1);
   });
 });

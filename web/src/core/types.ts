@@ -207,7 +207,9 @@ export interface VerdictLine {
   vaultId?: string;
   band?: DistanceBand;
   strength?: MatchStrength;
-  confidence?: Confidence;
+  confidence?: Confidence;      // attacker confidence: the claim's (match, pin_match) or the band's hypothesis (pin) (AC-164)
+  bandConfidence?: Confidence;  // pin_match only: the attacker confidence of the hypothesis that gives the band (D-115)
+  reason?: string;              // match, pin_match: the referee's reason (<= 12 words) for "Why?". LOCAL ONLY
   clueIds: string[];
   route: Route;
 }
@@ -220,6 +222,8 @@ export interface Verdict {
   pinBands: PinBand[];
   matches: RefereeMatch[];
   noVault: boolean;
+  /** No pin item with a pin (an empty vault too): the level falls back to the attacker's precision; show the noVault prompt (D-127). Always set by buildVerdict. */
+  noPins?: boolean;
 }
 export interface VerdictComparison {
   riskReduced: boolean;         // the ONLY thing ever coloured green

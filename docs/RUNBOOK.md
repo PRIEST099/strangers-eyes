@@ -298,7 +298,7 @@ Alternative: auto tokens. With `FIREBASE_APPCHECK_DEBUG_TOKEN = true`, DevTools 
    - Without either, the SDK logs `[AppCheckCore][I-GAC004001] App Check debug token: '…'`, and a reinstall creates a new token.
 
 ### 1.8 Anonymous Auth [CLAUDE as code, USER fallback]
-- **As code:** `firebase.json` has `"auth": { "providers": { "anonymous": true } }`. Run `$FB deploy --only auth` [UNVERIFIED on a fresh project, U-17].
+- **As code:** `firebase.json` has `"auth": { "providers": { "anonymous": true } }`. Run `$FB deploy --only auth` (VERIFIED Nov 21, U-17, D-126).
 - **Console fallback:** **Security > Authentication** → Get started → **Sign-in method** → **Anonymous** → Enable → Save.
 - Firebase limits new anonymous sign-ups per IP. The SDK reuses the persisted anonymous user.
 
@@ -312,7 +312,7 @@ Alternative: auto tokens. With `FIREBASE_APPCHECK_DEBUG_TOKEN = true`, DevTools 
 CLI alternative: `$FB firestore:databases:create "(default)" --location europe-west1 --project PROJECT_ID` [UNVERIFIED ID syntax, U-18].
 
 ### 1.10 Remote Config first publish [CLAUDE, USER fallback]
-- Claude publishes `remoteconfig.template.json` with `$FB deploy --only remoteconfig` (§4.4) [UNVERIFIED on a fresh project, U-17].
+- Claude publishes `remoteconfig.template.json` with `$FB deploy --only remoteconfig` (§4.4) (VERIFIED Nov 21, U-17). Until T-003 the live config carries the D-70 free-tier override (§4.4, D-126).
 - **Fallback [USER]:** **DevOps & Engagement > Remote Config** → create the first configuration → use the ⋮ menu's publish-from-file option [UNVERIFIED label], or enter the parameters by hand from the template.
 
 ### 1.11 AI Logic hardening (Day 6, Nov 25, when Claude asks) [USER]
@@ -889,11 +889,12 @@ Check with `$FB projects:list`; the active project is marked.
 **Commands** (`rollback` flags [UNVERIFIED]; check `--help`):
 ```bash
 FB="npx -y firebase-tools@15.37.0"
-$FB deploy --only remoteconfig                      # [UNVERIFIED on a fresh project, U-17] → console fallback §1.10
-$FB remoteconfig:get -o .scratch/rc-live.json
+$FB deploy --only remoteconfig                      # VERIFIED Nov 21 (U-17, D-126); BUT see the free-tier note below
+$FB remoteconfig:get -v <VERSION> -o .scratch/rc-live.json   # without -v, 15.37.0 fetched (HTTP 200) but wrote no file on Nov 21
 $FB remoteconfig:versions:list
 $FB remoteconfig:rollback -v <VERSION>
 ```
+**Free-tier override until T-003 (D-70, D-126):** the live config must have `data_tier=free` and `grounding_enabled=false`, while the repo template keeps the paid defaults. So until Blaze, never deploy the repo template as it is. Write a scratch copy with those two values changed plus a scratch `firebase.json` (`{"remoteconfig":{"template":"remoteconfig.template.json"}}`), and run `$FB deploy --only remoteconfig --project strangers-eyes --config <scratch>/firebase.json`. Then check that the live config differs from the template in those two keys only. After T-003, deploy the repo template as it is.
 **Kill switch (only for real abuse; judges must keep access until Dec 16, 14:00 PT):**
 1. Console → Remote Config → `kill_switch` = `true` → **Publish changes**.
 2. Check in the app that no S3 calls are made.
@@ -902,7 +903,7 @@ $FB remoteconfig:rollback -v <VERSION>
 To raise caps during judging, change `daily_adversary_cap` in Remote Config. **No code deploys after the freeze.**
 
 ### 4.5 Auth as code
-`$FB deploy --only auth` [UNVERIFIED, U-17]. If it errors, enable Anonymous in the console (§1.8).
+`$FB deploy --only auth` (VERIFIED Nov 21, U-17). If it errors, enable Anonymous in the console (§1.8).
 
 ### 4.6 Hosting deploy and post-deploy checks
 **Deploy early.** Do the first hosting deploy as soon as the web scaffold builds (about Nov 21–22), even before reCAPTCHA exists. MIME types, headers, service-worker caching and cold load (U-20/U-21) are unverified and should surface early, not on Nov 25. Before reCAPTCHA is registered, AI calls on the hosted site fail App Check; that is expected.
@@ -1255,7 +1256,7 @@ Claude samples frames from `final.mp4` to check the numbers, captions, absence o
   T=$(sed -n 's/^VITE_APPCHECK_DEBUG_TOKEN=//p' web/.env.development.local); [ -n "$T" ] && git log -p --all | grep -qF "$T" && echo "TOKEN IN HISTORY"
   I=$(cat ios/.appcheck-debug-token 2>/dev/null); [ -n "$I" ] && git log -p --all | grep -qF "$I" && echo "iOS TOKEN IN HISTORY"
   ```
-- [ ] `node scripts/check-images.mjs` passes (D-106): no committed image carries APP1/APP13/APP11, PNG text/EXIF/C2PA chunks or WebP EXIF/XMP; no other image or video format; no coordinate-like decimal outside the allowlisted paths and the reviewed values in `scripts/check-images.allow.json` (re-read that file: every value must still be synthetic or a non-coordinate); no PRIV path, `truth*.csv`, `.env*.local`, debug-token file, key file or secret content; the secret paths are still git-ignored. It cannot judge whether a photo shows people or a real home: the image review above stays manual.
+- [ ] `node scripts/check-images.mjs` passes (D-106, D-119; it scans the staged copy too, so run it after `git add`): committed images keep only allowlisted JPEG segments and PNG/WebP chunks; no other image or video format, no unknown binary, no image hidden in another file or as base64; no coordinate-like value outside the allowlisted paths and the reviewed values in `scripts/check-images.allow.json` (re-read that file: every value must still be synthetic or a non-coordinate); no PRIV path, `truth*.csv`, `.env*.local`, debug-token file, key file or secret content; the secret paths are still git-ignored. It cannot judge whether a photo shows people or a real home: the image review above stays manual.
 - [ ] No real vault, pins, names or coordinates in fixtures or tests. Use the fictional "Lucas" and "City General Hospital"; coordinates only in the allowlisted sample files.
 - [ ] No files over 10 MB in git.
 - [ ] Clean-clone test passes (web build and check; iOS `xcodegen generate` + build) by following the README literally.
@@ -1460,7 +1461,7 @@ Claude never clicks Submit and never accepts terms on the user's behalf.
 | Fails under `vite preview` | Production build: `DEV` is false, so there is no debug token | Expected. Test production builds on the hosted site |
 | Fails on the hosted URL only | reCAPTCHA domains miss `PROJECT_ID.web.app`/`.firebaseapp.com`; checkbox-type key; site key in code ≠ App Check registration; preview-channel domain | Fix the key (§1.7a), redeploy, wait up to 15 min |
 | App Check errors `appCheck/recaptcha-error`, `fetch-status-error`, `throttled` | After a 403 on the token exchange, the SDK backs off (reportedly 1 day, held in memory) [UNVERIFIED; check `node_modules/@firebase/app-check`] | Fix the cause, then hard-reload or open a new tab |
-| 401 after enabling authenticated-users mode | AI call made before anonymous sign-in finished | Await `authReady` before any cloud call (web and iOS) |
+| 401 after enabling authenticated-users mode | AI call made before anonymous sign-in finished | Await sign-in before any cloud call: web `ensureAuth()` (D-110; retried after a failure), iOS the equivalent |
 | 403 PERMISSION_DENIED mentioning `firebasevertexai.googleapis.com` disabled | AI Logic onboarding not done | §1.4 |
 | iOS cloud calls rejected | `setAppCheckProviderFactory` not called before `configure()`; token not registered; reinstall made a new auto token; `SIMCTL_CHILD_AppCheckDebugToken` not picked up | Fix the order. Register the token. Fall back to reading the auto token from the logs (§2.9) |
 | reCAPTCHA domain warnings on localhost | Expected; the provider still loads `enterprise.js` in debug mode | Ignore |
@@ -1571,7 +1572,7 @@ Claude never clicks Submit and never accepts terms on the user's behalf.
 - [ ] Debug mode works with a placeholder reCAPTCHA site key (§1.7a)
 - [x] `create-vite@9.3.4` non-interactive invocation (§2.3): verified Nov 19 (T-023)
 - [ ] Playwright `channel: 'chrome'` on this Mac; Vitest/Playwright support Vite 8 (§2.6)
-- [ ] `firebase init ailogic` (U-16); `deploy --only auth` and `--only remoteconfig` on a fresh project (U-17)
+- [ ] `firebase init ailogic` (U-16). Done Nov 21: `deploy --only auth` and `--only remoteconfig` on a fresh project (U-17, D-126)
 - [ ] `firestore:databases:create` ID syntax for `(default)` (U-18)
 - [x] `apps:create IOS --bundle-id` and `apps:sdkconfig --out` flags (§1.6): verified Nov 20 (T-025). Still open: `remoteconfig:rollback` flags (§4.4)
 - [ ] Rules-test `firebase.json` with a `../` rules path under CLI 13.35.1 (§2.6)

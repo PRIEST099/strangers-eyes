@@ -3,15 +3,36 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
+import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 // Private photos live OUTSIDE the repo (CLAUDE.md). The dev server may read them only for unattended spikes.
 const PRIV = '/Users/mac/StrangersEyes-private';
 
+/** The commit About shows (SPEC SCR-20, AC-276): VITE_GIT_SHA if the environment sets it, else `git rev-parse`. */
+function gitSha(): string {
+  if (process.env.VITE_GIT_SHA) return process.env.VITE_GIT_SHA;
+  try {
+    return execFileSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: r('.'), stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+  } catch {
+    return 'unknown'; // no git (e.g. a source tarball): About says the commit is not recorded
+  }
+}
+
+/**
+ * Paths the service worker must never answer with index.html: Firebase's reserved URLs, and real files the app links to
+ * or fetches (the licence notices About links to, the self-hosted wasm and models). Without this, once the worker
+ * controls the page, About's licence links opened the app shell (T-092 review). scripts/check-dist.mjs asserts it.
+ */
+export const NAVIGATE_FALLBACK_DENYLIST = [/^\/__\//, /\.md$/, /^\/vendor\//, /^\/models\//];
+
 export default defineConfig(({ mode }) => {
   const spike = mode === 'development' && process.env.VITE_SPIKE === '1';
   return {
+  define: {
+    'import.meta.env.VITE_GIT_SHA': JSON.stringify(gitSha()),
+  },
   build: {
     // Emit the licenses of every bundled npm dependency (the minifier strips their comments). A non-dot path,
     // because firebase.json hosting ignores dotfiles. The self-hosted wasm/model notices ship as
@@ -62,7 +83,7 @@ export default defineConfig(({ mode }) => {
         // vision_wasm_internal.wasm is ~14.7 MB; the plugin fails the build above this limit.
         maximumFileSizeToCacheInBytes: 32 * 1024 * 1024,
         navigateFallback: 'index.html',
-        navigateFallbackDenylist: [/^\/__\//], // keep Firebase reserved URLs
+        navigateFallbackDenylist: NAVIGATE_FALLBACK_DENYLIST,
         cleanupOutdatedCaches: true,
         // With injectRegister:false the plugin does not set these for autoUpdate, so a new deploy would wait
         // until every tab closed and a first install would not control the open page (T-023 review build-config-1).

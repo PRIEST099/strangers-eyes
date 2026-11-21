@@ -29,6 +29,9 @@ const DevPlumbingSpike: LazyExoticComponent<ComponentType> | null = import.meta.
 const DevAdversarySpike: LazyExoticComponent<ComponentType> | null = import.meta.env.DEV
   ? lazy(() => import('./dev/spikes/AdversarySpike'))
   : null;
+const DevVerdictGallery: LazyExoticComponent<ComponentType> | null = import.meta.env.DEV
+  ? lazy(() => import('./dev/verdicts/VerdictGallery'))
+  : null;
 
 /** The route → screen map. Exported so ui/shell.test.ts asserts App's own mapping, not a copy of it. */
 export function Screen({ route }: { route: AppRoute }) {
@@ -56,8 +59,8 @@ export default function App() {
   const route = useRoute();
   const supported = useBrowserSupport();
   const acknowledged = useAck18();
-  // Read once, when AppShell first mounts after Welcome (its initial state).
-  const [capabilityOnStart, setCapabilityOnStart] = useState(false);
+  // Read once, when AppShell first mounts after Welcome (its initial state): open SCR-02, and focus main (D-117).
+  const [start, setStart] = useState({ capability: false, focusMain: false });
 
   if (DevSelftest && route.name === 'dev' && route.page === 'selftest') {
     return (
@@ -83,6 +86,14 @@ export default function App() {
     );
   }
 
+  if (DevVerdictGallery && route.name === 'dev' && route.page === 'verdicts') {
+    return (
+      <Suspense fallback={<p className="p-6 font-mono text-sm">loading gallery…</p>}>
+        <DevVerdictGallery />
+      </Suspense>
+    );
+  }
+
   const top = topScreen({ supported, acknowledged });
   if (top === 'unsupported') return <UnsupportedPage />;
   if (top === 'welcome') {
@@ -90,7 +101,7 @@ export default function App() {
       <Welcome
         onContinue={() => {
           // The flag first, then the acknowledgement: AppShell must mount with it, even if React did not batch the two.
-          setCapabilityOnStart(capabilityAfterWelcome(route));
+          setStart({ capability: capabilityAfterWelcome(route), focusMain: true });
           localPrefs.setAck18(); // false when storage is unavailable: this session continues, a reload asks again
         }}
       />
@@ -98,7 +109,7 @@ export default function App() {
   }
 
   return (
-    <AppShell route={route} capabilityOnStart={capabilityOnStart}>
+    <AppShell route={route} capabilityOnStart={start.capability} focusMainOnStart={start.focusMain}>
       <Screen route={route} />
     </AppShell>
   );

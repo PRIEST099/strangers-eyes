@@ -1,22 +1,54 @@
 // T-091/T-094: what App shows before any route (ui/gate.ts).
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { browserSupported, capabilityAfterWelcome, detectBrowserSupport, isDebugSearch, topScreen } from './gate';
 import { PRODUCT_ROUTES, parseHash } from './router';
 
 describe('browserSupported (SCR-22: no WebAssembly or no IndexedDB → the full-page message)', () => {
   it.each([
-    ['object', 'object', true],
-    ['undefined', 'object', false],
-    ['object', 'undefined', false],
-    ['undefined', 'undefined', false],
-    ['function', 'object', false],
-  ])('wasm=%s idb=%s → %s', (wasm, idb, ok) => {
-    expect(browserSupported({ wasm, idb })).toBe(ok);
+    ['object', 'object', 'function', true],
+    ['undefined', 'object', 'function', false],
+    ['object', 'undefined', 'function', false],
+    ['object', 'object', 'undefined', false],
+    ['undefined', 'undefined', 'undefined', false],
+    ['function', 'object', 'function', false],
+  ])('wasm=%s idb=%s deleteDatabase=%s → %s', (wasm, idb, idbDelete, ok) => {
+    expect(browserSupported({ wasm, idb, idbDelete })).toBe(ok);
+  });
+});
+
+describe('detectBrowserSupport never throws (a crash here would blank the app)', () => {
+  const had = Object.getOwnPropertyDescriptor(globalThis, 'indexedDB');
+  afterEach(() => {
+    if (had) Object.defineProperty(globalThis, 'indexedDB', had);
+    else delete (globalThis as Record<string, unknown>).indexedDB;
+  });
+  const setIdb = (desc: PropertyDescriptor) => Object.defineProperty(globalThis, 'indexedDB', { configurable: true, ...desc });
+
+  it('Node has WebAssembly but no IndexedDB: unsupported, no ReferenceError', () => {
+    delete (globalThis as Record<string, unknown>).indexedDB;
+    expect(typeof WebAssembly).toBe('object');
+    expect(detectBrowserSupport()).toBe(false);
   });
 
-  it('Node has WebAssembly but no IndexedDB, so the live check says unsupported here', () => {
-    expect(typeof WebAssembly).toBe('object');
-    expect(detectBrowserSupport()).toBe(typeof indexedDB === 'object');
+  it('a real IDBFactory shape is supported', () => {
+    setIdb({ value: { deleteDatabase: () => {}, open: () => {} } });
+    expect(detectBrowserSupport()).toBe(true);
+  });
+
+  it('indexedDB === null (Firefox with IndexedDB disabled) is unsupported', () => {
+    setIdb({ value: null });
+    expect(detectBrowserSupport()).toBe(false);
+  });
+
+  it('an indexedDB getter that throws (site data blocked) is unsupported, not a crash', () => {
+    setIdb({ get() { throw new DOMException('denied', 'SecurityError'); } });
+    expect(() => detectBrowserSupport()).not.toThrow();
+    expect(detectBrowserSupport()).toBe(false);
+  });
+
+  it('an object without deleteDatabase is unsupported', () => {
+    setIdb({ value: {} });
+    expect(detectBrowserSupport()).toBe(false);
   });
 });
 

@@ -45,15 +45,29 @@ function selfTest() {
     'remoteconfig.template.json': JSON.stringify({ parameters: { prompt_versions: { defaultValue: { value: JSON.stringify({ job: 'p.v1' }) } } } }),
   });
   const withManifest = (f) => { const t = base(); const m = JSON.parse(t['shared/prompts/manifest.json']); f(m); t['shared/prompts/manifest.json'] = JSON.stringify(m); return t; };
-  const run = (tree, extra = []) => {
+  // An isolated git: no user/system config, no inherited GIT_DIR (e.g. inside a hook), no discovery above the tree.
+  const env = { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1', GIT_CEILING_DIRECTORIES: tmpdir() };
+  for (const k of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_OBJECT_DIRECTORY', 'GIT_COMMON_DIR']) delete env[k];
+  const write = (dir, tree) => {
+    for (const [rel, body] of Object.entries(tree)) {
+      if (body === null) { rmSync(join(dir, rel), { force: true }); continue; }
+      mkdirSync(dirname(join(dir, rel)), { recursive: true });
+      writeFileSync(join(dir, rel), body);
+    }
+  };
+  // `head`: a tree committed as git HEAD first (the released-at-HEAD guard), then `tree` is written over it.
+  const run = (tree, extra = [], head = null) => {
     const dir = mkdtempSync(join(tmpdir(), 'se-prompts-'));
     try {
-      for (const [rel, body] of Object.entries(tree)) {
-        if (body === null) continue;
-        mkdirSync(dirname(join(dir, rel)), { recursive: true });
-        writeFileSync(join(dir, rel), body);
+      if (head) {
+        write(dir, head);
+        for (const args of [['init', '-q'], ['add', '-A'], ['-c', 'user.name=selftest', '-c', 'user.email=selftest@example.invalid', 'commit', '-q', '-m', 'head']]) {
+          const g = spawnSync('git', ['-C', dir, ...args], { env, encoding: 'utf8' });
+          if (g.status !== 0) throw new Error(`git ${args.join(' ')}: ${g.stderr}`);
+        }
       }
-      const r = spawnSync(process.execPath, [self, '--root', dir, '--no-self-test', ...extra], { encoding: 'utf8' });
+      write(dir, tree);
+      const r = spawnSync(process.execPath, [self, '--root', dir, '--no-self-test', ...extra], { encoding: 'utf8', env });
       return { status: r.status, out: `${r.stdout}${r.stderr}`, manifest: readFileSync(join(dir, 'shared/prompts/manifest.json'), 'utf8') };
     } finally {
       rmSync(dir, { recursive: true, force: true });
@@ -61,22 +75,36 @@ function selfTest() {
   };
   const clean = run(base());
   if (clean.status !== 0) throw new Error(`clean fixture failed: ${clean.out}`);
+  const released = () => withManifest((m) => { m.prompts['p.v1'].released = true; });
+  // [what, tree, the finding it must print, HEAD tree]: exit 1 alone is not enough (a crash also exits 1).
   const planted = [
-    ['a draft file whose hash differs', { ...base(), 'shared/prompts/a.v1.txt': 'edited\n' }],
-    ['a file missing from manifest.files', { ...base(), 'shared/prompts/c.v1.txt': 'new\n' }],
-    ['a listed file that does not exist', { ...base(), 'shared/prompts/b.v1.json': null }],
-    ['a released prompt whose file changed', { ...withManifest((m) => { m.prompts['p.v1'].released = true; }), 'shared/prompts/a.v1.txt': 'edited\n' }],
-    ['a prompt without a boolean released', withManifest((m) => { delete m.prompts['p.v1'].released; })],
-    ['a prompt referencing an unhashed file', withManifest((m) => { m.prompts['p.v1'].user = 'missing.v1.txt'; })],
-    ['an RC prompt_versions id that is not a manifest prompt', { ...base(), 'remoteconfig.template.json': JSON.stringify({ parameters: { prompt_versions: { defaultValue: { value: '{"job":"p.v9"}' } } } }) }],
+    ['a draft file whose hash differs', { ...base(), 'shared/prompts/a.v1.txt': 'edited\n' }, 'a.v1.txt: sha256 differs from manifest'],
+    ['a file missing from manifest.files', { ...base(), 'shared/prompts/c.v1.txt': 'new\n' }, 'c.v1.txt is not listed in manifest.files'],
+    ['a listed file that does not exist', { ...base(), 'shared/prompts/b.v1.json': null }, 'manifest lists b.v1.json, which does not exist'],
+    ['a released prompt whose file changed', { ...released(), 'shared/prompts/a.v1.txt': 'edited\n' }, 'a.v1.txt: changed, but it belongs to a released prompt'],
+    ['a prompt without a boolean released', withManifest((m) => { delete m.prompts['p.v1'].released; }), 'prompt p.v1 needs a boolean "released"'],
+    ['a prompt referencing an unhashed file', withManifest((m) => { m.prompts['p.v1'].user = 'missing.v1.txt'; }), 'prompt p.v1.user references missing.v1.txt, which is not a hashed file'],
+    ['an RC prompt_versions id that is not a manifest prompt', { ...base(), 'remoteconfig.template.json': JSON.stringify({ parameters: { prompt_versions: { defaultValue: { value: '{"job":"p.v9"}' } } } }) }, 'prompt_versions.job = p.v9 is not a manifest prompt'],
+    // the git-HEAD guard: released at HEAD, flipped back to a draft (and re-hashed) in the work tree
+    ['a prompt released at HEAD flipped back to a draft', base(), 'prompt p.v1 was released at HEAD and cannot become a draft again', released()],
+    ['a file locked at HEAD edited after a flip back to draft', withManifest((m) => { m.files['a.v1.txt'] = hash('edited\n'); }), 'a.v1.txt is locked at HEAD (released prompt) but its content changed', { ...released() }],
   ];
-  const failures = planted.filter(([, tree]) => run(tree).status !== 1).map(([what]) => `did not fail on ${what}`);
+  // the edited-after-flip case needs the edited file in the work tree too
+  planted[8][1]['shared/prompts/a.v1.txt'] = 'edited\n';
+  const failures = [];
+  for (const [what, tree, expect, head] of planted) {
+    const r = run(tree, [], head ?? null);
+    if (r.status !== 1 || !r.out.includes(expect)) failures.push(`did not fail on ${what} with "${expect}" (exit ${r.status}): ${r.out.trim().slice(0, 300)}`);
+  }
+  // a clean tree with a released prompt at HEAD passes (the guard does not fire on its own)
+  const headClean = run(released(), [], released());
+  if (headClean.status !== 0) failures.push(`a released prompt unchanged since HEAD failed: ${headClean.out.trim().slice(0, 300)}`);
   // --write must refuse a changed released file and leave the manifest untouched
   const locked = { ...withManifest((m) => { m.prompts['p.v1'].released = true; }), 'shared/prompts/a.v1.txt': 'edited\n' };
   const w = run(locked, ['--write']);
-  if (w.status !== 1 || w.manifest !== locked['shared/prompts/manifest.json']) failures.push('--write did not refuse a changed released file');
+  if (w.status !== 1 || w.manifest !== locked['shared/prompts/manifest.json'] || !w.out.includes('REFUSED: a.v1.txt belongs to a released prompt')) failures.push('--write did not refuse a changed released file');
   if (failures.length) throw new Error(failures.join('\n'));
-  return planted.length + 1;
+  return planted.length + 2;
 }
 if (ROOT_IDX < 0 && !ARGS.includes('--no-self-test') && !ARGS.includes('--write')) {
   try {

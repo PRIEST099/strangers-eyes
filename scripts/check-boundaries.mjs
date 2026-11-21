@@ -103,27 +103,57 @@ export function stripComments(src) {
   return out;
 }
 
+/** code[k] === '\\' → [decoded text, escape length] for \xHH, \uHHHH and \u{H…}, or null. Shared by both decoders. */
+function decodeEscapeAt(code, k) {
+  const KEEP = new Set(["'", '"', '`', '\\', '\n', '\r', ' ', ' ']);
+  let m;
+  const t = code[k + 1];
+  let d = null;
+  if (t === 'x' && (m = /^[0-9a-fA-F]{2}/.exec(code.slice(k + 2, k + 4)))) d = [String.fromCodePoint(parseInt(m[0], 16)), 4];
+  else if (t === 'u' && (m = /^\{([0-9a-fA-F]{1,6})\}/.exec(code.slice(k + 2, k + 10))) && parseInt(m[1], 16) <= 0x10ffff) d = [String.fromCodePoint(parseInt(m[1], 16)), 2 + m[0].length];
+  else if (t === 'u' && (m = /^[0-9a-fA-F]{4}/.exec(code.slice(k + 2, k + 6)))) d = [String.fromCodePoint(parseInt(m[0], 16)), 6];
+  if (!d) return null;
+  return KEEP.has(d[0]) ? [code.slice(k, k + d[1]), d[1]] : d;
+}
+/** Length of a line continuation (backslash + line terminator) at code[k], or 0. */
+const continuationAt = (code, k) => (code[k] !== '\\' ? 0 : code[k + 1] === '\r' && code[k + 2] === '\n' ? 3 : /[\n\r\u2028\u2029]/.test(code[k + 1] ?? '') ? 2 : 0);
+
+/**
+ * T-090 fix round (D-120): every \x / \u escape decoded EVERYWHERE, whatever the literal state (so a regex-vs-division
+ * mistake after `}` cannot hide an escaped name), and every line continuation (`'generate\⏎Content'`) joined. The
+ * joined line ends where the first one did and empty lines follow, so every later line keeps its number.
+ */
+export function decodeAllEscapes(code) {
+  let out = '';
+  let pending = 0;
+  for (let i = 0; i < code.length;) {
+    const ch = code[i];
+    const cont = continuationAt(code, i);
+    if (cont) { pending++; i += cont; continue; }
+    if (ch === '\\') {
+      const d = decodeEscapeAt(code, i);
+      if (d) { out += d[0]; i += d[1]; continue; }
+      out += ch + (code[i + 1] ?? ''); i += 2; continue;
+    }
+    out += ch;
+    if (ch === '\n' && pending) { out += '\n'.repeat(pending); pending = 0; }
+    i++;
+  }
+  return out + '\n'.repeat(pending);
+}
+
 /**
  * T-090: escapes defeat the name-based rules: `m.generateContent(r)` is valid JS, and so is
  * `m['generat\x65Content'](r)`. Takes comment-free code and returns it with every \xHH, \uHHHH and \u{H…} escape
  * decoded inside string and template literals AND in code (identifiers), plus the offsets of the escapes found in code
  * (outside string, template and regex literals: R24). Regex literals are kept as written. An escape that decodes to a
- * quote, a backslash or a line terminator is kept as written, so literal boundaries and line numbers never move.
+ * quote, a backslash or a line terminator is kept as written, so literal boundaries and line numbers never move. Line
+ * continuations are joined by decodeAllEscapes (D-120), the third copy the line rules and R22 run on.
  */
 export function decodeEscapes(code) {
   let out = '';
   const identEscapes = [];
-  const KEEP = new Set(["'", '"', '`', '\\', '\n', '\r', ' ', ' ']);
-  const decodeAt = (k) => { // code[k] === '\\' → [text, length] or null
-    let m;
-    const t = code[k + 1];
-    let d = null;
-    if (t === 'x' && (m = /^[0-9a-fA-F]{2}/.exec(code.slice(k + 2, k + 4)))) d = [String.fromCodePoint(parseInt(m[0], 16)), 4];
-    else if (t === 'u' && (m = /^\{([0-9a-fA-F]{1,6})\}/.exec(code.slice(k + 2, k + 10))) && parseInt(m[1], 16) <= 0x10ffff) d = [String.fromCodePoint(parseInt(m[1], 16)), 2 + m[0].length];
-    else if (t === 'u' && (m = /^[0-9a-fA-F]{4}/.exec(code.slice(k + 2, k + 6)))) d = [String.fromCodePoint(parseInt(m[0], 16)), 6];
-    if (!d) return null;
-    return KEEP.has(d[0]) ? [code.slice(k, k + d[1]), d[1]] : d;
-  };
+  const decodeAt = (k) => decodeEscapeAt(code, k);
   let i = 0;
   let mode = 'code'; // code | sq | dq | tpl (comments are already gone)
   let lastSig = '';
@@ -214,7 +244,9 @@ const WEB_RULES = [
   // destructuring (`const { log } = console`), globalThis.console, and every method (timeLog, assert, group… print
   // their arguments too). Comments are stripped, strings are not: the word in a string literal is flagged as well.
   { id: 'R9-console-in-sensitive', re: /\bconsole\b/, only: [],
-    scope: (r) => !isTest(r) && (r.startsWith('web/src/vault/') || [
+    scope: (r) => !isTest(r) && (r.startsWith('web/src/vault/')
+      // T-068 / T-077: the pre-screen state and editor (vault text) and the verdict line components (vault labels)
+      || r.startsWith('web/src/ui/check/') || r.startsWith('web/src/ui/components/verdict/') || [
       'web/src/ai/vaultScan.ts', 'web/src/core/referee.ts', 'web/src/tier0/fuzzy.ts',
       // T-053: vault pins + the EXIF point (S0), and the original photo's GPS (readExifFacts, sniff.webpExifPayload)
       'web/src/tier0/gpsWarning.ts', 'web/src/tier0/importPhoto.ts', 'web/src/tier0/sniff.ts',
@@ -224,6 +256,11 @@ const WEB_RULES = [
       // T-055: the vault UI holds labels, aliases and the user's own pin coordinates
       'web/src/ui/screens/Vault.tsx', 'web/src/ui/components/VaultItemForm.tsx', 'web/src/ui/components/PinButton.tsx',
       'web/src/ui/components/BurnVaultDialog.tsx',
+      // T-090 fix round: the verdict joins vault item IDs and pin bands
+      'web/src/core/verdict.ts',
+      // T-068 / T-077: Tier-0 (OCR words matched against vault terms) and the components that show them or vault labels
+      'web/src/tier0/tier0.ts', 'web/src/ui/components/ClueList.tsx', 'web/src/ui/components/PhotoStage.tsx',
+      'web/src/ui/components/PrescreenPanel.tsx', 'web/src/ui/components/VerdictCard.tsx',
     ].includes(r)),
     why: "No console where vault data, pins or the original photo's GPS flow (SR-15): no console.x(…), console[…], console?.…, alias or destructuring." },
   { id: 'R10-AdversaryNotes', re: /\bAdversaryNotes\b/,
@@ -521,16 +558,20 @@ export function check(root) {
     const raw = readFileSync(abs, 'utf8');
     const code = stripComments(raw);
     const lines = code.split('\n');
-    // T-090: the line rules also run on a copy with every \x / \u escape decoded (same line numbers), so an escaped
-    // name in an identifier or a string literal is still seen.
+    // T-090 / D-120: the line rules and R22 also run on a copy with every \x / \u escape decoded (same line numbers),
+    // whatever the literal state, and line continuations joined, so an escaped or continued name is still seen.
+    // decodeEscapes tracks the literal state only to find escapes in code (R24).
     const dec = decodeEscapes(code);
-    const decLines = dec.code.split('\n');
+    const allDec = decodeAllEscapes(code);
+    const allLines = allDec.split('\n');
 
     for (const rule of WEB_RULES) {
       if (rule.exempt && rule.exempt(rel)) continue;
       if (rule.scope && !rule.scope(rel)) continue;
       if (rule.only.includes(rel)) continue;
-      lines.forEach((l, i) => { if (rule.re.test(l) || (decLines[i] !== l && rule.re.test(decLines[i]))) add(rule.id, rel, i + 1, rule.why); });
+      lines.forEach((l, i) => {
+        if (rule.re.test(l) || (allLines[i] !== l && rule.re.test(allLines[i]))) add(rule.id, rel, i + 1, rule.why);
+      });
     }
 
     // R24 (T-090): no \u or \x escape in code, i.e. outside string, template and regex literals (an identifier written
@@ -574,11 +615,11 @@ export function check(root) {
       while ((k = IDB_KEYVAL_STRING_RE.exec(code))) {
         if (!typeOnlyAt.has(k.index)) add('R22-idb-keyval-default', rel, lineOf(code, k.index), R22_WHY);
       }
-      // T-090: and in the decoded copy, on the lines an escape changed ('idb-keyv\x61l')
+      // T-090: and in the decoded copy, on the lines an escape or a line continuation changed ('idb-keyv\x61l')
       IDB_KEYVAL_STRING_RE.lastIndex = 0;
-      while (dec.code !== code && (k = IDB_KEYVAL_STRING_RE.exec(dec.code))) {
-        const ln = lineOf(dec.code, k.index);
-        if (decLines[ln - 1] !== lines[ln - 1]) add('R22-idb-keyval-default', rel, ln, R22_WHY);
+      while (allDec !== code && (k = IDB_KEYVAL_STRING_RE.exec(allDec))) {
+        const ln = lineOf(allDec, k.index);
+        if (allLines[ln - 1] !== lines[ln - 1]) add('R22-idb-keyval-default', rel, ln, R22_WHY);
       }
     }
 
@@ -902,14 +943,34 @@ function selfTest() {
       ['R23-ui-snapshot', 'web/src/ai/jobs.ts', "export const s = (c: any) => c['uiCapabilities'](true);\n"],
       ['R23-ui-snapshot', 'web/src/ai/index.ts', "export { uiCapabilities as snapshot } from './capabilities';\n"],
       ['R23-ui-snapshot', 'web/src/dev/selftest/caps.ts', `// ${DEV_MARKER}\nimport { peekUiCapabilities } from '../../ai/capabilities';\n`],
+      // T-090 fix round (D-120): a line continuation, an escape hidden by a regex-vs-division mistake after `{}`, an
+      // escape that decodes to a line break (kept as written so lines stay aligned), a broad ** pattern, options nested
+      // two deep, and R9 in core/verdict.ts.
+      ['R1-ai-call', 'web/src/ui/escCont.ts', "export const x = (m: any) => m['generate\\\nContent'](r);\n"],
+      ['R1-ai-call', 'web/src/ui/escCont2.ts', "export const x = (m: any) => m[`count\\\r\nTokens`]([]);\n"],
+      ['R22-idb-keyval-default', 'web/src/core/kvCont.ts', "const m = ['idb-\\\nkeyval'];\nexport const g = (f: any) => f(m[0]);\n"],
+      ['R1-ai-call', 'web/src/ui/escDiv.ts', 'export const x = (m: any) => ({} / m.generat\\u0065Content(r) / 1);\n'],
+      ['R1-ai-call', 'web/src/ui/escKeep.ts', "const s = '\\x0a';\nexport const x = (m: any) => m['generat\\x65Content'](r);\n", 2],
+      ['R1-ai-call', 'web/src/ui/escContLine.ts', "const s = 'a\\\nb';\nexport const x = (m: any) => m['generat\\x65Content'](r);\n", 3],
+      ['R19-glob', 'web/src/core/globStar.ts', "export const m = import.meta.glob('./**/*.ts');\n"],
+      ['R19-glob', 'web/src/core/globNested.ts', "export const m = import.meta.glob('./*.ts', { query: { a: { b: 1 } } });\n"],
+      ['R9-console-in-sensitive', 'web/src/core/verdict.ts', 'export const f = (ids: string[]) => console.log(ids);\n'],
+      ['R9-console-in-sensitive', 'web/src/ui/check/anyNewFile.ts', 'export const f = (terms: string[]) => console.log(terms);\n'],
+      ['R9-console-in-sensitive', 'web/src/ui/components/verdict/AnyLine.tsx', 'export const f = (label: string) => console.log(label);\n'],
+      ['R9-console-in-sensitive', 'web/src/tier0/tier0.ts', 'export const f = (words: string[]) => console.log(words);\n'],
+      ['R9-console-in-sensitive', 'web/src/ui/components/ClueList.tsx', 'export const f = (c: unknown) => console.log(c);\n'],
+      ['R9-console-in-sensitive', 'web/src/ui/components/PhotoStage.tsx', 'export const f = (m: unknown) => console.log(m);\n'],
+      ['R9-console-in-sensitive', 'web/src/ui/components/PrescreenPanel.tsx', 'export const f = (p: unknown) => console.log(p);\n'],
+      ['R9-console-in-sensitive', 'web/src/ui/components/VerdictCard.tsx', 'export const f = (v: unknown) => console.log(v);\n'],
     ];
     const failures = [];
-    for (const [rule, rel, body] of planted) {
+    // An optional 4th element is the line the finding must report (decoded copies must keep line numbers aligned).
+    for (const [rule, rel, body, line] of planted) {
       const p = join(dir, rel);
       const had = existsSync(p) ? readFileSync(p, 'utf8') : null;
       w(rel, body);
       const v = check(dir);
-      if (!v.some((x) => x.rule === rule)) failures.push(`${rule} did not fire on ${rel}: ${JSON.stringify(body)}`);
+      if (!v.some((x) => x.rule === rule && (line === undefined || (x.file === rel && x.line === line)))) failures.push(`${rule} did not fire on ${rel}${line ? `:${line}` : ''}: ${JSON.stringify(body)}`);
       if (had === null) rmSync(p); else writeFileSync(p, had);
     }
     if (failures.length) throw new Error(failures.join('\n'));

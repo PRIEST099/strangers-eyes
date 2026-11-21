@@ -1,7 +1,7 @@
 // T-091, T-092, T-094: behaviour of Welcome, App's gate, AppShell's new wiring and Settings, driven through the real
 // components with no DOM. React's hooks are replaced by a tiny single-instance runtime (as in checkState.test.ts): a
 // component is called as a plain function and the element tree it returns is read; the props it hands its children ARE
-// its behaviour here. Effects are not run (AppShell's only touch document and window).
+// its behaviour here. Effects run only at rt.commit() (React's dependency semantics), with document/window stubbed.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { capabilityOf } from '../ai/capabilities';
 import { DEFAULT_SETTINGS, SIMS_NONE, localPrefs, type Settings as SettingsT, type Simulations } from '../core/localPrefs';
@@ -19,6 +19,10 @@ const rt = vi.hoisted(() => {
     slots[k] ??= { v: init() };
     return slots[k];
   };
+  type Deps = readonly unknown[] | undefined;
+  type EffectSlot = { ran: boolean; deps: Deps; cleanup: (() => void) | undefined };
+  let pending: Array<{ e: EffectSlot; fn: () => void | (() => void); deps: Deps }> = [];
+  const same = (a: Deps, b: Deps) => a !== undefined && b !== undefined && a.length === b.length && a.every((x, i) => Object.is(x, b[i]));
   const state = {
     route: { name: 'home' } as unknown,
     supported: true,
@@ -32,15 +36,27 @@ const rt = vi.hoisted(() => {
   };
   return {
     state,
-    reset() { slots = []; at = 0; },
-    render<P, R>(component: (p: P) => R, props: P): R { at = 0; return component(props); },
+    reset() { slots = []; at = 0; pending = []; },
+    render<P, R>(component: (p: P) => R, props: P): R { at = 0; pending = []; return component(props); },
+    /** Run the last render's effects whose deps changed, as React does at a commit. */
+    commit() {
+      const run = pending.splice(0);
+      for (const { e, fn, deps } of run) {
+        e.cleanup?.();
+        const c = fn();
+        Object.assign(e, { ran: true, deps, cleanup: typeof c === 'function' ? c : undefined });
+      }
+    },
     hooks: {
       useState: (init: unknown) => {
         const s = slot(() => (typeof init === 'function' ? (init as () => unknown)() : init));
         return [s.v, (x: unknown) => { s.v = typeof x === 'function' ? (x as (p: unknown) => unknown)(s.v) : x; }];
       },
       useRef: (init: unknown) => slot(() => ({ current: init })).v,
-      useEffect: () => { at++; },
+      useEffect: (fn: () => void | (() => void), deps?: readonly unknown[]) => {
+        const e = slot(() => ({ ran: false, deps: undefined, cleanup: undefined })).v as EffectSlot;
+        if (!e.ran || deps === undefined || !same(deps, e.deps)) pending.push({ e, fn, deps });
+      },
       useId: () => { at++; return ':id:'; },
       useCallback: (fn: unknown) => fn,
       useMemo: (fn: () => unknown) => fn(),
@@ -61,7 +77,7 @@ vi.mock('./hooks/usePrefs', () => ({
 }));
 vi.mock('./hooks/useOnline', () => ({ useOnline: () => rt.state.online }));
 vi.mock('./hooks/useMediaQuery', () => ({ useMediaQuery: () => false }));
-vi.mock('./hooks/useCapabilities', () => ({ useCapabilities: rt.useCapabilities }));
+vi.mock('./hooks/useCapabilities', async (importOriginal) => ({ ...(await importOriginal<Record<string, unknown>>()), useCapabilities: rt.useCapabilities }));
 
 // Imported after the mocks (vi.mock is hoisted anyway; this keeps the order obvious).
 const { default: App } = await import('../App');
@@ -73,6 +89,10 @@ const { UnsupportedPage } = await import('./components/UnsupportedPage');
 const { Welcome } = await import('./screens/Welcome');
 const { Settings } = await import('./screens/Settings');
 const { ShellContext } = await import('./shellContext');
+const { SystemBanner } = await import('./components/SystemBanner');
+const { CapabilityPanel } = await import('./components/CapabilityPanel');
+const { Header } = await import('./components/Header');
+const { INITIAL_STATUS, systemStatus } = await import('./systemStatus');
 const { parseHash } = await import('./router');
 
 interface El { type: unknown; props: Record<string, unknown> & { children?: unknown } }
@@ -176,6 +196,7 @@ describe("App's gate (ui/gate.ts)", () => {
       const shell = rt.render(App, {}) as El;
       expect(shell.type).toBe(AppShell);
       expect(shell.props.capabilityOnStart).toBe(false);
+      expect(shell.props.focusMainOnStart).toBe(false); // a reload: focus stays where the browser puts it
     }
   });
 
@@ -190,6 +211,7 @@ describe("App's gate (ui/gate.ts)", () => {
     const shell = rt.render(App, {}) as El;
     expect(shell.type).toBe(AppShell);
     expect(shell.props.capabilityOnStart).toBe(true);
+    expect(shell.props.focusMainOnStart).toBe(true);
     expect(shell.props.route).toEqual({ name: 'judge' });
   });
 
@@ -209,7 +231,9 @@ describe("App's gate (ui/gate.ts)", () => {
     rt.state.route = route('#/vault');
     vi.spyOn(localPrefs, 'setAck18').mockImplementation(() => { rt.state.ack = true; return true; });
     ((rt.render(App, {}) as El).props.onContinue as () => void)();
-    expect((rt.render(App, {}) as El).props.capabilityOnStart).toBe(false);
+    const shell = rt.render(App, {}) as El;
+    expect(shell.props.capabilityOnStart).toBe(false);
+    expect(shell.props.focusMainOnStart).toBe(true); // Continue is gone: the shell starts in main
   });
 
   it('when storage refuses the acknowledgement, the session still continues', () => {
@@ -263,7 +287,7 @@ describe('AppShell wiring', () => {
     expect(capSheet(tree).props.open).toBe(true);
   });
 
-  it('"Use Gemini Nano" off, or simulated no Nano, turns Nano off in the capability view; simulated offline is offline', () => {
+  it('"Use Gemini Nano" off turns Nano off in the capability view; simulated offline is offline', () => {
     const r = route('#/');
     shell(r);
     expect(rt.useCapabilities).toHaveBeenLastCalledWith({ online: true, nanoEnabled: true });
@@ -273,10 +297,6 @@ describe('AppShell wiring', () => {
     expect(rt.useCapabilities).toHaveBeenLastCalledWith({ online: true, nanoEnabled: false });
     rt.reset();
     rt.state.settings = DEFAULT_SETTINGS;
-    rt.state.sims = { noNano: true, offline: false };
-    shell(r);
-    expect(rt.useCapabilities).toHaveBeenLastCalledWith({ online: true, nanoEnabled: false });
-    rt.reset();
     rt.state.sims = { noNano: false, offline: true };
     const tree = shell(r);
     expect(rt.useCapabilities).toHaveBeenLastCalledWith({ online: false, nanoEnabled: true });
@@ -289,6 +309,142 @@ describe('AppShell wiring', () => {
     rt.state.online = false;
     shell(route('#/'));
     expect(rt.useCapabilities).toHaveBeenLastCalledWith({ online: false, nanoEnabled: true });
+  });
+});
+
+describe('AppShell: focus, the daily cap, simulated no Nano, stale events (T-091/T-094 review)', () => {
+  const capSheet = (tree: unknown) => ofType(tree, Sheet).find((x) => x.props.title === t('copy.cap.title')) as El;
+  afterEach(() => {
+    systemStatus.set({ killSwitch: false, dailyCap: INITIAL_STATUS.dailyCap });
+    systemStatus.clearEvents();
+  });
+
+  /** Render AppShell with a stubbed document/window and a fake <main> behind its ref. */
+  function mount(props: { route: AppRoute; capabilityOnStart?: boolean; focusMainOnStart?: boolean }) {
+    const focus = vi.fn();
+    const body = { tag: 'body' };
+    const doc = { title: '', activeElement: body as unknown, body };
+    const scrollTo = vi.fn();
+    vi.stubGlobal('document', doc);
+    vi.stubGlobal('window', { scrollTo });
+    const all = { children: null, ...props };
+    let tree = rt.render(AppShell, all);
+    const main = find(tree, (e) => e.type === 'main')[0];
+    const fakeMain = { focus, scrollTop: 7 };
+    (main.props.ref as { current: unknown }).current = fakeMain;
+    return { get tree() { return tree; }, focus, doc, body, scrollTo, fakeMain, rerender: () => { tree = rt.render(AppShell, all); return tree; } };
+  }
+
+  it('straight after Welcome the shell focuses main, once, without scrolling', () => {
+    const m = mount({ route: route('#/'), focusMainOnStart: true });
+    rt.commit();
+    expect(m.focus).toHaveBeenCalledTimes(1);
+    expect(m.focus).toHaveBeenCalledWith({ preventScroll: true });
+    expect(m.fakeMain.scrollTop).toBe(7);
+    m.rerender();
+    rt.commit();
+    expect(m.focus).toHaveBeenCalledTimes(1);
+  });
+
+  it('on a normal load, or when SCR-02 opens on mount (it holds focus), the shell does not take focus', () => {
+    const a = mount({ route: route('#/') });
+    rt.commit();
+    expect(a.focus).not.toHaveBeenCalled();
+    rt.reset();
+    const b = mount({ route: route('#/judge'), capabilityOnStart: true, focusMainOnStart: true });
+    rt.commit();
+    expect(b.focus).not.toHaveBeenCalled();
+  });
+
+  it('when SCR-02 closes and focus fell back to <body> (its opener is gone), main takes focus', () => {
+    const m = mount({ route: route('#/judge'), capabilityOnStart: true, focusMainOnStart: true });
+    rt.commit();
+    m.doc.activeElement = m.body;
+    (capSheet(m.tree).props.onClose as () => void)();
+    expect(m.focus).toHaveBeenCalledWith({ preventScroll: true });
+  });
+
+  it('when SCR-02 closes and focus went back to its opener, focus stays there', () => {
+    const m = mount({ route: route('#/settings') });
+    rt.commit();
+    ((ofType(m.tree, ShellContext.Provider)[0].props.value as ShellApi).openCapability)();
+    m.rerender();
+    m.doc.activeElement = { tag: 'button' }; // the Sheet already returned focus to the chip
+    (capSheet(m.tree).props.onClose as () => void)();
+    expect(m.focus).not.toHaveBeenCalled();
+  });
+
+  it('dismissing a banner moves focus to main (its Dismiss button is gone)', () => {
+    systemStatus.report('network');
+    const m = mount({ route: route('#/') });
+    const banner = ofType(m.tree, SystemBanner)[0];
+    expect((banner.props.banners as Array<{ kind: string }>).map((b) => b.kind)).toEqual(['network']);
+    (banner.props.onDismiss as (k: string) => void)('network');
+    expect(systemStatus.get().events).toEqual([]);
+    expect(m.focus).toHaveBeenCalledWith({ preventScroll: true });
+  });
+
+  it('per-call events are cleared when the cloud goes off, so they never reappear when it returns', () => {
+    systemStatus.report('network');
+    mount({ route: route('#/') });
+    rt.commit();
+    expect(systemStatus.get().events).toEqual(['network']); // cloud on: kept
+    rt.reset();
+    systemStatus.set({ killSwitch: true });
+    mount({ route: route('#/') });
+    rt.commit();
+    expect(systemStatus.get().events).toEqual([]);
+    systemStatus.set({ killSwitch: false });
+    rt.reset();
+    expect((ofType(mount({ route: route('#/') }).tree, SystemBanner)[0].props.banners as unknown[])).toEqual([]);
+  });
+
+  it('daily cap reached (used ≥ the store cap): banner with the cap, "Cloud limit reached" chip, SCR-02 row 3 "cap"', () => {
+    rt.state.capUsed = INITIAL_STATUS.dailyCap;
+    let tree = mount({ route: route('#/') }).tree;
+    const banners = () => ofType(tree, SystemBanner)[0].props.banners as Array<{ kind: string; params?: { cap: number } }>;
+    expect(banners()).toEqual([expect.objectContaining({ kind: 'dailyCap', params: { cap: INITIAL_STATUS.dailyCap } })]);
+    expect(ofType(tree, Header)[0].props.connectivity).toBe('cloudCap');
+    expect(ofType(tree, CapabilityPanel)[0].props.cloud).toBe('cap');
+    // A non-default cap from RC (T-103): reached at 5, not before.
+    systemStatus.set({ dailyCap: 5 });
+    rt.reset();
+    rt.state.capUsed = 4;
+    tree = mount({ route: route('#/') }).tree;
+    expect(banners()).toEqual([]);
+    expect(ofType(tree, Header)[0].props.connectivity).toBe('online');
+    expect(ofType(tree, CapabilityPanel)[0].props.cloud).toBe('ready');
+    rt.reset();
+    rt.state.capUsed = 5;
+    tree = mount({ route: route('#/') }).tree;
+    expect(banners()[0].params).toEqual({ cap: 5 });
+  });
+
+  it('"Simulate: no Nano" shows state (c) as a browser without the Prompt API (AC-072), never an upgrade', () => {
+    rt.state.caps = view({
+      capability: capabilityOf({ text: 'available', image: 'available', nanoEnabled: true, online: true }),
+      chip: { kind: 'nano' },
+    });
+    rt.state.sims = { noNano: true, offline: false };
+    let tree = mount({ route: route('#/') }).tree;
+    expect(rt.useCapabilities).toHaveBeenLastCalledWith({ online: true, nanoEnabled: true });
+    const api = ofType(tree, ShellContext.Provider)[0].props.value as ShellApi;
+    expect(api.caps.capability).toMatchObject({ state: 'c', noNano: 'no-api', downloadIo: null });
+    expect(api.caps.chip).toEqual({ kind: 'rulesOnly' });
+    expect(api.caps.download).toEqual({ kind: 'idle' });
+    expect(ofType(tree, CapabilityPanel)[0].props.caps).toBe(api.caps);
+    expect(ofType(tree, Header)[0].props.capability).toEqual({ kind: 'rulesOnly' });
+    // "Use Gemini Nano" off keeps its own precedence ('disabled'), as in capabilityOf.
+    rt.reset();
+    rt.state.settings = { ...DEFAULT_SETTINGS, useNano: false };
+    tree = mount({ route: route('#/') }).tree;
+    expect((ofType(tree, ShellContext.Provider)[0].props.value as ShellApi).caps.capability.noNano).toBe('disabled');
+    // No simulation: the real view, untouched.
+    rt.reset();
+    rt.state.settings = DEFAULT_SETTINGS;
+    rt.state.sims = SIMS_NONE;
+    tree = mount({ route: route('#/') }).tree;
+    expect((ofType(tree, ShellContext.Provider)[0].props.value as ShellApi).caps).toBe(rt.state.caps);
   });
 });
 
@@ -337,6 +493,16 @@ describe('Settings behaviour (SCR-20)', () => {
     rt.state.capUsed = 7;
     const tree = rt.render(Settings, { deps: NONE, debug: false });
     expect(text(tree)).toContain(t('ui.settings.usage.today', { used: 7, cap: 20 }));
+  });
+
+  it('usage shows the store\u2019s cap (RC), not the template default', () => {
+    rt.state.capUsed = 3;
+    systemStatus.set({ dailyCap: 7 });
+    try {
+      expect(text(rt.render(Settings, { deps: NONE, debug: false }))).toContain(t('ui.settings.usage.today', { used: 3, cap: 7 }));
+    } finally {
+      systemStatus.set({ dailyCap: INITIAL_STATUS.dailyCap });
+    }
   });
 
   it('On-device AI: the Download button appears in state (b) and starts the download from the click', () => {

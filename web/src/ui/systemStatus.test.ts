@@ -192,6 +192,24 @@ describe('the store', () => {
     expect(RATE_LIMIT_MS).toBe(60_000);
   });
 
+  it('clearEvents drops every event and cancels the 429 timer; with nothing to clear it does not notify', () => {
+    const ft = fakeTimers();
+    const st = createSystemStatusStore(ft.timers);
+    st.report('rateLimit');
+    st.report('network');
+    const l = vi.fn();
+    st.subscribe(l);
+    st.clearEvents();
+    expect(st.get().events).toEqual([]);
+    expect(ft.pending.size).toBe(0);
+    expect(l).toHaveBeenCalledTimes(1);
+    st.clearEvents();
+    expect(l).toHaveBeenCalledTimes(1);
+    st.markTripwire();
+    st.clearEvents();
+    expect(st.get().tripwire).toBe(true); // only events go
+  });
+
   it('unsubscribe stops notifications', () => {
     const st = createSystemStatusStore(fakeTimers().timers);
     const l = vi.fn();

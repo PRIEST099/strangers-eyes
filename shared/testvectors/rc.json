@@ -1,5 +1,5 @@
 {
-  "description": "Remote Config validation vectors (ARCH §7, §13; SPEC AC-020, AC-293). Single source of truth for web/src/core/routing.test.ts and web/src/firebase/rcParse.test.ts (Vitest) and the iOS RemoteConfigService XCTest port (ARCH §19.3; SPEC §10.7, AC-168). T-060 wrote the `routingPolicy` section (D-96); T-102 added one sibling section per other RC key, `keyConventions` and `effectiveConfig` (D-108).",
+  "description": "Remote Config validation vectors (ARCH §7, §13; SPEC AC-020, AC-293). Single source of truth for web/src/core/routing.test.ts and web/src/firebase/rcParse.test.ts (Vitest) and the iOS RemoteConfigService XCTest port (ARCH §19.3; SPEC §10.7, AC-168). T-060 wrote the `routingPolicy` section (D-96); T-102 added one sibling section per other RC key, `keyConventions` and `effectiveConfig` (D-108, D-118).",
   "routingPolicy": {
     "conventions": [
       "Input forms: {\"absent\": true} = no RC value yet; {\"notString\": v} = a non-string value (web only: an iOS RemoteConfigValue is always a string, so iOS skips these); {\"raw\": s} = this exact string; {\"edits\": [...]} = apply the edits in order to a deep copy of `default`, then serialise it as compact JSON; {\"padTo\": n} = compact `default` with spaces inserted before its final \"}\" until it is n characters long; {\"repeat\": {\"text\": t, \"times\": n}} = t repeated n times.",
@@ -3632,7 +3632,7 @@
   "keyConventions": [
     "Every RC key except routing_policy has one section, named by the key in camelCase (kill_switch → killSwitch). Each has `key`, `type` (the template valueType), `rule` (prose) and `cases`. routing_policy keeps its own section and format (routingPolicy, D-96).",
     "Input forms: {\"raw\": s} = this exact string; {\"notString\": v} = a non-string value (web only: an iOS RemoteConfigValue is always a string, so iOS skips these); {\"repeat\": {\"text\": t, \"times\": n}} = t repeated n times; {\"padTo\": n} = the key's template default string with spaces inserted before its final character until it is n characters long.",
-    "expect.value is the parsed value (JSON). expect.warning is null, \"invalid\" (the whole value was refused: the default is used, except kill_switch → true and data_tier → \"free\"), \"clamped\" (a number was moved into range or floored/rounded) or \"partial\" (a JSON object was used but some entries took their defaults or were ignored).",
+    "expect.value is the parsed value (JSON). expect.warning is null, \"invalid\" (the whole value was refused: the default is used, except kill_switch → true, data_tier → \"free\" and grounding_enabled → false), \"clamped\" (a number was moved into range or floored/rounded) or \"partial\" (a JSON object was used but some entries took their defaults or were ignored).",
     "Only ASCII space, tab, CR and LF around a boolean, number or enum value are ignored; never BOM, NBSP or zero-width characters. Case folding is ASCII only and only for booleans, thinking levels and data_tier; model ids are never trimmed or folded. Numbers must be JSON numbers (no \"+\", hex, Infinity, NaN or leading zeros) and finite.",
     "Length caps (UTF-16 code units, checked before parsing): boolean 16, number 32, model id and enum 64, JSON 4096 (routing_policy: 8192)."
   ],
@@ -4843,7 +4843,7 @@
   "groundingEnabled": {
     "key": "grounding_enabled",
     "type": "BOOLEAN",
-    "rule": "BOOLEAN; a refused value is the default. AppConfig.groundingEnabled is this AND data_tier = paid (see effectiveConfig)",
+    "rule": "BOOLEAN; a refused value is FALSE (pass A off: fail safe, D-118), never the default. AppConfig.groundingEnabled is this AND data_tier = paid (see effectiveConfig)",
     "cases": [
       {
         "name": "\"true\"",
@@ -4901,7 +4901,7 @@
           "raw": "1"
         },
         "expect": {
-          "value": true,
+          "value": false,
           "warning": "invalid"
         }
       },
@@ -4911,7 +4911,7 @@
           "raw": "yes"
         },
         "expect": {
-          "value": true,
+          "value": false,
           "warning": "invalid"
         }
       },
@@ -4921,7 +4921,7 @@
           "raw": ""
         },
         "expect": {
-          "value": true,
+          "value": false,
           "warning": "invalid"
         }
       },
@@ -4931,7 +4931,7 @@
           "raw": "\"true\""
         },
         "expect": {
-          "value": true,
+          "value": false,
           "warning": "invalid"
         }
       },
@@ -4941,7 +4941,7 @@
           "raw": " true"
         },
         "expect": {
-          "value": true,
+          "value": false,
           "warning": "invalid"
         }
       },
@@ -4951,7 +4951,7 @@
           "raw": "﻿true"
         },
         "expect": {
-          "value": true,
+          "value": false,
           "warning": "invalid"
         }
       },
@@ -4961,7 +4961,7 @@
           "raw": "true​"
         },
         "expect": {
-          "value": true,
+          "value": false,
           "warning": "invalid"
         }
       },
@@ -4971,7 +4971,7 @@
           "raw": "truе"
         },
         "expect": {
-          "value": true,
+          "value": false,
           "warning": "invalid"
         }
       },
@@ -4981,7 +4981,7 @@
           "raw": "falſe"
         },
         "expect": {
-          "value": true,
+          "value": false,
           "warning": "invalid"
         }
       },
@@ -4991,7 +4991,7 @@
           "raw": "             true"
         },
         "expect": {
-          "value": true,
+          "value": false,
           "warning": "invalid"
         }
       },
@@ -5001,7 +5001,7 @@
           "notString": true
         },
         "expect": {
-          "value": true,
+          "value": false,
           "warning": "invalid"
         }
       }
@@ -9532,6 +9532,17 @@
         },
         "expect": {
           "killSwitch": true
+        }
+      },
+      {
+        "name": "a refused grounding value turns grounding off on the paid tier",
+        "raw": {
+          "data_tier": "paid",
+          "grounding_enabled": "yes"
+        },
+        "expect": {
+          "groundingEnabled": false,
+          "dataTier": "paid"
         }
       }
     ]

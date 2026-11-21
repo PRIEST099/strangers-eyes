@@ -10,14 +10,24 @@ import type { AppRoute } from './router';
 export interface BrowserEnv {
   readonly wasm: string;
   readonly idb: string;
+  /** `typeof indexedDB.deleteDatabase`: 'function' only on a real IDBFactory (not null, as with IndexedDB disabled). */
+  readonly idbDelete: string;
 }
 
 /** Strangers' Eyes needs WebAssembly (MediaPipe, Tesseract) and IndexedDB (the sealed vault). */
-export const browserSupported = (env: BrowserEnv): boolean => env.wasm === 'object' && env.idb === 'object';
+export const browserSupported = (env: BrowserEnv): boolean =>
+  env.wasm === 'object' && env.idb === 'object' && env.idbDelete === 'function';
 
-/** This browser, now. */
+/**
+ * This browser, now. Never throws: an `indexedDB` getter that throws (site data blocked), an `indexedDB` that is null
+ * (Firefox with IndexedDB disabled: reading `.deleteDatabase` throws) or a missing one all mean unsupported.
+ */
 export function detectBrowserSupport(): boolean {
-  return browserSupported({ wasm: typeof WebAssembly, idb: typeof indexedDB });
+  try {
+    return browserSupported({ wasm: typeof WebAssembly, idb: typeof indexedDB, idbDelete: typeof indexedDB.deleteDatabase });
+  } catch {
+    return false;
+  }
 }
 
 export type TopScreen = 'unsupported' | 'welcome' | 'app';

@@ -1,0 +1,5640 @@
+{
+ "description": "The verdict engine (SPEC §10.1, §10.2, §10.5, §10.6; ARCH §12.3, §12.4; D-115, D-116, D-127, D-128; AC-160, AC-164, AC-166, AC-194). Single source of truth for web/src/core/verdict.test.ts (Vitest) and the iOS XCTest port (SPEC §10.7, AC-168). Each case has an `fn` naming the function under test, a human `name`, its inputs and `expect`.",
+ "conventions": [
+  "fn build: buildVerdict(input) where input.vault lists keys of `vault` (in that order) and every other input field is passed as is (adv is the validated pass B in camelCase: status, hypotheses, inferences; null when there is none). expect holds the whole Verdict (level, phase, noVault, lines, pinBands, notLinkedVaultIds, bestGuess; matches when given) plus derived copy: headlineId (SPEC §10.5), texts (each line rendered with shared/strings/en.json; a pin_match appends ' · ' and its band words), bestGuessText (copy.verdict.bestGuess or null) and notLinkedText (copy.verdict.notLinked, KIND display names in vault order joined by ' · ', a repeated name once, or null).",
+  "fn compare: build both inputs, then compareVerdicts(before, after): riskReduced (SPEC §10.6; PARTIAL on either side is false), riskReduced (SPEC §10.6 as amended by D-128: the level dropped, or the same level with a coarser worst pin band AND fewer HIGH lines; AND no vault item's worst line severity rose; AND the worst pin band did not get finer; AND both cover the same vault item ids with the same noVault; PARTIAL on either side is false), worstRemainingLineId (the first most severe line of after: HIGH > MEDIUM > INFO; caught lines never count) and headline (D-116, D-128: after PARTIAL → copy.verdict.partial; reduced → copy.verdict.reduced with band words when the worst pin band got coarser, else the two level headlines' text; not reduced and after LOW with no HIGH or MEDIUM line → copy.verdict.low; else copy.verdict.still naming the worst remaining line's text, else the best-guess text, else the after headline's text).",
+  "Bands: SPEC §10.1 over the first 3 hypotheses of an ok pass B: e = max(haversine, radiusKm × 1000), the smallest e wins, ties keep the earlier hypothesis. street/neighbourhood HIGH, district MEDIUM, city INFO, country/none no line. A pin item without a pin is band none. RC bands are validated by bandThresholdsOrDefault (D-77). pinBands never carry effectiveKm (always null): the verdict holds bands, never a measured distance.",
+  "Matches: a match counts only with a known claim (refereeClaims: inferences, then hypotheses), a known vault item and a STRENGTHS value. A repeated (claim, item) pair keeps the stronger, the first on a tie. Verdict.matches are sorted by claim order, then vault order. Per item the line uses the strongest match, then the higher claim confidence, then the earlier claim.",
+  "Lines per vault item in vault order: pin_match (a match and a band of street..city: the match copy, KIND and band words, the higher severity, confidence = the claim's, bandConfidence = the band hypothesis's, clueIds = match clues then hypothesis clues without repeats), else match, else pin; then echo (HIGH, no confidence: code found the vault string in pass B's free text); then caught (CAUGHT, route as given, first entry per item). Items with no line are Not linked. Lines are then sorted HIGH, MEDIUM, INFO, CAUGHT, ties broken by build index (Swift's sort is not stable: sort by (severity, index)). Line ids are '<kind>:<vaultId>' and 'found_on_device'.",
+  "Level: RED if any line is HIGH, else AMBER if any is MEDIUM, else LOW. Empty vault (no items): no lines, noVault true. noPins = no item of a pin kind that carries a pin (an empty vault too): then the level is the higher of the line rule and the FINEST hypothesis level among the (≤3) ok hypotheses (street/neighbourhood RED, district AMBER, else LOW) (D-127). The best guess is still h1. PARTIAL when refused is true, adv is null, or adv.status is not ok / no_location_signal: lines are echo lines, one found_on_device line (INFO; the distinct valid clue types in first-seen order, underscores as spaces, joined by ', ') and caught lines; no bands, matches, Not linked or best guess. no_location_signal: no hypotheses and no claims.",
+  "KIND is SPEC §17.3 (place_pin: the label in capitals, or PLACE). Attacker text (the best-guess label, referee reasons) goes through scrubAttackerText: EVERY digit run (any \\p{Nd}, superscript or subscript digits) with its sign, internal separators (. , · ‧ ٫ ٬ ， ．, an exponent e±n) and a following unit (m, km, mi, ft, d, not followed by a letter) or degree/minute/second mark becomes '…', and ellipses separated only by spaces, commas or semicolons collapse into one (D-127). The user's own label in KIND keeps scrubNumbers (decimals and degree expressions only, D-115).",
+  "fn scrub: mode attacker → scrubAttackerText(input), mode label → scrubNumbers(input); expect is the exact output.",
+  "Coordinates are synthetic, in the open South Atlantic near 0.5, -30.5 (no land within 100 km). 0.001° of latitude is 111.195 m."
+ ],
+ "vault": {
+  "home": {
+   "id": "v-home",
+   "kind": "home_pin",
+   "label": "Home",
+   "aliases": [],
+   "pin": {
+    "lat": 0.5,
+    "lng": -30.5,
+    "accuracyM": 0,
+    "capturedAt": 0,
+    "source": "synthetic"
+   },
+   "createdAt": 0
+  },
+  "work": {
+   "id": "v-work",
+   "kind": "work_pin",
+   "label": "City General Hospital",
+   "aliases": [],
+   "pin": {
+    "lat": 0.6,
+    "lng": -30.5,
+    "accuracyM": 0,
+    "capturedAt": 0,
+    "source": "synthetic"
+   },
+   "createdAt": 0
+  },
+  "school": {
+   "id": "v-school",
+   "kind": "school_pin",
+   "label": "St. Mary's Primary",
+   "aliases": [],
+   "pin": {
+    "lat": 0.7,
+    "lng": -30.5,
+    "accuracyM": 0,
+    "capturedAt": 0,
+    "source": "synthetic"
+   },
+   "createdAt": 0
+  },
+  "gym": {
+   "id": "v-gym",
+   "kind": "place_pin",
+   "label": "Harbourside Gym",
+   "aliases": [],
+   "pin": {
+    "lat": 0.8,
+    "lng": -30.5,
+    "accuracyM": 0,
+    "capturedAt": 0,
+    "source": "synthetic"
+   },
+   "createdAt": 0
+  },
+  "place": {
+   "id": "v-place",
+   "kind": "place_pin",
+   "label": "",
+   "aliases": [],
+   "pin": {
+    "lat": 0.9,
+    "lng": -30.5,
+    "accuracyM": 0,
+    "capturedAt": 0,
+    "source": "synthetic"
+   },
+   "createdAt": 0
+  },
+  "unit": {
+   "id": "v-unit",
+   "kind": "place_pin",
+   "label": "Unit 4.5",
+   "aliases": [],
+   "pin": {
+    "lat": 0.9,
+    "lng": -30.5,
+    "accuracyM": 0,
+    "capturedAt": 0,
+    "source": "synthetic"
+   },
+   "createdAt": 0
+  },
+  "nopin": {
+   "id": "v-nopin",
+   "kind": "home_pin",
+   "label": "Home",
+   "aliases": [],
+   "createdAt": 0
+  },
+  "employer": {
+   "id": "v-emp",
+   "kind": "employer",
+   "label": "Lantern Bakery",
+   "aliases": [],
+   "createdAt": 0
+  },
+  "kid": {
+   "id": "v-kid",
+   "kind": "child_name",
+   "label": "Lucas",
+   "aliases": [],
+   "createdAt": 0
+  },
+  "plate": {
+   "id": "v-plate",
+   "kind": "plate",
+   "label": "SE 1234",
+   "aliases": [],
+   "createdAt": 0
+  },
+  "dupHome": {
+   "id": "v-home",
+   "kind": "employer",
+   "label": "Lantern Bakery",
+   "aliases": [],
+   "createdAt": 0
+  },
+  "elm": {
+   "id": "v-elm",
+   "kind": "street_name",
+   "label": "Elm Street",
+   "aliases": [],
+   "createdAt": 0
+  }
+ },
+ "cases": [
+  {
+   "fn": "build",
+   "name": "band street: one HOME pin line",
+   "ac": "AC-160",
+   "input": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Quay Road area",
+       "level": "street",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 0.2,
+       "confidence": "high",
+       "clueIds": [
+        "c1"
+       ]
+      }
+     ],
+     "inferences": []
+    },
+    "matches": [],
+    "vault": [
+     "home"
+    ]
+   },
+   "expect": {
+    "level": "RED",
+    "headlineId": "copy.verdict.red",
+    "noVault": false,
+    "noPins": false,
+    "phase": "initial",
+    "lines": [
+     {
+      "id": "pin:v-home",
+      "kind": "pin",
+      "severity": "HIGH",
+      "copyId": "copy.verdict.pin",
+      "params": {
+       "KIND": "HOME",
+       "band words": "within 250 m (street level)"
+      },
+      "vaultId": "v-home",
+      "band": "street",
+      "confidence": "high",
+      "clueIds": [
+       "c1"
+      ],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "texts": [
+     "HOME: within 250 m (street level)"
+    ],
+    "pinBands": [
+     {
+      "vaultId": "v-home",
+      "band": "street",
+      "hypothesisId": "h1",
+      "confidence": "high",
+      "effectiveKm": null
+     }
+    ],
+    "notLinkedVaultIds": [],
+    "bestGuess": {
+     "level": "street",
+     "label": "Quay Road area",
+     "confidence": "high"
+    },
+    "bestGuessText": "Attacker's best guess: street level · Quay Road area · high",
+    "notLinkedText": null
+   }
+  },
+  {
+   "fn": "build",
+   "name": "band neighbourhood: one HOME pin line",
+   "ac": "AC-160",
+   "input": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Quay Road area",
+       "level": "street",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 0.8,
+       "confidence": "medium",
+       "clueIds": [
+        "c1"
+       ]
+      }
+     ],
+     "inferences": []
+    },
+    "matches": [],
+    "vault": [
+     "home"
+    ]
+   },
+   "expect": {
+    "level": "RED",
+    "headlineId": "copy.verdict.red",
+    "noVault": false,
+    "noPins": false,
+    "phase": "initial",
+    "lines": [
+     {
+      "id": "pin:v-home",
+      "kind": "pin",
+      "severity": "HIGH",
+      "copyId": "copy.verdict.pin",
+      "params": {
+       "KIND": "HOME",
+       "band words": "within 1 km (neighbourhood)"
+      },
+      "vaultId": "v-home",
+      "band": "neighbourhood",
+      "confidence": "medium",
+      "clueIds": [
+       "c1"
+      ],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "texts": [
+     "HOME: within 1 km (neighbourhood)"
+    ],
+    "pinBands": [
+     {
+      "vaultId": "v-home",
+      "band": "neighbourhood",
+      "hypothesisId": "h1",
+      "confidence": "medium",
+      "effectiveKm": null
+     }
+    ],
+    "notLinkedVaultIds": [],
+    "bestGuess": {
+     "level": "street",
+     "label": "Quay Road area",
+     "confidence": "medium"
+    },
+    "bestGuessText": "Attacker's best guess: street level · Quay Road area · medium",
+    "notLinkedText": null
+   }
+  },
+  {
+   "fn": "build",
+   "name": "band district: one HOME pin line",
+   "ac": "AC-160",
+   "input": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Quay Road area",
+       "level": "street",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 3,
+       "confidence": "medium",
+       "clueIds": [
+        "c1"
+       ]
+      }
+     ],
+     "inferences": []
+    },
+    "matches": [],
+    "vault": [
+     "home"
+    ]
+   },
+   "expect": {
+    "level": "AMBER",
+    "headlineId": "copy.verdict.amber",
+    "noVault": false,
+    "noPins": false,
+    "phase": "initial",
+    "lines": [
+     {
+      "id": "pin:v-home",
+      "kind": "pin",
+      "severity": "MEDIUM",
+      "copyId": "copy.verdict.pin",
+      "params": {
+       "KIND": "HOME",
+       "band words": "within 5 km (district)"
+      },
+      "vaultId": "v-home",
+      "band": "district",
+      "confidence": "medium",
+      "clueIds": [
+       "c1"
+      ],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "texts": [
+     "HOME: within 5 km (district)"
+    ],
+    "pinBands": [
+     {
+      "vaultId": "v-home",
+      "band": "district",
+      "hypothesisId": "h1",
+      "confidence": "medium",
+      "effectiveKm": null
+     }
+    ],
+    "notLinkedVaultIds": [],
+    "bestGuess": {
+     "level": "street",
+     "label": "Quay Road area",
+     "confidence": "medium"
+    },
+    "bestGuessText": "Attacker's best guess: street level · Quay Road area · medium",
+    "notLinkedText": null
+   }
+  },
+  {
+   "fn": "build",
+   "name": "band city: one HOME pin line",
+   "ac": "AC-160",
+   "input": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Quay Road area",
+       "level": "street",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 20,
+       "confidence": "low",
+       "clueIds": [
+        "c1"
+       ]
+      }
+     ],
+     "inferences": []
+    },
+    "matches": [],
+    "vault": [
+     "home"
+    ]
+   },
+   "expect": {
+    "level": "LOW",
+    "headlineId": "copy.verdict.low",
+    "noVault": false,
+    "noPins": false,
+    "phase": "initial",
+    "lines": [
+     {
+      "id": "pin:v-home",
+      "kind": "pin",
+      "severity": "INFO",
+      "copyId": "copy.verdict.pin",
+      "params": {
+       "KIND": "HOME",
+       "band words": "same city area"
+      },
+      "vaultId": "v-home",
+      "band": "city",
+      "confidence": "low",
+      "clueIds": [
+       "c1"
+      ],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "texts": [
+     "HOME: same city area"
+    ],
+    "pinBands": [
+     {
+      "vaultId": "v-home",
+      "band": "city",
+      "hypothesisId": "h1",
+      "confidence": "low",
+      "effectiveKm": null
+     }
+    ],
+    "notLinkedVaultIds": [],
+    "bestGuess": {
+     "level": "street",
+     "label": "Quay Road area",
+     "confidence": "low"
+    },
+    "bestGuessText": "Attacker's best guess: street level · Quay Road area · low",
+    "notLinkedText": null
+   }
+  },
+  {
+   "fn": "build",
+   "name": "band country: no risk line, the pin is Not linked",
+   "ac": "AC-160",
+   "input": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Quay Road area",
+       "level": "street",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 200,
+       "confidence": "high",
+       "clueIds": []
+      }
+     ],
+     "inferences": []
+    },
+    "matches": [],
+    "vault": [
+     "home"
+    ]
+   },
+   "expect": {
+    "level": "LOW",
+    "headlineId": "copy.verdict.low",
+    "noVault": false,
+    "noPins": false,
+    "phase": "initial",
+    "lines": [],
+    "texts": [],
+    "pinBands": [
+     {
+      "vaultId": "v-home",
+      "band": "country",
+      "hypothesisId": "h1",
+      "confidence": "high",
+      "effectiveKm": null
+     }
+    ],
+    "notLinkedVaultIds": [
+     "v-home"
+    ],
+    "bestGuess": {
+     "level": "street",
+     "label": "Quay Road area",
+     "confidence": "high"
+    },
+    "bestGuessText": "Attacker's best guess: street level · Quay Road area · high",
+    "notLinkedText": "Not linked: HOME"
+   }
+  },
+  {
+   "fn": "build",
+   "name": "band none: no risk line, the pin is Not linked",
+   "ac": "AC-160",
+   "input": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Quay Road area",
+       "level": "street",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 800,
+       "confidence": "high",
+       "clueIds": []
+      }
+     ],
+     "inferences": []
+    },
+    "matches": [],
+    "vault": [
+     "home"
+    ]
+   },
+   "expect": {
+    "level": "LOW",
+    "headlineId": "copy.verdict.low",
+    "noVault": false,
+    "noPins": false,
+    "phase": "initial",
+    "lines": [],
+    "texts": [],
+    "pinBands": [
+     {
+      "vaultId": "v-home",
+      "band": "none",
+      "hypothesisId": "h1",
+      "confidence": "high",
+      "effectiveKm": null
+     }
+    ],
+    "notLinkedVaultIds": [
+     "v-home"
+    ],
+    "bestGuess": {
+     "level": "street",
+     "label": "Quay Road area",
+     "confidence": "high"
+    },
+    "bestGuessText": "Attacker's best guess: street level · Quay Road area · high",
+    "notLinkedText": "Not linked: HOME"
+   }
+  },
+  {
+   "fn": "build",
+   "name": "distance decides: 889.6 m from the pin is neighbourhood",
+   "input": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Quay Road area",
+       "level": "street",
+       "lat": 0.508,
+       "lng": -30.5,
+       "radiusKm": 0.1,
+       "confidence": "medium",
+       "clueIds": []
+      }
+     ],
+     "inferences": []
+    },
+    "matches": [],
+    "vault": [
+     "home"
+    ]
+   },
+   "expect": {
+    "level": "RED",
+    "headlineId": "copy.verdict.red",
+    "noVault": false,
+    "noPins": false,
+    "phase": "initial",
+    "lines": [
+     {
+      "id": "pin:v-home",
+      "kind": "pin",
+      "severity": "HIGH",
+      "copyId": "copy.verdict.pin",
+      "params": {
+       "KIND": "HOME",
+       "band words": "within 1 km (neighbourhood)"
+      },
+      "vaultId": "v-home",
+      "band": "neighbourhood",
+      "confidence": "medium",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "texts": [
+     "HOME: within 1 km (neighbourhood)"
+    ],
+    "pinBands": [
+     {
+      "vaultId": "v-home",
+      "band": "neighbourhood",
+      "hypothesisId": "h1",
+      "confidence": "medium",
+      "effectiveKm": null
+     }
+    ],
+    "notLinkedVaultIds": [],
+    "bestGuess": {
+     "level": "street",
+     "label": "Quay Road area",
+     "confidence": "medium"
+    },
+    "bestGuessText": "Attacker's best guess: street level · Quay Road area · medium",
+    "notLinkedText": null
+   }
+  },
+  {
+   "fn": "build",
+   "name": "distance decides: 1000.8 m from the pin is district",
+   "input": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Quay Road area",
+       "level": "street",
+       "lat": 0.509,
+       "lng": -30.5,
+       "radiusKm": 0.1,
+       "confidence": "medium",
+       "clueIds": []
+      }
+     ],
+     "inferences": []
+    },
+    "matches": [],
+    "vault": [
+     "home"
+    ]
+   },
+   "expect": {
+    "level": "AMBER",
+    "headlineId": "copy.verdict.amber",
+    "noVault": false,
+    "noPins": false,
+    "phase": "initial",
+    "lines": [
+     {
+      "id": "pin:v-home",
+      "kind": "pin",
+      "severity": "MEDIUM",
+      "copyId": "copy.verdict.pin",
+      "params": {
+       "KIND": "HOME",
+       "band words": "within 5 km (district)"
+      },
+      "vaultId": "v-home",
+      "band": "district",
+      "confidence": "medium",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "texts": [
+     "HOME: within 5 km (district)"
+    ],
+    "pinBands": [
+     {
+      "vaultId": "v-home",
+      "band": "district",
+      "hypothesisId": "h1",
+      "confidence": "medium",
+      "effectiveKm": null
+     }
+    ],
+    "notLinkedVaultIds": [],
+    "bestGuess": {
+     "level": "street",
+     "label": "Quay Road area",
+     "confidence": "medium"
+    },
+    "bestGuessText": "Attacker's best guess: street level · Quay Road area · medium",
+    "notLinkedText": null
+   }
+  },
+  {
+   "fn": "build",
+   "name": "the closest hypothesis gives the band and its confidence, whatever the ranking",
+   "input": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Port district",
+       "level": "city",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 20,
+       "confidence": "high",
+       "clueIds": [
+        "c1"
+       ]
+      },
+      {
+       "id": "h2",
+       "label": "Quay Road area",
+       "level": "street",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 0.2,
+       "confidence": "low",
+       "clueIds": [
+        "c2"
+       ]
+      }
+     ],
+     "inferences": []
+    },
+    "matches": [],
+    "vault": [
+     "home"
+    ]
+   },
+   "expect": {
+    "level": "RED",
+    "headlineId": "copy.verdict.red",
+    "noVault": false,
+    "noPins": false,
+    "phase": "initial",
+    "lines": [
+     {
+      "id": "pin:v-home",
+      "kind": "pin",
+      "severity": "HIGH",
+      "copyId": "copy.verdict.pin",
+      "params": {
+       "KIND": "HOME",
+       "band words": "within 250 m (street level)"
+      },
+      "vaultId": "v-home",
+      "band": "street",
+      "confidence": "low",
+      "clueIds": [
+       "c2"
+      ],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "texts": [
+     "HOME: within 250 m (street level)"
+    ],
+    "pinBands": [
+     {
+      "vaultId": "v-home",
+      "band": "street",
+      "hypothesisId": "h2",
+      "confidence": "low",
+      "effectiveKm": null
+     }
+    ],
+    "notLinkedVaultIds": [],
+    "bestGuess": {
+     "level": "city",
+     "label": "Port district",
+     "confidence": "high"
+    },
+    "bestGuessText": "Attacker's best guess: city level · Port district · high",
+    "notLinkedText": null
+   }
+  },
+  {
+   "fn": "build",
+   "name": "a tie in e keeps the earlier hypothesis (D-77)",
+   "input": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Quay Road area",
+       "level": "street",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 0.5,
+       "confidence": "medium",
+       "clueIds": [
+        "c1"
+       ]
+      },
+      {
+       "id": "h2",
+       "label": "Quay Road area",
+       "level": "street",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 0.5,
+       "confidence": "high",
+       "clueIds": [
+        "c2"
+       ]
+      }
+     ],
+     "inferences": []
+    },
+    "matches": [],
+    "vault": [
+     "home"
+    ]
+   },
+   "expect": {
+    "level": "RED",
+    "headlineId": "copy.verdict.red",
+    "noVault": false,
+    "noPins": false,
+    "phase": "initial",
+    "lines": [
+     {
+      "id": "pin:v-home",
+      "kind": "pin",
+      "severity": "HIGH",
+      "copyId": "copy.verdict.pin",
+      "params": {
+       "KIND": "HOME",
+       "band words": "within 1 km (neighbourhood)"
+      },
+      "vaultId": "v-home",
+      "band": "neighbourhood",
+      "confidence": "medium",
+      "clueIds": [
+       "c1"
+      ],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "texts": [
+     "HOME: within 1 km (neighbourhood)"
+    ],
+    "pinBands": [
+     {
+      "vaultId": "v-home",
+      "band": "neighbourhood",
+      "hypothesisId": "h1",
+      "confidence": "medium",
+      "effectiveKm": null
+     }
+    ],
+    "notLinkedVaultIds": [],
+    "bestGuess": {
+     "level": "street",
+     "label": "Quay Road area",
+     "confidence": "medium"
+    },
+    "bestGuessText": "Attacker's best guess: street level · Quay Road area · medium",
+    "notLinkedText": null
+   }
+  },
+  {
+   "fn": "build",
+   "name": "only the first 3 hypotheses count",
+   "input": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Quay Road area",
+       "level": "street",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 200,
+       "confidence": "low",
+       "clueIds": []
+      },
+      {
+       "id": "h2",
+       "label": "Quay Road area",
+       "level": "street",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 200,
+       "confidence": "low",
+       "clueIds": []
+      },
+      {
+       "id": "h3",
+       "label": "Quay Road area",
+       "level": "street",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 200,
+       "confidence": "low",
+       "clueIds": []
+      },
+      {
+       "id": "h4",
+       "label": "Quay Road area",
+       "level": "street",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 0.2,
+       "confidence": "high",
+       "clueIds": []
+      }
+     ],
+     "inferences": []
+    },
+    "matches": [],
+    "vault": [
+     "home"
+    ]
+   },
+   "expect": {
+    "level": "LOW",
+    "headlineId": "copy.verdict.low",
+    "noVault": false,
+    "noPins": false,
+    "phase": "initial",
+    "lines": [],
+    "texts": [],
+    "pinBands": [
+     {
+      "vaultId": "v-home",
+      "band": "country",
+      "hypothesisId": "h1",
+      "confidence": "low",
+      "effectiveKm": null
+     }
+    ],
+    "notLinkedVaultIds": [
+     "v-home"
+    ],
+    "bestGuess": {
+     "level": "street",
+     "label": "Quay Road area",
+     "confidence": "low"
+    },
+    "bestGuessText": "Attacker's best guess: street level · Quay Road area · low",
+    "notLinkedText": "Not linked: HOME"
+   }
+  },
+  {
+   "fn": "build",
+   "name": "no_location_signal: no bands, stale matches dropped",
+   "input": {
+    "adv": {
+     "status": "no_location_signal",
+     "hypotheses": [],
+     "inferences": []
+    },
+    "matches": [
+     {
+      "claimId": "i1",
+      "vaultId": "v-emp",
+      "strength": "likely",
+      "reason": "named in the claim",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "vault": [
+     "home",
+     "employer"
+    ]
+   },
+   "expect": {
+    "level": "LOW",
+    "headlineId": "copy.verdict.low",
+    "noVault": false,
+    "noPins": false,
+    "phase": "initial",
+    "lines": [],
+    "texts": [],
+    "pinBands": [
+     {
+      "vaultId": "v-home",
+      "band": "none",
+      "hypothesisId": null,
+      "confidence": null,
+      "effectiveKm": null
+     }
+    ],
+    "notLinkedVaultIds": [
+     "v-home",
+     "v-emp"
+    ],
+    "bestGuess": null,
+    "bestGuessText": null,
+    "notLinkedText": "Not linked: HOME · WORKPLACE",
+    "matches": []
+   }
+  },
+  {
+   "fn": "build",
+   "name": "no_location_signal ignores any hypotheses and claims it still carries",
+   "input": {
+    "adv": {
+     "status": "no_location_signal",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Quay Road area",
+       "level": "street",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 0.2,
+       "confidence": "high",
+       "clueIds": []
+      }
+     ],
+     "inferences": [
+      {
+       "id": "i1",
+       "kind": "workplace",
+       "value": "Lantern Bakery",
+       "confidence": "high",
+       "clueIds": []
+      }
+     ]
+    },
+    "matches": [
+     {
+      "claimId": "i1",
+      "vaultId": "v-emp",
+      "strength": "likely",
+      "reason": "named in the claim",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "vault": [
+     "home",
+     "employer"
+    ]
+   },
+   "expect": {
+    "level": "LOW",
+    "headlineId": "copy.verdict.low",
+    "noVault": false,
+    "noPins": false,
+    "phase": "initial",
+    "lines": [],
+    "texts": [],
+    "pinBands": [
+     {
+      "vaultId": "v-home",
+      "band": "none",
+      "hypothesisId": null,
+      "confidence": null,
+      "effectiveKm": null
+     }
+    ],
+    "notLinkedVaultIds": [
+     "v-home",
+     "v-emp"
+    ],
+    "bestGuess": null,
+    "bestGuessText": null,
+    "notLinkedText": "Not linked: HOME · WORKPLACE",
+    "matches": []
+   }
+  },
+  {
+   "fn": "build",
+   "name": "RC bands_m may move city (50 km): 40 km is city",
+   "input": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Quay Road area",
+       "level": "street",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 40,
+       "confidence": "medium",
+       "clueIds": []
+      }
+     ],
+     "inferences": []
+    },
+    "matches": [],
+    "vault": [
+     "home"
+    ],
+    "bands": {
+     "street": 250,
+     "neighbourhood": 1000,
+     "district": 5000,
+     "city": 50000,
+     "country": 500000
+    }
+   },
+   "expect": {
+    "level": "LOW",
+    "headlineId": "copy.verdict.low",
+    "noVault": false,
+    "noPins": false,
+    "phase": "initial",
+    "lines": [
+     {
+      "id": "pin:v-home",
+      "kind": "pin",
+      "severity": "INFO",
+      "copyId": "copy.verdict.pin",
+      "params": {
+       "KIND": "HOME",
+       "band words": "same city area"
+      },
+      "vaultId": "v-home",
+      "band": "city",
+      "confidence": "medium",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "texts": [
+     "HOME: same city area"
+    ],
+    "pinBands": [
+     {
+      "vaultId": "v-home",
+      "band": "city",
+      "hypothesisId": "h1",
+      "confidence": "medium",
+      "effectiveKm": null
+     }
+    ],
+    "notLinkedVaultIds": [],
+    "bestGuess": {
+     "level": "street",
+     "label": "Quay Road area",
+     "confidence": "medium"
+    },
+    "bestGuessText": "Attacker's best guess: street level · Quay Road area · medium",
+    "notLinkedText": null
+   }
+  },
+  {
+   "fn": "build",
+   "name": "RC bands_m moving a locked threshold falls back to the defaults (D-77): 280 m is neighbourhood",
+   "input": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Quay Road area",
+       "level": "street",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 0.28,
+       "confidence": "high",
+       "clueIds": []
+      }
+     ],
+     "inferences": []
+    },
+    "matches": [],
+    "vault": [
+     "home"
+    ],
+    "bands": {
+     "street": 300,
+     "neighbourhood": 1000,
+     "district": 5000,
+     "city": 30000,
+     "country": 500000
+    },
+    "phase": "after_fix"
+   },
+   "expect": {
+    "level": "RED",
+    "headlineId": "copy.verdict.red",
+    "noVault": false,
+    "noPins": false,
+    "phase": "after_fix",
+    "lines": [
+     {
+      "id": "pin:v-home",
+      "kind": "pin",
+      "severity": "HIGH",
+      "copyId": "copy.verdict.pin",
+      "params": {
+       "KIND": "HOME",
+       "band words": "within 1 km (neighbourhood)"
+      },
+      "vaultId": "v-home",
+      "band": "neighbourhood",
+      "confidence": "high",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "texts": [
+     "HOME: within 1 km (neighbourhood)"
+    ],
+    "pinBands": [
+     {
+      "vaultId": "v-home",
+      "band": "neighbourhood",
+      "hypothesisId": "h1",
+      "confidence": "high",
+      "effectiveKm": null
+     }
+    ],
+    "notLinkedVaultIds": [],
+    "bestGuess": {
+     "level": "street",
+     "label": "Quay Road area",
+     "confidence": "high"
+    },
+    "bestGuessText": "Attacker's best guess: street level · Quay Road area · high",
+    "notLinkedText": null
+   }
+  },
+  {
+   "fn": "build",
+   "name": "strength exact: Identified your WORKPLACE by name",
+   "ac": "AC-160",
+   "input": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [],
+     "inferences": [
+      {
+       "id": "i1",
+       "kind": "workplace",
+       "value": "Lantern Bakery staff",
+       "confidence": "high",
+       "clueIds": [
+        "c3"
+       ]
+      }
+     ]
+    },
+    "matches": [
+     {
+      "claimId": "i1",
+      "vaultId": "v-emp",
+      "strength": "exact",
+      "reason": "named in the claim",
+      "clueIds": [
+       "c3"
+      ],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "vault": [
+     "employer"
+    ]
+   },
+   "expect": {
+    "level": "RED",
+    "headlineId": "copy.verdict.red",
+    "noVault": false,
+    "noPins": true,
+    "phase": "initial",
+    "lines": [
+     {
+      "id": "match:v-emp",
+      "kind": "match",
+      "severity": "HIGH",
+      "copyId": "copy.verdict.exact",
+      "params": {
+       "KIND": "WORKPLACE"
+      },
+      "vaultId": "v-emp",
+      "strength": "exact",
+      "confidence": "high",
+      "reason": "named in the claim",
+      "clueIds": [
+       "c3"
+      ],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "texts": [
+     "Identified your WORKPLACE by name"
+    ],
+    "pinBands": [],
+    "notLinkedVaultIds": [],
+    "bestGuess": null,
+    "bestGuessText": null,
+    "notLinkedText": null,
+    "matches": [
+     {
+      "claimId": "i1",
+      "vaultId": "v-emp",
+      "strength": "exact",
+      "reason": "named in the claim",
+      "clueIds": [
+       "c3"
+      ],
+      "route": "RULES_ONLY"
+     }
+    ]
+   }
+  },
+  {
+   "fn": "build",
+   "name": "strength likely: Linked to your WORKPLACE (device route kept)",
+   "ac": "AC-160",
+   "input": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [],
+     "inferences": [
+      {
+       "id": "i1",
+       "kind": "workplace",
+       "value": "bakery van",
+       "confidence": "medium",
+       "clueIds": [
+        "c3"
+       ]
+      }
+     ]
+    },
+    "matches": [
+     {
+      "claimId": "i1",
+      "vaultId": "v-emp",
+      "strength": "likely",
+      "reason": "shares 'lantern'",
+      "clueIds": [
+       "c3"
+      ],
+      "route": "ON_DEVICE"
+     }
+    ],
+    "vault": [
+     "employer"
+    ]
+   },
+   "expect": {
+    "level": "RED",
+    "headlineId": "copy.verdict.red",
+    "noVault": false,
+    "noPins": true,
+    "phase": "initial",
+    "lines": [
+     {
+      "id": "match:v-emp",
+      "kind": "match",
+      "severity": "HIGH",
+      "copyId": "copy.verdict.likely",
+      "params": {
+       "KIND": "WORKPLACE"
+      },
+      "vaultId": "v-emp",
+      "strength": "likely",
+      "confidence": "medium",
+      "reason": "shares 'lantern'",
+      "clueIds": [
+       "c3"
+      ],
+      "route": "ON_DEVICE"
+     }
+    ],
+    "texts": [
+     "Linked to your WORKPLACE"
+    ],
+    "pinBands": [],
+    "notLinkedVaultIds": [],
+    "bestGuess": null,
+    "bestGuessText": null,
+    "notLinkedText": null
+   }
+  },
+  {
+   "fn": "build",
+   "name": "strength possible: Could point to your WORKPLACE (MEDIUM)",
+   "ac": "AC-160",
+   "input": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [],
+     "inferences": [
+      {
+       "id": "i1",
+       "kind": "workplace",
+       "value": "a bakery",
+       "confidence": "low",
+       "clueIds": []
+      }
+     ]
+    },
+    "matches": [
+     {
+      "claimId": "i1",
+      "vaultId": "v-emp",
+      "strength": "possible",
+      "reason": "same category: bakery",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "vault": [
+     "employer"
+    ]
+   },
+   "expect": {
+    "level": "AMBER",
+    "headlineId": "copy.verdict.amber",
+    "noVault": false,
+    "noPins": true,
+    "phase": "initial",
+    "lines": [
+     {
+      "id": "match:v-emp",
+      "kind": "match",
+      "severity": "MEDIUM",
+      "copyId": "copy.verdict.possible",
+      "params": {
+       "KIND": "WORKPLACE"
+      },
+      "vaultId": "v-emp",
+      "strength": "possible",
+      "confidence": "low",
+      "reason": "same category: bakery",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "texts": [
+     "Could point to your WORKPLACE"
+    ],
+    "pinBands": [],
+    "notLinkedVaultIds": [],
+    "bestGuess": null,
+    "bestGuessText": null,
+    "notLinkedText": null
+   }
+  },
+  {
+   "fn": "build",
+   "name": "one line per item: the strongest match wins, with its claim's confidence and clues",
+   "input": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [],
+     "inferences": [
+      {
+       "id": "i1",
+       "kind": "workplace",
+       "value": "a bakery",
+       "confidence": "high",
+       "clueIds": [
+        "c1"
+       ]
+      },
+      {
+       "id": "i2",
+       "kind": "workplace",
+       "value": "Lantern van",
+       "confidence": "low",
+       "clueIds": [
+        "c2"
+       ]
+      }
+     ]
+    },
+    "matches": [
+     {
+      "claimId": "i1",
+      "vaultId": "v-emp",
+      "strength": "possible",
+      "reason": "A",
+      "clueIds": [
+       "c1"
+      ],
+      "route": "RULES_ONLY"
+     },
+     {
+      "claimId": "i2",
+      "vaultId": "v-emp",
+      "strength": "likely",
+      "reason": "B",
+      "clueIds": [
+       "c2"
+      ],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "vault": [
+     "employer"
+    ]
+   },
+   "expect": {
+    "level": "RED",
+    "headlineId": "copy.verdict.red",
+    "noVault": false,
+    "noPins": true,
+    "phase": "initial",
+    "lines": [
+     {
+      "id": "match:v-emp",
+      "kind": "match",
+      "severity": "HIGH",
+      "copyId": "copy.verdict.likely",
+      "params": {
+       "KIND": "WORKPLACE"
+      },
+      "vaultId": "v-emp",
+      "strength": "likely",
+      "confidence": "low",
+      "reason": "B",
+      "clueIds": [
+       "c2"
+      ],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "texts": [
+     "Linked to your WORKPLACE"
+    ],
+    "pinBands": [],
+    "notLinkedVaultIds": [],
+    "bestGuess": null,
+    "bestGuessText": null,
+    "notLinkedText": null
+   }
+  },
+  {
+   "fn": "build",
+   "name": "a strength tie goes to the higher attacker confidence",
+   "input": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [],
+     "inferences": [
+      {
+       "id": "i1",
+       "kind": "workplace",
+       "value": "x",
+       "confidence": "medium",
+       "clueIds": [
+        "c1"
+       ]
+      },
+      {
+       "id": "i2",
+       "kind": "workplace",
+       "value": "y",
+       "confidence": "high",
+       "clueIds": [
+        "c2"
+       ]
+      }
+     ]
+    },
+    "matches": [
+     {
+      "claimId": "i1",
+      "vaultId": "v-emp",
+      "strength": "likely",
+      "reason": "A",
+      "clueIds": [
+       "c1"
+      ],
+      "route": "RULES_ONLY"
+     },
+     {
+      "claimId": "i2",
+      "vaultId": "v-emp",
+      "strength": "likely",
+      "reason": "B",
+      "clueIds": [
+       "c2"
+      ],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "vault": [
+     "employer"
+    ]
+   },
+   "expect": {
+    "level": "RED",
+    "headlineId": "copy.verdict.red",
+    "noVault": false,
+    "noPins": true,
+    "phase": "initial",
+    "lines": [
+     {
+      "id": "match:v-emp",
+      "kind": "match",
+      "severity": "HIGH",
+      "copyId": "copy.verdict.likely",
+      "params": {
+       "KIND": "WORKPLACE"
+      },
+      "vaultId": "v-emp",
+      "strength": "likely",
+      "confidence": "high",
+      "reason": "B",
+      "clueIds": [
+       "c2"
+      ],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "texts": [
+     "Linked to your WORKPLACE"
+    ],
+    "pinBands": [],
+    "notLinkedVaultIds": [],
+    "bestGuess": null,
+    "bestGuessText": null,
+    "notLinkedText": null
+   }
+  },
+  {
+   "fn": "build",
+   "name": "a full tie goes to the earlier claim, whatever the matches order; matches are sorted by claim",
+   "input": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [],
+     "inferences": [
+      {
+       "id": "i1",
+       "kind": "workplace",
+       "value": "x",
+       "confidence": "high",
+       "clueIds": [
+        "c1"
+       ]
+      },
+      {
+       "id": "i2",
+       "kind": "workplace",
+       "value": "y",
+       "confidence": "high",
+       "clueIds": [
+        "c2"
+       ]
+      }
+     ]
+    },
+    "matches": [
+     {
+      "claimId": "i2",
+      "vaultId": "v-emp",
+      "strength": "likely",
+      "reason": "B",
+      "clueIds": [
+       "c2"
+      ],
+      "route": "RULES_ONLY"
+     },
+     {
+      "claimId": "i1",
+      "vaultId": "v-emp",
+      "strength": "likely",
+      "reason": "A",
+      "clueIds": [
+       "c1"
+      ],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "vault": [
+     "employer"
+    ]
+   },
+   "expect": {
+    "level": "RED",
+    "headlineId": "copy.verdict.red",
+    "noVault": false,
+    "noPins": true,
+    "phase": "initial",
+    "lines": [
+     {
+      "id": "match:v-emp",
+      "kind": "match",
+      "severity": "HIGH",
+      "copyId": "copy.verdict.likely",
+      "params": {
+       "KIND": "WORKPLACE"
+      },
+      "vaultId": "v-emp",
+      "strength": "likely",
+      "confidence": "high",
+      "reason": "A",
+      "clueIds": [
+       "c1"
+      ],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "texts": [
+     "Linked to your WORKPLACE"
+    ],
+    "pinBands": [],
+    "notLinkedVaultIds": [],
+    "bestGuess": null,
+    "bestGuessText": null,
+    "notLinkedText": null,
+    "matches": [
+     {
+      "claimId": "i1",
+      "vaultId": "v-emp",
+      "strength": "likely",
+      "reason": "A",
+      "clueIds": [
+       "c1"
+      ],
+      "route": "RULES_ONLY"
+     },
+     {
+      "claimId": "i2",
+      "vaultId": "v-emp",
+      "strength": "likely",
+      "reason": "B",
+      "clueIds": [
+       "c2"
+      ],
+      "route": "RULES_ONLY"
+     }
+    ]
+   }
+  },
+  {
+   "fn": "build",
+   "name": "invalid matches are dropped: unknown claim, unknown vault item, unknown strength",
+   "input": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [],
+     "inferences": [
+      {
+       "id": "i1",
+       "kind": "workplace",
+       "value": "x",
+       "confidence": "high",
+       "clueIds": []
+      }
+     ]
+    },
+    "matches": [
+     {
+      "claimId": "i9",
+      "vaultId": "v-emp",
+      "strength": "likely",
+      "reason": "named in the claim",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     },
+     {
+      "claimId": "i1",
+      "vaultId": "v-nope",
+      "strength": "likely",
+      "reason": "named in the claim",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     },
+     {
+      "claimId": "i1",
+      "vaultId": "v-emp",
+      "strength": "certain",
+      "reason": "named in the claim",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "vault": [
+     "employer"
+    ]
+   },
+   "expect": {
+    "level": "LOW",
+    "headlineId": "copy.verdict.low",
+    "noVault": false,
+    "noPins": true,
+    "phase": "initial",
+    "lines": [],
+    "texts": [],
+    "pinBands": [],
+    "notLinkedVaultIds": [
+     "v-emp"
+    ],
+    "bestGuess": null,
+    "bestGuessText": null,
+    "notLinkedText": "Not linked: WORKPLACE",
+    "matches": []
+   }
+  },
+  {
+   "fn": "build",
+   "name": "a repeated (claim, item) pair keeps the stronger, the first on a tie",
+   "input": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [],
+     "inferences": [
+      {
+       "id": "i1",
+       "kind": "workplace",
+       "value": "x",
+       "confidence": "high",
+       "clueIds": []
+      }
+     ]
+    },
+    "matches": [
+     {
+      "claimId": "i1",
+      "vaultId": "v-emp",
+      "strength": "possible",
+      "reason": "A",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     },
+     {
+      "claimId": "i1",
+      "vaultId": "v-emp",
+      "strength": "likely",
+      "reason": "B",
+      "clueIds": [],
+      "route": "ON_DEVICE"
+     },
+     {
+      "claimId": "i1",
+      "vaultId": "v-emp",
+      "strength": "likely",
+      "reason": "C",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "vault": [
+     "employer"
+    ]
+   },
+   "expect": {
+    "level": "RED",
+    "headlineId": "copy.verdict.red",
+    "noVault": false,
+    "noPins": true,
+    "phase": "initial",
+    "lines": [
+     {
+      "id": "match:v-emp",
+      "kind": "match",
+      "severity": "HIGH",
+      "copyId": "copy.verdict.likely",
+      "params": {
+       "KIND": "WORKPLACE"
+      },
+      "vaultId": "v-emp",
+      "strength": "likely",
+      "confidence": "high",
+      "reason": "B",
+      "clueIds": [],
+      "route": "ON_DEVICE"
+     }
+    ],
+    "texts": [
+     "Linked to your WORKPLACE"
+    ],
+    "pinBands": [],
+    "notLinkedVaultIds": [],
+    "bestGuess": null,
+    "bestGuessText": null,
+    "notLinkedText": null,
+    "matches": [
+     {
+      "claimId": "i1",
+      "vaultId": "v-emp",
+      "strength": "likely",
+      "reason": "B",
+      "clueIds": [],
+      "route": "ON_DEVICE"
+     }
+    ]
+   }
+  },
+  {
+   "fn": "build",
+   "name": "pin_match: one combined line, strength + claim confidence and the band's confidence (AC-164)",
+   "ac": "AC-164",
+   "input": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Hospital quarter",
+       "level": "neighbourhood",
+       "lat": 0.6,
+       "lng": -30.5,
+       "radiusKm": 0.8,
+       "confidence": "medium",
+       "clueIds": [
+        "c1"
+       ]
+      }
+     ],
+     "inferences": [
+      {
+       "id": "i1",
+       "kind": "workplace",
+       "value": "hospital staff lanyard logo",
+       "confidence": "high",
+       "clueIds": [
+        "c2",
+        "c1"
+       ]
+      }
+     ]
+    },
+    "matches": [
+     {
+      "claimId": "i1",
+      "vaultId": "v-work",
+      "strength": "likely",
+      "reason": "lanyard + same category: hospital",
+      "clueIds": [
+       "c2",
+       "c1"
+      ],
+      "route": "ON_DEVICE"
+     }
+    ],
+    "vault": [
+     "work"
+    ]
+   },
+   "expect": {
+    "level": "RED",
+    "headlineId": "copy.verdict.red",
+    "noVault": false,
+    "noPins": false,
+    "phase": "initial",
+    "lines": [
+     {
+      "id": "pin_match:v-work",
+      "kind": "pin_match",
+      "severity": "HIGH",
+      "copyId": "copy.verdict.likely",
+      "params": {
+       "KIND": "WORKPLACE",
+       "band words": "within 1 km (neighbourhood)"
+      },
+      "vaultId": "v-work",
+      "band": "neighbourhood",
+      "strength": "likely",
+      "confidence": "high",
+      "bandConfidence": "medium",
+      "reason": "lanyard + same category: hospital",
+      "clueIds": [
+       "c2",
+       "c1"
+      ],
+      "route": "ON_DEVICE"
+     }
+    ],
+    "texts": [
+     "Linked to your WORKPLACE · within 1 km (neighbourhood)"
+    ],
+    "pinBands": [
+     {
+      "vaultId": "v-work",
+      "band": "neighbourhood",
+      "hypothesisId": "h1",
+      "confidence": "medium",
+      "effectiveKm": null
+     }
+    ],
+    "notLinkedVaultIds": [],
+    "bestGuess": {
+     "level": "neighbourhood",
+     "label": "Hospital quarter",
+     "confidence": "medium"
+    },
+    "bestGuessText": "Attacker's best guess: neighbourhood level · Hospital quarter · medium",
+    "notLinkedText": null
+   }
+  },
+  {
+   "fn": "build",
+   "name": "pin_match severity is the higher of the two: possible + street is HIGH",
+   "input": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Quay Road area",
+       "level": "street",
+       "lat": 0.6,
+       "lng": -30.5,
+       "radiusKm": 0.2,
+       "confidence": "high",
+       "clueIds": [
+        "c1"
+       ]
+      }
+     ],
+     "inferences": [
+      {
+       "id": "i1",
+       "kind": "workplace",
+       "value": "a clinic",
+       "confidence": "low",
+       "clueIds": [
+        "c2"
+       ]
+      }
+     ]
+    },
+    "matches": [
+     {
+      "claimId": "i1",
+      "vaultId": "v-work",
+      "strength": "possible",
+      "reason": "same category: hospital",
+      "clueIds": [
+       "c2"
+      ],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "vault": [
+     "work"
+    ]
+   },
+   "expect": {
+    "level": "RED",
+    "headlineId": "copy.verdict.red",
+    "noVault": false,
+    "noPins": false,
+    "phase": "initial",
+    "lines": [
+     {
+      "id": "pin_match:v-work",
+      "kind": "pin_match",
+      "severity": "HIGH",
+      "copyId": "copy.verdict.possible",
+      "params": {
+       "KIND": "WORKPLACE",
+       "band words": "within 250 m (street level)"
+      },
+      "vaultId": "v-work",
+      "band": "street",
+      "strength": "possible",
+      "confidence": "low",
+      "bandConfidence": "high",
+      "reason": "same category: hospital",
+      "clueIds": [
+       "c2",
+       "c1"
+      ],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "texts": [
+     "Could point to your WORKPLACE · within 250 m (street level)"
+    ],
+    "pinBands": [
+     {
+      "vaultId": "v-work",
+      "band": "street",
+      "hypothesisId": "h1",
+      "confidence": "high",
+      "effectiveKm": null
+     }
+    ],
+    "notLinkedVaultIds": [],
+    "bestGuess": {
+     "level": "street",
+     "label": "Quay Road area",
+     "confidence": "high"
+    },
+    "bestGuessText": "Attacker's best guess: street level · Quay Road area · high",
+    "notLinkedText": null
+   }
+  },
+  {
+   "fn": "build",
+   "name": "pin_match with a city band: possible + city is MEDIUM",
+   "input": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Port city",
+       "level": "city",
+       "lat": 0.6,
+       "lng": -30.5,
+       "radiusKm": 20,
+       "confidence": "high",
+       "clueIds": []
+      }
+     ],
+     "inferences": [
+      {
+       "id": "i1",
+       "kind": "workplace",
+       "value": "a clinic",
+       "confidence": "medium",
+       "clueIds": []
+      }
+     ]
+    },
+    "matches": [
+     {
+      "claimId": "i1",
+      "vaultId": "v-work",
+      "strength": "possible",
+      "reason": "same category: hospital",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "vault": [
+     "work"
+    ]
+   },
+   "expect": {
+    "level": "AMBER",
+    "headlineId": "copy.verdict.amber",
+    "noVault": false,
+    "noPins": false,
+    "phase": "initial",
+    "lines": [
+     {
+      "id": "pin_match:v-work",
+      "kind": "pin_match",
+      "severity": "MEDIUM",
+      "copyId": "copy.verdict.possible",
+      "params": {
+       "KIND": "WORKPLACE",
+       "band words": "same city area"
+      },
+      "vaultId": "v-work",
+      "band": "city",
+      "strength": "possible",
+      "confidence": "medium",
+      "bandConfidence": "high",
+      "reason": "same category: hospital",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "texts": [
+     "Could point to your WORKPLACE · same city area"
+    ],
+    "pinBands": [
+     {
+      "vaultId": "v-work",
+      "band": "city",
+      "hypothesisId": "h1",
+      "confidence": "high",
+      "effectiveKm": null
+     }
+    ],
+    "notLinkedVaultIds": [],
+    "bestGuess": {
+     "level": "city",
+     "label": "Port city",
+     "confidence": "high"
+    },
+    "bestGuessText": "Attacker's best guess: city level · Port city · high",
+    "notLinkedText": null
+   }
+  },
+  {
+   "fn": "build",
+   "name": "a match on a pin in band country stays a plain match line (no band words)",
+   "input": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "The coast",
+       "level": "region",
+       "lat": 0.6,
+       "lng": -30.5,
+       "radiusKm": 200,
+       "confidence": "low",
+       "clueIds": []
+      }
+     ],
+     "inferences": [
+      {
+       "id": "i1",
+       "kind": "workplace",
+       "value": "City General",
+       "confidence": "high",
+       "clueIds": [
+        "c2"
+       ]
+      }
+     ]
+    },
+    "matches": [
+     {
+      "claimId": "i1",
+      "vaultId": "v-work",
+      "strength": "exact",
+      "reason": "named in the claim",
+      "clueIds": [
+       "c2"
+      ],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "vault": [
+     "work"
+    ]
+   },
+   "expect": {
+    "level": "RED",
+    "headlineId": "copy.verdict.red",
+    "noVault": false,
+    "noPins": false,
+    "phase": "initial",
+    "lines": [
+     {
+      "id": "match:v-work",
+      "kind": "match",
+      "severity": "HIGH",
+      "copyId": "copy.verdict.exact",
+      "params": {
+       "KIND": "WORKPLACE"
+      },
+      "vaultId": "v-work",
+      "strength": "exact",
+      "confidence": "high",
+      "reason": "named in the claim",
+      "clueIds": [
+       "c2"
+      ],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "texts": [
+     "Identified your WORKPLACE by name"
+    ],
+    "pinBands": [
+     {
+      "vaultId": "v-work",
+      "band": "country",
+      "hypothesisId": "h1",
+      "confidence": "low",
+      "effectiveKm": null
+     }
+    ],
+    "notLinkedVaultIds": [],
+    "bestGuess": {
+     "level": "region",
+     "label": "The coast",
+     "confidence": "low"
+    },
+    "bestGuessText": "Attacker's best guess: region level · The coast · low",
+    "notLinkedText": null
+   }
+  },
+  {
+   "fn": "build",
+   "name": "a hypothesis claim (kind area) naming a labelled place pin: exact + street, KIND is the label in capitals",
+   "input": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Harbourside Gym area",
+       "level": "street",
+       "lat": 0.8,
+       "lng": -30.5,
+       "radiusKm": 0.2,
+       "confidence": "high",
+       "clueIds": [
+        "c1"
+       ]
+      }
+     ],
+     "inferences": []
+    },
+    "matches": [
+     {
+      "claimId": "h1",
+      "vaultId": "v-gym",
+      "strength": "exact",
+      "reason": "named in the claim",
+      "clueIds": [
+       "c1"
+      ],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "vault": [
+     "gym"
+    ]
+   },
+   "expect": {
+    "level": "RED",
+    "headlineId": "copy.verdict.red",
+    "noVault": false,
+    "noPins": false,
+    "phase": "initial",
+    "lines": [
+     {
+      "id": "pin_match:v-gym",
+      "kind": "pin_match",
+      "severity": "HIGH",
+      "copyId": "copy.verdict.exact",
+      "params": {
+       "KIND": "HARBOURSIDE GYM",
+       "band words": "within 250 m (street level)"
+      },
+      "vaultId": "v-gym",
+      "band": "street",
+      "strength": "exact",
+      "confidence": "high",
+      "bandConfidence": "high",
+      "reason": "named in the claim",
+      "clueIds": [
+       "c1"
+      ],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "texts": [
+     "Identified your HARBOURSIDE GYM by name · within 250 m (street level)"
+    ],
+    "pinBands": [
+     {
+      "vaultId": "v-gym",
+      "band": "street",
+      "hypothesisId": "h1",
+      "confidence": "high",
+      "effectiveKm": null
+     }
+    ],
+    "notLinkedVaultIds": [],
+    "bestGuess": {
+     "level": "street",
+     "label": "Harbourside Gym area",
+     "confidence": "high"
+    },
+    "bestGuessText": "Attacker's best guess: street level · Harbourside Gym area · high",
+    "notLinkedText": null
+   }
+  },
+  {
+   "fn": "build",
+   "name": "place pins: the label in capitals, or PLACE without one",
+   "input": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Quay Road area",
+       "level": "street",
+       "lat": 0.8,
+       "lng": -30.5,
+       "radiusKm": 0.2,
+       "confidence": "high",
+       "clueIds": []
+      }
+     ],
+     "inferences": []
+    },
+    "matches": [],
+    "vault": [
+     "gym",
+     "place"
+    ]
+   },
+   "expect": {
+    "level": "RED",
+    "headlineId": "copy.verdict.red",
+    "noVault": false,
+    "noPins": false,
+    "phase": "initial",
+    "lines": [
+     {
+      "id": "pin:v-gym",
+      "kind": "pin",
+      "severity": "HIGH",
+      "copyId": "copy.verdict.pin",
+      "params": {
+       "KIND": "HARBOURSIDE GYM",
+       "band words": "within 250 m (street level)"
+      },
+      "vaultId": "v-gym",
+      "band": "street",
+      "confidence": "high",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     },
+     {
+      "id": "pin:v-place",
+      "kind": "pin",
+      "severity": "INFO",
+      "copyId": "copy.verdict.pin",
+      "params": {
+       "KIND": "PLACE",
+       "band words": "same city area"
+      },
+      "vaultId": "v-place",
+      "band": "city",
+      "confidence": "high",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "texts": [
+     "HARBOURSIDE GYM: within 250 m (street level)",
+     "PLACE: same city area"
+    ],
+    "pinBands": [
+     {
+      "vaultId": "v-gym",
+      "band": "street",
+      "hypothesisId": "h1",
+      "confidence": "high",
+      "effectiveKm": null
+     },
+     {
+      "vaultId": "v-place",
+      "band": "city",
+      "hypothesisId": "h1",
+      "confidence": "high",
+      "effectiveKm": null
+     }
+    ],
+    "notLinkedVaultIds": [],
+    "bestGuess": {
+     "level": "street",
+     "label": "Quay Road area",
+     "confidence": "high"
+    },
+    "bestGuessText": "Attacker's best guess: street level · Quay Road area · high",
+    "notLinkedText": null
+   }
+  },
+  {
+   "fn": "build",
+   "name": "empty vault: neighbourhood best guess is RED with noVault",
+   "ac": "AC-166",
+   "input": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Old Town",
+       "level": "neighbourhood",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 0.8,
+       "confidence": "medium",
+       "clueIds": []
+      }
+     ],
+     "inferences": []
+    },
+    "matches": [],
+    "vault": []
+   },
+   "expect": {
+    "level": "RED",
+    "headlineId": "copy.verdict.red",
+    "noVault": true,
+    "noPins": true,
+    "phase": "initial",
+    "lines": [],
+    "texts": [],
+    "pinBands": [],
+    "notLinkedVaultIds": [],
+    "bestGuess": {
+     "level": "neighbourhood",
+     "label": "Old Town",
+     "confidence": "medium"
+    },
+    "bestGuessText": "Attacker's best guess: neighbourhood level · Old Town · medium",
+    "notLinkedText": null
+   }
+  },
+  {
+   "fn": "build",
+   "name": "empty vault: district best guess is AMBER",
+   "ac": "AC-166",
+   "input": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "North side",
+       "level": "district",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 3,
+       "confidence": "low",
+       "clueIds": []
+      }
+     ],
+     "inferences": []
+    },
+    "matches": [],
+    "vault": []
+   },
+   "expect": {
+    "level": "AMBER",
+    "headlineId": "copy.verdict.amber",
+    "noVault": true,
+    "noPins": true,
+    "phase": "initial",
+    "lines": [],
+    "texts": [],
+    "pinBands": [],
+    "notLinkedVaultIds": [],
+    "bestGuess": {
+     "level": "district",
+     "label": "North side",
+     "confidence": "low"
+    },
+    "bestGuessText": "Attacker's best guess: district level · North side · low",
+    "notLinkedText": null
+   }
+  },
+  {
+   "fn": "build",
+   "name": "empty vault: the finest hypothesis level decides (city h1 with a street h2 is RED; D-127)",
+   "ac": "AC-166",
+   "input": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Port city",
+       "level": "city",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 20,
+       "confidence": "high",
+       "clueIds": []
+      },
+      {
+       "id": "h2",
+       "label": "Quay Road area",
+       "level": "street",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 0.2,
+       "confidence": "low",
+       "clueIds": []
+      }
+     ],
+     "inferences": []
+    },
+    "matches": [],
+    "vault": []
+   },
+   "expect": {
+    "level": "RED",
+    "headlineId": "copy.verdict.red",
+    "noVault": true,
+    "noPins": true,
+    "phase": "initial",
+    "lines": [],
+    "texts": [],
+    "pinBands": [],
+    "notLinkedVaultIds": [],
+    "bestGuess": {
+     "level": "city",
+     "label": "Port city",
+     "confidence": "high"
+    },
+    "bestGuessText": "Attacker's best guess: city level · Port city · high",
+    "notLinkedText": null
+   }
+  },
+  {
+   "fn": "build",
+   "name": "empty vault and no hypotheses: LOW, no best guess, no error",
+   "ac": "AC-166",
+   "input": {
+    "adv": {
+     "status": "no_location_signal",
+     "hypotheses": [],
+     "inferences": []
+    },
+    "matches": [],
+    "vault": []
+   },
+   "expect": {
+    "level": "LOW",
+    "headlineId": "copy.verdict.low",
+    "noVault": true,
+    "noPins": true,
+    "phase": "initial",
+    "lines": [],
+    "texts": [],
+    "pinBands": [],
+    "notLinkedVaultIds": [],
+    "bestGuess": null,
+    "bestGuessText": null,
+    "notLinkedText": null
+   }
+  },
+  {
+   "fn": "build",
+   "name": "refused (declined): PARTIAL from on-device findings only, no bands",
+   "ac": "AC-160",
+   "input": {
+    "adv": {
+     "status": "declined",
+     "hypotheses": [],
+     "inferences": []
+    },
+    "matches": [],
+    "vault": [
+     "home",
+     "kid",
+     "employer"
+    ],
+    "caught": [
+     {
+      "vaultId": "v-kid",
+      "route": "RULES_ONLY"
+     }
+    ],
+    "prescreenFlags": {
+     "types": [
+      "street_sign",
+      "uniform_or_lanyard",
+      "street_sign"
+     ],
+     "route": "ON_DEVICE"
+    }
+   },
+   "expect": {
+    "level": "PARTIAL",
+    "headlineId": "copy.verdict.partial",
+    "noVault": false,
+    "noPins": false,
+    "phase": "initial",
+    "lines": [
+     {
+      "id": "found_on_device",
+      "kind": "found_on_device",
+      "severity": "INFO",
+      "copyId": "ui.verdict.foundOnDevice",
+      "params": {
+       "TYPES": "street sign, uniform or lanyard"
+      },
+      "clueIds": [],
+      "route": "ON_DEVICE"
+     },
+     {
+      "id": "caught:v-kid",
+      "kind": "caught",
+      "severity": "CAUGHT",
+      "copyId": "copy.verdict.caught",
+      "params": {
+       "KIND": "CHILD'S NAME"
+      },
+      "vaultId": "v-kid",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "texts": [
+     "Found on this device: street sign, uniform or lanyard",
+     "CHILD'S NAME: caught and masked on this device"
+    ],
+    "pinBands": [],
+    "notLinkedVaultIds": [],
+    "bestGuess": null,
+    "bestGuessText": null,
+    "notLinkedText": null,
+    "matches": []
+   }
+  },
+  {
+   "fn": "build",
+   "name": "refused flag over an ok pass B: no bands or matches; an echo still shows (D-115)",
+   "input": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Quay Road area",
+       "level": "street",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 0.2,
+       "confidence": "high",
+       "clueIds": []
+      }
+     ],
+     "inferences": [
+      {
+       "id": "i1",
+       "kind": "workplace",
+       "value": "Lantern Bakery",
+       "confidence": "high",
+       "clueIds": []
+      }
+     ]
+    },
+    "matches": [
+     {
+      "claimId": "i1",
+      "vaultId": "v-emp",
+      "strength": "likely",
+      "reason": "named in the claim",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "vault": [
+     "home",
+     "employer"
+    ],
+    "echoedVaultIds": [
+     "v-emp"
+    ],
+    "refused": true
+   },
+   "expect": {
+    "level": "PARTIAL",
+    "headlineId": "copy.verdict.partial",
+    "noVault": false,
+    "noPins": false,
+    "phase": "initial",
+    "lines": [
+     {
+      "id": "echo:v-emp",
+      "kind": "echo",
+      "severity": "HIGH",
+      "copyId": "copy.verdict.echo",
+      "params": {
+       "KIND": "WORKPLACE"
+      },
+      "vaultId": "v-emp",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "texts": [
+     "The attacker read text matching your WORKPLACE. Fix it before posting."
+    ],
+    "pinBands": [],
+    "notLinkedVaultIds": [],
+    "bestGuess": null,
+    "bestGuessText": null,
+    "notLinkedText": null,
+    "matches": []
+   }
+  },
+  {
+   "fn": "build",
+   "name": "pass B blocked: PARTIAL",
+   "input": {
+    "adv": {
+     "status": "blocked",
+     "hypotheses": [],
+     "inferences": []
+    },
+    "matches": [],
+    "vault": [
+     "home"
+    ],
+    "prescreenFlags": {
+     "types": [],
+     "route": "ON_DEVICE"
+    }
+   },
+   "expect": {
+    "level": "PARTIAL",
+    "headlineId": "copy.verdict.partial",
+    "noVault": false,
+    "noPins": false,
+    "phase": "initial",
+    "lines": [],
+    "texts": [],
+    "pinBands": [],
+    "notLinkedVaultIds": [],
+    "bestGuess": null,
+    "bestGuessText": null,
+    "notLinkedText": null
+   }
+  },
+  {
+   "fn": "build",
+   "name": "no pass B at all: PARTIAL with the caught line",
+   "input": {
+    "adv": null,
+    "matches": [],
+    "vault": [
+     "kid"
+    ],
+    "caught": [
+     {
+      "vaultId": "v-kid",
+      "route": "ON_DEVICE"
+     }
+    ]
+   },
+   "expect": {
+    "level": "PARTIAL",
+    "headlineId": "copy.verdict.partial",
+    "noVault": false,
+    "noPins": true,
+    "phase": "initial",
+    "lines": [
+     {
+      "id": "caught:v-kid",
+      "kind": "caught",
+      "severity": "CAUGHT",
+      "copyId": "copy.verdict.caught",
+      "params": {
+       "KIND": "CHILD'S NAME"
+      },
+      "vaultId": "v-kid",
+      "clueIds": [],
+      "route": "ON_DEVICE"
+     }
+    ],
+    "texts": [
+     "CHILD'S NAME: caught and masked on this device"
+    ],
+    "pinBands": [],
+    "notLinkedVaultIds": [],
+    "bestGuess": null,
+    "bestGuessText": null,
+    "notLinkedText": null
+   }
+  },
+  {
+   "fn": "build",
+   "name": "echo next to a match: both lines, deduplicated, unknown ids ignored",
+   "ac": "AC-160",
+   "input": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [],
+     "inferences": [
+      {
+       "id": "i1",
+       "kind": "workplace",
+       "value": "Lantern Bakery",
+       "confidence": "high",
+       "clueIds": [
+        "c1"
+       ]
+      }
+     ]
+    },
+    "matches": [
+     {
+      "claimId": "i1",
+      "vaultId": "v-emp",
+      "strength": "exact",
+      "reason": "named in the claim",
+      "clueIds": [
+       "c1"
+      ],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "vault": [
+     "employer"
+    ],
+    "echoedVaultIds": [
+     "v-emp",
+     "v-emp",
+     "v-unknown"
+    ]
+   },
+   "expect": {
+    "level": "RED",
+    "headlineId": "copy.verdict.red",
+    "noVault": false,
+    "noPins": true,
+    "phase": "initial",
+    "lines": [
+     {
+      "id": "match:v-emp",
+      "kind": "match",
+      "severity": "HIGH",
+      "copyId": "copy.verdict.exact",
+      "params": {
+       "KIND": "WORKPLACE"
+      },
+      "vaultId": "v-emp",
+      "strength": "exact",
+      "confidence": "high",
+      "reason": "named in the claim",
+      "clueIds": [
+       "c1"
+      ],
+      "route": "RULES_ONLY"
+     },
+     {
+      "id": "echo:v-emp",
+      "kind": "echo",
+      "severity": "HIGH",
+      "copyId": "copy.verdict.echo",
+      "params": {
+       "KIND": "WORKPLACE"
+      },
+      "vaultId": "v-emp",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "texts": [
+     "Identified your WORKPLACE by name",
+     "The attacker read text matching your WORKPLACE. Fix it before posting."
+    ],
+    "pinBands": [],
+    "notLinkedVaultIds": [],
+    "bestGuess": null,
+    "bestGuessText": null,
+    "notLinkedText": null
+   }
+  },
+  {
+   "fn": "build",
+   "name": "echo alone is HIGH and the item is not Not linked",
+   "ac": "AC-160",
+   "input": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [],
+     "inferences": []
+    },
+    "matches": [],
+    "vault": [
+     "elm"
+    ],
+    "echoedVaultIds": [
+     "v-elm"
+    ]
+   },
+   "expect": {
+    "level": "RED",
+    "headlineId": "copy.verdict.red",
+    "noVault": false,
+    "noPins": true,
+    "phase": "initial",
+    "lines": [
+     {
+      "id": "echo:v-elm",
+      "kind": "echo",
+      "severity": "HIGH",
+      "copyId": "copy.verdict.echo",
+      "params": {
+       "KIND": "HOME"
+      },
+      "vaultId": "v-elm",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "texts": [
+     "The attacker read text matching your HOME. Fix it before posting."
+    ],
+    "pinBands": [],
+    "notLinkedVaultIds": [],
+    "bestGuess": null,
+    "bestGuessText": null,
+    "notLinkedText": null
+   }
+  },
+  {
+   "fn": "build",
+   "name": "caught: TEAL line, no risk, first route kept, never Not linked",
+   "ac": "AC-160",
+   "input": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [],
+     "inferences": []
+    },
+    "matches": [],
+    "vault": [
+     "kid",
+     "plate"
+    ],
+    "caught": [
+     {
+      "vaultId": "v-kid",
+      "route": "ON_DEVICE"
+     },
+     {
+      "vaultId": "v-kid",
+      "route": "RULES_ONLY"
+     },
+     {
+      "vaultId": "v-zzz",
+      "route": "ON_DEVICE"
+     }
+    ]
+   },
+   "expect": {
+    "level": "LOW",
+    "headlineId": "copy.verdict.low",
+    "noVault": false,
+    "noPins": true,
+    "phase": "initial",
+    "lines": [
+     {
+      "id": "caught:v-kid",
+      "kind": "caught",
+      "severity": "CAUGHT",
+      "copyId": "copy.verdict.caught",
+      "params": {
+       "KIND": "CHILD'S NAME"
+      },
+      "vaultId": "v-kid",
+      "clueIds": [],
+      "route": "ON_DEVICE"
+     }
+    ],
+    "texts": [
+     "CHILD'S NAME: caught and masked on this device"
+    ],
+    "pinBands": [],
+    "notLinkedVaultIds": [
+     "v-plate"
+    ],
+    "bestGuess": null,
+    "bestGuessText": null,
+    "notLinkedText": "Not linked: CAR PLATE"
+   }
+  },
+  {
+   "fn": "build",
+   "name": "caught does not hide a match on the same item",
+   "input": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [],
+     "inferences": [
+      {
+       "id": "i1",
+       "kind": "workplace",
+       "value": "bakery logo",
+       "confidence": "medium",
+       "clueIds": []
+      }
+     ]
+    },
+    "matches": [
+     {
+      "claimId": "i1",
+      "vaultId": "v-emp",
+      "strength": "likely",
+      "reason": "shares 'lantern'",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "vault": [
+     "employer"
+    ],
+    "caught": [
+     {
+      "vaultId": "v-emp",
+      "route": "RULES_ONLY"
+     }
+    ]
+   },
+   "expect": {
+    "level": "RED",
+    "headlineId": "copy.verdict.red",
+    "noVault": false,
+    "noPins": true,
+    "phase": "initial",
+    "lines": [
+     {
+      "id": "match:v-emp",
+      "kind": "match",
+      "severity": "HIGH",
+      "copyId": "copy.verdict.likely",
+      "params": {
+       "KIND": "WORKPLACE"
+      },
+      "vaultId": "v-emp",
+      "strength": "likely",
+      "confidence": "medium",
+      "reason": "shares 'lantern'",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     },
+     {
+      "id": "caught:v-emp",
+      "kind": "caught",
+      "severity": "CAUGHT",
+      "copyId": "copy.verdict.caught",
+      "params": {
+       "KIND": "WORKPLACE"
+      },
+      "vaultId": "v-emp",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "texts": [
+     "Linked to your WORKPLACE",
+     "WORKPLACE: caught and masked on this device"
+    ],
+    "pinBands": [],
+    "notLinkedVaultIds": [],
+    "bestGuess": null,
+    "bestGuessText": null,
+    "notLinkedText": null
+   }
+  },
+  {
+   "fn": "build",
+   "name": "lines sort HIGH, MEDIUM, INFO in vault order; Not linked repeats a display name once",
+   "input": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "North side",
+       "level": "district",
+       "lat": 0.7,
+       "lng": -30.5,
+       "radiusKm": 3,
+       "confidence": "medium",
+       "clueIds": [
+        "c5"
+       ]
+      }
+     ],
+     "inferences": [
+      {
+       "id": "i1",
+       "kind": "workplace",
+       "value": "Lantern Bakery van",
+       "confidence": "high",
+       "clueIds": [
+        "c6"
+       ]
+      }
+     ]
+    },
+    "matches": [
+     {
+      "claimId": "i1",
+      "vaultId": "v-emp",
+      "strength": "likely",
+      "reason": "shares 'lantern'",
+      "clueIds": [
+       "c6"
+      ],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "vault": [
+     "home",
+     "work",
+     "school",
+     "employer",
+     "plate",
+     "elm",
+     "nopin"
+    ]
+   },
+   "expect": {
+    "level": "RED",
+    "headlineId": "copy.verdict.red",
+    "noVault": false,
+    "noPins": false,
+    "phase": "initial",
+    "lines": [
+     {
+      "id": "match:v-emp",
+      "kind": "match",
+      "severity": "HIGH",
+      "copyId": "copy.verdict.likely",
+      "params": {
+       "KIND": "WORKPLACE"
+      },
+      "vaultId": "v-emp",
+      "strength": "likely",
+      "confidence": "high",
+      "reason": "shares 'lantern'",
+      "clueIds": [
+       "c6"
+      ],
+      "route": "RULES_ONLY"
+     },
+     {
+      "id": "pin:v-school",
+      "kind": "pin",
+      "severity": "MEDIUM",
+      "copyId": "copy.verdict.pin",
+      "params": {
+       "KIND": "SCHOOL",
+       "band words": "within 5 km (district)"
+      },
+      "vaultId": "v-school",
+      "band": "district",
+      "confidence": "medium",
+      "clueIds": [
+       "c5"
+      ],
+      "route": "RULES_ONLY"
+     },
+     {
+      "id": "pin:v-home",
+      "kind": "pin",
+      "severity": "INFO",
+      "copyId": "copy.verdict.pin",
+      "params": {
+       "KIND": "HOME",
+       "band words": "same city area"
+      },
+      "vaultId": "v-home",
+      "band": "city",
+      "confidence": "medium",
+      "clueIds": [
+       "c5"
+      ],
+      "route": "RULES_ONLY"
+     },
+     {
+      "id": "pin:v-work",
+      "kind": "pin",
+      "severity": "INFO",
+      "copyId": "copy.verdict.pin",
+      "params": {
+       "KIND": "WORKPLACE",
+       "band words": "same city area"
+      },
+      "vaultId": "v-work",
+      "band": "city",
+      "confidence": "medium",
+      "clueIds": [
+       "c5"
+      ],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "texts": [
+     "Linked to your WORKPLACE",
+     "SCHOOL: within 5 km (district)",
+     "HOME: same city area",
+     "WORKPLACE: same city area"
+    ],
+    "pinBands": [
+     {
+      "vaultId": "v-home",
+      "band": "city",
+      "hypothesisId": "h1",
+      "confidence": "medium",
+      "effectiveKm": null
+     },
+     {
+      "vaultId": "v-work",
+      "band": "city",
+      "hypothesisId": "h1",
+      "confidence": "medium",
+      "effectiveKm": null
+     },
+     {
+      "vaultId": "v-school",
+      "band": "district",
+      "hypothesisId": "h1",
+      "confidence": "medium",
+      "effectiveKm": null
+     },
+     {
+      "vaultId": "v-nopin",
+      "band": "none",
+      "hypothesisId": null,
+      "confidence": null,
+      "effectiveKm": null
+     }
+    ],
+    "notLinkedVaultIds": [
+     "v-plate",
+     "v-elm",
+     "v-nopin"
+    ],
+    "bestGuess": {
+     "level": "district",
+     "label": "North side",
+     "confidence": "medium"
+    },
+    "bestGuessText": "Attacker's best guess: district level · North side · medium",
+    "notLinkedText": "Not linked: CAR PLATE · HOME"
+   }
+  },
+  {
+   "fn": "build",
+   "name": "numbers in free text are scrubbed (best-guess label, reasons, a place label)",
+   "input": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "0.512, -30.611 near the quay",
+       "level": "street",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 0.2,
+       "confidence": "high",
+       "clueIds": []
+      }
+     ],
+     "inferences": [
+      {
+       "id": "i1",
+       "kind": "workplace",
+       "value": "x",
+       "confidence": "high",
+       "clueIds": []
+      }
+     ]
+    },
+    "matches": [
+     {
+      "claimId": "i1",
+      "vaultId": "v-emp",
+      "strength": "likely",
+      "reason": "badge 400 m from 12 Elm Street",
+      "clueIds": [],
+      "route": "ON_DEVICE"
+     }
+    ],
+    "vault": [
+     "employer",
+     "unit"
+    ]
+   },
+   "expect": {
+    "level": "RED",
+    "headlineId": "copy.verdict.red",
+    "noVault": false,
+    "noPins": false,
+    "phase": "initial",
+    "lines": [
+     {
+      "id": "match:v-emp",
+      "kind": "match",
+      "severity": "HIGH",
+      "copyId": "copy.verdict.likely",
+      "params": {
+       "KIND": "WORKPLACE"
+      },
+      "vaultId": "v-emp",
+      "strength": "likely",
+      "confidence": "high",
+      "reason": "badge … from … Elm Street",
+      "clueIds": [],
+      "route": "ON_DEVICE"
+     }
+    ],
+    "texts": [
+     "Linked to your WORKPLACE"
+    ],
+    "pinBands": [
+     {
+      "vaultId": "v-unit",
+      "band": "country",
+      "hypothesisId": "h1",
+      "confidence": "high",
+      "effectiveKm": null
+     }
+    ],
+    "notLinkedVaultIds": [
+     "v-unit"
+    ],
+    "bestGuess": {
+     "level": "street",
+     "label": "… near the quay",
+     "confidence": "high"
+    },
+    "bestGuessText": "Attacker's best guess: street level · … near the quay · high",
+    "notLinkedText": "Not linked: UNIT …",
+    "matches": [
+     {
+      "claimId": "i1",
+      "vaultId": "v-emp",
+      "strength": "likely",
+      "reason": "badge … from … Elm Street",
+      "clueIds": [],
+      "route": "ON_DEVICE"
+     }
+    ]
+   }
+  },
+  {
+   "fn": "build",
+   "name": "no pins (text items only): a street-level guess is RED, not LOW, and noPins is set (D-127)",
+   "input": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Quay Road area",
+       "level": "street",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 0.2,
+       "confidence": "high",
+       "clueIds": []
+      }
+     ],
+     "inferences": []
+    },
+    "matches": [],
+    "vault": [
+     "kid"
+    ]
+   },
+   "expect": {
+    "level": "RED",
+    "headlineId": "copy.verdict.red",
+    "noVault": false,
+    "noPins": true,
+    "phase": "initial",
+    "lines": [],
+    "texts": [],
+    "pinBands": [],
+    "notLinkedVaultIds": [
+     "v-kid"
+    ],
+    "bestGuess": {
+     "level": "street",
+     "label": "Quay Road area",
+     "confidence": "high"
+    },
+    "bestGuessText": "Attacker's best guess: street level · Quay Road area · high",
+    "notLinkedText": "Not linked: CHILD'S NAME"
+   }
+  },
+  {
+   "fn": "build",
+   "name": "no pins: a possible match (AMBER) with a neighbourhood guess is RED",
+   "input": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Old Town",
+       "level": "neighbourhood",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 0.8,
+       "confidence": "medium",
+       "clueIds": []
+      }
+     ],
+     "inferences": [
+      {
+       "id": "i1",
+       "kind": "workplace",
+       "value": "a bakery",
+       "confidence": "low",
+       "clueIds": []
+      }
+     ]
+    },
+    "matches": [
+     {
+      "claimId": "i1",
+      "vaultId": "v-emp",
+      "strength": "possible",
+      "reason": "same category: bakery",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "vault": [
+     "employer"
+    ]
+   },
+   "expect": {
+    "level": "RED",
+    "headlineId": "copy.verdict.red",
+    "noVault": false,
+    "noPins": true,
+    "phase": "initial",
+    "lines": [
+     {
+      "id": "match:v-emp",
+      "kind": "match",
+      "severity": "MEDIUM",
+      "copyId": "copy.verdict.possible",
+      "params": {
+       "KIND": "WORKPLACE"
+      },
+      "vaultId": "v-emp",
+      "strength": "possible",
+      "confidence": "low",
+      "reason": "same category: bakery",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "texts": [
+     "Could point to your WORKPLACE"
+    ],
+    "pinBands": [],
+    "notLinkedVaultIds": [],
+    "bestGuess": {
+     "level": "neighbourhood",
+     "label": "Old Town",
+     "confidence": "medium"
+    },
+    "bestGuessText": "Attacker's best guess: neighbourhood level · Old Town · medium",
+    "notLinkedText": null
+   }
+  },
+  {
+   "fn": "build",
+   "name": "no pins: a likely match (RED) with a district guess stays RED; the rule level is never lowered",
+   "input": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "North side",
+       "level": "district",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 3,
+       "confidence": "medium",
+       "clueIds": []
+      }
+     ],
+     "inferences": [
+      {
+       "id": "i1",
+       "kind": "workplace",
+       "value": "Lantern van",
+       "confidence": "high",
+       "clueIds": []
+      }
+     ]
+    },
+    "matches": [
+     {
+      "claimId": "i1",
+      "vaultId": "v-emp",
+      "strength": "likely",
+      "reason": "shares 'lantern'",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "vault": [
+     "employer"
+    ]
+   },
+   "expect": {
+    "level": "RED",
+    "headlineId": "copy.verdict.red",
+    "noVault": false,
+    "noPins": true,
+    "phase": "initial",
+    "lines": [
+     {
+      "id": "match:v-emp",
+      "kind": "match",
+      "severity": "HIGH",
+      "copyId": "copy.verdict.likely",
+      "params": {
+       "KIND": "WORKPLACE"
+      },
+      "vaultId": "v-emp",
+      "strength": "likely",
+      "confidence": "high",
+      "reason": "shares 'lantern'",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "texts": [
+     "Linked to your WORKPLACE"
+    ],
+    "pinBands": [],
+    "notLinkedVaultIds": [],
+    "bestGuess": {
+     "level": "district",
+     "label": "North side",
+     "confidence": "medium"
+    },
+    "bestGuessText": "Attacker's best guess: district level · North side · medium",
+    "notLinkedText": null
+   }
+  },
+  {
+   "fn": "build",
+   "name": "no pins: a city guess with no lines stays LOW",
+   "input": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Port city",
+       "level": "city",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 20,
+       "confidence": "high",
+       "clueIds": []
+      }
+     ],
+     "inferences": []
+    },
+    "matches": [],
+    "vault": [
+     "plate"
+    ]
+   },
+   "expect": {
+    "level": "LOW",
+    "headlineId": "copy.verdict.low",
+    "noVault": false,
+    "noPins": true,
+    "phase": "initial",
+    "lines": [],
+    "texts": [],
+    "pinBands": [],
+    "notLinkedVaultIds": [
+     "v-plate"
+    ],
+    "bestGuess": {
+     "level": "city",
+     "label": "Port city",
+     "confidence": "high"
+    },
+    "bestGuessText": "Attacker's best guess: city level · Port city · high",
+    "notLinkedText": "Not linked: CAR PLATE"
+   }
+  },
+  {
+   "fn": "build",
+   "name": "a pin item without a pin counts as no pins: the district guess makes it AMBER",
+   "input": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "North side",
+       "level": "district",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 3,
+       "confidence": "low",
+       "clueIds": []
+      }
+     ],
+     "inferences": []
+    },
+    "matches": [],
+    "vault": [
+     "nopin"
+    ]
+   },
+   "expect": {
+    "level": "AMBER",
+    "headlineId": "copy.verdict.amber",
+    "noVault": false,
+    "noPins": true,
+    "phase": "initial",
+    "lines": [],
+    "texts": [],
+    "pinBands": [
+     {
+      "vaultId": "v-nopin",
+      "band": "none",
+      "hypothesisId": null,
+      "confidence": null,
+      "effectiveKm": null
+     }
+    ],
+    "notLinkedVaultIds": [
+     "v-nopin"
+    ],
+    "bestGuess": {
+     "level": "district",
+     "label": "North side",
+     "confidence": "low"
+    },
+    "bestGuessText": "Attacker's best guess: district level · North side · low",
+    "notLinkedText": "Not linked: HOME"
+   }
+  },
+  {
+   "fn": "build",
+   "name": "a place label's decimal is scrubbed in its KIND on a line",
+   "input": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Port city",
+       "level": "city",
+       "lat": 0.9,
+       "lng": -30.5,
+       "radiusKm": 20,
+       "confidence": "low",
+       "clueIds": []
+      }
+     ],
+     "inferences": []
+    },
+    "matches": [],
+    "vault": [
+     "unit"
+    ]
+   },
+   "expect": {
+    "level": "LOW",
+    "headlineId": "copy.verdict.low",
+    "noVault": false,
+    "noPins": false,
+    "phase": "initial",
+    "lines": [
+     {
+      "id": "pin:v-unit",
+      "kind": "pin",
+      "severity": "INFO",
+      "copyId": "copy.verdict.pin",
+      "params": {
+       "KIND": "UNIT …",
+       "band words": "same city area"
+      },
+      "vaultId": "v-unit",
+      "band": "city",
+      "confidence": "low",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "texts": [
+     "UNIT …: same city area"
+    ],
+    "pinBands": [
+     {
+      "vaultId": "v-unit",
+      "band": "city",
+      "hypothesisId": "h1",
+      "confidence": "low",
+      "effectiveKm": null
+     }
+    ],
+    "notLinkedVaultIds": [],
+    "bestGuess": {
+     "level": "city",
+     "label": "Port city",
+     "confidence": "low"
+    },
+    "bestGuessText": "Attacker's best guess: city level · Port city · low",
+    "notLinkedText": null
+   }
+  },
+  {
+   "fn": "build",
+   "name": "a duplicate vault id keeps the first item",
+   "input": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Quay Road area",
+       "level": "street",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 0.2,
+       "confidence": "high",
+       "clueIds": []
+      }
+     ],
+     "inferences": []
+    },
+    "matches": [],
+    "vault": [
+     "home",
+     "dupHome"
+    ]
+   },
+   "expect": {
+    "level": "RED",
+    "headlineId": "copy.verdict.red",
+    "noVault": false,
+    "noPins": false,
+    "phase": "initial",
+    "lines": [
+     {
+      "id": "pin:v-home",
+      "kind": "pin",
+      "severity": "HIGH",
+      "copyId": "copy.verdict.pin",
+      "params": {
+       "KIND": "HOME",
+       "band words": "within 250 m (street level)"
+      },
+      "vaultId": "v-home",
+      "band": "street",
+      "confidence": "high",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "texts": [
+     "HOME: within 250 m (street level)"
+    ],
+    "pinBands": [
+     {
+      "vaultId": "v-home",
+      "band": "street",
+      "hypothesisId": "h1",
+      "confidence": "high",
+      "effectiveKm": null
+     }
+    ],
+    "notLinkedVaultIds": [],
+    "bestGuess": {
+     "level": "street",
+     "label": "Quay Road area",
+     "confidence": "high"
+    },
+    "bestGuessText": "Attacker's best guess: street level · Quay Road area · high",
+    "notLinkedText": null
+   }
+  },
+  {
+   "fn": "build",
+   "name": "Verdict.matches sort by claim order, then vault order, across 2 claims and 2 items",
+   "input": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [],
+     "inferences": [
+      {
+       "id": "i1",
+       "kind": "workplace",
+       "value": "x",
+       "confidence": "high",
+       "clueIds": []
+      },
+      {
+       "id": "i2",
+       "kind": "workplace",
+       "value": "y",
+       "confidence": "medium",
+       "clueIds": []
+      }
+     ]
+    },
+    "matches": [
+     {
+      "claimId": "i2",
+      "vaultId": "v-emp",
+      "strength": "likely",
+      "reason": "B",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     },
+     {
+      "claimId": "i1",
+      "vaultId": "v-work",
+      "strength": "possible",
+      "reason": "C",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     },
+     {
+      "claimId": "i2",
+      "vaultId": "v-work",
+      "strength": "likely",
+      "reason": "D",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     },
+     {
+      "claimId": "i1",
+      "vaultId": "v-emp",
+      "strength": "possible",
+      "reason": "E",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "vault": [
+     "work",
+     "employer"
+    ]
+   },
+   "expect": {
+    "level": "RED",
+    "headlineId": "copy.verdict.red",
+    "noVault": false,
+    "noPins": false,
+    "phase": "initial",
+    "lines": [
+     {
+      "id": "match:v-work",
+      "kind": "match",
+      "severity": "HIGH",
+      "copyId": "copy.verdict.likely",
+      "params": {
+       "KIND": "WORKPLACE"
+      },
+      "vaultId": "v-work",
+      "strength": "likely",
+      "confidence": "medium",
+      "reason": "D",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     },
+     {
+      "id": "match:v-emp",
+      "kind": "match",
+      "severity": "HIGH",
+      "copyId": "copy.verdict.likely",
+      "params": {
+       "KIND": "WORKPLACE"
+      },
+      "vaultId": "v-emp",
+      "strength": "likely",
+      "confidence": "medium",
+      "reason": "B",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "texts": [
+     "Linked to your WORKPLACE",
+     "Linked to your WORKPLACE"
+    ],
+    "pinBands": [
+     {
+      "vaultId": "v-work",
+      "band": "none",
+      "hypothesisId": null,
+      "confidence": null,
+      "effectiveKm": null
+     }
+    ],
+    "notLinkedVaultIds": [],
+    "bestGuess": null,
+    "bestGuessText": null,
+    "notLinkedText": null,
+    "matches": [
+     {
+      "claimId": "i1",
+      "vaultId": "v-work",
+      "strength": "possible",
+      "reason": "C",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     },
+     {
+      "claimId": "i1",
+      "vaultId": "v-emp",
+      "strength": "possible",
+      "reason": "E",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     },
+     {
+      "claimId": "i2",
+      "vaultId": "v-work",
+      "strength": "likely",
+      "reason": "D",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     },
+     {
+      "claimId": "i2",
+      "vaultId": "v-emp",
+      "strength": "likely",
+      "reason": "B",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     }
+    ]
+   }
+  },
+  {
+   "fn": "build",
+   "name": "SCR-09 demo scene: HOME band, WORKPLACE linked, CHILD'S NAME caught, CAR PLATE not linked",
+   "ac": "AC-163",
+   "input": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Harbour neighbourhood",
+       "level": "neighbourhood",
+       "lat": 0.508,
+       "lng": -30.5,
+       "radiusKm": 0.5,
+       "confidence": "medium",
+       "clueIds": [
+        "c4"
+       ]
+      }
+     ],
+     "inferences": [
+      {
+       "id": "i1",
+       "kind": "workplace",
+       "value": "hospital staff lanyard logo",
+       "confidence": "high",
+       "clueIds": [
+        "c2",
+        "c3"
+       ]
+      }
+     ]
+    },
+    "matches": [
+     {
+      "claimId": "i1",
+      "vaultId": "v-work",
+      "strength": "likely",
+      "reason": "lanyard + same category: hospital",
+      "clueIds": [
+       "c2",
+       "c3"
+      ],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "vault": [
+     "home",
+     "work",
+     "kid",
+     "plate"
+    ],
+    "caught": [
+     {
+      "vaultId": "v-kid",
+      "route": "RULES_ONLY"
+     }
+    ]
+   },
+   "expect": {
+    "level": "RED",
+    "headlineId": "copy.verdict.red",
+    "noVault": false,
+    "noPins": false,
+    "phase": "initial",
+    "lines": [
+     {
+      "id": "pin:v-home",
+      "kind": "pin",
+      "severity": "HIGH",
+      "copyId": "copy.verdict.pin",
+      "params": {
+       "KIND": "HOME",
+       "band words": "within 1 km (neighbourhood)"
+      },
+      "vaultId": "v-home",
+      "band": "neighbourhood",
+      "confidence": "medium",
+      "clueIds": [
+       "c4"
+      ],
+      "route": "RULES_ONLY"
+     },
+     {
+      "id": "pin_match:v-work",
+      "kind": "pin_match",
+      "severity": "HIGH",
+      "copyId": "copy.verdict.likely",
+      "params": {
+       "KIND": "WORKPLACE",
+       "band words": "same city area"
+      },
+      "vaultId": "v-work",
+      "band": "city",
+      "strength": "likely",
+      "confidence": "high",
+      "bandConfidence": "medium",
+      "reason": "lanyard + same category: hospital",
+      "clueIds": [
+       "c2",
+       "c3",
+       "c4"
+      ],
+      "route": "RULES_ONLY"
+     },
+     {
+      "id": "caught:v-kid",
+      "kind": "caught",
+      "severity": "CAUGHT",
+      "copyId": "copy.verdict.caught",
+      "params": {
+       "KIND": "CHILD'S NAME"
+      },
+      "vaultId": "v-kid",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "texts": [
+     "HOME: within 1 km (neighbourhood)",
+     "Linked to your WORKPLACE · same city area",
+     "CHILD'S NAME: caught and masked on this device"
+    ],
+    "pinBands": [
+     {
+      "vaultId": "v-home",
+      "band": "neighbourhood",
+      "hypothesisId": "h1",
+      "confidence": "medium",
+      "effectiveKm": null
+     },
+     {
+      "vaultId": "v-work",
+      "band": "city",
+      "hypothesisId": "h1",
+      "confidence": "medium",
+      "effectiveKm": null
+     }
+    ],
+    "notLinkedVaultIds": [
+     "v-plate"
+    ],
+    "bestGuess": {
+     "level": "neighbourhood",
+     "label": "Harbour neighbourhood",
+     "confidence": "medium"
+    },
+    "bestGuessText": "Attacker's best guess: neighbourhood level · Harbour neighbourhood · medium",
+    "notLinkedText": "Not linked: CAR PLATE"
+   }
+  },
+  {
+   "fn": "compare",
+   "name": "level drop RED to AMBER: Risk reduced, in the level headlines (never raw level names)",
+   "ac": "AC-194",
+   "before": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Quay Road area",
+       "level": "street",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 3,
+       "confidence": "medium",
+       "clueIds": []
+      }
+     ],
+     "inferences": [
+      {
+       "id": "i1",
+       "kind": "workplace",
+       "value": "Lantern Bakery van",
+       "confidence": "high",
+       "clueIds": []
+      }
+     ]
+    },
+    "matches": [
+     {
+      "claimId": "i1",
+      "vaultId": "v-emp",
+      "strength": "likely",
+      "reason": "named in the claim",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "vault": [
+     "employer",
+     "home"
+    ]
+   },
+   "after": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Quay Road area",
+       "level": "street",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 3,
+       "confidence": "medium",
+       "clueIds": []
+      }
+     ],
+     "inferences": [
+      {
+       "id": "i1",
+       "kind": "workplace",
+       "value": "Lantern Bakery van",
+       "confidence": "high",
+       "clueIds": []
+      }
+     ]
+    },
+    "matches": [
+     {
+      "claimId": "i1",
+      "vaultId": "v-emp",
+      "strength": "possible",
+      "reason": "named in the claim",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "vault": [
+     "employer",
+     "home"
+    ]
+   },
+   "expect": {
+    "riskReduced": true,
+    "worstRemainingLineId": "match:v-emp",
+    "headline": {
+     "copyId": "copy.verdict.reduced",
+     "params": {
+      "before": "A stranger could find you from this photo",
+      "after": "This photo narrows things down"
+     }
+    }
+   }
+  },
+  {
+   "fn": "compare",
+   "name": "same level, coarser worst band AND fewer HIGH lines: Risk reduced, in band words",
+   "ac": "AC-194",
+   "before": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Quay Road area",
+       "level": "street",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 0.2,
+       "confidence": "high",
+       "clueIds": []
+      }
+     ],
+     "inferences": [
+      {
+       "id": "i1",
+       "kind": "workplace",
+       "value": "Lantern Bakery van",
+       "confidence": "high",
+       "clueIds": []
+      }
+     ]
+    },
+    "matches": [
+     {
+      "claimId": "i1",
+      "vaultId": "v-emp",
+      "strength": "likely",
+      "reason": "named in the claim",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "vault": [
+     "home",
+     "employer"
+    ]
+   },
+   "after": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Quay Road area",
+       "level": "street",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 0.8,
+       "confidence": "high",
+       "clueIds": []
+      }
+     ],
+     "inferences": [
+      {
+       "id": "i1",
+       "kind": "workplace",
+       "value": "Lantern Bakery van",
+       "confidence": "high",
+       "clueIds": []
+      }
+     ]
+    },
+    "matches": [],
+    "vault": [
+     "home",
+     "employer"
+    ]
+   },
+   "expect": {
+    "riskReduced": true,
+    "worstRemainingLineId": "pin:v-home",
+    "headline": {
+     "copyId": "copy.verdict.reduced",
+     "params": {
+      "before": "within 250 m (street level)",
+      "after": "within 1 km (neighbourhood)"
+     }
+    }
+   }
+  },
+  {
+   "fn": "compare",
+   "name": "same level, coarser band but the same HIGH count: Still exposed",
+   "ac": "AC-194",
+   "before": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Quay Road area",
+       "level": "street",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 0.2,
+       "confidence": "high",
+       "clueIds": []
+      }
+     ],
+     "inferences": [
+      {
+       "id": "i1",
+       "kind": "workplace",
+       "value": "Lantern Bakery van",
+       "confidence": "high",
+       "clueIds": []
+      }
+     ]
+    },
+    "matches": [
+     {
+      "claimId": "i1",
+      "vaultId": "v-emp",
+      "strength": "likely",
+      "reason": "named in the claim",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "vault": [
+     "home",
+     "employer"
+    ]
+   },
+   "after": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Quay Road area",
+       "level": "street",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 0.8,
+       "confidence": "high",
+       "clueIds": []
+      }
+     ],
+     "inferences": [
+      {
+       "id": "i1",
+       "kind": "workplace",
+       "value": "Lantern Bakery van",
+       "confidence": "high",
+       "clueIds": []
+      }
+     ]
+    },
+    "matches": [
+     {
+      "claimId": "i1",
+      "vaultId": "v-emp",
+      "strength": "likely",
+      "reason": "named in the claim",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "vault": [
+     "home",
+     "employer"
+    ]
+   },
+   "expect": {
+    "riskReduced": false,
+    "worstRemainingLineId": "pin:v-home",
+    "headline": {
+     "copyId": "copy.verdict.still",
+     "params": {
+      "line": "HOME: within 1 km (neighbourhood)"
+     }
+    }
+   }
+  },
+  {
+   "fn": "compare",
+   "name": "same level, fewer HIGH lines but the same band: Still exposed",
+   "ac": "AC-194",
+   "before": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Quay Road area",
+       "level": "street",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 0.2,
+       "confidence": "high",
+       "clueIds": []
+      }
+     ],
+     "inferences": [
+      {
+       "id": "i1",
+       "kind": "workplace",
+       "value": "Lantern Bakery van",
+       "confidence": "high",
+       "clueIds": []
+      }
+     ]
+    },
+    "matches": [
+     {
+      "claimId": "i1",
+      "vaultId": "v-emp",
+      "strength": "likely",
+      "reason": "named in the claim",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "vault": [
+     "home",
+     "employer"
+    ]
+   },
+   "after": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Quay Road area",
+       "level": "street",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 0.2,
+       "confidence": "high",
+       "clueIds": []
+      }
+     ],
+     "inferences": [
+      {
+       "id": "i1",
+       "kind": "workplace",
+       "value": "Lantern Bakery van",
+       "confidence": "high",
+       "clueIds": []
+      }
+     ]
+    },
+    "matches": [],
+    "vault": [
+     "home",
+     "employer"
+    ]
+   },
+   "expect": {
+    "riskReduced": false,
+    "worstRemainingLineId": "pin:v-home",
+    "headline": {
+     "copyId": "copy.verdict.still",
+     "params": {
+      "line": "HOME: within 250 m (street level)"
+     }
+    }
+   }
+  },
+  {
+   "fn": "compare",
+   "name": "no improvement (the same result twice): Still exposed",
+   "ac": "AC-194",
+   "before": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Harbour neighbourhood",
+       "level": "neighbourhood",
+       "lat": 0.508,
+       "lng": -30.5,
+       "radiusKm": 0.5,
+       "confidence": "medium",
+       "clueIds": [
+        "c4"
+       ]
+      }
+     ],
+     "inferences": [
+      {
+       "id": "i1",
+       "kind": "workplace",
+       "value": "hospital staff lanyard logo",
+       "confidence": "high",
+       "clueIds": [
+        "c2",
+        "c3"
+       ]
+      }
+     ]
+    },
+    "matches": [
+     {
+      "claimId": "i1",
+      "vaultId": "v-work",
+      "strength": "likely",
+      "reason": "lanyard + same category: hospital",
+      "clueIds": [
+       "c2",
+       "c3"
+      ],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "vault": [
+     "home",
+     "work",
+     "kid",
+     "plate"
+    ],
+    "caught": [
+     {
+      "vaultId": "v-kid",
+      "route": "RULES_ONLY"
+     }
+    ]
+   },
+   "after": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Harbour neighbourhood",
+       "level": "neighbourhood",
+       "lat": 0.508,
+       "lng": -30.5,
+       "radiusKm": 0.5,
+       "confidence": "medium",
+       "clueIds": [
+        "c4"
+       ]
+      }
+     ],
+     "inferences": [
+      {
+       "id": "i1",
+       "kind": "workplace",
+       "value": "hospital staff lanyard logo",
+       "confidence": "high",
+       "clueIds": [
+        "c2",
+        "c3"
+       ]
+      }
+     ]
+    },
+    "matches": [
+     {
+      "claimId": "i1",
+      "vaultId": "v-work",
+      "strength": "likely",
+      "reason": "lanyard + same category: hospital",
+      "clueIds": [
+       "c2",
+       "c3"
+      ],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "vault": [
+     "home",
+     "work",
+     "kid",
+     "plate"
+    ],
+    "caught": [
+     {
+      "vaultId": "v-kid",
+      "route": "RULES_ONLY"
+     }
+    ]
+   },
+   "expect": {
+    "riskReduced": false,
+    "worstRemainingLineId": "pin:v-home",
+    "headline": {
+     "copyId": "copy.verdict.still",
+     "params": {
+      "line": "HOME: within 1 km (neighbourhood)"
+     }
+    }
+   }
+  },
+  {
+   "fn": "compare",
+   "name": "level up AMBER to RED: Still exposed",
+   "ac": "AC-194",
+   "before": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Quay Road area",
+       "level": "street",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 3,
+       "confidence": "high",
+       "clueIds": []
+      }
+     ],
+     "inferences": []
+    },
+    "matches": [],
+    "vault": [
+     "home",
+     "employer"
+    ]
+   },
+   "after": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Quay Road area",
+       "level": "street",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 0.2,
+       "confidence": "high",
+       "clueIds": []
+      }
+     ],
+     "inferences": []
+    },
+    "matches": [],
+    "vault": [
+     "home",
+     "employer"
+    ]
+   },
+   "expect": {
+    "riskReduced": false,
+    "worstRemainingLineId": "pin:v-home",
+    "headline": {
+     "copyId": "copy.verdict.still",
+     "params": {
+      "line": "HOME: within 250 m (street level)"
+     }
+    }
+   }
+  },
+  {
+   "fn": "compare",
+   "name": "PARTIAL after: never Risk reduced; the header is the partial headline",
+   "ac": "AC-194",
+   "before": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Quay Road area",
+       "level": "street",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 0.2,
+       "confidence": "high",
+       "clueIds": []
+      }
+     ],
+     "inferences": []
+    },
+    "matches": [],
+    "vault": [
+     "home",
+     "kid"
+    ]
+   },
+   "after": {
+    "adv": {
+     "status": "declined",
+     "hypotheses": [],
+     "inferences": []
+    },
+    "matches": [],
+    "vault": [
+     "home",
+     "kid"
+    ],
+    "caught": [
+     {
+      "vaultId": "v-kid",
+      "route": "RULES_ONLY"
+     }
+    ],
+    "prescreenFlags": {
+     "types": [
+      "street_sign"
+     ],
+     "route": "ON_DEVICE"
+    }
+   },
+   "expect": {
+    "riskReduced": false,
+    "worstRemainingLineId": "found_on_device",
+    "headline": {
+     "copyId": "copy.verdict.partial",
+     "params": {}
+    }
+   }
+  },
+  {
+   "fn": "compare",
+   "name": "PARTIAL before: never Risk reduced; a LOW after with no risk line gets the LOW headline, never Still exposed",
+   "ac": "AC-194",
+   "before": {
+    "adv": {
+     "status": "declined",
+     "hypotheses": [],
+     "inferences": []
+    },
+    "matches": [],
+    "vault": [
+     "home"
+    ],
+    "refused": true
+   },
+   "after": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Somewhere far",
+       "level": "country",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 800,
+       "confidence": "low",
+       "clueIds": []
+      }
+     ],
+     "inferences": []
+    },
+    "matches": [],
+    "vault": [
+     "home"
+    ]
+   },
+   "expect": {
+    "riskReduced": false,
+    "worstRemainingLineId": null,
+    "headline": {
+     "copyId": "copy.verdict.low",
+     "params": {}
+    }
+   }
+  },
+  {
+   "fn": "compare",
+   "name": "RED to LOW with the band gone to none: Risk reduced, in band words",
+   "ac": "AC-194",
+   "before": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Quay Road area",
+       "level": "street",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 0.2,
+       "confidence": "high",
+       "clueIds": []
+      }
+     ],
+     "inferences": []
+    },
+    "matches": [],
+    "vault": [
+     "home"
+    ]
+   },
+   "after": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Quay Road area",
+       "level": "street",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 800,
+       "confidence": "high",
+       "clueIds": []
+      }
+     ],
+     "inferences": []
+    },
+    "matches": [],
+    "vault": [
+     "home"
+    ]
+   },
+   "expect": {
+    "riskReduced": true,
+    "worstRemainingLineId": null,
+    "headline": {
+     "copyId": "copy.verdict.reduced",
+     "params": {
+      "before": "within 250 m (street level)",
+      "after": "not located nearby"
+     }
+    }
+   }
+  },
+  {
+   "fn": "compare",
+   "name": "no pins, same level, fewer HIGH lines: Still exposed (the band did not get coarser)",
+   "ac": "AC-194",
+   "before": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [],
+     "inferences": [
+      {
+       "id": "i1",
+       "kind": "workplace",
+       "value": "Lantern Bakery van",
+       "confidence": "high",
+       "clueIds": []
+      }
+     ]
+    },
+    "matches": [
+     {
+      "claimId": "i1",
+      "vaultId": "v-emp",
+      "strength": "likely",
+      "reason": "named in the claim",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "vault": [
+     "employer",
+     "elm"
+    ],
+    "echoedVaultIds": [
+     "v-elm"
+    ]
+   },
+   "after": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [],
+     "inferences": [
+      {
+       "id": "i1",
+       "kind": "workplace",
+       "value": "Lantern Bakery van",
+       "confidence": "high",
+       "clueIds": []
+      }
+     ]
+    },
+    "matches": [
+     {
+      "claimId": "i1",
+      "vaultId": "v-emp",
+      "strength": "likely",
+      "reason": "named in the claim",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "vault": [
+     "employer",
+     "elm"
+    ]
+   },
+   "expect": {
+    "riskReduced": false,
+    "worstRemainingLineId": "match:v-emp",
+    "headline": {
+     "copyId": "copy.verdict.still",
+     "params": {
+      "line": "Linked to your WORKPLACE"
+     }
+    }
+   }
+  },
+  {
+   "fn": "compare",
+   "name": "LOW to LOW with only a caught line left: caught never counts; the LOW headline",
+   "ac": "AC-194",
+   "before": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [],
+     "inferences": []
+    },
+    "matches": [],
+    "vault": [
+     "plate",
+     "kid"
+    ]
+   },
+   "after": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [],
+     "inferences": []
+    },
+    "matches": [],
+    "vault": [
+     "plate",
+     "kid"
+    ],
+    "caught": [
+     {
+      "vaultId": "v-kid",
+      "route": "RULES_ONLY"
+     }
+    ]
+   },
+   "expect": {
+    "riskReduced": false,
+    "worstRemainingLineId": null,
+    "headline": {
+     "copyId": "copy.verdict.low",
+     "params": {}
+    }
+   }
+  },
+  {
+   "fn": "compare",
+   "name": "fewer HIGH lines counts HIGH only: a likely match turned possible still reduces (MEDIUM is not HIGH)",
+   "ac": "AC-194",
+   "before": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Quay Road area",
+       "level": "street",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 0.2,
+       "confidence": "high",
+       "clueIds": []
+      }
+     ],
+     "inferences": [
+      {
+       "id": "i1",
+       "kind": "workplace",
+       "value": "Lantern Bakery van",
+       "confidence": "high",
+       "clueIds": []
+      }
+     ]
+    },
+    "matches": [
+     {
+      "claimId": "i1",
+      "vaultId": "v-emp",
+      "strength": "likely",
+      "reason": "named in the claim",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "vault": [
+     "home",
+     "employer"
+    ]
+   },
+   "after": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Quay Road area",
+       "level": "street",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 0.8,
+       "confidence": "high",
+       "clueIds": []
+      }
+     ],
+     "inferences": [
+      {
+       "id": "i1",
+       "kind": "workplace",
+       "value": "Lantern Bakery van",
+       "confidence": "high",
+       "clueIds": []
+      }
+     ]
+    },
+    "matches": [
+     {
+      "claimId": "i1",
+      "vaultId": "v-emp",
+      "strength": "possible",
+      "reason": "named in the claim",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "vault": [
+     "home",
+     "employer"
+    ]
+   },
+   "expect": {
+    "riskReduced": true,
+    "worstRemainingLineId": "pin:v-home",
+    "headline": {
+     "copyId": "copy.verdict.reduced",
+     "params": {
+      "before": "within 250 m (street level)",
+      "after": "within 1 km (neighbourhood)"
+     }
+    }
+   }
+  },
+  {
+   "fn": "compare",
+   "name": "an item's severity rose (HOME city to district): not reduced although the level dropped (D-128)",
+   "ac": "AC-194",
+   "before": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Port city",
+       "level": "city",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 20,
+       "confidence": "high",
+       "clueIds": []
+      }
+     ],
+     "inferences": [
+      {
+       "id": "i1",
+       "kind": "workplace",
+       "value": "Lantern Bakery van",
+       "confidence": "high",
+       "clueIds": []
+      }
+     ]
+    },
+    "matches": [
+     {
+      "claimId": "i1",
+      "vaultId": "v-emp",
+      "strength": "exact",
+      "reason": "named in the claim",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "vault": [
+     "employer",
+     "home"
+    ]
+   },
+   "after": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "North side",
+       "level": "district",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 3,
+       "confidence": "high",
+       "clueIds": []
+      }
+     ],
+     "inferences": [
+      {
+       "id": "i1",
+       "kind": "workplace",
+       "value": "Lantern Bakery van",
+       "confidence": "high",
+       "clueIds": []
+      }
+     ]
+    },
+    "matches": [],
+    "vault": [
+     "employer",
+     "home"
+    ]
+   },
+   "expect": {
+    "riskReduced": false,
+    "worstRemainingLineId": "pin:v-home",
+    "headline": {
+     "copyId": "copy.verdict.still",
+     "params": {
+      "line": "HOME: within 5 km (district)"
+     }
+    }
+   }
+  },
+  {
+   "fn": "compare",
+   "name": "a new HIGH item (CHILD'S NAME) offsets the drop: not reduced (D-128)",
+   "ac": "AC-194",
+   "before": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Quay Road area",
+       "level": "street",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 0.2,
+       "confidence": "high",
+       "clueIds": []
+      }
+     ],
+     "inferences": [
+      {
+       "id": "i1",
+       "kind": "workplace",
+       "value": "Lantern Bakery van",
+       "confidence": "high",
+       "clueIds": []
+      },
+      {
+       "id": "i2",
+       "kind": "workplace",
+       "value": "y",
+       "confidence": "high",
+       "clueIds": []
+      }
+     ]
+    },
+    "matches": [
+     {
+      "claimId": "i1",
+      "vaultId": "v-emp",
+      "strength": "likely",
+      "reason": "named in the claim",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     },
+     {
+      "claimId": "i2",
+      "vaultId": "v-elm",
+      "strength": "likely",
+      "reason": "named in the claim",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "vault": [
+     "home",
+     "employer",
+     "elm",
+     "kid"
+    ]
+   },
+   "after": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Quay Road area",
+       "level": "street",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 0.8,
+       "confidence": "high",
+       "clueIds": []
+      }
+     ],
+     "inferences": [
+      {
+       "id": "i1",
+       "kind": "workplace",
+       "value": "Lantern Bakery van",
+       "confidence": "high",
+       "clueIds": []
+      }
+     ]
+    },
+    "matches": [
+     {
+      "claimId": "i1",
+      "vaultId": "v-kid",
+      "strength": "exact",
+      "reason": "named in the claim",
+      "clueIds": [],
+      "route": "RULES_ONLY"
+     }
+    ],
+    "vault": [
+     "home",
+     "employer",
+     "elm",
+     "kid"
+    ]
+   },
+   "expect": {
+    "riskReduced": false,
+    "worstRemainingLineId": "pin:v-home",
+    "headline": {
+     "copyId": "copy.verdict.still",
+     "params": {
+      "line": "HOME: within 1 km (neighbourhood)"
+     }
+    }
+   }
+  },
+  {
+   "fn": "compare",
+   "name": "the vault grew between rounds (CAR PLATE added): not reduced; LOW headline (D-128)",
+   "ac": "AC-194",
+   "before": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Quay Road area",
+       "level": "street",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 0.2,
+       "confidence": "high",
+       "clueIds": []
+      }
+     ],
+     "inferences": []
+    },
+    "matches": [],
+    "vault": [
+     "home"
+    ]
+   },
+   "after": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Quay Road area",
+       "level": "street",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 800,
+       "confidence": "high",
+       "clueIds": []
+      }
+     ],
+     "inferences": []
+    },
+    "matches": [],
+    "vault": [
+     "home",
+     "plate"
+    ]
+   },
+   "expect": {
+    "riskReduced": false,
+    "worstRemainingLineId": null,
+    "headline": {
+     "copyId": "copy.verdict.low",
+     "params": {}
+    }
+   }
+  },
+  {
+   "fn": "compare",
+   "name": "LOW to LOW with a grey city line: no risk line, so the LOW headline, never Still exposed",
+   "ac": "AC-194",
+   "before": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Port city",
+       "level": "city",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 20,
+       "confidence": "high",
+       "clueIds": []
+      }
+     ],
+     "inferences": []
+    },
+    "matches": [],
+    "vault": [
+     "home"
+    ]
+   },
+   "after": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Port city",
+       "level": "city",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 20,
+       "confidence": "high",
+       "clueIds": []
+      }
+     ],
+     "inferences": []
+    },
+    "matches": [],
+    "vault": [
+     "home"
+    ]
+   },
+   "expect": {
+    "riskReduced": false,
+    "worstRemainingLineId": "pin:v-home",
+    "headline": {
+     "copyId": "copy.verdict.low",
+     "params": {}
+    }
+   }
+  },
+  {
+   "fn": "compare",
+   "name": "the vault changed between rounds (emptied): not reduced (D-128)",
+   "ac": "AC-194",
+   "before": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Quay Road area",
+       "level": "street",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 0.2,
+       "confidence": "high",
+       "clueIds": []
+      }
+     ],
+     "inferences": []
+    },
+    "matches": [],
+    "vault": [
+     "home"
+    ]
+   },
+   "after": {
+    "adv": {
+     "status": "ok",
+     "hypotheses": [
+      {
+       "id": "h1",
+       "label": "Quay Road area",
+       "level": "district",
+       "lat": 0.5,
+       "lng": -30.5,
+       "radiusKm": 0.8,
+       "confidence": "high",
+       "clueIds": []
+      }
+     ],
+     "inferences": []
+    },
+    "matches": [],
+    "vault": []
+   },
+   "expect": {
+    "riskReduced": false,
+    "worstRemainingLineId": null,
+    "headline": {
+     "copyId": "copy.verdict.still",
+     "params": {
+      "line": "Attacker's best guess: district level · Quay Road area · high"
+     }
+    }
+   }
+  },
+  {
+   "fn": "scrub",
+   "name": "attacker: near 22 Acacia Avenue, within 300 m",
+   "mode": "attacker",
+   "input": "near 22 Acacia Avenue, within 300 m",
+   "expect": "near … Acacia Avenue, within …"
+  },
+  {
+   "fn": "scrub",
+   "name": "attacker: badge 400 m from 12 Elm Street, 0°30′S",
+   "mode": "attacker",
+   "input": "badge 400 m from 12 Elm Street, 0°30′S",
+   "expect": "badge … from … Elm Street, …S"
+  },
+  {
+   "fn": "scrub",
+   "name": "attacker: S 0 30 12 W 30 7 39",
+   "mode": "attacker",
+   "input": "S 0 30 12 W 30 7 39",
+   "expect": "S … W …"
+  },
+  {
+   "fn": "scrub",
+   "name": "attacker: 0 30 S",
+   "mode": "attacker",
+   "input": "0 30 S",
+   "expect": "… S"
+  },
+  {
+   "fn": "scrub",
+   "name": "attacker: 1 234 m",
+   "mode": "attacker",
+   "input": "1 234 m",
+   "expect": "…"
+  },
+  {
+   "fn": "scrub",
+   "name": "attacker: 800 m",
+   "mode": "attacker",
+   "input": "800 m",
+   "expect": "…"
+  },
+  {
+   "fn": "scrub",
+   "name": "attacker: ２km",
+   "mode": "attacker",
+   "input": "２km",
+   "expect": "…"
+  },
+  {
+   "fn": "scrub",
+   "name": "attacker: 05e-1",
+   "mode": "attacker",
+   "input": "05e-1",
+   "expect": "…"
+  },
+  {
+   "fn": "scrub",
+   "name": "attacker: 0·507",
+   "mode": "attacker",
+   "input": "0·507",
+   "expect": "…"
+  },
+  {
+   "fn": "scrub",
+   "name": "attacker: 0d30m",
+   "mode": "attacker",
+   "input": "0d30m",
+   "expect": "…"
+  },
+  {
+   "fn": "scrub",
+   "name": "attacker: 30⁰",
+   "mode": "attacker",
+   "input": "30⁰",
+   "expect": "…"
+  },
+  {
+   "fn": "scrub",
+   "name": "attacker: 0.5e0",
+   "mode": "attacker",
+   "input": "0.5e0",
+   "expect": "…"
+  },
+  {
+   "fn": "scrub",
+   "name": "attacker: ０．５０７ south",
+   "mode": "attacker",
+   "input": "０．５０７ south",
+   "expect": "… south"
+  },
+  {
+   "fn": "scrub",
+   "name": "attacker: ٠٫٥٠٧ south",
+   "mode": "attacker",
+   "input": "٠٫٥٠٧ south",
+   "expect": "… south"
+  },
+  {
+   "fn": "scrub",
+   "name": "attacker: ०.५०७ S",
+   "mode": "attacker",
+   "input": "०.५०७ S",
+   "expect": "… S"
+  },
+  {
+   "fn": "scrub",
+   "name": "attacker: -30.611, 0.512 near the quay",
+   "mode": "attacker",
+   "input": "-30.611, 0.512 near the quay",
+   "expect": "… near the quay"
+  },
+  {
+   "fn": "scrub",
+   "name": "attacker: Platform 9",
+   "mode": "attacker",
+   "input": "Platform 9",
+   "expect": "Platform …"
+  },
+  {
+   "fn": "scrub",
+   "name": "attacker: 3 mins walk",
+   "mode": "attacker",
+   "input": "3 mins walk",
+   "expect": "… mins walk"
+  },
+  {
+   "fn": "scrub",
+   "name": "attacker: 1990's terraces",
+   "mode": "attacker",
+   "input": "1990's terraces",
+   "expect": "…s terraces"
+  },
+  {
+   "fn": "scrub",
+   "name": "attacker: no numbers here",
+   "mode": "attacker",
+   "input": "no numbers here",
+   "expect": "no numbers here"
+  },
+  {
+   "fn": "scrub",
+   "name": "label: Unit 4.5",
+   "mode": "label",
+   "input": "Unit 4.5",
+   "expect": "Unit …"
+  },
+  {
+   "fn": "scrub",
+   "name": "label: Platform 9, house 14",
+   "mode": "label",
+   "input": "Platform 9, house 14",
+   "expect": "Platform 9, house 14"
+  },
+  {
+   "fn": "scrub",
+   "name": "label: 30° west",
+   "mode": "label",
+   "input": "30° west",
+   "expect": "… west"
+  },
+  {
+   "fn": "scrub",
+   "name": "label: ３０．５ west",
+   "mode": "label",
+   "input": "３０．５ west",
+   "expect": "… west"
+  }
+ ]
+}

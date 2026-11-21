@@ -406,7 +406,7 @@ Every Firebase AI Logic call, on the device or in the cloud, goes through the si
    - Offline: `OFFLINE`. The pipeline queues S3 **before** calling the gate (SCR-18).
    - S3 daily cap: `DAILY_CAP`.
    - S3 consent token missing, expired (more than 10 min old) or from another session: `NO_CONSENT`.
-   - Wait for `authReady`, up to 5 s.
+   - Wait for `ensureAuth()`, up to 5 s; no UID (sign-in failed or timed out) fails the call as `CLOUD_AUTH` (`copy.err.auth`) without a request. The next call tries to sign in again (D-110).
 5. **Image re-check**, for every image of a call that can reach the cloud:
    - The image must be JPEG (`BAD_MIME`).
    - No APP1 or APP13 segment, and `exifr.gps()` returns undefined (`EXIF`, D-19).
@@ -951,7 +951,7 @@ Each screen lists its purpose, layout, behaviour, states (a)–(e), copy IDs and
     - Invalid output falls back to the rules referee, and the HUD shows `fallback: invalid output`.
   - **AC-162 (P0) [unit]** The referee prompt contains no coordinates. A fixture scan looks for number patterns resembling the vault's lat/lng.
   - **AC-163 (P0) [e2e] [video]** The demo verdict shows at least one RED line while the Ledger counters read `Faces sent: 0 · Vault items sent: 0`, and `copy.verdict.neverLearns` is visible.
-  - **AC-164 (P0) [manual]** Every line shows a confidence: attacker confidence for pins, and strength plus attacker confidence for matches.
+  - **AC-164 (P0) [manual]** Every line that reports an attacker guess shows a confidence: the attacker confidence of the band's hypothesis for a pin line; strength plus the claim's attacker confidence for a match line; strength, the claim's attacker confidence and the band hypothesis's attacker confidence for a combined pin + match line; and the attacker's confidence on the best-guess line. Lines that report an on-device finding (echo, caught, found on this device) show no confidence and are labelled "found on this device" (D-127).
   - **AC-165 (P0) [unit]** The rules referee (§10.3), against the vault work label "City General Hospital":
     - an inference "hospital staff lanyard logo" (kind workplace) gives `likely`;
     - an inference value "City General" gives `exact`;
@@ -1225,7 +1225,7 @@ Each screen lists its purpose, layout, behaviour, states (a)–(e), copy IDs and
 - **Privacy:** pre-mask mode (Standard/Strict); "Show vault labels in results" (on); "Include live search notes" default (on); "Notes on re-attack" (on).
 - **Display:** Router HUD (on); Ledger rail (on).
 - **Community:** Leak Atlas opt-in (off), SCR-21.
-- **Developer** (shown with `?debug=1`, and while a simulation is on so it can be turned off; D-104): "Simulate: no Nano / offline" (downgrade only, AC-006); show RC values and their source; force an RC fetch.
+- **Developer** (shown with `?debug=1`, and while a simulation is on so it can be turned off; D-104): "Simulate: no Nano / offline" (downgrade only, AC-006); show RC values and their source; force an RC fetch. "Simulate: no Nano" shows state (c) exactly as a browser without the Prompt API does (`copy.cap.nanoNone`, the Chrome how-to, Rules-only, no Download button); "Use Gemini Nano" off keeps its own (c) line. "Simulate: offline" shows (d). This is what AC-072's simulation check expects (D-117).
 
 **About (P0):**
 - the version and commit;
@@ -1280,9 +1280,9 @@ Each screen lists its purpose, layout, behaviour, states (a)–(e), copy IDs and
 | S0/S1 tripwire or BREACH (AC-022) | A persistent red banner; the session is RULES-ONLY; the cloud is off until reload | `copy.gate.tripwire` |
 | Unsupported browser (no WebAssembly or IndexedDB) | A full-page message | `copy.err.browser` |
 
-- **Precedence (D-105):** while the cloud is off, one banner only, the most severe: tripwire > kill switch > App Check > sign-in > daily cap. The per-call rows (429, 400, network) show only while the cloud is on and can be dismissed; the 429 banner clears itself after 60 s. The header chip and SCR-02 row 3 follow the same reason.
+- **Precedence (D-105):** while the cloud is off, one banner only, the most severe: tripwire > kill switch > App Check > sign-in > daily cap. The per-call rows (429, 400, network) show only while the cloud is on and can be dismissed; the 429 banner clears itself after 60 s, and they are dropped when the cloud goes off, so they never reappear when it returns (D-117). The header chip and SCR-02 row 3 follow the same reason. The daily-cap banner and chip clear at local midnight, also with the page left open (D-117).
 - **AC-290 (P0) [e2e]** Each condition, produced by a mock or an RC override, shows its copy and leaves the on-device features working.
-- **AC-291 (P0) [unit]** Firebase initialises in the order `initializeApp → (debug flag, DEV only) → initializeAppCheck → getAuth → getAI`, asserted by a test. Every cloud call awaits `authReady`.
+- **AC-291 (P0) [unit]** Firebase initialises in the order `initializeApp → (debug flag, DEV only) → initializeAppCheck → getAuth → getAI`, asserted by a test. Every cloud call awaits `ensureAuth()` (bounded at 5 s, retried on the next call; no UID → `CLOUD_AUTH`, D-110).
 - **AC-292 (P0) [manual]** On the hosted URL, AI Logic requests carry `X-Firebase-AppCheck` (seen in DevTools), and the console's App Check APIs tab shows AI Logic as **Enforced** [USER confirms].
 
 ---
@@ -1356,8 +1356,8 @@ The generic-word list, synonym classes, artefact terms and word folds live in `s
 
 ### 10.5 Overall level
 - **RED** if any line is HIGH, otherwise **AMBER** if any is MEDIUM, otherwise **LOW** (`copy.verdict.low`).
-- Empty vault: the level comes from the best hypothesis's level (street or neighbourhood → RED, district → AMBER, otherwise LOW), shown with `copy.verdict.noVault`.
-- Refused (state e): level **PARTIAL**, built from on-device findings only.
+- Empty vault, or a vault with no pin (no pin item that carries a pin): geography has nothing to measure against, so the level is the higher of the rule above and the **finest** level among the (at most 3) hypotheses (street or neighbourhood → RED, district → AMBER, otherwise LOW), shown with `copy.verdict.noVault` and "Add places" (D-127). A text-only vault with a street-level guess is therefore never LOW. The best-guess line still shows h1.
+- Refused (state e): level **PARTIAL**, built from on-device findings only: caught lines, a found-on-device line and any echo lines (the echo scan runs on this device and covers `decline_reason`, D-115). A missing pass B, or one that is blocked, truncated or unreadable, is PARTIAL too.
 - Headlines: RED `copy.verdict.red`, AMBER `copy.verdict.amber`, LOW `copy.verdict.low`, PARTIAL `copy.verdict.partial`.
 - **GREEN is never an initial level.**
 
@@ -1365,6 +1365,8 @@ The generic-word list, synonym classes, artefact terms and word folds live in `s
 "Risk reduced" is shown when **either** of these holds:
 - after.level < before.level (ordering: RED > AMBER > LOW); **or**
 - after.level == before.level, AND the worst pin band got coarser, AND the count of HIGH lines decreased.
+
+**and** all of these hold (D-128): no vault item's worst line severity rose; the worst pin band did not get finer; both verdicts cover the same vault items (a vault changed between rounds, or emptied, is never "Risk reduced"). PARTIAL on either side is never "Risk reduced"; after a PARTIAL re-attack the header is `copy.verdict.partial`, and after a LOW result with no HIGH or MEDIUM line it is `copy.verdict.low`, never "Still exposed".
 
 Otherwise show `copy.verdict.still`, naming the worst remaining line.
 - Never show "safe".
@@ -1533,7 +1535,7 @@ The Router HUD line format is `{job} › {ROUTE} ({engine}) {latency}`, for exam
 | SR-04 | Prompts are scene-only privacy audits commissioned by the owner. They never describe or identify people, never echo names, plates or house numbers, and never give a private home's full address. | `advA.v1`/`advB.v1` text, response scan |
 | SR-05 | On a decline or block: show the on-device findings, and **never** retry, rephrase, role-play or "jailbreak". Transient errors (network, 5xx, 429, truncation, a parse failure) may be retried automatically within the SCR-08 limits, with a byte-identical request. | AC-144, AC-145, AC-149, AC-303, D-18 |
 | SR-06 | **Dual use:** local files only (no URL input); no map, coordinates or address for the attacker's guess; bands relative to *your own* pins only; App Check, AI Logic per-user limits, the daily cap and the kill switch. The README says plainly that the raw JSON is visible in DevTools, that the added harm over the public Gemini app is close to zero, and that these measures don't stop a determined attacker. | SCR-05, AC-146, SCR-22, README |
-| SR-07 | Claims: "Risk reduced", never "safe". Bands, never metres. Confidence always shown. "Not a guarantee" in About and on LOW verdicts. | Copy catalogue, AC-164, AC-197, AC-304 |
+| SR-07 | Claims: "Risk reduced", never "safe". Bands, never metres. Confidence always shown for attacker guesses. "Not a guarantee" in About and on LOW verdicts. | Copy catalogue, AC-164, AC-197, AC-304 |
 | SR-08 | Data tier: the paid tier is planned [USER]. The UI states the tier truthfully. On the free tier, grounding is off and the README states the EEA/UK/CH limitation. | AC-131, D-07 |
 | SR-09 | 18+ confirmation and "own photos only" on first run. Not marketed to minors. | SCR-01 |
 | SR-10 | Grounding display: Search Suggestions are shown unmodified, at the same width, always visible alongside the notes, with queries and sources; no click tracking; never cached across users; shown only to the requesting user; never persisted. | SCR-08, AC-141, AC-148, AC-245 |
@@ -1744,7 +1746,7 @@ The Router HUD line format is `{job} › {ROUTE} ({engine}) {latency}`, for exam
 - **AC-350 (P0) [manual]** 25 photos × 2 conditions × 3 runs complete. The summary contains M1–M5, M7, M8 and M9; M6 is P1.
 - **AC-351 (P0) [unit]**
   - No committed file under `benchmark/` contains coordinates, photo pixels or EXIF (a scan test).
-  - The repo-wide coordinate scan (`scripts/check-images.mjs`) allowlists only `web/public/samples/*.json` (after the D-26 decision), the synthetic `shared/testvectors/*.json` and lock files.
+  - The repo-wide coordinate scan (`scripts/check-images.mjs`) accepts coordinates only in `web/public/samples/*.json` (after the D-26 decision), the synthetic `shared/testvectors/*.json` and the repo's own lock files (by exact path). Anywhere else, a coordinate-like value (decimal, decimal comma, DMS with seconds or decimal minutes, XMP GPS form) passes only if its exact value is listed for that file, with a reason, in `scripts/check-images.allow.json`: synthetic open-ocean pins, public reference points or values that are not coordinates (D-106, D-119). No true coordinate is ever listed.
 - **AC-352 (P0) [unit]** M1, M2 and M9 are computed with the app's own geo and band module, which has a unit test.
 - **AC-353 (P0) [manual]** The README's benchmark table matches `summary.md`, and states the model, prompt versions, date, k = 3, `d` vs `e`, and the limitations (§15.1).
 - **AC-354 (P1) [manual]** The M6 gate test set reaches 100%, or its misses are listed and fixed.
@@ -1797,7 +1799,7 @@ The Router HUD line format is `{job} › {ROUTE} ({engine}) {latency}`, for exam
   - `fetchTimeoutMillis`: 8 s;
   - call `ensureInitialized` before any read.
 - **ACs**
-  - **AC-293 (P0) [unit]** Each key is parsed with validation, and invalid values fall back to their defaults.
+  - **AC-293 (P0) [unit]** Each key is parsed with validation, and invalid values fall back to their defaults, except three keys that fail safe instead: a refused `kill_switch` reads as `true`, `data_tier` as `free` and `grounding_enabled` as `false` (D-108, D-118).
   - **AC-294 (P0) [e2e]** An offline start uses the last activated values (or the defaults) with no delay.
   - **AC-295 (P0) [unit]** The bundled defaults on web and iOS deep-equal the defaults in `remoteconfig.template.json`.
 
@@ -1921,7 +1923,7 @@ Name kinds (`self_name`, `child_name`, `person_name`) are matched by OCR, W3b an
 - **AC-361 (P0) [manual]** Firebase AI Logic is imported and **called at runtime** on both platforms: `firebase/ai` → `generateContent`/`generateContentStream`, and `FirebaseAILogic` → sessions and `generativeModel`. The README lists these call sites with file paths.
 - **AC-362 (P0) [manual]** Both on-device and cloud inference are demonstrably used. The video shows both badges, on the web (Nano) and on iOS (Apple FM).
 - **AC-363 (P0) [manual]** The hosted app stays within quota until **Dec 16 2026, 2:00 PM PT** (the end of judging): daily cap and per-user limits set, kill switch off, budget alerts set [USER].
-- **AC-364 (P0) [manual]** Before tagging `submission-v1`, a `git grep` scan confirms the repo contains no `.env*.local` file (only the secret-free `web/.env.example` and `web/.env.e2e` are committed), no `ios/.appcheck-debug-token`, no debug-token values, service-account keys, real photos or true coordinates. Coordinates are allowlisted only in `web/public/samples/*.json`.
+- **AC-364 (P0) [manual]** Before tagging `submission-v1`, a `git grep` scan confirms the repo contains no `.env*.local` file (only the secret-free `web/.env.example` and `web/.env.e2e` are committed), no `ios/.appcheck-debug-token`, no debug-token values, service-account keys, real photos or true coordinates. Coordinates may appear only in `web/public/samples/*.json`, the synthetic `shared/testvectors/*.json`, the repo's lock files, and as the reviewed non-true values in `scripts/check-images.allow.json` (D-106, D-119). `node scripts/check-images.mjs` automates the pre-check over every file a commit could take, the staged copy included.
 - **AC-365 (P0) [e2e]** `web/dist` does not contain the registered App Check debug-token **value**, nor the string `VITE_APPCHECK_DEBUG_TOKEN`. Note: the App Check SDK itself references the global name `FIREBASE_APPCHECK_DEBUG_TOKEN` (expected from its source), so grepping for that name alone is not a valid test.
 - **AC-366 (P0) [e2e]** On the walking-skeleton deploy (Sat Nov 21, TASKS T-038) and again on every hosted deploy, checked with `curl -I`:
   - `/`, `/index.html`, `/sw.js` and `/manifest.webmanifest` are served with `Cache-Control: no-cache`;

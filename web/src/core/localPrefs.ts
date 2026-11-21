@@ -122,6 +122,12 @@ export function localDay(d: Date): string {
 }
 export const capKey = (d: Date): string => `${PREF_KEYS.capPrefix}${localDay(d)}`;
 
+/** Milliseconds from `now` to one second past the next LOCAL midnight (when the daily cap resets). */
+export function msToNextLocalMidnight(now: Date): number {
+  const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 1);
+  return Math.max(1_000, next.getTime() - now.getTime());
+}
+
 /** A stored counter: a canonical non-negative integer string, anything else is 0. */
 export function parseCount(raw: string | null): number {
   if (raw === null || !/^(0|[1-9][0-9]{0,8})$/.test(raw)) return 0;
@@ -139,6 +145,16 @@ export interface LocalPrefsDeps {
     addEventListener(type: 'storage', fn: (e: { key: string | null }) => void): void;
     removeEventListener(type: 'storage', fn: (e: { key: string | null }) => void): void;
   } | null;
+  /**
+   * The local day changing must reach subscribers even when nothing is written (the daily-cap banner and chip clear at
+   * local midnight): a timer to the next local midnight, plus a re-check when the page becomes visible again (a timer
+   * can fire late after the device slept). Both optional.
+   */
+  timers?: { setTimeout(fn: () => void, ms: number): unknown; clearTimeout(id: unknown): void } | null;
+  visibility?: {
+    addEventListener(type: 'visibilitychange', fn: () => void): void;
+    removeEventListener(type: 'visibilitychange', fn: () => void): void;
+  } | null;
 }
 
 export interface LocalPrefs {
@@ -155,7 +171,7 @@ export interface LocalPrefs {
   capUsedToday(): number;
   /** Count one run (A+B pair) today and drop earlier days' counters. Returns today's new total. */
   incrementCap(): number;
-  /** Changes from this tab or another; returns the unsubscribe. */
+  /** Changes from this tab or another, and the local day turning over; returns the unsubscribe. */
   subscribe(listener: () => void): () => void;
   /** Bumps on every change: a cheap snapshot for hooks. */
   version(): number;
@@ -173,6 +189,8 @@ export function createLocalPrefs(deps: LocalPrefsDeps): LocalPrefs {
   let parsed: Settings = DEFAULT_SETTINGS;
   let simsFrom: string | undefined;
   let sims: Simulations = SIMS_NONE;
+  let lastDay = '';
+  let dayTimer: unknown = null;
 
   const store = (): PrefsStorage | null => {
     try {
@@ -238,6 +256,22 @@ export function createLocalPrefs(deps: LocalPrefsDeps): LocalPrefs {
     changed();
   };
 
+  /** Announce a new local day (the cap counter key changed) to subscribers. */
+  const checkDay = () => {
+    const today = localDay(deps.now());
+    if (today === lastDay) return;
+    lastDay = today;
+    changed();
+  };
+  const armDayTimer = () => {
+    if (!deps.timers) return;
+    dayTimer = deps.timers.setTimeout(() => {
+      dayTimer = null;
+      checkDay();
+      if (listeners.size > 0) armDayTimer();
+    }, msToNextLocalMidnight(deps.now()));
+  };
+
   const api: LocalPrefs = {
     ack18: () => read(PREF_KEYS.ack18) === '1',
     setAck18: () => write(PREF_KEYS.ack18, '1'),
@@ -291,11 +325,19 @@ export function createLocalPrefs(deps: LocalPrefsDeps): LocalPrefs {
     },
 
     subscribe(listener) {
-      if (listeners.size === 0) deps.events?.addEventListener('storage', onStorage);
+      if (listeners.size === 0) {
+        deps.events?.addEventListener('storage', onStorage);
+        deps.visibility?.addEventListener('visibilitychange', checkDay);
+        lastDay = localDay(deps.now());
+        armDayTimer();
+      }
       listeners.add(listener);
       return () => {
-        listeners.delete(listener);
-        if (listeners.size === 0) deps.events?.removeEventListener('storage', onStorage);
+        if (!listeners.delete(listener) || listeners.size > 0) return;
+        deps.events?.removeEventListener('storage', onStorage);
+        deps.visibility?.removeEventListener('visibilitychange', checkDay);
+        if (dayTimer !== null) deps.timers?.clearTimeout(dayTimer);
+        dayTimer = null;
       };
     },
     version: () => ver,
@@ -313,11 +355,18 @@ export const localPrefs: LocalPrefs = createLocalPrefs({
   storage: browserStorage,
   now: () => new Date(),
   events: typeof window === 'undefined' ? null : window,
+  timers: { setTimeout: (fn, ms) => setTimeout(fn, ms), clearTimeout: (id) => clearTimeout(id as ReturnType<typeof setTimeout>) },
+  visibility: typeof document === 'undefined' ? null : document,
 });
 
-/** ARCH §8.2's names for the gate (T-062): `prefs.nanoEnabled()`, `prefs.simulateNoNano()`, `prefs.simulateOffline()`. */
+/**
+ * ARCH §8.2's names for the gate (T-062): `prefs.nanoEnabled()`, `prefs.simulateNoNano()`, `prefs.simulateOffline()`.
+ * nanoEnabled() is false when the setting is off OR "Simulate: no Nano" is on, so a check of nanoEnabled() alone (ARCH
+ * §8.2's RECLASSIFY path) also honours the simulation (downgrade only, AD-33); check simulateNoNano() first to tell
+ * the note 'simulated' from 'Nano off'.
+ */
 export const prefs = {
-  nanoEnabled: (): boolean => localPrefs.settings().useNano,
+  nanoEnabled: (): boolean => localPrefs.settings().useNano && !localPrefs.simulations().noNano,
   simulateNoNano: (): boolean => localPrefs.simulations().noNano,
   simulateOffline: (): boolean => localPrefs.simulations().offline,
 } as const;

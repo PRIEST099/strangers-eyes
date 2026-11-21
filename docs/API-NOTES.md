@@ -363,6 +363,7 @@ const final = await response;   // GenerateContentStreamResult.response is a Pro
 - Streaming works on the device (the SDK wraps `promptStreaming`) and in the cloud.
 - **Timeouts:** `RequestOptions.timeout` (ms) can be set in `getGenerativeModel(…, requestOptions)` or per call via `SingleRequestOptions` (which adds `signal`). The default is 180000 ms. It is implemented with an internal `AbortController` combined with the caller's signal through `AbortSignal.any` `[VERIFIED: src]`.
   - **It only covers the wait for the response headers.** `makeRequest` clears the timer in a `finally` as soon as `fetch()` resolves, so neither reading a non-streamed body nor a stream's chunks is bounded by it (the SDK's own comment: a stream that starts at 300 ms and ends at 5,000 ms is not aborted by a 3,000 ms timeout). The model-level `requestOptions` are spread into each call's `SingleRequestOptions`, so the same holds for a timeout set in `getGenerativeModel` `[VERIFIED: src 13.4.0, T-065 review]`. The gate therefore needs its own deadline (an `AbortSignal` passed per call, aborted on its own timer) to bound pass A's stream and every body read (TASKS T-062).
+  - `generateContentStream` resolves only after the **first chunk** has arrived (`processStream` → `processStreamInternal` awaits one `reader.read()` before returning) `[VERIFIED: src @firebase/ai 3.1.0, T-062]`. The gate's deadline therefore races the call itself, every `next()` of the stream and the aggregated `response` (`ai/egressGate.ts`).
 - `signal` and `timeout` abort **only the cloud fetch**; they are not passed to the device. Aborting does not stop billing `[VERIFIED: src]`. For device timeouts use `Promise.race`; the next device call destroys the old session (§1.6).
 - When streaming, the SDK's aggregated `groundingMetadata` is **overwritten by every chunk, including with `undefined`**. Capture it inside the loop (§1.13).
 - U-05: Chrome 157's `promptStreaming` chunks may be deltas (the SDK assumes deltas) or cumulative.
@@ -374,6 +375,8 @@ const final = await response;   // GenerateContentStreamResult.response is a Pro
 - `AIErrorCode` values: `error`, `request-error`, `response-error`, `fetch-error`, `session-closed`, `invalid-content`, `api-not-enabled`, `already-initialized`, `invalid-schema`, `no-api-key`, `no-app-id`, `no-model`, `no-project-id`, `parse-failed`, `unsupported`.
 - `e.code` is the bare string; `e.message` looks like `"AI: … (AI/unsupported)"`.
 - **Cloud HTTP errors** (429, 400, 403, App Check rejection) throw `fetch-error` with `customErrorData.status`.
+- **A `fetch()` that throws** (offline, DNS, the fetch tripwire's `TripwireError`) is re-thrown by `makeRequest` as `AIError` code `error` with the message `Error fetching from <url>: <original message>`; only an `AbortError` passes through unwrapped (a `DOMException`). So the gate reads the tripwire's `tripwire:<REASON>` text in the message and `tripwire.lastTrip()`, never the error type `[VERIFIED: src 3.1.0 makeRequest, T-062]`.
+- **`api-not-enabled` has two sources:** the device (`availability()` = `'unavailable'` on ONLY_ON_DEVICE) and the cloud (HTTP 403 `SERVICE_DISABLED`, with `customErrorData.status`). `ai/errors.ts` tells them apart by the status `[VERIFIED: src 3.1.0, T-062]`.
 - **`response.text()` throws `response-error`:**
   - when `finishReason` is RECITATION, SAFETY, BLOCKLIST, PROHIBITED_CONTENT, **SPII**, MALFORMED_FUNCTION_CALL, LANGUAGE, UNEXPECTED_TOOL_CALL, TOO_MANY_TOOL_CALLS, MISSING_THOUGHT_SIGNATURE, MALFORMED_RESPONSE, or any IMAGE_* value;
   - when `promptFeedback.blockReason` is SAFETY, OTHER, BLOCKLIST or PROHIBITED_CONTENT.
@@ -498,7 +501,7 @@ host.innerHTML = gm?.searchEntryPoint?.renderedContent ?? '';
   - **Anonymous users count as authenticated.**
   - It blocks cloud calls without Auth credentials (401).
   - It never blocks on-device calls or `countTokens`.
-  - With it on, **await `authReady` before any cloud call**.
+  - With it on, **await `ensureAuth()` before any cloud call** (`firebase/init.ts`; a promise made once at start-up would stay `null` after an offline start, D-110).
 
 ### 1.15 Billing and data terms
 
@@ -623,13 +626,19 @@ Source: https://firebase.google.com/docs/ai-logic/faq-and-troubleshooting
 ### 2.3 Anonymous Auth
 
 ```ts
-// [VERIFIED: docs; signInAnonymously behaviour VERIFIED: src auth 1.13.11]
-import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
+// [VERIFIED: docs; signInAnonymously behaviour VERIFIED: src auth 1.13.11. As built in firebase/init.ts (D-110, T-101)]
+import { getAuth, signInAnonymously } from 'firebase/auth';
 export const auth = getAuth(app);                 // after initializeAppCheck, before getAI
-export const authReady = new Promise<string | null>(res => {
-  const off = onAuthStateChanged(auth, u => { if (u) { off(); res(u.uid); } });
-  signInAnonymously(auth).catch(() => res(null));  // offline → null; cloud is unavailable anyway
-});
+let signingIn: Promise<string | null> | null = null;
+export function ensureAuth(): Promise<string | null> {   // the gate awaits this before EVERY cloud call
+  if (auth.currentUser) return Promise.resolve(auth.currentUser.uid);
+  signingIn ??= Promise.race([
+    signInAnonymously(auth).then(c => c.user.uid, () => null),       // offline / provider off → null
+    new Promise<null>(res => setTimeout(() => res(null), 5_000)),    // Auth's start-up awaits IndexedDB with no timeout
+  ]).finally(() => { signingIn = null; });                            // the next call retries
+  return signingIn;
+}
+export const authReady = ensureAuth();              // the first attempt only; never the gate's check
 ```
 
 - `signInAnonymously` waits for the persisted state and **returns the existing anonymous user** instead of creating a new one.
@@ -1649,7 +1658,7 @@ Every row is still unconfirmed. **When** refers to the PLAN schedule:
 | U-14 | text-before-image vs image-first quality | A/B on the spike photos | Day 1 (b) |
 | U-15 | image input free on Spark | moot on Blaze | none |
 | U-16 | `firebase init ailogic` replaces the console onboarding | [USER] does the console flow instead | none |
-| U-17 | `firebase deploy --only auth` / `--only remoteconfig` on a fresh project | run once and check the console | first hosted deploy |
+| U-17 | `firebase deploy --only auth` / `--only remoteconfig` on a fresh project | run once and check the console | **VERIFIED Nov 21 (D-126):** `deploy --only remoteconfig,auth` with firebase-tools 15.37.0 enabled Anonymous and published RC v1 equal to the template |
 | U-18 | ID of the default Firestore database for `firestore:databases:create` | console, or `firebase firestore:databases:list` | before Atlas work |
 | U-19 | creating a reCAPTCHA Enterprise key without billing | moot on Blaze | none |
 | U-20 | Hosting header glob `/@(index.html\|sw.js\|…)` | `curl -I` the deployed files | MOOT Nov 20 (one entry per file; verified) |

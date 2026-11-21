@@ -1,7 +1,7 @@
 // web/src/boot.ts: the app's start-up in the mandatory order (ARCH §15.1; SPEC AC-291, AC-294; T-101, T-102).
 // main.tsx imports this SECOND, right after './ai/tripwire-install', so evaluating it runs firebase/init first:
 // initializeApp → [DEV debug flag] → initializeAppCheck → getAuth + signInAnonymously → getAI (then getRemoteConfig).
-// boot() then runs steps 3–5: Remote Config → the vault scanner → render. No step can keep the app from rendering:
+// boot() then runs steps 3–5: Remote Config and the vault scanner (concurrently) → render. Nothing keeps the app from rendering:
 // each wait is bounded, and every failure leaves the safe state behind (defaults; a vault scanner that blocks every
 // cloud call until the index is built, so the gate fails closed).
 import './firebase/init'; // step 2, explicitly first (remoteConfig imports it too)
@@ -45,10 +45,8 @@ export function boot(opts: { judge: boolean; render: () => void }): Promise<Boot
 }
 
 async function run({ judge, render }: { judge: boolean; render: () => void }): Promise<BootResult> {
-  // 3. Remote Config: last activated values (works offline) or the template defaults; the fetch runs in the background.
-  const config = await settle(loadConfig());
-
-  // RC fuzzy_threshold drives the scanner the vault index registers with the tripwire; it follows real-time updates.
+  // RC fuzzy_threshold drives the scanner the vault index registers with the tripwire. Subscribed BEFORE step 3, so the
+  // cached value (read when ensureInitialized resolves) and every later real-time change reach the scanner.
   let theta = cfg().fuzzyThreshold;
   vaultScan.setFuzzyThreshold(theta);
   subscribeConfig(() => {
@@ -56,12 +54,17 @@ async function run({ judge, render }: { judge: boolean; render: () => void }): P
     if (next !== theta) { theta = next; vaultScan.setFuzzyThreshold(next); }
   });
 
+  // Steps 3 and 4 run CONCURRENTLY (D-118): neither needs the other, and in sequence a hung IndexedDB would cost
+  // both waits (up to 5 s of blank page) instead of the longer one.
+  // 3. Remote Config: last activated values (works offline) or the template defaults; the fetch runs in the background.
+  const configStep = settle(loadConfig());
   // 4. The vault scanner: finishes an interrupted burn first, then the real vault's index, or an empty one on the
   //    Judge Mode route (never unsealing the real vault). It blocks synchronously before its first await, so the
   //    tripwire refuses every AI request until the index exists, whatever happens to the render below.
-  const vault = await settle(vaultScan.init({ judge }));
+  const vaultStep = settle(vaultScan.init({ judge }));
+  const [config, vault] = await Promise.all([configStep, vaultStep]);
 
-  // 5. Render (the Welcome gate, T-091, is App's).
+  // 5. Render (the Welcome gate, T-091, is App's). Nothing can call the cloud before this.
   render();
   return Object.freeze({ judge, config, vault });
 }

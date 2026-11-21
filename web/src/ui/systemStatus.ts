@@ -106,7 +106,8 @@ function banner(kind: BannerKind, s: SystemStatus): Banner {
 /**
  * The banners to show (D-105). While the cloud is off, exactly one banner: the most severe reason (each one already says
  * that cloud checks are off and on-device checks still work, and a "try again" event would invite a retry that cannot
- * run). Otherwise every reported event, in a fixed order.
+ * run). Otherwise every reported event, in a fixed order. AppShell also clears the events when the cloud goes off, so
+ * a stale one never reappears when it comes back (D-117).
  */
 export function selectBanners(s: SystemStatus, capUsed: number): Banner[] {
   const off = cloudOffReason(s, capUsed);
@@ -153,6 +154,8 @@ export interface SystemStatusStore {
   report(event: TransientEvent): void;
   /** Dismiss an event banner. State banners (and the tripwire) cannot be dismissed. */
   dismiss(kind: BannerKind): void;
+  /** Drop every event (AppShell, when the cloud goes off: they are about a cloud call that can no longer run). */
+  clearEvents(): void;
 }
 
 export interface StatusTimers {
@@ -226,6 +229,13 @@ export function createSystemStatusStore(timers: StatusTimers = BROWSER_TIMERS, i
         rateTimer = null;
       }
       withoutEvent(kind);
+    },
+    clearEvents() {
+      if (rateTimer !== null) {
+        timers.clearTimeout(rateTimer);
+        rateTimer = null;
+      }
+      if (state.events.length > 0) commit({ ...state, events: [] });
     },
   };
 }

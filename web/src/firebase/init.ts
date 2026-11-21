@@ -31,21 +31,31 @@ export const appCheck = initializeAppCheck(app, {
 });
 export const auth = getAuth(app); // after App Check, before getAI
 
+/**
+ * The longest one sign-in attempt may take. Auth's own start-up waits on IndexedDB with no timeout, so a hung
+ * IndexedDB would otherwise leave every later cloud call waiting on one promise that never settles (F-160).
+ */
+export const AUTH_TIMEOUT_MS = 5_000; // SPEC §7.1 step 4: the gate waits for Auth up to 5 s
 let signingIn: Promise<string | null> | null = null;
 /**
- * The anonymous UID, signing in if needed: resolves null when sign-in fails (offline, provider disabled), never rejects.
- * Concurrent calls share one attempt, and a failed attempt is retried by the NEXT call, so a session that started
- * offline can still reach the cloud once it is back online (D-110). The gate awaits this before every cloud call
- * (AC-291; null → CLOUD_AUTH, copy.err.auth). `signInAnonymously` returns the persisted anonymous user instead of
- * creating a new one (API-NOTES §2.3).
+ * The anonymous UID, signing in if needed: resolves null when sign-in fails (offline, provider disabled) or takes longer
+ * than AUTH_TIMEOUT_MS, and never rejects. Concurrent calls share one attempt, and a failed or timed-out attempt is
+ * retried by the NEXT call, so a session that started offline can still reach the cloud once it is back online (D-110).
+ * The gate awaits this before every cloud call (AC-291; null → CLOUD_AUTH, copy.err.auth). `signInAnonymously` returns
+ * the persisted anonymous user instead of creating a new one (API-NOTES §2.3).
  */
 export function ensureAuth(): Promise<string | null> {
   const user = auth.currentUser;
   if (user) return Promise.resolve(user.uid);
-  signingIn ??= signInAnonymously(auth).then(
-    (cred) => cred.user.uid,
-    () => null,
-  ).finally(() => { signingIn = null; });
+  if (!signingIn) {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const attempt = signInAnonymously(auth).then((cred) => cred.user.uid, () => null);
+    const timeout = new Promise<null>((res) => { timer = setTimeout(() => res(null), AUTH_TIMEOUT_MS); });
+    signingIn = Promise.race([attempt, timeout]).finally(() => {
+      clearTimeout(timer);
+      signingIn = null;
+    });
+  }
   return signingIn;
 }
 /** The first sign-in attempt, started here so the UID is usually ready before the first cloud call. */

@@ -4,7 +4,8 @@
 // The ONLY key list and the ONLY defaults are /remoteconfig.template.json (AD-28): RC_DEFAULTS is derived from it and
 // every default is parsed here at import, so a template edit that breaks a default throws and fails `npm run check`.
 // Rules (D-108): an invalid value falls back to its default with a warning; an out-of-range number is clamped with a
-// warning; two keys fail toward safety instead of the default (kill_switch → true, data_tier → free). Values are never
+// warning; three keys fail toward safety instead of the default (kill_switch → true, data_tier → free,
+// grounding_enabled → false; D-108, D-118). Values are never
 // echoed into warnings, so a hostile RC string can never reach the HUD or a log.
 import template from '@root/remoteconfig.template.json';
 import manifest from '@prompts/manifest.json';
@@ -240,7 +241,7 @@ export const RC_SPECS = {
   explain_cloud_model: { parse: parseModelId },
   explain_thinking_level: { parse: oneOf(EXPLAIN_THINKING_LEVELS, 'upper') },
   prompt_versions: { parse: parsePromptVersions },
-  grounding_enabled: bool,
+  grounding_enabled: { parse: parseBoolean, failSafe: false }, // refused → off, like data_tier → free (D-118)
   data_tier: { parse: oneOf(DATA_TIERS, 'lower'), failSafe: 'free' as DataTier },
   daily_adversary_cap: { parse: clampedNumber(1, 200, 'floor') },
   max_fix_rounds: { parse: integerIn(1, 10) },
@@ -271,6 +272,7 @@ const DEFAULT_VALUES = Object.fromEntries((Object.keys(RC_SPECS) as SpecKey[]).m
   if (!r.ok || r.adjusted) throw new Error(`remoteconfig.template.json: ${k} default is ${r.ok ? r.adjusted : 'invalid'}`);
   return [k, r.value];
 })) as { [K in SpecKey]: ValueOf<K> };
+deepFreeze(DEFAULT_VALUES); // parseKey hands these out as fallbacks: never shared-mutable
 
 /**
  * One key's RC value → its validated value and warning (shared/testvectors/rc.json runs every case through this).
