@@ -18,9 +18,17 @@
 - Cuts applied: D-141 demo path only (deferred: T-081 beyond plain export, T-083, T-084, T-096, T-104, T-106, T-120–T-135, T-151/T-152, T-160, T-200–T-203)
 
 ## WIP (exact next step if a task is half-done)
-- **T-031** (Nov 20): spike code, dry run, review (24 confirmed fixes applied) and 3 of 10 photos done on gemini-4-hydrogen; raw in `PRIV/raw/spike-2026-11-20T07-56-18-live.json`. Stopped by the circuit breaker on `429 You exceeded your current quota` = free tier **20 requests/day/model** (Cloud console → Gemini API → Quotas).
-  - To resume **after 10:00 GMT+2 Sat Nov 21** (free quota reset, D-74): `VITE_SPIKE=1 npm --prefix web run dev -- --port 5174 --strictPort`, then `node benchmark/spike/run-spike.mjs --mode live --primary hydrogen --models hydrogen --adaptive --photos 04,05,06,07,08,09,10` (about 17–20 calls). s01–s03 G1 classifications are final already (s03: 2 of 2 located). If quota is left, or on Sun: s03's fix rerun (`--photos 03` repeats its runs) and `--probe u12`. Then `node benchmark/spike/score-spike.mjs PRIV/raw/spike-2026-11-20T07-56-18-live.json <resume raw>` (later file wins per photo) → `benchmark/spike/day1-adversary.md`.
-  - Then: PROGRESS gate table, release advB.v1 (D-62), tick T-031, T-034 decision.
+- **T-031** (G1, D-136: flash from photo 04 on).
+  - Done: s01–s03 on hydrogen (Nov 20; `PRIV/raw/spike-2026-11-20T07-56-18-live.json`).
+  - Nov 21: hydrogen 10:02, 3 failures (503 or timeout; `PRIV/raw/spike-2026-11-21T08-01-59-live-…json`). Flash 10:29 (`PRIV/raw/spike-2026-11-21T08-28-54-live-…json`):
+    - s04 located district ≤5 km twice (82 s, 143 s); the fix rerun hit a 503;
+    - s05 one run none, one error;
+    - s06 two timeouts at 240 s → circuit breaker.
+    - About 12 of flash's 20 free requests used today.
+  - **Finding (open risk for the demo):** free-tier flash had frequent 503s and took 80–143 s when it answered, beyond RC `timeouts_ms.advB` = 60 s. Decide in T-034, after paid-tier latency is known (T-003 by Nov 26): raise advB (and the clamp) or keep it and show a slow-network state.
+  - Resume (later today if quota is left, else Sun Nov 22 after 10:00 GMT+2): `VITE_SPIKE=1 npm --prefix web run dev -- --port 5174 --strictPort` (launch config "web-spike"), then `node benchmark/spike/run-spike.mjs --mode live --primary flash --models flash --adaptive --photos 05,06,07,08,09,10`. Sunday also: `--photos 01,02,03` on flash.
+  - Then `node benchmark/spike/score-spike.mjs <all raw files>` (later file wins per photo) → `benchmark/spike/day1-adversary.md`, gate table per model, release advB.v1 (D-62), tick T-031, T-034.
+- **Slice builder** (T-069/T-071/Check → Verdict) resumed after the usage limit; it was rewriting Check.tsx.
 
 ## USER pending (mirror of TASKS §4: ID · due · status)
 Sitting A is due tonight or Fri Nov 20 morning, in this order:
