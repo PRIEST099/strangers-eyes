@@ -416,27 +416,33 @@ function deepFreeze<T>(o: T): T {
  * prototypes). The fake vault keeps its identity (AC-023 compares it). A request that cannot be copied throws.
  */
 function snapshot<T>(req: GateRequest<T>): { r: GateRequest<T>; consentMinted: boolean } {
+  // Re-verification R5: copy with an index loop, never the caller's own (possibly Proxy-overridden) .map, and keep
+  // only primitive strings, so nothing the checks read can change before the send.
+  const copyEach = <U>(xs: unknown, f: (x: unknown) => U): U[] | null => {
+    if (!Array.isArray(xs)) return null;
+    const n = Number(xs.length);
+    const out: U[] = [];
+    for (let i = 0; i < n; i++) out.push(f(xs[i]));
+    return out;
+  };
+  const str = (v: unknown): unknown => (typeof v === 'string' ? String(v) : v === undefined ? undefined : null);
   const textIn = req.text as unknown;
-  const text = Array.isArray(textIn)
-    ? textIn.map((s: unknown) => {
-      const o = (s ?? {}) as { text?: unknown; dynamic?: unknown };
-      const t = o.text;
-      const d = o.dynamic;
-      return Object.freeze({ text: t, dynamic: d }) as PromptSegment;
-    })
-    : (textIn as PromptSegment[]);
+  const text = copyEach(textIn, (s) => {
+    const o = (s ?? {}) as { text?: unknown; dynamic?: unknown };
+    const t = str(o.text);
+    const d = o.dynamic;
+    return Object.freeze({ text: t, dynamic: d }) as PromptSegment;
+  }) ?? (textIn as PromptSegment[]);
   const imagesIn = req.images as unknown;
-  const images = Array.isArray(imagesIn)
-    ? imagesIn.map((img: unknown) => {
-      const o = (img ?? {}) as Partial<OutgoingImage>;
-      const jpeg = o.jpeg;
-      const base64 = o.base64;
-      const sha256 = o.sha256;
-      const mime = o.mime;
-      const frame = o.frame ? deepFreeze(JSON.parse(JSON.stringify(o.frame)) as ImageFrame) : (o.frame as unknown as ImageFrame);
-      return Object.freeze({ jpeg, base64, sha256, mime, frame }) as OutgoingImage;
-    })
-    : (imagesIn as OutgoingImage[]);
+  const images = copyEach(imagesIn, (img) => {
+    const o = (img ?? {}) as Partial<OutgoingImage>;
+    const jpeg = o.jpeg;
+    const base64 = str(o.base64) as string;
+    const sha256 = str(o.sha256) as string;
+    const mime = str(o.mime) as OutgoingImage['mime'];
+    const frame = o.frame ? deepFreeze(JSON.parse(JSON.stringify(o.frame)) as ImageFrame) : (o.frame as unknown as ImageFrame);
+    return Object.freeze({ jpeg, base64, sha256, mime, frame }) as OutgoingImage;
+  }) ?? (imagesIn as OutgoingImage[]);
   const specIn = req.modelSpec as unknown;
   const modelSpec = (specIn && typeof specIn === 'object' ? deepFreeze(JSON.parse(JSON.stringify(specIn))) : specIn) as ModelSpec;
   const consentIn = req.consent;
@@ -922,7 +928,10 @@ function createGate(deps: GateDeps): EgressGate {
           // D-129: the parts are built from the snapshot: the text checked in step 3, the base64 decoded and checked in step 2.
           const parts: Part[] = [textPart(segmentsText(req.text)), ...req.images.map((i) => {
             const d = c.digests.get(i);
-            return jpegPart(d && d.ok ? encodeBase64(d.d.bytes) : i.base64);
+            if (d && d.ok) return jpegPart(encodeBase64(d.d.bytes));
+            // Re-verification R4/M53: a cloud-capable call sends ONLY bytes decoded and checked in step 2; never the caller's.
+            if (!deviceOnly) throw new Error('gate: image without a checked digest');
+            return jpegPart(i.base64);
           })];
           // Built HERE, after the fresh check, never cached: the SDK reads the on-device API only when it builds a
           // model, and one built without it sends ONLY_ON_DEVICE to the cloud (F-125; models throw NoDeviceModelError).
@@ -1254,7 +1263,9 @@ function createGate(deps: GateDeps): EgressGate {
     dispose: stopObserving,
   };
 }
-registerGateFactory(createGate);
+// Re-verification issue 2: the test seam is wired only under Vitest, so production code can never build a second gate
+// through it (and the bundler drops the seam from dist).
+if (import.meta.env.MODE === 'test') registerGateFactory(createGate);
 
 // ---------- the app's instance ----------
 /**
