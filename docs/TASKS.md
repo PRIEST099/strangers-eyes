@@ -1988,6 +1988,8 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
 
 ## Cut order (the single list; SPEC §0.3 points here; log every cut as a D-entry)
 
+**Applied Nov 21 (D-141, user: "demo path only"):** deferred T-081 (beyond a plain export), T-083, T-084, T-096, T-104, T-106 (T-107 no longer depends on it), T-120–T-135 (the iOS track), T-151/T-152, T-160, T-200–T-203. Resume one only if the demo path in D-141 is done.
+
 **Planned cuts, in order:**
 1. **Stretch** (T-200–T-203), plus T-040 if it hasn't run by Nov 24.
 2. **iOS stretch** (T-133 pass A on iOS, T-134 iOS re-attack, save and share, T-135 iOS sample scenes).

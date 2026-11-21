@@ -15,7 +15,7 @@
 - Last green commit: see git log (batch-3 checkpoint, gate files excluded). `npm --prefix web run check` green: 58 files / 2974 tests; 165 planted boundary violations, 11 prompt cases, 167 image cases; `npm run build` + check-dist ok.
 - Checkpoints: G1 in progress (3/10 photos; resume Nov 21 10:02) | G1b – | G2 – | G3 – | slice Nov 22 – | loop Nov 24 – | hosted Nov 25 – (skeleton live Nov 20)
 - Adversary model: **gemini-4-hydrogen for T-031** (D-73; re-test flash in T-034 before the RC default) | iOS path: A (firebase-ios-sdk 12.19.3)
-- Cuts applied: none
+- Cuts applied: D-141 demo path only (deferred: T-081 beyond plain export, T-083, T-084, T-096, T-104, T-106, T-120–T-135, T-151/T-152, T-160, T-200–T-203)
 
 ## WIP (exact next step if a task is half-done)
 - **T-031** (Nov 20): spike code, dry run, review (24 confirmed fixes applied) and 3 of 10 photos done on gemini-4-hydrogen; raw in `PRIV/raw/spike-2026-11-20T07-56-18-live.json`. Stopped by the circuit breaker on `429 You exceeded your current quota` = free tier **20 requests/day/model** (Cloud console → Gemini API → Quotas).
@@ -93,7 +93,7 @@ Test image: a white "LUCAS" tag with dark letters, tilted 4°, composited in mem
 Canonical IDs:
 - **D-01..D-39** are in SPEC §0.4 (read them there).
 - **AD-xx** are in ARCH §2. Where an AD duplicates a D, the D wins.
-- **The next free number is D-137.** (Batch 3, Nov 21: gate D-111..114 + D-129..131, verdict D-115..116 + D-127..128, UI fixes D-117, boot D-118, scanner D-119..120 + D-135, pre-screen D-121..123 + D-132..133, verdict card D-124..125 + D-134, RC/Auth deploy D-126, spike model D-136. Unused reserved numbers stay unused. Next free DEVLOG row: F-202.)
+- **The next free number is D-142.** (Batch 3, Nov 21: gate D-111..114 + D-129..131, verdict D-115..116 + D-127..128, UI fixes D-117, boot D-118, scanner D-119..120 + D-135, pre-screen D-121..123 + D-132..133, verdict card D-124..125 + D-134, RC/Auth deploy D-126, spike model D-136, slice builder D-137..140 (reserved), demo-path cut D-141. Next free DEVLOG row: F-211; F-202..F-209 are reserved for the slice builder.)
 
 - D-00 (Nov 19) Idea: **Strangers' Eyes**, chosen by a 29-agent tournament (score 8.18) and approved by the user. **Blindfill** is the Day-1 fallback, *only* with the user's OK if G1 fails (TASKS T-034). Health/Rwanda "Muganga" was rejected (the user wants a global idea).
 - D-00a (Nov 19) Platforms: Web PWA (primary) + iOS. **Android cut**: no physical device, and the emulator has no Nano.
@@ -640,6 +640,11 @@ Canonical IDs:
   - Nov 21 10:02: gemini-4-hydrogen answered 503 twice and then timed out (196 s, 202 s, 240 s), so the runner stopped after 3 failures (raw in PRIV). A text-only schema probe at 10:24 got answers from both models: flash in 19.5 s, hydrogen in 205.7 s.
   - Hydrogen at about 200 s is far beyond pass B's 60 s timeout (RC `timeouts_ms.advB`), so it can never be the product's adversary. Flash is the RC default (`adversary_model`). D-73 chose hydrogen only because flash was down on Nov 20 ("use hydrogen if flash stays down").
   - So photos 04–10 run on flash (`--primary flash --models flash --adaptive`). s01–s03 stay as hydrogen data. G1 is reported per model. Flash's s01–s03 run on Sun Nov 22 after the quota reset (20 requests/day/model), so G1 on flash covers all 10 photos.
+- D-141 (user, Nov 21: "Yes, demo path only") **Demo path only; the extras are deferred.**
+  - Build, in this order: (1) the end-to-end slice (T-069 consent, T-071 pass B, Check → Verdict); (2) fix and re-attack (T-078–T-080); (3) on-device Nano for the hybrid story (T-066 pre-screen, T-074 referee; T-067 if cheap); (4) the Router HUD and a minimal Ledger (T-064, T-063); (5) Judge Mode (T-097, T-105) for judges without Nano; (6) the hosting deploy (T-107; its T-106 dependency is dropped); (7) README, video script, Devpost text (T-162, T-180, T-165). T-031 (G1 on flash) finishes alongside.
+  - Deferred, not deleted (resume only if the path above is done): Leak Atlas T-104; offline queue T-084 and offline PWA T-106; the S2 explainer T-083; export/share card T-081 beyond a plain export; recent checks T-096; the benchmark T-151/T-152; design polish T-160; the whole iOS track T-120–T-135 (D-08's iOS platform becomes a stretch); the extension and stretch T-200–T-203.
+  - Verification is lean (user, Nov 21): independent reviews and mutation tests only for code that could leak private data (gate, vault, outgoing image/prompt); other work gets unit tests and one browser check, with at most one or two builders at a time.
+  - Edited: PROGRESS STATE, TASKS cut order ("Cuts applied").
 ### Reconciliation items (T-022, done Nov 19)
 How T-022 ran:
 - Workflow wf_a7c14f46-79f: 6 analysts, 5 per-doc editors, 2 verification rounds and 1 fix round.
