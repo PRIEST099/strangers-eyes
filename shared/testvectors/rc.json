@@ -1,0 +1,3632 @@
+{
+  "description": "Remote Config validation vectors (ARCH §7, §13; SPEC AC-020, AC-293). Single source of truth for web/src/core/routing.test.ts (Vitest) and the iOS RemoteConfigService XCTest port (ARCH §19.3; SPEC §10.7, AC-168). T-060 wrote the `routingPolicy` section (D-96); T-102 adds one sibling section per other RC key.",
+  "routingPolicy": {
+    "conventions": [
+      "Input forms: {\"absent\": true} = no RC value yet; {\"notString\": v} = a non-string value (web only: an iOS RemoteConfigValue is always a string, so iOS skips these); {\"raw\": s} = this exact string; {\"edits\": [...]} = apply the edits in order to a deep copy of `default`, then serialise it as compact JSON; {\"padTo\": n} = compact `default` with spaces inserted before its final \"}\" until it is n characters long; {\"repeat\": {\"text\": t, \"times\": n}} = t repeated n times.",
+      "An edit is {\"path\": [keys], \"value\": v} (set, creating the key if missing) or {\"path\": [keys], \"delete\": true}. No path segment is ever \"__proto__\"; those cases are raw strings, because assigning \"__proto__\" in JavaScript sets the prototype instead of a key.",
+      "expect.warning is the exact warning string, or null. The reason is not_string, too_large, invalid_json, bad_shape, bad_version, unknown_enum or floor. Paths are listed classes S0..S4, fields web, ios, noModel, cloud, then jobs in `jobs` order, and never echo RC text.",
+      "expect.policy is \"default\" (the bundled policy) or {\"edits\": [...]} applied to a deep copy of `default`. Every reason except floor means the bundled policy as a whole (no partial merge, D-84); floor keeps the bundled value only for each listed entry.",
+      "Lengths are in UTF-16 code units (JavaScript string length); every case here is ASCII except the BOM, zero-width-space and Cyrillic cases, which fail before the length matters."
+    ],
+    "default": {
+      "version": 1,
+      "classes": {
+        "S0": {
+          "web": "ONLY_ON_DEVICE",
+          "ios": "ON_DEVICE_SESSION",
+          "noModel": "DETERMINISTIC",
+          "cloud": false
+        },
+        "S1": {
+          "web": "ONLY_ON_DEVICE",
+          "ios": "ON_DEVICE_SESSION",
+          "noModel": "TIER0",
+          "cloud": false
+        },
+        "S2": {
+          "web": "PREFER_ON_DEVICE",
+          "ios": "HYBRID_MODEL",
+          "noModel": "CLOUD",
+          "cloud": true
+        },
+        "S3": {
+          "web": "ONLY_IN_CLOUD",
+          "ios": "CLOUD",
+          "noModel": "CLOUD",
+          "cloud": true
+        },
+        "S4": {
+          "web": "PREFER_ON_DEVICE",
+          "ios": "HYBRID_MODEL",
+          "noModel": "CLOUD",
+          "cloud": true
+        }
+      },
+      "jobs": {
+        "preScreen": "S1",
+        "vaultTextMatch": "S0",
+        "referee": "S0",
+        "fixPlan": "S0",
+        "explain": "S2",
+        "adversaryA": "S3",
+        "adversaryB": "S3"
+      }
+    },
+    "maxChars": 8192,
+    "hardFloor": {
+      "classes": {
+        "S0": {
+          "web": [
+            "ONLY_ON_DEVICE"
+          ],
+          "ios": [
+            "ON_DEVICE_SESSION"
+          ],
+          "noModel": [
+            "DETERMINISTIC"
+          ],
+          "cloud": [
+            false
+          ]
+        },
+        "S1": {
+          "web": [
+            "ONLY_ON_DEVICE"
+          ],
+          "ios": [
+            "ON_DEVICE_SESSION"
+          ],
+          "noModel": [
+            "TIER0"
+          ],
+          "cloud": [
+            false
+          ]
+        },
+        "S3": {
+          "web": [
+            "ONLY_IN_CLOUD"
+          ]
+        }
+      },
+      "jobs": {
+        "preScreen": [
+          "S1"
+        ],
+        "vaultTextMatch": [
+          "S0"
+        ],
+        "referee": [
+          "S0"
+        ],
+        "fixPlan": [
+          "S0"
+        ],
+        "explain": [
+          "S2",
+          "S0"
+        ],
+        "adversaryA": [
+          "S3"
+        ],
+        "adversaryB": [
+          "S3"
+        ]
+      }
+    },
+    "judgeDeviceJobs": [
+      "preScreen",
+      "vaultTextMatch",
+      "referee",
+      "fixPlan",
+      "explain"
+    ],
+    "cases": [
+      {
+        "group": "accept",
+        "name": "no RC value yet: the bundled policy, no warning",
+        "input": {
+          "absent": true
+        },
+        "expect": {
+          "warning": null,
+          "policy": "default"
+        }
+      },
+      {
+        "group": "accept",
+        "name": "the template default, compact",
+        "input": {
+          "raw": "{\"version\":1,\"classes\":{\"S0\":{\"web\":\"ONLY_ON_DEVICE\",\"ios\":\"ON_DEVICE_SESSION\",\"noModel\":\"DETERMINISTIC\",\"cloud\":false},\"S1\":{\"web\":\"ONLY_ON_DEVICE\",\"ios\":\"ON_DEVICE_SESSION\",\"noModel\":\"TIER0\",\"cloud\":false},\"S2\":{\"web\":\"PREFER_ON_DEVICE\",\"ios\":\"HYBRID_MODEL\",\"noModel\":\"CLOUD\",\"cloud\":true},\"S3\":{\"web\":\"ONLY_IN_CLOUD\",\"ios\":\"CLOUD\",\"noModel\":\"CLOUD\",\"cloud\":true},\"S4\":{\"web\":\"PREFER_ON_DEVICE\",\"ios\":\"HYBRID_MODEL\",\"noModel\":\"CLOUD\",\"cloud\":true}},\"jobs\":{\"preScreen\":\"S1\",\"vaultTextMatch\":\"S0\",\"referee\":\"S0\",\"fixPlan\":\"S0\",\"explain\":\"S2\",\"adversaryA\":\"S3\",\"adversaryB\":\"S3\"}}"
+        },
+        "expect": {
+          "warning": null,
+          "policy": "default"
+        }
+      },
+      {
+        "group": "accept",
+        "name": "the template default, pretty-printed",
+        "input": {
+          "raw": "{\n  \"version\": 1,\n  \"classes\": {\n    \"S0\": {\n      \"web\": \"ONLY_ON_DEVICE\",\n      \"ios\": \"ON_DEVICE_SESSION\",\n      \"noModel\": \"DETERMINISTIC\",\n      \"cloud\": false\n    },\n    \"S1\": {\n      \"web\": \"ONLY_ON_DEVICE\",\n      \"ios\": \"ON_DEVICE_SESSION\",\n      \"noModel\": \"TIER0\",\n      \"cloud\": false\n    },\n    \"S2\": {\n      \"web\": \"PREFER_ON_DEVICE\",\n      \"ios\": \"HYBRID_MODEL\",\n      \"noModel\": \"CLOUD\",\n      \"cloud\": true\n    },\n    \"S3\": {\n      \"web\": \"ONLY_IN_CLOUD\",\n      \"ios\": \"CLOUD\",\n      \"noModel\": \"CLOUD\",\n      \"cloud\": true\n    },\n    \"S4\": {\n      \"web\": \"PREFER_ON_DEVICE\",\n      \"ios\": \"HYBRID_MODEL\",\n      \"noModel\": \"CLOUD\",\n      \"cloud\": true\n    }\n  },\n  \"jobs\": {\n    \"preScreen\": \"S1\",\n    \"vaultTextMatch\": \"S0\",\n    \"referee\": \"S0\",\n    \"fixPlan\": \"S0\",\n    \"explain\": \"S2\",\n    \"adversaryA\": \"S3\",\n    \"adversaryB\": \"S3\"\n  }\n}"
+        },
+        "expect": {
+          "warning": null,
+          "policy": "default"
+        }
+      },
+      {
+        "group": "accept",
+        "name": "keys in another order",
+        "input": {
+          "raw": "{\"jobs\":{\"preScreen\":\"S1\",\"vaultTextMatch\":\"S0\",\"referee\":\"S0\",\"fixPlan\":\"S0\",\"explain\":\"S2\",\"adversaryA\":\"S3\",\"adversaryB\":\"S3\"},\"classes\":{\"S0\":{\"cloud\":false,\"noModel\":\"DETERMINISTIC\",\"ios\":\"ON_DEVICE_SESSION\",\"web\":\"ONLY_ON_DEVICE\"},\"S1\":{\"web\":\"ONLY_ON_DEVICE\",\"ios\":\"ON_DEVICE_SESSION\",\"noModel\":\"TIER0\",\"cloud\":false},\"S2\":{\"web\":\"PREFER_ON_DEVICE\",\"ios\":\"HYBRID_MODEL\",\"noModel\":\"CLOUD\",\"cloud\":true},\"S3\":{\"web\":\"ONLY_IN_CLOUD\",\"ios\":\"CLOUD\",\"noModel\":\"CLOUD\",\"cloud\":true},\"S4\":{\"web\":\"PREFER_ON_DEVICE\",\"ios\":\"HYBRID_MODEL\",\"noModel\":\"CLOUD\",\"cloud\":true}},\"version\":1}"
+        },
+        "expect": {
+          "warning": null,
+          "policy": "default"
+        }
+      },
+      {
+        "group": "accept",
+        "name": "S2 and S4 are tunable in full (ARCH §7 step 3)",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S2"
+              ],
+              "value": {
+                "web": "PREFER_IN_CLOUD",
+                "ios": "CLOUD",
+                "noModel": "NONE",
+                "cloud": true
+              }
+            },
+            {
+              "path": [
+                "classes",
+                "S4"
+              ],
+              "value": {
+                "web": "ONLY_ON_DEVICE",
+                "ios": "ON_DEVICE_SESSION",
+                "noModel": "DETERMINISTIC",
+                "cloud": false
+              }
+            }
+          ]
+        },
+        "expect": {
+          "warning": null,
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S2"
+                ],
+                "value": {
+                  "web": "PREFER_IN_CLOUD",
+                  "ios": "CLOUD",
+                  "noModel": "NONE",
+                  "cloud": true
+                }
+              },
+              {
+                "path": [
+                  "classes",
+                  "S4"
+                ],
+                "value": {
+                  "web": "ONLY_ON_DEVICE",
+                  "ios": "ON_DEVICE_SESSION",
+                  "noModel": "DETERMINISTIC",
+                  "cloud": false
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "accept",
+        "name": "S2 ONLY_ON_DEVICE with cloud false forbids the explainer cloud fallback",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S2",
+                "web"
+              ],
+              "value": "ONLY_ON_DEVICE"
+            },
+            {
+              "path": [
+                "classes",
+                "S2",
+                "cloud"
+              ],
+              "value": false
+            }
+          ]
+        },
+        "expect": {
+          "warning": null,
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S2",
+                  "web"
+                ],
+                "value": "ONLY_ON_DEVICE"
+              },
+              {
+                "path": [
+                  "classes",
+                  "S2",
+                  "cloud"
+                ],
+                "value": false
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "accept",
+        "name": "jobs.explain = S0 is a tightening",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "jobs",
+                "explain"
+              ],
+              "value": "S0"
+            }
+          ]
+        },
+        "expect": {
+          "warning": null,
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "jobs",
+                  "explain"
+                ],
+                "value": "S0"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "accept",
+        "name": "S3 is tunable apart from web; cloud false switches the adversary off",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S3"
+              ],
+              "value": {
+                "web": "ONLY_IN_CLOUD",
+                "ios": "NONE",
+                "noModel": "NONE",
+                "cloud": false
+              }
+            }
+          ]
+        },
+        "expect": {
+          "warning": null,
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S3"
+                ],
+                "value": {
+                  "web": "ONLY_IN_CLOUD",
+                  "ios": "NONE",
+                  "noModel": "NONE",
+                  "cloud": false
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "accept",
+        "name": "exactly maxChars characters (padded with spaces) is accepted",
+        "input": {
+          "padTo": 8192
+        },
+        "expect": {
+          "warning": null,
+          "policy": "default"
+        }
+      },
+      {
+        "group": "floor",
+        "name": "classes.S0.web = PREFER_ON_DEVICE keeps the bundled value; the allowed S2 edit survives",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S0",
+                "web"
+              ],
+              "value": "PREFER_ON_DEVICE"
+            },
+            {
+              "path": [
+                "classes",
+                "S2",
+                "web"
+              ],
+              "value": "PREFER_IN_CLOUD"
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: classes.S0.web",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S2",
+                  "web"
+                ],
+                "value": "PREFER_IN_CLOUD"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "classes.S0.web = PREFER_IN_CLOUD keeps the bundled value; the allowed S2 edit survives",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S0",
+                "web"
+              ],
+              "value": "PREFER_IN_CLOUD"
+            },
+            {
+              "path": [
+                "classes",
+                "S2",
+                "web"
+              ],
+              "value": "PREFER_IN_CLOUD"
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: classes.S0.web",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S2",
+                  "web"
+                ],
+                "value": "PREFER_IN_CLOUD"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "classes.S0.web = ONLY_IN_CLOUD keeps the bundled value; the allowed S2 edit survives",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S0",
+                "web"
+              ],
+              "value": "ONLY_IN_CLOUD"
+            },
+            {
+              "path": [
+                "classes",
+                "S2",
+                "web"
+              ],
+              "value": "PREFER_IN_CLOUD"
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: classes.S0.web",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S2",
+                  "web"
+                ],
+                "value": "PREFER_IN_CLOUD"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "classes.S0.ios = HYBRID_MODEL keeps the bundled value; the allowed S2 edit survives",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S0",
+                "ios"
+              ],
+              "value": "HYBRID_MODEL"
+            },
+            {
+              "path": [
+                "classes",
+                "S2",
+                "web"
+              ],
+              "value": "PREFER_IN_CLOUD"
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: classes.S0.ios",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S2",
+                  "web"
+                ],
+                "value": "PREFER_IN_CLOUD"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "classes.S0.ios = CLOUD keeps the bundled value; the allowed S2 edit survives",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S0",
+                "ios"
+              ],
+              "value": "CLOUD"
+            },
+            {
+              "path": [
+                "classes",
+                "S2",
+                "web"
+              ],
+              "value": "PREFER_IN_CLOUD"
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: classes.S0.ios",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S2",
+                  "web"
+                ],
+                "value": "PREFER_IN_CLOUD"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "classes.S0.ios = NONE keeps the bundled value; the allowed S2 edit survives",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S0",
+                "ios"
+              ],
+              "value": "NONE"
+            },
+            {
+              "path": [
+                "classes",
+                "S2",
+                "web"
+              ],
+              "value": "PREFER_IN_CLOUD"
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: classes.S0.ios",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S2",
+                  "web"
+                ],
+                "value": "PREFER_IN_CLOUD"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "classes.S0.noModel = TIER0 keeps the bundled value; the allowed S2 edit survives",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S0",
+                "noModel"
+              ],
+              "value": "TIER0"
+            },
+            {
+              "path": [
+                "classes",
+                "S2",
+                "web"
+              ],
+              "value": "PREFER_IN_CLOUD"
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: classes.S0.noModel",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S2",
+                  "web"
+                ],
+                "value": "PREFER_IN_CLOUD"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "classes.S0.noModel = CLOUD keeps the bundled value; the allowed S2 edit survives",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S0",
+                "noModel"
+              ],
+              "value": "CLOUD"
+            },
+            {
+              "path": [
+                "classes",
+                "S2",
+                "web"
+              ],
+              "value": "PREFER_IN_CLOUD"
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: classes.S0.noModel",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S2",
+                  "web"
+                ],
+                "value": "PREFER_IN_CLOUD"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "classes.S0.noModel = NONE keeps the bundled value; the allowed S2 edit survives",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S0",
+                "noModel"
+              ],
+              "value": "NONE"
+            },
+            {
+              "path": [
+                "classes",
+                "S2",
+                "web"
+              ],
+              "value": "PREFER_IN_CLOUD"
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: classes.S0.noModel",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S2",
+                  "web"
+                ],
+                "value": "PREFER_IN_CLOUD"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "classes.S0.cloud = true keeps the bundled value; the allowed S2 edit survives",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S0",
+                "cloud"
+              ],
+              "value": true
+            },
+            {
+              "path": [
+                "classes",
+                "S2",
+                "web"
+              ],
+              "value": "PREFER_IN_CLOUD"
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: classes.S0.cloud",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S2",
+                  "web"
+                ],
+                "value": "PREFER_IN_CLOUD"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "classes.S1.web = PREFER_ON_DEVICE keeps the bundled value; the allowed S2 edit survives",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S1",
+                "web"
+              ],
+              "value": "PREFER_ON_DEVICE"
+            },
+            {
+              "path": [
+                "classes",
+                "S2",
+                "web"
+              ],
+              "value": "PREFER_IN_CLOUD"
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: classes.S1.web",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S2",
+                  "web"
+                ],
+                "value": "PREFER_IN_CLOUD"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "classes.S1.web = PREFER_IN_CLOUD keeps the bundled value; the allowed S2 edit survives",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S1",
+                "web"
+              ],
+              "value": "PREFER_IN_CLOUD"
+            },
+            {
+              "path": [
+                "classes",
+                "S2",
+                "web"
+              ],
+              "value": "PREFER_IN_CLOUD"
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: classes.S1.web",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S2",
+                  "web"
+                ],
+                "value": "PREFER_IN_CLOUD"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "classes.S1.web = ONLY_IN_CLOUD keeps the bundled value; the allowed S2 edit survives",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S1",
+                "web"
+              ],
+              "value": "ONLY_IN_CLOUD"
+            },
+            {
+              "path": [
+                "classes",
+                "S2",
+                "web"
+              ],
+              "value": "PREFER_IN_CLOUD"
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: classes.S1.web",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S2",
+                  "web"
+                ],
+                "value": "PREFER_IN_CLOUD"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "classes.S1.ios = HYBRID_MODEL keeps the bundled value; the allowed S2 edit survives",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S1",
+                "ios"
+              ],
+              "value": "HYBRID_MODEL"
+            },
+            {
+              "path": [
+                "classes",
+                "S2",
+                "web"
+              ],
+              "value": "PREFER_IN_CLOUD"
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: classes.S1.ios",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S2",
+                  "web"
+                ],
+                "value": "PREFER_IN_CLOUD"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "classes.S1.ios = CLOUD keeps the bundled value; the allowed S2 edit survives",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S1",
+                "ios"
+              ],
+              "value": "CLOUD"
+            },
+            {
+              "path": [
+                "classes",
+                "S2",
+                "web"
+              ],
+              "value": "PREFER_IN_CLOUD"
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: classes.S1.ios",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S2",
+                  "web"
+                ],
+                "value": "PREFER_IN_CLOUD"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "classes.S1.ios = NONE keeps the bundled value; the allowed S2 edit survives",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S1",
+                "ios"
+              ],
+              "value": "NONE"
+            },
+            {
+              "path": [
+                "classes",
+                "S2",
+                "web"
+              ],
+              "value": "PREFER_IN_CLOUD"
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: classes.S1.ios",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S2",
+                  "web"
+                ],
+                "value": "PREFER_IN_CLOUD"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "classes.S1.noModel = DETERMINISTIC keeps the bundled value; the allowed S2 edit survives",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S1",
+                "noModel"
+              ],
+              "value": "DETERMINISTIC"
+            },
+            {
+              "path": [
+                "classes",
+                "S2",
+                "web"
+              ],
+              "value": "PREFER_IN_CLOUD"
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: classes.S1.noModel",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S2",
+                  "web"
+                ],
+                "value": "PREFER_IN_CLOUD"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "classes.S1.noModel = CLOUD keeps the bundled value; the allowed S2 edit survives",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S1",
+                "noModel"
+              ],
+              "value": "CLOUD"
+            },
+            {
+              "path": [
+                "classes",
+                "S2",
+                "web"
+              ],
+              "value": "PREFER_IN_CLOUD"
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: classes.S1.noModel",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S2",
+                  "web"
+                ],
+                "value": "PREFER_IN_CLOUD"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "classes.S1.noModel = NONE keeps the bundled value; the allowed S2 edit survives",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S1",
+                "noModel"
+              ],
+              "value": "NONE"
+            },
+            {
+              "path": [
+                "classes",
+                "S2",
+                "web"
+              ],
+              "value": "PREFER_IN_CLOUD"
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: classes.S1.noModel",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S2",
+                  "web"
+                ],
+                "value": "PREFER_IN_CLOUD"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "classes.S1.cloud = true keeps the bundled value; the allowed S2 edit survives",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S1",
+                "cloud"
+              ],
+              "value": true
+            },
+            {
+              "path": [
+                "classes",
+                "S2",
+                "web"
+              ],
+              "value": "PREFER_IN_CLOUD"
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: classes.S1.cloud",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S2",
+                  "web"
+                ],
+                "value": "PREFER_IN_CLOUD"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "jobs.preScreen = S0 keeps the bundled class",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "jobs",
+                "preScreen"
+              ],
+              "value": "S0"
+            },
+            {
+              "path": [
+                "classes",
+                "S4",
+                "cloud"
+              ],
+              "value": false
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: jobs.preScreen",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S4",
+                  "cloud"
+                ],
+                "value": false
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "jobs.preScreen = S2 keeps the bundled class",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "jobs",
+                "preScreen"
+              ],
+              "value": "S2"
+            },
+            {
+              "path": [
+                "classes",
+                "S4",
+                "cloud"
+              ],
+              "value": false
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: jobs.preScreen",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S4",
+                  "cloud"
+                ],
+                "value": false
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "jobs.preScreen = S3 keeps the bundled class",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "jobs",
+                "preScreen"
+              ],
+              "value": "S3"
+            },
+            {
+              "path": [
+                "classes",
+                "S4",
+                "cloud"
+              ],
+              "value": false
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: jobs.preScreen",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S4",
+                  "cloud"
+                ],
+                "value": false
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "jobs.preScreen = S4 keeps the bundled class",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "jobs",
+                "preScreen"
+              ],
+              "value": "S4"
+            },
+            {
+              "path": [
+                "classes",
+                "S4",
+                "cloud"
+              ],
+              "value": false
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: jobs.preScreen",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S4",
+                  "cloud"
+                ],
+                "value": false
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "jobs.vaultTextMatch = S1 keeps the bundled class",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "jobs",
+                "vaultTextMatch"
+              ],
+              "value": "S1"
+            },
+            {
+              "path": [
+                "classes",
+                "S4",
+                "cloud"
+              ],
+              "value": false
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: jobs.vaultTextMatch",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S4",
+                  "cloud"
+                ],
+                "value": false
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "jobs.vaultTextMatch = S2 keeps the bundled class",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "jobs",
+                "vaultTextMatch"
+              ],
+              "value": "S2"
+            },
+            {
+              "path": [
+                "classes",
+                "S4",
+                "cloud"
+              ],
+              "value": false
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: jobs.vaultTextMatch",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S4",
+                  "cloud"
+                ],
+                "value": false
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "jobs.vaultTextMatch = S3 keeps the bundled class",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "jobs",
+                "vaultTextMatch"
+              ],
+              "value": "S3"
+            },
+            {
+              "path": [
+                "classes",
+                "S4",
+                "cloud"
+              ],
+              "value": false
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: jobs.vaultTextMatch",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S4",
+                  "cloud"
+                ],
+                "value": false
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "jobs.vaultTextMatch = S4 keeps the bundled class",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "jobs",
+                "vaultTextMatch"
+              ],
+              "value": "S4"
+            },
+            {
+              "path": [
+                "classes",
+                "S4",
+                "cloud"
+              ],
+              "value": false
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: jobs.vaultTextMatch",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S4",
+                  "cloud"
+                ],
+                "value": false
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "jobs.referee = S1 keeps the bundled class",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "jobs",
+                "referee"
+              ],
+              "value": "S1"
+            },
+            {
+              "path": [
+                "classes",
+                "S4",
+                "cloud"
+              ],
+              "value": false
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: jobs.referee",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S4",
+                  "cloud"
+                ],
+                "value": false
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "jobs.referee = S2 keeps the bundled class",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "jobs",
+                "referee"
+              ],
+              "value": "S2"
+            },
+            {
+              "path": [
+                "classes",
+                "S4",
+                "cloud"
+              ],
+              "value": false
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: jobs.referee",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S4",
+                  "cloud"
+                ],
+                "value": false
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "jobs.referee = S3 keeps the bundled class",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "jobs",
+                "referee"
+              ],
+              "value": "S3"
+            },
+            {
+              "path": [
+                "classes",
+                "S4",
+                "cloud"
+              ],
+              "value": false
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: jobs.referee",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S4",
+                  "cloud"
+                ],
+                "value": false
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "jobs.referee = S4 keeps the bundled class",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "jobs",
+                "referee"
+              ],
+              "value": "S4"
+            },
+            {
+              "path": [
+                "classes",
+                "S4",
+                "cloud"
+              ],
+              "value": false
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: jobs.referee",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S4",
+                  "cloud"
+                ],
+                "value": false
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "jobs.fixPlan = S1 keeps the bundled class",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "jobs",
+                "fixPlan"
+              ],
+              "value": "S1"
+            },
+            {
+              "path": [
+                "classes",
+                "S4",
+                "cloud"
+              ],
+              "value": false
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: jobs.fixPlan",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S4",
+                  "cloud"
+                ],
+                "value": false
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "jobs.fixPlan = S2 keeps the bundled class",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "jobs",
+                "fixPlan"
+              ],
+              "value": "S2"
+            },
+            {
+              "path": [
+                "classes",
+                "S4",
+                "cloud"
+              ],
+              "value": false
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: jobs.fixPlan",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S4",
+                  "cloud"
+                ],
+                "value": false
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "jobs.fixPlan = S3 keeps the bundled class",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "jobs",
+                "fixPlan"
+              ],
+              "value": "S3"
+            },
+            {
+              "path": [
+                "classes",
+                "S4",
+                "cloud"
+              ],
+              "value": false
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: jobs.fixPlan",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S4",
+                  "cloud"
+                ],
+                "value": false
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "jobs.fixPlan = S4 keeps the bundled class",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "jobs",
+                "fixPlan"
+              ],
+              "value": "S4"
+            },
+            {
+              "path": [
+                "classes",
+                "S4",
+                "cloud"
+              ],
+              "value": false
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: jobs.fixPlan",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S4",
+                  "cloud"
+                ],
+                "value": false
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "jobs.explain = S1 keeps the bundled class",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "jobs",
+                "explain"
+              ],
+              "value": "S1"
+            },
+            {
+              "path": [
+                "classes",
+                "S4",
+                "cloud"
+              ],
+              "value": false
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: jobs.explain",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S4",
+                  "cloud"
+                ],
+                "value": false
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "jobs.explain = S3 keeps the bundled class",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "jobs",
+                "explain"
+              ],
+              "value": "S3"
+            },
+            {
+              "path": [
+                "classes",
+                "S4",
+                "cloud"
+              ],
+              "value": false
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: jobs.explain",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S4",
+                  "cloud"
+                ],
+                "value": false
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "jobs.explain = S4 keeps the bundled class",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "jobs",
+                "explain"
+              ],
+              "value": "S4"
+            },
+            {
+              "path": [
+                "classes",
+                "S4",
+                "cloud"
+              ],
+              "value": false
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: jobs.explain",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S4",
+                  "cloud"
+                ],
+                "value": false
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "jobs.adversaryA = S0 keeps the bundled class",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "jobs",
+                "adversaryA"
+              ],
+              "value": "S0"
+            },
+            {
+              "path": [
+                "classes",
+                "S4",
+                "cloud"
+              ],
+              "value": false
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: jobs.adversaryA",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S4",
+                  "cloud"
+                ],
+                "value": false
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "jobs.adversaryA = S1 keeps the bundled class",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "jobs",
+                "adversaryA"
+              ],
+              "value": "S1"
+            },
+            {
+              "path": [
+                "classes",
+                "S4",
+                "cloud"
+              ],
+              "value": false
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: jobs.adversaryA",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S4",
+                  "cloud"
+                ],
+                "value": false
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "jobs.adversaryA = S2 keeps the bundled class",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "jobs",
+                "adversaryA"
+              ],
+              "value": "S2"
+            },
+            {
+              "path": [
+                "classes",
+                "S4",
+                "cloud"
+              ],
+              "value": false
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: jobs.adversaryA",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S4",
+                  "cloud"
+                ],
+                "value": false
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "jobs.adversaryA = S4 keeps the bundled class",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "jobs",
+                "adversaryA"
+              ],
+              "value": "S4"
+            },
+            {
+              "path": [
+                "classes",
+                "S4",
+                "cloud"
+              ],
+              "value": false
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: jobs.adversaryA",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S4",
+                  "cloud"
+                ],
+                "value": false
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "jobs.adversaryB = S0 keeps the bundled class",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "jobs",
+                "adversaryB"
+              ],
+              "value": "S0"
+            },
+            {
+              "path": [
+                "classes",
+                "S4",
+                "cloud"
+              ],
+              "value": false
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: jobs.adversaryB",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S4",
+                  "cloud"
+                ],
+                "value": false
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "jobs.adversaryB = S1 keeps the bundled class",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "jobs",
+                "adversaryB"
+              ],
+              "value": "S1"
+            },
+            {
+              "path": [
+                "classes",
+                "S4",
+                "cloud"
+              ],
+              "value": false
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: jobs.adversaryB",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S4",
+                  "cloud"
+                ],
+                "value": false
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "jobs.adversaryB = S2 keeps the bundled class",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "jobs",
+                "adversaryB"
+              ],
+              "value": "S2"
+            },
+            {
+              "path": [
+                "classes",
+                "S4",
+                "cloud"
+              ],
+              "value": false
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: jobs.adversaryB",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S4",
+                  "cloud"
+                ],
+                "value": false
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "jobs.adversaryB = S4 keeps the bundled class",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "jobs",
+                "adversaryB"
+              ],
+              "value": "S4"
+            },
+            {
+              "path": [
+                "classes",
+                "S4",
+                "cloud"
+              ],
+              "value": false
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: jobs.adversaryB",
+          "policy": {
+            "edits": [
+              {
+                "path": [
+                  "classes",
+                  "S4",
+                  "cloud"
+                ],
+                "value": false
+              }
+            ]
+          }
+        }
+      },
+      {
+        "group": "floor",
+        "name": "classes.S3.web = ONLY_ON_DEVICE keeps ONLY_IN_CLOUD",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S3",
+                "web"
+              ],
+              "value": "ONLY_ON_DEVICE"
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: classes.S3.web",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "floor",
+        "name": "classes.S3.web = PREFER_ON_DEVICE keeps ONLY_IN_CLOUD",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S3",
+                "web"
+              ],
+              "value": "PREFER_ON_DEVICE"
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: classes.S3.web",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "floor",
+        "name": "classes.S3.web = PREFER_IN_CLOUD keeps ONLY_IN_CLOUD",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S3",
+                "web"
+              ],
+              "value": "PREFER_IN_CLOUD"
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: classes.S3.web",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "floor",
+        "name": "every floored entry loosened at once: all reverted, all listed in order",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S0"
+              ],
+              "value": {
+                "web": "ONLY_IN_CLOUD",
+                "ios": "CLOUD",
+                "noModel": "CLOUD",
+                "cloud": true
+              }
+            },
+            {
+              "path": [
+                "classes",
+                "S1"
+              ],
+              "value": {
+                "web": "ONLY_IN_CLOUD",
+                "ios": "CLOUD",
+                "noModel": "CLOUD",
+                "cloud": true
+              }
+            },
+            {
+              "path": [
+                "classes",
+                "S3",
+                "web"
+              ],
+              "value": "ONLY_ON_DEVICE"
+            },
+            {
+              "path": [
+                "jobs",
+                "preScreen"
+              ],
+              "value": "S2"
+            },
+            {
+              "path": [
+                "jobs",
+                "vaultTextMatch"
+              ],
+              "value": "S2"
+            },
+            {
+              "path": [
+                "jobs",
+                "referee"
+              ],
+              "value": "S2"
+            },
+            {
+              "path": [
+                "jobs",
+                "fixPlan"
+              ],
+              "value": "S2"
+            },
+            {
+              "path": [
+                "jobs",
+                "explain"
+              ],
+              "value": "S3"
+            },
+            {
+              "path": [
+                "jobs",
+                "adversaryA"
+              ],
+              "value": "S2"
+            },
+            {
+              "path": [
+                "jobs",
+                "adversaryB"
+              ],
+              "value": "S2"
+            }
+          ]
+        },
+        "expect": {
+          "warning": "floor: classes.S0.web, classes.S0.ios, classes.S0.noModel, classes.S0.cloud, classes.S1.web, classes.S1.ios, classes.S1.noModel, classes.S1.cloud, classes.S3.web, jobs.preScreen, jobs.vaultTextMatch, jobs.referee, jobs.fixPlan, jobs.explain, jobs.adversaryA, jobs.adversaryB",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "floor",
+        "name": "duplicate keys: the LAST one counts (as JSON.parse keeps it) and is floored",
+        "input": {
+          "raw": "{\"version\":1,\"classes\":{\"S0\":{\"web\":\"ONLY_ON_DEVICE\",\"ios\":\"ON_DEVICE_SESSION\",\"noModel\":\"DETERMINISTIC\",\"cloud\":false},\"S0\":{\"web\":\"ONLY_IN_CLOUD\",\"ios\":\"CLOUD\",\"noModel\":\"CLOUD\",\"cloud\":true},\"S1\":{\"web\":\"ONLY_ON_DEVICE\",\"ios\":\"ON_DEVICE_SESSION\",\"noModel\":\"TIER0\",\"cloud\":false},\"S2\":{\"web\":\"PREFER_ON_DEVICE\",\"ios\":\"HYBRID_MODEL\",\"noModel\":\"CLOUD\",\"cloud\":true},\"S3\":{\"web\":\"ONLY_IN_CLOUD\",\"ios\":\"CLOUD\",\"noModel\":\"CLOUD\",\"cloud\":true},\"S4\":{\"web\":\"PREFER_ON_DEVICE\",\"ios\":\"HYBRID_MODEL\",\"noModel\":\"CLOUD\",\"cloud\":true}},\"jobs\":{\"preScreen\":\"S1\",\"vaultTextMatch\":\"S0\",\"referee\":\"S0\",\"fixPlan\":\"S0\",\"explain\":\"S2\",\"adversaryA\":\"S3\",\"adversaryB\":\"S3\"}}"
+        },
+        "expect": {
+          "warning": "floor: classes.S0.web, classes.S0.ios, classes.S0.noModel, classes.S0.cloud",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "a non-string value null",
+        "input": {
+          "notString": null
+        },
+        "expect": {
+          "warning": "not_string",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "a non-string value 42",
+        "input": {
+          "notString": 42
+        },
+        "expect": {
+          "warning": "not_string",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "a non-string value true",
+        "input": {
+          "notString": true
+        },
+        "expect": {
+          "warning": "not_string",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "a non-string value {}",
+        "input": {
+          "notString": {}
+        },
+        "expect": {
+          "warning": "not_string",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "a non-string value []",
+        "input": {
+          "notString": []
+        },
+        "expect": {
+          "warning": "not_string",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "a non-string value {\"version\":1,\"classe",
+        "input": {
+          "notString": {
+            "version": 1,
+            "classes": {
+              "S0": {
+                "web": "ONLY_ON_DEVICE",
+                "ios": "ON_DEVICE_SESSION",
+                "noModel": "DETERMINISTIC",
+                "cloud": false
+              },
+              "S1": {
+                "web": "ONLY_ON_DEVICE",
+                "ios": "ON_DEVICE_SESSION",
+                "noModel": "TIER0",
+                "cloud": false
+              },
+              "S2": {
+                "web": "PREFER_ON_DEVICE",
+                "ios": "HYBRID_MODEL",
+                "noModel": "CLOUD",
+                "cloud": true
+              },
+              "S3": {
+                "web": "ONLY_IN_CLOUD",
+                "ios": "CLOUD",
+                "noModel": "CLOUD",
+                "cloud": true
+              },
+              "S4": {
+                "web": "PREFER_ON_DEVICE",
+                "ios": "HYBRID_MODEL",
+                "noModel": "CLOUD",
+                "cloud": true
+              }
+            },
+            "jobs": {
+              "preScreen": "S1",
+              "vaultTextMatch": "S0",
+              "referee": "S0",
+              "fixPlan": "S0",
+              "explain": "S2",
+              "adversaryA": "S3",
+              "adversaryB": "S3"
+            }
+          }
+        },
+        "expect": {
+          "warning": "not_string",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "invalid JSON \"\"",
+        "input": {
+          "raw": ""
+        },
+        "expect": {
+          "warning": "invalid_json",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "invalid JSON \" \"",
+        "input": {
+          "raw": " "
+        },
+        "expect": {
+          "warning": "invalid_json",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "invalid JSON \"not json\"",
+        "input": {
+          "raw": "not json"
+        },
+        "expect": {
+          "warning": "invalid_json",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "invalid JSON \"{\"",
+        "input": {
+          "raw": "{"
+        },
+        "expect": {
+          "warning": "invalid_json",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "invalid JSON \"{\\\"version\\\":1,}\"",
+        "input": {
+          "raw": "{\"version\":1,}"
+        },
+        "expect": {
+          "warning": "invalid_json",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "invalid JSON \"NaN\"",
+        "input": {
+          "raw": "NaN"
+        },
+        "expect": {
+          "warning": "invalid_json",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "invalid JSON \"﻿{\\\"version\\\":1,\\\"c\"",
+        "input": {
+          "raw": "﻿{\"version\":1,\"classes\":{\"S0\":{\"web\":\"ONLY_ON_DEVICE\",\"ios\":\"ON_DEVICE_SESSION\",\"noModel\":\"DETERMINISTIC\",\"cloud\":false},\"S1\":{\"web\":\"ONLY_ON_DEVICE\",\"ios\":\"ON_DEVICE_SESSION\",\"noModel\":\"TIER0\",\"cloud\":false},\"S2\":{\"web\":\"PREFER_ON_DEVICE\",\"ios\":\"HYBRID_MODEL\",\"noModel\":\"CLOUD\",\"cloud\":true},\"S3\":{\"web\":\"ONLY_IN_CLOUD\",\"ios\":\"CLOUD\",\"noModel\":\"CLOUD\",\"cloud\":true},\"S4\":{\"web\":\"PREFER_ON_DEVICE\",\"ios\":\"HYBRID_MODEL\",\"noModel\":\"CLOUD\",\"cloud\":true}},\"jobs\":{\"preScreen\":\"S1\",\"vaultTextMatch\":\"S0\",\"referee\":\"S0\",\"fixPlan\":\"S0\",\"explain\":\"S2\",\"adversaryA\":\"S3\",\"adversaryB\":\"S3\"}}"
+        },
+        "expect": {
+          "warning": "invalid_json",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "invalid JSON \"{'version':1}\"",
+        "input": {
+          "raw": "{'version':1}"
+        },
+        "expect": {
+          "warning": "invalid_json",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "a non-object root null",
+        "input": {
+          "raw": "null"
+        },
+        "expect": {
+          "warning": "bad_shape: (root)",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "a non-object root []",
+        "input": {
+          "raw": "[]"
+        },
+        "expect": {
+          "warning": "bad_shape: (root)",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "a non-object root \"S0\"",
+        "input": {
+          "raw": "\"S0\""
+        },
+        "expect": {
+          "warning": "bad_shape: (root)",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "a non-object root 1",
+        "input": {
+          "raw": "1"
+        },
+        "expect": {
+          "warning": "bad_shape: (root)",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "a non-object root true",
+        "input": {
+          "raw": "true"
+        },
+        "expect": {
+          "warning": "bad_shape: (root)",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "a non-object root [{\"version\":",
+        "input": {
+          "raw": "[{\"version\":1,\"classes\":{\"S0\":{\"web\":\"ONLY_ON_DEVICE\",\"ios\":\"ON_DEVICE_SESSION\",\"noModel\":\"DETERMINISTIC\",\"cloud\":false},\"S1\":{\"web\":\"ONLY_ON_DEVICE\",\"ios\":\"ON_DEVICE_SESSION\",\"noModel\":\"TIER0\",\"cloud\":false},\"S2\":{\"web\":\"PREFER_ON_DEVICE\",\"ios\":\"HYBRID_MODEL\",\"noModel\":\"CLOUD\",\"cloud\":true},\"S3\":{\"web\":\"ONLY_IN_CLOUD\",\"ios\":\"CLOUD\",\"noModel\":\"CLOUD\",\"cloud\":true},\"S4\":{\"web\":\"PREFER_ON_DEVICE\",\"ios\":\"HYBRID_MODEL\",\"noModel\":\"CLOUD\",\"cloud\":true}},\"jobs\":{\"preScreen\":\"S1\",\"vaultTextMatch\":\"S0\",\"referee\":\"S0\",\"fixPlan\":\"S0\",\"explain\":\"S2\",\"adversaryA\":\"S3\",\"adversaryB\":\"S3\"}}]"
+        },
+        "expect": {
+          "warning": "bad_shape: (root)",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "root without jobs",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "jobs"
+              ],
+              "delete": true
+            }
+          ]
+        },
+        "expect": {
+          "warning": "bad_shape: (root)",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "root without version",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "version"
+              ],
+              "delete": true
+            }
+          ]
+        },
+        "expect": {
+          "warning": "bad_shape: (root)",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "an extra root key",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "allowCloud"
+              ],
+              "value": true
+            }
+          ]
+        },
+        "expect": {
+          "warning": "bad_shape: (root)",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "a missing class",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S4"
+              ],
+              "delete": true
+            }
+          ]
+        },
+        "expect": {
+          "warning": "bad_shape: classes",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "an extra class",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S5"
+              ],
+              "value": {
+                "web": "PREFER_ON_DEVICE",
+                "ios": "HYBRID_MODEL",
+                "noModel": "CLOUD",
+                "cloud": true
+              }
+            }
+          ]
+        },
+        "expect": {
+          "warning": "bad_shape: classes",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "a missing class field",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S2",
+                "cloud"
+              ],
+              "delete": true
+            }
+          ]
+        },
+        "expect": {
+          "warning": "bad_shape: classes.S2",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "an extra class field",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S0",
+                "allowCloud"
+              ],
+              "value": true
+            }
+          ]
+        },
+        "expect": {
+          "warning": "bad_shape: classes.S0",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "a missing job",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "jobs",
+                "referee"
+              ],
+              "delete": true
+            }
+          ]
+        },
+        "expect": {
+          "warning": "bad_shape: jobs",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "an extra job",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "jobs",
+                "audit"
+              ],
+              "value": "S3"
+            }
+          ]
+        },
+        "expect": {
+          "warning": "bad_shape: jobs",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "classes as an array",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes"
+              ],
+              "value": [
+                {
+                  "web": "ONLY_ON_DEVICE",
+                  "ios": "ON_DEVICE_SESSION",
+                  "noModel": "DETERMINISTIC",
+                  "cloud": false
+                },
+                {
+                  "web": "ONLY_ON_DEVICE",
+                  "ios": "ON_DEVICE_SESSION",
+                  "noModel": "TIER0",
+                  "cloud": false
+                },
+                {
+                  "web": "PREFER_ON_DEVICE",
+                  "ios": "HYBRID_MODEL",
+                  "noModel": "CLOUD",
+                  "cloud": true
+                },
+                {
+                  "web": "ONLY_IN_CLOUD",
+                  "ios": "CLOUD",
+                  "noModel": "CLOUD",
+                  "cloud": true
+                },
+                {
+                  "web": "PREFER_ON_DEVICE",
+                  "ios": "HYBRID_MODEL",
+                  "noModel": "CLOUD",
+                  "cloud": true
+                }
+              ]
+            }
+          ]
+        },
+        "expect": {
+          "warning": "bad_shape: classes",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "a class as an array",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S0"
+              ],
+              "value": [
+                "ONLY_ON_DEVICE",
+                "ON_DEVICE_SESSION",
+                "DETERMINISTIC",
+                false
+              ]
+            }
+          ]
+        },
+        "expect": {
+          "warning": "bad_shape: classes.S0",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "a class as null",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S1"
+              ],
+              "value": null
+            }
+          ]
+        },
+        "expect": {
+          "warning": "bad_shape: classes.S1",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "jobs as a string",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "jobs"
+              ],
+              "value": "S0"
+            }
+          ]
+        },
+        "expect": {
+          "warning": "bad_shape: jobs",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "version as a string",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "version"
+              ],
+              "value": "1"
+            }
+          ]
+        },
+        "expect": {
+          "warning": "bad_shape: version",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "version null",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "version"
+              ],
+              "value": null
+            }
+          ]
+        },
+        "expect": {
+          "warning": "bad_shape: version",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "cloud as the string \"false\"",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S0",
+                "cloud"
+              ],
+              "value": "false"
+            }
+          ]
+        },
+        "expect": {
+          "warning": "bad_shape: classes.S0.cloud",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "cloud as 0",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S1",
+                "cloud"
+              ],
+              "value": 0
+            }
+          ]
+        },
+        "expect": {
+          "warning": "bad_shape: classes.S1.cloud",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "cloud as the string \"yes\" on S2",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S2",
+                "cloud"
+              ],
+              "value": "yes"
+            }
+          ]
+        },
+        "expect": {
+          "warning": "bad_shape: classes.S2.cloud",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "web as a number",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S2",
+                "web"
+              ],
+              "value": 1
+            }
+          ]
+        },
+        "expect": {
+          "warning": "bad_shape: classes.S2.web",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "web as an array",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S0",
+                "web"
+              ],
+              "value": [
+                "ONLY_ON_DEVICE"
+              ]
+            }
+          ]
+        },
+        "expect": {
+          "warning": "bad_shape: classes.S0.web",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "ios as null",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S0",
+                "ios"
+              ],
+              "value": null
+            }
+          ]
+        },
+        "expect": {
+          "warning": "bad_shape: classes.S0.ios",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "noModel as an object",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S1",
+                "noModel"
+              ],
+              "value": {
+                "TIER0": true
+              }
+            }
+          ]
+        },
+        "expect": {
+          "warning": "bad_shape: classes.S1.noModel",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "a job class as an array",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "jobs",
+                "referee"
+              ],
+              "value": [
+                "S0"
+              ]
+            }
+          ]
+        },
+        "expect": {
+          "warning": "bad_shape: jobs.referee",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "version 2",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "version"
+              ],
+              "value": 2
+            }
+          ]
+        },
+        "expect": {
+          "warning": "bad_version: version",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "version 0",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "version"
+              ],
+              "value": 0
+            }
+          ]
+        },
+        "expect": {
+          "warning": "bad_version: version",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "version -1",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "version"
+              ],
+              "value": -1
+            }
+          ]
+        },
+        "expect": {
+          "warning": "bad_version: version",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "version 1.5",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "version"
+              ],
+              "value": 1.5
+            }
+          ]
+        },
+        "expect": {
+          "warning": "bad_version: version",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "version 1e400 (Infinity)",
+        "input": {
+          "raw": "{\"version\":1e400,\"classes\":{\"S0\":{\"web\":\"ONLY_ON_DEVICE\",\"ios\":\"ON_DEVICE_SESSION\",\"noModel\":\"DETERMINISTIC\",\"cloud\":false},\"S1\":{\"web\":\"ONLY_ON_DEVICE\",\"ios\":\"ON_DEVICE_SESSION\",\"noModel\":\"TIER0\",\"cloud\":false},\"S2\":{\"web\":\"PREFER_ON_DEVICE\",\"ios\":\"HYBRID_MODEL\",\"noModel\":\"CLOUD\",\"cloud\":true},\"S3\":{\"web\":\"ONLY_IN_CLOUD\",\"ios\":\"CLOUD\",\"noModel\":\"CLOUD\",\"cloud\":true},\"S4\":{\"web\":\"PREFER_ON_DEVICE\",\"ios\":\"HYBRID_MODEL\",\"noModel\":\"CLOUD\",\"cloud\":true}},\"jobs\":{\"preScreen\":\"S1\",\"vaultTextMatch\":\"S0\",\"referee\":\"S0\",\"fixPlan\":\"S0\",\"explain\":\"S2\",\"adversaryA\":\"S3\",\"adversaryB\":\"S3\"}}"
+        },
+        "expect": {
+          "warning": "bad_version: version",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "unknown enum classes.S2.web = \"only_on_device\"",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S2",
+                "web"
+              ],
+              "value": "only_on_device"
+            }
+          ]
+        },
+        "expect": {
+          "warning": "unknown_enum: classes.S2.web",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "unknown enum classes.S2.web = \"PREFER_ON_DEVICE \"",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S2",
+                "web"
+              ],
+              "value": "PREFER_ON_DEVICE "
+            }
+          ]
+        },
+        "expect": {
+          "warning": "unknown_enum: classes.S2.web",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "unknown enum classes.S0.web = \"ONLY_ON_DEVICE​\"",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S0",
+                "web"
+              ],
+              "value": "ONLY_ON_DEVICE​"
+            }
+          ]
+        },
+        "expect": {
+          "warning": "unknown_enum: classes.S0.web",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "unknown enum classes.S0.web = \"ОNLY_ON_DEVICE\"",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S0",
+                "web"
+              ],
+              "value": "ОNLY_ON_DEVICE"
+            }
+          ]
+        },
+        "expect": {
+          "warning": "unknown_enum: classes.S0.web",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "unknown enum classes.S2.web = \"HYBRID\"",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S2",
+                "web"
+              ],
+              "value": "HYBRID"
+            }
+          ]
+        },
+        "expect": {
+          "warning": "unknown_enum: classes.S2.web",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "unknown enum classes.S2.ios = \"SYSTEM\"",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S2",
+                "ios"
+              ],
+              "value": "SYSTEM"
+            }
+          ]
+        },
+        "expect": {
+          "warning": "unknown_enum: classes.S2.ios",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "unknown enum classes.S0.noModel = \"RULES\"",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S0",
+                "noModel"
+              ],
+              "value": "RULES"
+            }
+          ]
+        },
+        "expect": {
+          "warning": "unknown_enum: classes.S0.noModel",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "unknown enum classes.S1.noModel = \"\"",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S1",
+                "noModel"
+              ],
+              "value": ""
+            }
+          ]
+        },
+        "expect": {
+          "warning": "unknown_enum: classes.S1.noModel",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "unknown enum classes.S2.web = \"__proto__\"",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S2",
+                "web"
+              ],
+              "value": "__proto__"
+            }
+          ]
+        },
+        "expect": {
+          "warning": "unknown_enum: classes.S2.web",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "unknown enum classes.S2.web = \"constructor\"",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S2",
+                "web"
+              ],
+              "value": "constructor"
+            }
+          ]
+        },
+        "expect": {
+          "warning": "unknown_enum: classes.S2.web",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "unknown enum classes.S2.ios = \"toString\"",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S2",
+                "ios"
+              ],
+              "value": "toString"
+            }
+          ]
+        },
+        "expect": {
+          "warning": "unknown_enum: classes.S2.ios",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "unknown enum classes.S2.noModel = \"hasOwnProperty\"",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S2",
+                "noModel"
+              ],
+              "value": "hasOwnProperty"
+            }
+          ]
+        },
+        "expect": {
+          "warning": "unknown_enum: classes.S2.noModel",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "unknown enum classes.S2.web = \"<script>alert(1)</script>\"",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "S2",
+                "web"
+              ],
+              "value": "<script>alert(1)</script>"
+            }
+          ]
+        },
+        "expect": {
+          "warning": "unknown_enum: classes.S2.web",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "unknown job class \"S5\"",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "jobs",
+                "explain"
+              ],
+              "value": "S5"
+            }
+          ]
+        },
+        "expect": {
+          "warning": "unknown_enum: jobs.explain",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "unknown job class \"s0\"",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "jobs",
+                "explain"
+              ],
+              "value": "s0"
+            }
+          ]
+        },
+        "expect": {
+          "warning": "unknown_enum: jobs.explain",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "unknown job class \"\"",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "jobs",
+                "explain"
+              ],
+              "value": ""
+            }
+          ]
+        },
+        "expect": {
+          "warning": "unknown_enum: jobs.explain",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "unknown job class \"valueOf\"",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "jobs",
+                "explain"
+              ],
+              "value": "valueOf"
+            }
+          ]
+        },
+        "expect": {
+          "warning": "unknown_enum: jobs.explain",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "unknown job class \"__proto__\"",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "jobs",
+                "explain"
+              ],
+              "value": "__proto__"
+            }
+          ]
+        },
+        "expect": {
+          "warning": "unknown_enum: jobs.explain",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "an attacker-named extra class is not echoed in the warning",
+        "input": {
+          "edits": [
+            {
+              "path": [
+                "classes",
+                "<img src=x onerror=alert(1)>"
+              ],
+              "value": {
+                "web": "PREFER_ON_DEVICE",
+                "ios": "HYBRID_MODEL",
+                "noModel": "CLOUD",
+                "cloud": true
+              }
+            }
+          ]
+        },
+        "expect": {
+          "warning": "bad_shape: classes",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "prototype pollution: a \"__proto__\" key in root",
+        "input": {
+          "raw": "{\"__proto__\":{\"cloud\":true,\"polluted\":\"yes\",\"web\":\"ONLY_IN_CLOUD\"},\"version\":1,\"classes\":{\"S0\":{\"web\":\"ONLY_ON_DEVICE\",\"ios\":\"ON_DEVICE_SESSION\",\"noModel\":\"DETERMINISTIC\",\"cloud\":false},\"S1\":{\"web\":\"ONLY_ON_DEVICE\",\"ios\":\"ON_DEVICE_SESSION\",\"noModel\":\"TIER0\",\"cloud\":false},\"S2\":{\"web\":\"PREFER_ON_DEVICE\",\"ios\":\"HYBRID_MODEL\",\"noModel\":\"CLOUD\",\"cloud\":true},\"S3\":{\"web\":\"ONLY_IN_CLOUD\",\"ios\":\"CLOUD\",\"noModel\":\"CLOUD\",\"cloud\":true},\"S4\":{\"web\":\"PREFER_ON_DEVICE\",\"ios\":\"HYBRID_MODEL\",\"noModel\":\"CLOUD\",\"cloud\":true}},\"jobs\":{\"preScreen\":\"S1\",\"vaultTextMatch\":\"S0\",\"referee\":\"S0\",\"fixPlan\":\"S0\",\"explain\":\"S2\",\"adversaryA\":\"S3\",\"adversaryB\":\"S3\"}}"
+        },
+        "expect": {
+          "warning": "bad_shape: (root)",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "prototype pollution: a \"__proto__\" key in classes",
+        "input": {
+          "raw": "{\"version\":1,\"classes\":{\"__proto__\":{\"cloud\":true,\"polluted\":\"yes\",\"web\":\"ONLY_IN_CLOUD\"},\"S0\":{\"web\":\"ONLY_ON_DEVICE\",\"ios\":\"ON_DEVICE_SESSION\",\"noModel\":\"DETERMINISTIC\",\"cloud\":false},\"S1\":{\"web\":\"ONLY_ON_DEVICE\",\"ios\":\"ON_DEVICE_SESSION\",\"noModel\":\"TIER0\",\"cloud\":false},\"S2\":{\"web\":\"PREFER_ON_DEVICE\",\"ios\":\"HYBRID_MODEL\",\"noModel\":\"CLOUD\",\"cloud\":true},\"S3\":{\"web\":\"ONLY_IN_CLOUD\",\"ios\":\"CLOUD\",\"noModel\":\"CLOUD\",\"cloud\":true},\"S4\":{\"web\":\"PREFER_ON_DEVICE\",\"ios\":\"HYBRID_MODEL\",\"noModel\":\"CLOUD\",\"cloud\":true}},\"jobs\":{\"preScreen\":\"S1\",\"vaultTextMatch\":\"S0\",\"referee\":\"S0\",\"fixPlan\":\"S0\",\"explain\":\"S2\",\"adversaryA\":\"S3\",\"adversaryB\":\"S3\"}}"
+        },
+        "expect": {
+          "warning": "bad_shape: classes",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "prototype pollution: a \"__proto__\" key in classes.S0",
+        "input": {
+          "raw": "{\"version\":1,\"classes\":{\"S0\":{\"__proto__\":{\"cloud\":true,\"polluted\":\"yes\",\"web\":\"ONLY_IN_CLOUD\"},\"web\":\"ONLY_ON_DEVICE\",\"ios\":\"ON_DEVICE_SESSION\",\"noModel\":\"DETERMINISTIC\",\"cloud\":false},\"S1\":{\"web\":\"ONLY_ON_DEVICE\",\"ios\":\"ON_DEVICE_SESSION\",\"noModel\":\"TIER0\",\"cloud\":false},\"S2\":{\"web\":\"PREFER_ON_DEVICE\",\"ios\":\"HYBRID_MODEL\",\"noModel\":\"CLOUD\",\"cloud\":true},\"S3\":{\"web\":\"ONLY_IN_CLOUD\",\"ios\":\"CLOUD\",\"noModel\":\"CLOUD\",\"cloud\":true},\"S4\":{\"web\":\"PREFER_ON_DEVICE\",\"ios\":\"HYBRID_MODEL\",\"noModel\":\"CLOUD\",\"cloud\":true}},\"jobs\":{\"preScreen\":\"S1\",\"vaultTextMatch\":\"S0\",\"referee\":\"S0\",\"fixPlan\":\"S0\",\"explain\":\"S2\",\"adversaryA\":\"S3\",\"adversaryB\":\"S3\"}}"
+        },
+        "expect": {
+          "warning": "bad_shape: classes.S0",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "prototype pollution: a \"__proto__\" key in jobs",
+        "input": {
+          "raw": "{\"version\":1,\"classes\":{\"S0\":{\"web\":\"ONLY_ON_DEVICE\",\"ios\":\"ON_DEVICE_SESSION\",\"noModel\":\"DETERMINISTIC\",\"cloud\":false},\"S1\":{\"web\":\"ONLY_ON_DEVICE\",\"ios\":\"ON_DEVICE_SESSION\",\"noModel\":\"TIER0\",\"cloud\":false},\"S2\":{\"web\":\"PREFER_ON_DEVICE\",\"ios\":\"HYBRID_MODEL\",\"noModel\":\"CLOUD\",\"cloud\":true},\"S3\":{\"web\":\"ONLY_IN_CLOUD\",\"ios\":\"CLOUD\",\"noModel\":\"CLOUD\",\"cloud\":true},\"S4\":{\"web\":\"PREFER_ON_DEVICE\",\"ios\":\"HYBRID_MODEL\",\"noModel\":\"CLOUD\",\"cloud\":true}},\"jobs\":{\"__proto__\":{\"cloud\":true,\"polluted\":\"yes\",\"web\":\"ONLY_IN_CLOUD\"},\"preScreen\":\"S1\",\"vaultTextMatch\":\"S0\",\"referee\":\"S0\",\"fixPlan\":\"S0\",\"explain\":\"S2\",\"adversaryA\":\"S3\",\"adversaryB\":\"S3\"}}"
+        },
+        "expect": {
+          "warning": "bad_shape: jobs",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "prototype pollution: a \"constructor\" key in root",
+        "input": {
+          "raw": "{\"constructor\":{\"cloud\":true,\"polluted\":\"yes\",\"web\":\"ONLY_IN_CLOUD\"},\"version\":1,\"classes\":{\"S0\":{\"web\":\"ONLY_ON_DEVICE\",\"ios\":\"ON_DEVICE_SESSION\",\"noModel\":\"DETERMINISTIC\",\"cloud\":false},\"S1\":{\"web\":\"ONLY_ON_DEVICE\",\"ios\":\"ON_DEVICE_SESSION\",\"noModel\":\"TIER0\",\"cloud\":false},\"S2\":{\"web\":\"PREFER_ON_DEVICE\",\"ios\":\"HYBRID_MODEL\",\"noModel\":\"CLOUD\",\"cloud\":true},\"S3\":{\"web\":\"ONLY_IN_CLOUD\",\"ios\":\"CLOUD\",\"noModel\":\"CLOUD\",\"cloud\":true},\"S4\":{\"web\":\"PREFER_ON_DEVICE\",\"ios\":\"HYBRID_MODEL\",\"noModel\":\"CLOUD\",\"cloud\":true}},\"jobs\":{\"preScreen\":\"S1\",\"vaultTextMatch\":\"S0\",\"referee\":\"S0\",\"fixPlan\":\"S0\",\"explain\":\"S2\",\"adversaryA\":\"S3\",\"adversaryB\":\"S3\"}}"
+        },
+        "expect": {
+          "warning": "bad_shape: (root)",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "prototype pollution: a \"prototype\" key in classes",
+        "input": {
+          "raw": "{\"version\":1,\"classes\":{\"prototype\":{\"cloud\":true,\"polluted\":\"yes\",\"web\":\"ONLY_IN_CLOUD\"},\"S0\":{\"web\":\"ONLY_ON_DEVICE\",\"ios\":\"ON_DEVICE_SESSION\",\"noModel\":\"DETERMINISTIC\",\"cloud\":false},\"S1\":{\"web\":\"ONLY_ON_DEVICE\",\"ios\":\"ON_DEVICE_SESSION\",\"noModel\":\"TIER0\",\"cloud\":false},\"S2\":{\"web\":\"PREFER_ON_DEVICE\",\"ios\":\"HYBRID_MODEL\",\"noModel\":\"CLOUD\",\"cloud\":true},\"S3\":{\"web\":\"ONLY_IN_CLOUD\",\"ios\":\"CLOUD\",\"noModel\":\"CLOUD\",\"cloud\":true},\"S4\":{\"web\":\"PREFER_ON_DEVICE\",\"ios\":\"HYBRID_MODEL\",\"noModel\":\"CLOUD\",\"cloud\":true}},\"jobs\":{\"preScreen\":\"S1\",\"vaultTextMatch\":\"S0\",\"referee\":\"S0\",\"fixPlan\":\"S0\",\"explain\":\"S2\",\"adversaryA\":\"S3\",\"adversaryB\":\"S3\"}}"
+        },
+        "expect": {
+          "warning": "bad_shape: classes",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "maxChars + 1 characters is rejected before parsing, though it is valid JSON",
+        "input": {
+          "padTo": 8193
+        },
+        "expect": {
+          "warning": "too_large",
+          "policy": "default"
+        }
+      },
+      {
+        "group": "reject",
+        "name": "two million \"[\" are rejected before parsing",
+        "input": {
+          "repeat": {
+            "text": "[",
+            "times": 2000000
+          }
+        },
+        "expect": {
+          "warning": "too_large",
+          "policy": "default"
+        }
+      }
+    ]
+  }
+}

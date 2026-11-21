@@ -7,8 +7,10 @@ import { detectFaces } from '../../tier0/faces';
 import { ocrMaster, ocrSinglePass } from '../../tier0/ocr';
 import { vaultStorageCheck } from './vaultStorageCheck';
 import { haversineMeters, bandFor } from '../../core/geo';
-import { box2dToPx, iou } from '../../core/boxes';
+import { box2dToMaster, box2dToPx, gridCellRect, iou, masterToFrame, minimalCrop, padRect, regionOf } from '../../core/boxes';
 import { applyMasks } from '../../core/mask';
+import { buildFrameJpeg, deriveFrame, renderFrame } from '../../core/frames';
+import type { Box2D, PxRect } from '../../core/types';
 import { render, segmentsText, verifyManifest, PROMPT_IDS } from '../../ai/prompts';
 import { ADV_B_SCHEMA, assertSchemaShape } from '../../ai/schemas';
 import { toJpeg } from '../../tier0/decode';
@@ -137,6 +139,112 @@ export async function runSelfTest(): Promise<SelfTestReport> {
     const ok = rect.x === 200 && rect.y === 60 && rect.w === 400 && rect.h === 240
       && px.join() === '0,0,0,255' && outside.join() === '255,255,255,255';
     return { ok, detail: { rect, px, outside } };
+  });
+
+  // T-059 (AC-118, AC-113): boxes live in master pixels, checked by sampling pixels. A Gemini-style box_2d is read off
+  // the ENCODED cloud frame (cropped from the top, downscaled with separately rounded sides), mapped back onto the master
+  // fixture, padded and masked: no target pixel survives in the cloud or export frame, the masked pixel is opaque black,
+  // and a grid cell named on the 768 px Nano frame lands on the target in the master.
+  await step('frames', steps, async () => {
+    const owned: HTMLCanvasElement[] = []; // every canvas this step makes, freed on every exit (early returns, throws)
+    const run = async () => {
+      const W = 1999, H = 1201;
+      const [m, mctx] = canvas(W, H, '#fff');
+      owned.push(m);
+      const target: PxRect = { x: 1450, y: 560, w: 300, h: 140 }; // a "sign": pure red
+      const skyline: PxRect = { x: 100, y: 0, w: 400, h: 150 }; // a non-removable clue at the top: pure green, cropped away
+      mctx.fillStyle = '#f00';
+      mctx.fillRect(target.x, target.y, target.w, target.h);
+      mctx.fillStyle = '#0f0';
+      mctx.fillRect(skyline.x, skyline.y, skyline.w, skyline.h);
+      type Hit = (p: Uint8ClampedArray, i: number) => boolean;
+      const isRed: Hit = (p, i) => p[i] > 160 && p[i + 1] < 100 && p[i + 2] < 100;
+      const isGreen: Hit = (p, i) => p[i + 1] > 160 && p[i] < 100 && p[i + 2] < 100;
+      const bounds = (c: HTMLCanvasElement, hit: Hit): PxRect | null => {
+        const p = c.getContext('2d')!.getImageData(0, 0, c.width, c.height).data;
+        let x0 = Infinity, y0 = Infinity, x1 = -1, y1 = -1;
+        for (let y = 0; y < c.height; y++) {
+          for (let x = 0; x < c.width; x++) {
+            if (!hit(p, (y * c.width + x) * 4)) continue;
+            x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y);
+          }
+        }
+        return x1 < 0 ? null : { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+      };
+      const px = (c: HTMLCanvasElement, x: number, y: number) => Array.from(c.getContext('2d')!.getImageData(x, y, 1, 1).data).join();
+      const decoded = async (jpeg: Blob) => {
+        const b = await createImageBitmap(jpeg);
+        const [c, cctx] = canvas(b.width, b.height, '#fff');
+        owned.push(c);
+        cctx.drawImage(b, 0, 0);
+        b.close();
+        return c;
+      };
+      const crop = minimalCrop('top', [padRect(skyline, W, H)], W, H);
+      if (!crop.ok) return { ok: false, detail: { crop } };
+
+      // 1. The cloud frame as sent (unmasked here, to find the target the way the attacker sees it).
+      const sent = await buildFrameJpeg('cloud', m, { crop: crop.rect });
+      const f = sent.frame;
+      const seen = await decoded(sent.jpeg);
+      const sameSize = seen.width === f.width && seen.height === f.height && Math.max(f.width, f.height) <= 1536;
+      const clean = (await checkCleanJpeg(sent.jpeg)).clean;
+      const red = bounds(seen, isRed);
+      const greenGone = bounds(seen, isGreen) === null;
+      if (!red) return { ok: false, detail: { error: 'target not visible in the cloud frame', frame: f } };
+      // What Gemini answers: [ymin, xmin, ymax, xmax] on 0..1000 of the image as sent, as integers.
+      const box2d = [red.y, red.x, red.y + red.h, red.x + red.w].map((v, i) => Math.round((v * 1000) / (i % 2 ? f.width : f.height))) as Box2D;
+      const mapped = box2dToMaster(box2d, f);
+      if (!mapped) return { ok: false, detail: { error: 'box2dToMaster returned null', box2d, frame: f } };
+      const mask = padRect(mapped, W, H);
+      const tol = 6; // ≈ 1 cloud px (1.3 master px) of JPEG/resampling edge + 0.5 unit of integer box_2d + 1 px outward rounding
+      const close = Math.abs(mapped.x - target.x) <= tol && Math.abs(mapped.y - target.y) <= tol
+        && Math.abs(mapped.x + mapped.w - target.x - target.w) <= tol && Math.abs(mapped.y + mapped.h - target.y - target.h) <= tol;
+      const covers = mask.x <= target.x && mask.y <= target.y && mask.x + mask.w >= target.x + target.w && mask.y + mask.h >= target.y + target.h;
+      const centre = { x: Math.floor(mapped.x + mapped.w / 2), y: Math.floor(mapped.y + mapped.h / 2) };
+      const masterCentreRed = px(m, centre.x, centre.y) === '255,0,0,255'; // the mapped box sits on the target IN THE MASTER
+      const masterBesideWhite = px(m, mask.x - 3, centre.y) === '255,255,255,255';
+
+      // 2. Masked on the master, then cropped and scaled: no red pixel survives; the masked pixel reads [0,0,0,255].
+      const maskedSeen = await decoded((await buildFrameJpeg('cloud', m, { crop: crop.rect, masks: [mask] })).jpeg);
+      const noRedSent = bounds(maskedSeen, isRed) === null;
+      const exportFrame = deriveFrame('export', W, H, { crop: crop.rect });
+      const out = renderFrame(m, exportFrame, [mask]);
+      owned.push(out);
+      const at = masterToFrame({ x: centre.x, y: centre.y, w: 1, h: 1 }, exportFrame);
+      const beside = masterToFrame({ x: mask.x - 3, y: centre.y, w: 1, h: 1 }, exportFrame);
+      const maskedPx = px(out, at.x, at.y);
+      const besidePx = px(out, beside.x, beside.y);
+      const noRedExport = bounds(out, isRed) === null;
+      const masterUntouched = px(m, centre.x, centre.y) === '255,0,0,255';
+
+      // 3. Nano grid cell: the region of the target on the 768 px frame → its 3×3 cell in master pixels holds the target.
+      const nano = deriveFrame('nano768', W, H);
+      const nanoCanvas = renderFrame(m, nano);
+      owned.push(nanoCanvas);
+      const nr = bounds(nanoCanvas, isRed);
+      const region = nr ? regionOf(nr, nano.width, nano.height) : null;
+      const cell = region ? gridCellRect(region, W, H) : null;
+      const tc = { x: Math.floor(target.x + target.w / 2), y: Math.floor(target.y + target.h / 2) };
+      const cellHasTarget = !!cell && tc.x >= cell.x && tc.x < cell.x + cell.w && tc.y >= cell.y && tc.y < cell.y + cell.h
+        && px(m, tc.x, tc.y) === '255,0,0,255';
+
+      const ok = sameSize && clean && greenGone && close && covers && masterCentreRed && masterBesideWhite && noRedSent
+        && maskedPx === '0,0,0,255' && besidePx === '255,255,255,255' && noRedExport && masterUntouched && cellHasTarget;
+      return {
+        ok,
+        detail: {
+          crop: crop.rect, cloud: [f.width, f.height], scale: [f.cropInMaster.w / f.width, f.cropInMaster.h / f.height],
+          sameSize, clean, greenGone, red, box2d, mapped, target, mask, close, covers, masterCentreRed, masterBesideWhite,
+          noRedSent, maskedPx, besidePx, noRedExport, masterUntouched, nano: [nano.width, nano.height], region, cell, cellHasTarget,
+        },
+      };
+    };
+    try {
+      return await run();
+    } finally {
+      for (const c of owned) c.width = 0;
+    }
   });
 
   await step('ocr', steps, async () => {

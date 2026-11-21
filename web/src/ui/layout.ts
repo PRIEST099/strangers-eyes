@@ -47,12 +47,6 @@ export type CapabilityChipState =
   | { kind: 'downloading'; pct: number } // (b)
   | { kind: 'rulesOnly' }; // (c)
 
-/**
- * The chip before capability detection exists (T-061). Fail closed: the shell never claims on-device AI; with
- * no detection, private steps can only run as built-in rules.
- */
-export const PLACEHOLDER_CAPABILITY: CapabilityChipState = { kind: 'rulesOnly' };
-
 export function capabilityChipCopy(state: CapabilityChipState): { id: StringId; params?: StringParams } {
   switch (state.kind) {
     case 'nano':

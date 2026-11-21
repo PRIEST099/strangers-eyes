@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { t } from '../core/strings';
 import {
   CHECK_STEPS,
-  PLACEHOLDER_CAPABILITY,
   SCREEN_TITLE,
   ZERO_COUNTERS,
   capabilityChipCopy,
@@ -57,10 +56,6 @@ describe('capability chip (SPEC §8.2)', () => {
     expect(text({ kind: 'downloading', pct: 42.6 })).toBe('Downloading Nano 43%');
     expect(text({ kind: 'downloading', pct: 140 })).toBe('Downloading Nano 100%');
     expect(text({ kind: 'downloading', pct: Number.NaN })).toBe('Downloading Nano 0%');
-  });
-
-  it('fails closed before capability detection exists: never claims on-device AI', () => {
-    expect(PLACEHOLDER_CAPABILITY).toEqual({ kind: 'rulesOnly' });
   });
 });
 

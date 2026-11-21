@@ -1,0 +1,55 @@
+{
+  "description": "Box mapping and padding (SPEC AC-192, AC-113, AC-118; ARCH §11.5; API-NOTES §5.8, §6.1; D-20, D-88). Single source of truth for web/src/core/boxes.test.ts (Vitest) and the iOS port (XCTest, AC-352). Each case has an `fn` naming the function under test, a human `name`, its inputs and an `expect` object.",
+  "conventions": [
+    "Rects are {x, y, w, h} in pixels. box is Gemini's box_2d [ymin, xmin, ymax, xmax], y first, normalised 0..1000 to the image AS SENT (never letterboxed).",
+    "A non-finite number is written as the string \"NaN\", \"Infinity\" or \"-Infinity\" (JSON has no literal for them).",
+    "box2dToPx(box, W, H): clamp each value to 0..1000 (non-finite → 0), swap reversed corners, multiply by W or H BEFORE dividing by 1000, floor the near edges and ceil the far edges, clamp to W×H. A zero-area box comes back with w or h 0.",
+    "box2dToMaster(box, frame): frame is an ImageFrame {id, width, height, cropInMaster}. Straight from 0..1000 to master pixels: x = crop.x + v × crop.w / 1000 (y likewise with crop.h), near edges floored, far edges ceiled, kept inside the crop. A box with a non-finite value or zero area after clamping → rect null.",
+    "cloudToMaster(rect, frame): exact (fractional) map from frame pixels to master pixels: x = crop.x + x × crop.w / width, w = w × crop.w / width (y and h with crop.h / height). x and y scale separately.",
+    "masterToBox2d(rect, frame): the inverse of box2dToMaster, rounded outward (min floored, max ceiled), clamped 0..1000.",
+    "padRect(rect, W, H, ratio?): ratio defaults to 0.15 and is clamped 0..0.5 (non-finite → 0.15). Per side: max(4, ceilPx(w × ratio / 2)) horizontally, max(4, ceilPx(h × ratio / 2)) vertically, where ceilPx(v) = ceil(v − 1e-9) so float noise (15.000000000000002) does not add a pixel; then rounded outward to whole pixels and clamped to W×H. A rect with a non-finite field or a negative w or h fails (`expect: {throws: true}`, D-97).",
+    "gridCellRect(region, W, H): 3×3 cells; column c spans round(c × W / 3) .. round((c + 1) × W / 3), rows likewise. The nine cells tile the frame exactly."
+  ],
+  "cases": [
+    { "fn": "box2dToPx", "name": "AC-192: [100,250,500,750] on 800×600", "box": [100, 250, 500, 750], "W": 800, "H": 600, "expect": { "rect": { "x": 200, "y": 60, "w": 400, "h": 240 } } },
+    { "fn": "box2dToPx", "name": "reversed corners are swapped", "box": [500, 750, 100, 250], "W": 800, "H": 600, "expect": { "rect": { "x": 200, "y": 60, "w": 400, "h": 240 } } },
+    { "fn": "box2dToPx", "name": "out-of-range values clamp to the image", "box": [-50, -50, 2000, 2000], "W": 800, "H": 600, "expect": { "rect": { "x": 0, "y": 0, "w": 800, "h": 600 } } },
+    { "fn": "box2dToPx", "name": "a non-finite value counts as 0", "box": ["NaN", 0, 1000, 1000], "W": 100, "H": 100, "expect": { "rect": { "x": 0, "y": 0, "w": 100, "h": 100 } } },
+    { "fn": "box2dToPx", "name": "edges round outward (a mask never under-covers)", "box": [1, 1, 2, 2], "W": 333, "H": 333, "expect": { "rect": { "x": 0, "y": 0, "w": 1, "h": 1 } } },
+    { "fn": "box2dToPx", "name": "no float-noise growth: 550 × 800 / 1000 is exactly 440 (0.55 × 800 is 440.00000000000006)", "box": [0, 0, 550, 550], "W": 800, "H": 800, "expect": { "rect": { "x": 0, "y": 0, "w": 440, "h": 440 } } },
+    { "fn": "box2dToPx", "name": "a zero-area box stays zero-area", "box": [100, 250, 100, 750], "W": 800, "H": 600, "expect": { "rect": { "x": 200, "y": 60, "w": 400, "h": 0 } } },
+
+    { "fn": "box2dToMaster", "name": "AC-192 on an uncropped master frame", "box": [100, 250, 500, 750], "frame": { "id": "master", "width": 800, "height": 600, "cropInMaster": { "x": 0, "y": 0, "w": 800, "h": 600 } }, "expect": { "rect": { "x": 200, "y": 60, "w": 400, "h": 240 } } },
+    { "fn": "box2dToMaster", "name": "1536×768 cloud frame of a 2048×1124 master cropped 100 px from the top", "box": [500, 500, 520, 510], "frame": { "id": "cloud", "width": 1536, "height": 768, "cropInMaster": { "x": 0, "y": 100, "w": 2048, "h": 1024 } }, "expect": { "rect": { "x": 1024, "y": 612, "w": 21, "h": 21 } } },
+    { "fn": "box2dToMaster", "name": "anisotropic downscale (2047×1023 → 1536×768): x and y scale separately", "box": [250, 250, 750, 750], "frame": { "id": "cloud", "width": 1536, "height": 768, "cropInMaster": { "x": 0, "y": 0, "w": 2047, "h": 1023 } }, "expect": { "rect": { "x": 511, "y": 255, "w": 1025, "h": 513 } } },
+    { "fn": "box2dToMaster", "name": "frame cropped 400 px from the left", "box": [100, 200, 300, 400], "frame": { "id": "cloud", "width": 1000, "height": 800, "cropInMaster": { "x": 400, "y": 0, "w": 1250, "h": 1000 } }, "expect": { "rect": { "x": 650, "y": 100, "w": 250, "h": 200 } } },
+    { "fn": "box2dToMaster", "name": "out-of-range values stay inside the crop", "box": [-10, -10, 1010, 1010], "frame": { "id": "cloud", "width": 1536, "height": 768, "cropInMaster": { "x": 0, "y": 100, "w": 2048, "h": 1024 } }, "expect": { "rect": { "x": 0, "y": 100, "w": 2048, "h": 1024 } } },
+    { "fn": "box2dToMaster", "name": "a zero-area box is dropped", "box": [100, 250, 100, 750], "frame": { "id": "master", "width": 800, "height": 600, "cropInMaster": { "x": 0, "y": 0, "w": 800, "h": 600 } }, "expect": { "rect": null } },
+    { "fn": "box2dToMaster", "name": "a box with a non-finite value is dropped", "box": ["NaN", 250, 500, 750], "frame": { "id": "master", "width": 800, "height": 600, "cropInMaster": { "x": 0, "y": 0, "w": 800, "h": 600 } }, "expect": { "rect": null } },
+    { "fn": "box2dToMaster", "name": "an infinite value is dropped, not clamped to 1000", "box": ["Infinity", 250, 500, 750], "frame": { "id": "master", "width": 800, "height": 600, "cropInMaster": { "x": 0, "y": 0, "w": 800, "h": 600 } }, "expect": { "rect": null } },
+    { "fn": "box2dToMaster", "name": "zero area is judged on the 0..1000 values, before pixel rounding (100.4 = 100.4)", "box": [100.4, 250, 100.4, 750], "frame": { "id": "master", "width": 800, "height": 600, "cropInMaster": { "x": 0, "y": 0, "w": 800, "h": 600 } }, "expect": { "rect": null } },
+
+    { "fn": "cloudToMaster", "name": "1536-px cloud frame of a top-cropped master", "rect": { "x": 768, "y": 384, "w": 15, "h": 15 }, "frame": { "id": "cloud", "width": 1536, "height": 768, "cropInMaster": { "x": 0, "y": 100, "w": 2048, "h": 1024 } }, "expect": { "rect": { "x": 1024, "y": 612, "w": 20, "h": 20 } } },
+    { "fn": "cloudToMaster", "name": "uncropped 768-px frame of a 2048×1536 master", "rect": { "x": 96, "y": 48, "w": 384, "h": 192 }, "frame": { "id": "nano768", "width": 768, "height": 576, "cropInMaster": { "x": 0, "y": 0, "w": 2048, "h": 1536 } }, "expect": { "rect": { "x": 256, "y": 128, "w": 1024, "h": 512 } } },
+
+    { "fn": "masterToBox2d", "name": "inverse of the AC-192 vector", "rect": { "x": 200, "y": 60, "w": 400, "h": 240 }, "frame": { "id": "master", "width": 800, "height": 600, "cropInMaster": { "x": 0, "y": 0, "w": 800, "h": 600 } }, "expect": { "box": [100, 250, 500, 750] } },
+    { "fn": "masterToBox2d", "name": "rounds outward on a cropped frame", "rect": { "x": 1024, "y": 612, "w": 21, "h": 21 }, "frame": { "id": "cloud", "width": 1536, "height": 768, "cropInMaster": { "x": 0, "y": 100, "w": 2048, "h": 1024 } }, "expect": { "box": [500, 500, 521, 511] } },
+
+    { "fn": "padRect", "name": "15% in total, 7.5% per side", "rect": { "x": 100, "y": 100, "w": 200, "h": 100 }, "W": 1000, "H": 1000, "expect": { "rect": { "x": 85, "y": 92, "w": 230, "h": 116 } } },
+    { "fn": "padRect", "name": "at least 4 px per side, clamped at the frame's origin", "rect": { "x": 0, "y": 0, "w": 10, "h": 10 }, "W": 1000, "H": 1000, "expect": { "rect": { "x": 0, "y": 0, "w": 14, "h": 14 } } },
+    { "fn": "padRect", "name": "7.5% rounds up, never down (8.25 → 9, 6.75 → 7)", "rect": { "x": 100, "y": 100, "w": 110, "h": 90 }, "W": 1000, "H": 1000, "expect": { "rect": { "x": 91, "y": 93, "w": 128, "h": 104 } } },
+    { "fn": "padRect", "name": "clamped at the far edges", "rect": { "x": 950, "y": 550, "w": 50, "h": 50 }, "W": 1000, "H": 600, "expect": { "rect": { "x": 946, "y": 546, "w": 54, "h": 54 } } },
+    { "fn": "padRect", "name": "a fractional rect rounds outward to whole pixels", "rect": { "x": 10.5, "y": 20.2, "w": 100, "h": 50.5 }, "W": 1000, "H": 1000, "expect": { "rect": { "x": 2, "y": 16, "w": 117, "h": 59 } } },
+    { "fn": "padRect", "name": "ratio above 0.5 is clamped to 0.5 (RC mask_pad_ratio)", "rect": { "x": 100, "y": 100, "w": 200, "h": 100 }, "W": 1000, "H": 1000, "ratio": 2, "expect": { "rect": { "x": 50, "y": 75, "w": 300, "h": 150 } } },
+    { "fn": "padRect", "name": "ratio 0 keeps only the 4 px minimum", "rect": { "x": 100, "y": 100, "w": 200, "h": 100 }, "W": 1000, "H": 1000, "ratio": 0, "expect": { "rect": { "x": 96, "y": 96, "w": 208, "h": 108 } } },
+    { "fn": "padRect", "name": "a negative ratio is clamped to 0", "rect": { "x": 100, "y": 100, "w": 200, "h": 100 }, "W": 1000, "H": 1000, "ratio": -1, "expect": { "rect": { "x": 96, "y": 96, "w": 208, "h": 108 } } },
+    { "fn": "padRect", "name": "ceilPx: float noise does not add a pixel (100 × 0.14 / 2 = 7.000000000000001 → 7)", "rect": { "x": 100, "y": 100, "w": 100, "h": 100 }, "W": 1000, "H": 1000, "ratio": 0.14, "expect": { "rect": { "x": 93, "y": 93, "w": 114, "h": 114 } } },
+    { "fn": "padRect", "name": "a non-finite rect fails closed", "rect": { "x": "NaN", "y": 100, "w": 200, "h": 100 }, "W": 1000, "H": 1000, "expect": { "throws": true } },
+    { "fn": "padRect", "name": "a negative extent fails closed", "rect": { "x": 100, "y": 100, "w": -200, "h": 100 }, "W": 1000, "H": 1000, "expect": { "throws": true } },
+    { "fn": "padRect", "name": "a non-finite ratio falls back to 0.15", "rect": { "x": 100, "y": 100, "w": 200, "h": 100 }, "W": 1000, "H": 1000, "ratio": "NaN", "expect": { "rect": { "x": 85, "y": 92, "w": 230, "h": 116 } } },
+
+    { "fn": "gridCellRect", "name": "top_left of 1001×667", "region": "top_left", "W": 1001, "H": 667, "expect": { "rect": { "x": 0, "y": 0, "w": 334, "h": 222 } } },
+    { "fn": "gridCellRect", "name": "middle_center of 1001×667", "region": "middle_center", "W": 1001, "H": 667, "expect": { "rect": { "x": 334, "y": 222, "w": 333, "h": 223 } } },
+    { "fn": "gridCellRect", "name": "bottom_right of 1001×667", "region": "bottom_right", "W": 1001, "H": 667, "expect": { "rect": { "x": 667, "y": 445, "w": 334, "h": 222 } } }
+  ]
+}

@@ -97,7 +97,7 @@ Test image: a white "LUCAS" tag with dark letters, tilted 4°, composited in mem
 Canonical IDs:
 - **D-01..D-39** are in SPEC §0.4 (read them there).
 - **AD-xx** are in ARCH §2. Where an AD duplicates a D, the D wins.
-- **The next free number is D-84.**
+- **The next free number is D-111.** (D-103..D-110 are reserved for the batch-2 builders running on Nov 21: UI screens D-103..105, repo checks D-106..107, boot/RC D-108..110.)
 
 - D-00 (Nov 19) Idea: **Strangers' Eyes**, chosen by a 29-agent tournament (score 8.18) and approved by the user. **Blindfill** is the Day-1 fallback, *only* with the user's OK if G1 fails (TASKS T-034). Health/Rwanda "Muganga" was rejected (the user wants a global idea).
 - D-00a (Nov 19) Platforms: Web PWA (primary) + iOS. **Android cut**: no physical device, and the emulator has no Nano.
@@ -285,6 +285,133 @@ Canonical IDs:
   - **Faces:** one detector per model at the RC floor 0.2; `face_min_confidence` (clamped 0.2–0.6) is applied to the scores in code. This gives the same faces and scores; boxes may shift slightly (weighted NMS). Boxes are clamped and rounded outward.
   - **Timing:** in the Browser pane, OCR timings swung 4–5× with the app's own CPU load. AC-064's 3 s Tier-0 budget is measured in the user's Chrome at T-085.
   - Edited: ARCH §11.2, the RC table and §18; API-NOTES §5.1–5.2; TASKS T-056, T-057 and T-037.
+
+- D-84 (Claude, Nov 21; T-060) **Routing-policy parsing is strict; the only merge is the per-entry floor** (settles AC-020's "merges" against ARCH §7 step 1):
+  - **Whole bundled policy, with a warning:** a non-string RC value, more than 8 KB (checked before `JSON.parse`), invalid JSON, any missing, extra or mistyped key (`"__proto__"` included), `version` ≠ 1, or an unknown enum value. A partial policy is never merged; RC sends the full `{version, classes, jobs}` or nothing. `undefined` (no RC value yet) is the bundled policy with no warning.
+  - **Per-entry floor, with a warning:** each `HARD_FLOOR` violation keeps the bundled value for that entry; every other entry comes from RC.
+  - **RC can tune:** S2 and S4 in full; S3 apart from `web` (`cloud: false` switches the adversary off); `jobs.explain` S2 or S0. ARCH floors S3 only on `web`, so S3's `ios` is not floored; the iOS gate must still send S3 only to the cloud model.
+  - **`warning` is a string:** `<reason>` or `<reason>: <paths>`. The paths come from the module's own key lists and never echo RC text. AppConfig's `policyWarning` carries it, and the HUD logs `copy.hud.policyRejected`.
+  - Edited: SPEC AC-020; ARCH §7 ("As built"); TASKS T-060 and T-102.
+- D-85 (Claude, Nov 21; T-060) **The RC template exists; the floor is code; the default is checked at import.**
+  - T-060 created the repo-root `remoteconfig.template.json` as a verbatim copy of ARCH §13.3: 27 keys, equal to the §13.2 table in type and default, and `routing_policy` equal to ARCH §7. From now on the file is canonical. T-102 keeps `remoteConfig.ts`, AC-293..295 and the first `--only remoteconfig` publish.
+  - `HARD_FLOOR` is hand-written in `core/routing.ts`, never read from the template, so a template edit cannot loosen S0 or S1. `DEFAULT_POLICY` is parsed and floor-checked at import, and a bad template default throws, which fails `npm run check`.
+  - iOS bundles the template at the app bundle root (T-038 remainder).
+  - Edited: ARCH §13.3; RUNBOOK §4.4 and §4.6; TASKS T-038, T-060 and T-102; `ios/project.yml`.
+
+- D-88 (Claude, Nov 21; T-059) **One ImageFrame per derived frame; Gemini boxes map straight to the master; padding rounds up.**
+  - `core/frames.ts` builds every derived frame (nano768, cloud, export): `deriveFrame` snaps the crop **inward** to whole master pixels and scales it with `fitWithin` (each side rounded separately); `renderFrame` draws exactly that crop into exactly that size, masks first, on a copy of the master; `buildFrameJpeg` adds JPEG and `assertCleanJpeg` and returns `{jpeg, frame}`. The frame travels with the bytes, so mapping back never drifts. Pure geometry stays in `core/boxes.ts`; `core/pipeline.ts` (later) composes these.
+  - Pass-B boxes go through `box2dToMaster(box, frame)`: straight from 0..1000 to master pixels via the crop (no frame-pixel step, so the frame's anisotropic rounding cannot bias them), rounded outward once, kept inside the crop; non-finite or zero-area (judged on the 0..1000 values) → `null`. `box2dToPx` keeps its signature and AC-192 vector for existing callers.
+  - `padRect` rounds the 7.5% per side **up** (it rounded to nearest, so a 110 px box got 8 px instead of 8.25), rounds the result outward and clamps the ratio 0–0.5 like RC `mask_pad_ratio`. Mapping multiplies before dividing, so float noise (0.55 × 800 = 440.00000000000006) never grows a box by a pixel and the cross-platform vectors are exact.
+  - `Clue.box` stays **unpadded** (as found; T-073 draws it); `padRect` is applied when masks are built (pipeline, T-079), so a box is never padded twice.
+  - Edited: ARCH §3 layout, §11.1, §11.5, §11.6, §20.1; TASKS T-059; new `shared/testvectors/box2d.json`.
+
+- D-89 (Claude, Nov 21; T-059) **Crop side and OCR preference rules.**
+  - Crops remove the **padded** boxes, the same rects a mask would cover (Gemini boxes are approximate: API-NOTES §6.1 "clamp, swap, drop zero-area, then pad").
+  - `bestCrop` (rules plan, SPEC §10.4, ARCH §12.5) tries all four sides and keeps the one that removes the smallest share of the photo within the 40% cap; ties go top, bottom, left, right; none fits → `too_much` (crop `'none'`, `copy.fix.unremovable`). Exactly 40% is allowed.
+  - `preferOcrBoxes`: the union of the same-text OCR words that touch the pass-B box replaces it when that union's IoU with the pass-B box is > 0.3 (per-word IoU would reject a long sign read as several words). Text matching stays with the caller (T-079).
+  - Edited: ARCH §11.5; new `shared/testvectors/crop.json` (AC-196, including two rules-plan cases).
+- D-86 (Claude, Nov 21; T-061) **Capability states: one precedence where SPEC §5.2 overlaps, one createOptions source, an honest (b) chip.**
+  - `capabilityOf` (AC-001, tested over all 100 signal combinations): Nano off (setting or simulation) → (c); no `LanguageModel` → (c); text `available` → (a), or (a′) when image is not `available`, even while the image model downloads (the gate checks each io freshly, so text jobs really run on the device); text `downloadable`/`downloading` → (b); text `unavailable` → (c) whatever image says.
+  - The Download button shows in (b), and in (a′) when the image model can be fetched. It fetches the image io when that is fetchable (it covers text), else the text io.
+  - Header chip in (b): `Downloading Nano N%` only while something downloads (ours, or Chrome's own at 0 % until a click attaches a monitor). `downloadable` alone shows `Rules-only`: nothing is downloading, and private checks are rules-only until the model is ready.
+  - `NANO_TEXT_IO`/`NANO_IMAGE_IO` live in `ai/capabilities.ts`, deep-frozen. `ai/models.ts` (T-065) imports them instead of defining its own, so the gate checks the very objects the SDK passes to `availability()`.
+  - The gate path is stricter than ARCH §9.5's snippet: `availability()` gets a 5 s timeout, and any answer outside the four known values is `unavailable` (fail closed).
+  - Edited: SPEC §5.2 and §8.2; ARCH §9.3 and §9.5; TASKS T-061.
+- D-87 (Claude, Nov 21; T-061) **"Download Gemini Nano": the SDK's initializer once T-065 provides one; until then the SDK's own create-with-monitor call, with the session destroyed.**
+  - `enableDeviceModel(io, onProgress, initialize?)` must be called synchronously from the click handler. **The direct path** (no initializer) reaches `create()` in the click's own task, so the user activation holds.
+  - **With `initialize`** (the SDK's `initializeDeviceModel`, bound to an on-device model from `ai/models.ts`), the SDK downloads, as SPEC SCR-02 and AC-073 say. "Same task" does **not** hold there: the SDK awaits `availability()` before its `create()`, so it relies on Chrome's transient activation (about 5 s) surviving that one await (API-NOTES §1.6; T-061 review). This needs T-065 (R2 keeps `getGenerativeModel` in models.ts) and AppShell passing a per-io factory to `useCapabilities({ initializeDeviceModel })` (D-100).
+  - Until then: `LanguageModel.create({...io, monitor})`, the same call the SDK makes internally (API-NOTES §1.6), then `destroy()` at once. It never prompts, so it is not feature inference (API-NOTES §8). The SDK's own download never destroys its session [VERIFIED: src], which keeps the model resident on 8 GB.
+  - The UI snapshot is re-taken on `visibilitychange`, every 2 s while Chrome reports a download, and as soon as a download ends, so the chip turns to `On-device: Gemini Nano` within 2 s (AC-073).
+  - Edited: ARCH §9.5; API-NOTES §1.6; TASKS T-061.
+
+- D-92 (Claude, Nov 21; T-055) **The Vault UI never shows a pin's coordinates; details take optional other spellings; refusals are mapped per field.**
+  - **No coordinates on screen:** a pin is shown only by its source ("Coordinates entered by hand") and accuracy ("Accuracy about ±35 m", plus `copy.vault.lowAccuracy` above 250 m). The list, the pin status and the edit form never echo lat/lng; editing keeps the stored pin unless the user pins again or types new coordinates. SPEC asks only for the accuracy, and a vault on screen is easy to film or shoulder-surf.
+  - **Manual "lat, lng":** two decimal numbers separated by a comma or whitespace (a Unicode minus counts), |lat| ≤ 90, |lng| ≤ 180. Decimal commas, exponents, hemisphere letters and anything over 64 characters are refused, never guessed. A manual pin has accuracy 0 (core/types).
+  - **Other spellings (aliases)** are offered for text details only, comma-separated, up to 5. Pins do not offer them: a pin with a generic label contributes no terms at all (D-36), so an alias there would silently do nothing. A pin's existing aliases are kept on edit.
+  - **Refusals:** the store stays the authority. The form checks lengths first (code points, like the store) only so the message lands on the right field; every `VaultValidationCode` has copy (a typed Record, so a new code fails the typecheck), the codes the form cannot cause share `ui.vault.error.invalid`, and `VaultCorruptError` points at Burn vault. A label over 40 characters is refused inline as it is typed (no `maxLength`, so a pasted name is never silently cut).
+  - The kind is fixed while editing (delete and add again to change it); `place_pin` reads "Other place".
+  - Edited: SPEC SCR-04; ARCH §3 layout (`vault/geolocation.ts`); TASKS T-055.
+
+- D-93 (Claude, Nov 21; T-055) **Burn vault: a pending burn shows a retry and turns to done by itself.**
+  - `BurnPendingError` comes only after the key is deleted (it is deleted first, AC-271), so the pending copy says the vault can no longer be read and that some stored data is still being deleted. It never shows `copy.burn.done` and never blames other tabs alone.
+  - While pending, the dialog checks once and then on every vault change: a `loadVault()` that resolves means the burn has finished (a load finishes an interrupted burn first and rejects while it cannot), so the state turns to `copy.burn.done`. "Try again" runs `performBurn()` again; while this tab's deletion is still queued it fails at once with the same pending state, so it never piles up waits.
+  - Hold to confirm: a pure state machine (`holdStep`). Pointer and Space/Enter both hold; key auto-repeat never restarts the hold; release before 1.5 s, blur or pointer cancel abandons it; a release at or after 1.5 s fires even if the timer ran late. A finished or failed burn starts over at the next open; a pending one keeps its retry.
+  - Edited: SPEC SCR-19; TASKS T-055.
+
+- D-90 (Claude, Nov 21; T-075) **The rules referee lives in `core/referee.ts` over the one matcher; the merge keeps the device's route; `+rules` when rules contribute.**
+  - **Placement:** ARCH §8.4's sketch put `rulesStrength`/`KIND_COMPAT` in `tier0/fuzzy.ts`, but T-058 shipped fuzzy.ts without them. They live in `core/referee.ts`, built only from fuzzy.ts exports (normalisation, folds, `tokens`, `tokenSim`, `isDistinctive`, `isGeneric`, the word lists, the digit match); `KIND_COMPAT` comes from enums.v1.json. There is no second normaliser or similarity (AD-21 holds).
+  - **Rule details SPEC §10.3 leaves open, pinned in `shared/testvectors/referee.json`:** label tokens compare by token similarity ≥ θ (a misspelt name is still exact); synonym-class words and artefact terms compare as whole tokens (no similarity, so no plurals: "badges" is not "badge"); a pair of function words is never a 2-token run, and a one-token generic label under 4 characters never matches (as in the matcher); plate / house_number / phone use the SCR-06 digit match for exact and skip the text rules (no "likely" from part of a number); the acronym takes first letters, skips function words, needs ≥ 3 letters and must equal a claim token. Reasons are the ARCH §12.1 templates; the artefact named is the first in `ARTEFACT_TERMS` order, and a class is named by its first word.
+  - **Eligibility:** a pin with an empty or generic label has no referee strings at all, aliases included (AC-167); other generic strings are skipped one by one. `rulesStrength` re-checks this, so raw `VaultItem[]` are safe. `refereeVaultItems()` drops coordinates; `refereeClaims()` = inferences, then hypotheses as `area`. T-074 can reuse both.
+  - **`mergeMatches` returns `{matches, notes}`.** When the device found a pair, `route` is the device match's own route (`ON_DEVICE`, or `IN_CLOUD` when an S4 Judge Mode device job fell back to the cloud), even when the rules strength is kept; otherwise `RULES_ONLY`. ARCH said `ON_DEVICE`, which would mislabel that S4 case in the HUD. `notes` is `['+rules']` when at least one valid rules match entered the union (ARCH said "if both did"; SPEC SCR-09 tags the union). Invalid strengths are dropped.
+  - Edited: ARCH §3, §8.4 and §12.1; TASKS T-075; `shared/testvectors/referee.json` (new).
+  - **Amended later the same day:** D-94 (3(b) needs a shared token), D-101 (1(b) generic pairs; one-token generic strings), D-102 (function words generic), F-121 (every claim reading), F-124 (image-mode digit match; generic-label items dropped). The details above that those change are superseded.
+- D-91 (Claude, Nov 21; T-065) **Model factories take a `CloudParams` object with a timeout; pass B gets 16,384 output tokens; the download initializer is per io.**
+  - **Signatures:** `deviceJsonModel(ai, io, schema)`, `deviceTextModel(ai)`, `judgeJsonModel(ai, io, schema, cloud)`, `explainModel(ai, cloud, mode)`, `adversaryAModel(ai, system, cloud)`, `adversaryBModel(ai, system, cloud, schema)`. `io` is `'text' | 'image'` and resolves to capabilities.ts's frozen `NANO_*_IO` objects (D-86). `cloud = {model, thinkingLevel, timeoutMs, seed?}` comes from `cloudParamsFor(cfg, job)` over the AppConfig fields (ARCH §13.4), following ARCH §9.2.
+  - **Timeouts:** cloud-capable factories pass `{ timeout }` as getGenerativeModel's RequestOptions (the SDK default is 180 s). Device-only factories pass none: the timeout never reaches the device, and the gate uses `Promise.race`.
+  - **Checked before building:** exact model id (lowercase, no spaces, never `-latest`), allowed thinking level (MINIMAL refused for the adversary), integer timeout of 1 s–10 min, integer seed. `adversary_seed` is cast in only when non-zero (U-11). `explainModel` accepts only PREFER_ON_DEVICE or ONLY_IN_CLOUD (AC-277).
+  - **Output caps:** judge 2048, explain 512, pass A 4096 (as ARCH), **pass B 16384** (ARCH had 8192). U-12 is open, and 16384 is the only pass-B cap ever exercised (T-031); a cap costs nothing unless used, while truncation fails the check. Revisit all four once U-12 is measured.
+  - **Download (D-87):** `initializeDeviceModelFor(ai, io)` returns a `DeviceModelInitializer` (the SDK's `initializeDeviceModel` on an ONLY_ON_DEVICE model with `ioOptions(io)`). The SDK downloads for that model's createOptions, so the initializer must match the io being downloaded; `useCapabilities` currently takes one initializer for both (open item for the hook's owner). The SDK keeps the created session resident (API-NOTES §1.6).
+  - Edited: ARCH §3 and §9.3; API-NOTES §1.11; TASKS T-065.
+
+- D-94 (orchestrator, Nov 21; settles F-98 from T-075) **Rules referee 3(b) needs a shared non-generic token.**
+  - SPEC §10.3 rule 3(b) ("possible" via compatible kind + high confidence) now also requires that the claim shares at least one NON-generic label/alias token with the item under the matcher's token rule: `tokenSim` ≥ RC `fuzzy_threshold`, tokens of ≤ 3 characters equal, `GENERIC_WORDS` (and their folds) never count.
+  - Without a shared token a confident claim never marks a vault item: one high-confidence `other` claim or an area hypothesis must not turn every name, plate, phone or pin amber. Geography is handled by the distance bands in code, never by the referee.
+  - Digit kinds (plate, house_number, phone) never reach 3(b) without a digit match (which is already exact).
+  - In practice 3(b) now fires on a shared short (≤ 3 characters) non-generic token, because a shared token of ≥ 4 characters that is not generic is already 2(a) "likely".
+  - Built in `core/referee.ts` (`sharedToken`); `shared/testvectors/referee.json` gains six D-94 rows (no shared token vs a child name, vs a labelled pin, generic words only, a short shared token → possible, a high-confidence off-by-one plate) and its old "compatible kind only → possible" row is now none. 8 mutations of the new rule, all killed.
+  - Edited: SPEC §10.3; ARCH §12.1; TASKS T-075; DEVLOG F-98.
+
+- D-95 (Claude, Nov 21; T-060 review) **The routing policy is deep-readonly in type as well as frozen at runtime.**
+  - In `core/types.ts`, every `ClassPolicy` field is `readonly`, and `RoutingPolicy` has `readonly version` plus `Readonly<Record<…>>` for `classes` and `jobs`. This is a pure readonly wrapper; nothing else wrote to these types, and everything compiles.
+  - `DEFAULT_POLICY`, `EffectivePolicy.policy` and `AppConfig.routingPolicy` therefore cannot be written at compile time. `routing.test.ts` pins this with `@ts-expect-error` lines.
+  - Edited: ARCH §6 types block and §7.
+- D-96 (Claude, Nov 21; T-060 review) **`shared/testvectors/rc.json` holds the routing-policy cases for web and iOS.**
+  - Its `routingPolicy` section has `default`, `maxChars` (8192), `hardFloor`, `judgeDeviceJobs` and 136 cases (9 accepted, 52 floor, 75 rejected). Each case has a small input form (`absent`, `notString`, `raw`, `edits`, `padTo`, `repeat`) and an exact expected warning and policy. The conventions are in the file.
+  - `routing.test.ts` runs every case and checks that the file covers all 50 single floor violations and every warning reason. Web-only robustness checks stay in TypeScript: deep nesting, a bigint, a symbol or a function, freezing, and the seeded fuzz.
+  - T-102 adds one sibling section per other RC key. The iOS `RemoteConfigService` runs every case except `notString`.
+  - Edited: ARCH §7 and §19.3; TASKS T-102 and T-060.
+
+- D-99 (Claude, Nov 21; T-055 review, F-113–F-116) **Burn vault and pin fixes: slide-off cancels, outcomes while closed, an assistive-technology confirm step, a pin watchdog.** Amends D-92 and D-93.
+  - **Slide-off:** the hold button keeps pointer capture and cancels the hold on any move outside its box; coming back does not resume it.
+  - **Outcome while closed** (Escape mid-burn, or a pending burn finishing later): the Vault screen shows it as its status line (`copy.burn.done`, `ui.burn.pending` or `ui.burn.failed`), and the sheet's next open is the confirm step with its hold button. A pending burn keeps its pending state and retry. Every vault change clears the Vault screen's status line, so "Added…" never survives a burn.
+  - **Focus after the hold** goes to the status text, never to Close or Try again, so a Space/Enter still held cannot activate them.
+  - **Assistive technology:** a click with no pointer or key press of ours before it (screen-reader browse mode, switch access) opens an explicit second step, "Burn your vault now?" with "Yes, burn my vault" and Cancel. It is a deliberate confirmation with no checkbox and no partial option (SPEC SCR-19, D-31). Pointer clicks follow their own press and are ignored; our Space/Enter handling prevents the browser's click.
+  - **Pin watchdog:** the browser's 15 s timeout only starts after permission is granted, so `currentPin()` fails as `timeout` after 30 s without an answer (`copy.vault.pinTimeout`); a late answer is ignored.
+  - **Display and parsing (amends D-92):** accuracy rounds UP to whole metres. A manual number needs digits on both sides of a decimal point (`52 .5`, `52. 52` and `.5` are refused). A Home pin plus its area refused as `full` shows `ui.vault.error.fullWithArea` on the area field.
+  - Edited: SPEC SCR-04 and SCR-19; TASKS T-055.
+
+- D-97 (Claude, Nov 21; T-059 review, F-109) **Masks, crops and frame mappings fail closed on malformed input.**
+  - `assertRect` (boxes.ts): a rect with a non-finite, missing or non-number field, or a negative w or h, **throws**. It is never zeroed, clamped into shape or skipped. `fillSolid`, `padRect`, `minimalCrop`/`bestCrop`, `frameToMaster`, `masterToFrame`, `masterToBox2d`, `preferOcrBoxes`, `snapCrop` and `applyMasks`' crop all use it. A zero-area rect is valid and does nothing. `box2dToMaster` keeps returning `null` for bad Gemini boxes (its documented contract; parse already drops them).
+  - `renderFrame` (so `buildFrameJpeg`) and `applyMasks` also require **every mask to paint**: `fillSolid`'s count must equal the number of masks, so a mask wholly outside the master or of zero area is an error, never a silent no-op. They free every canvas they made on every path. `renderFrame` draws the output only from the masked copy and requires a valid, whole-pixel frame inside the master (`assertFrame` also pins crop x, y ≥ 0 and finite values).
+  - `deriveFrame`: only `crop: undefined` means "no crop"; `null` throws.
+  - Edited: ARCH §11.1, §11.5, §11.6, §20.1; `shared/testvectors/{box2d,crop,frames}.json`.
+
+- D-98 (Claude, Nov 21; T-059 review, F-111) **`clampMaxPx`: derived-frame sizes are whole numbers in a fixed range.**
+  - `clampMaxPx(id, raw)` floors (RC 1536.6 → 1536, so a frame is never wider than intended) and clamps: **cloud 768–2048** (ARCH §13.2), **nano768 256–768** (never above the size Nano was verified with; new, code-side), **export 1–4096** (SPEC SCR-12 P2). Missing or non-finite → 1536 / 768 / master size. `deriveFrame` and `buildFrameJpeg` always apply it, so a raw RC value can be passed straight in.
+  - ARCH §13.2's `nano_image_max_px` row has no clamp yet; the RC owner (T-102) should add "clamped 256–768 in code (D-98)" there and in the template description when it next touches them.
+  - Edited: ARCH §11.1; `shared/testvectors/frames.json`.
+- D-100 (Claude, Nov 21; T-061 review, F-117..F-120) **The capability UI: a tested controller, a ≤30 s snapshot, a per-io initializer, one completion announcement, and a boundary rule.**
+  - **Controller:** all of `useCapabilities`' timing lives in `createCapabilitiesController(deps)` (injected `uiCapabilities`, `enableDeviceModel`, clock, timers, document, service worker). It is unit-tested with fake timers. The hook only starts and stops it, and reads it with `useSyncExternalStore`.
+  - **Snapshot life (SPEC §5.1 ≤30 s):**
+    - Re-checks are unforced at start, when the snapshot expires (30 s after it was **taken**) while visible, and when the panel becomes visible (IntersectionObserver).
+    - They are forced on `visibilitychange` to visible, every 2 s while a download runs, and right after our download ends.
+    - A rejected check is retried after 30 s, so one bad first check never pins (c). The service worker is re-read when the controller starts.
+  - **Initializer:** `useCapabilities({ initializeDeviceModel?: (io) => DeviceModelInitializer })` builds the initializer inside the click for the io being fetched, matching `models.initializeDeviceModelFor(ai, io)` (D-91). The direct `create()` path stays the default (D-87) until AppShell is wired after Firebase boot (TASKS T-101).
+  - **Announcements:**
+    - In (a′), image-support progress uses `ui.cap.imageDownloading`: `copy.cap.nanoDownloading` says private checks wait, which is false in (a′).
+    - When the Download button goes away, focus moves to row 1's **heading**, not the status line, so the live region announces the end once.
+  - **R23 (check-boundaries):** `uiCapabilities` / `peekUiCapabilities` may appear only under `web/src/ui/**` (and in `ai/capabilities.ts` and tests), so the gate can never decide with the cached snapshot (AC-007).
+  - Edited: ARCH §4.2 (R23, 113 planted) and §9.5; TASKS T-061, T-062 and T-101.
+
+- D-101 (orchestrator + Claude, Nov 21; T-075 review, F-122) **Rules referee 1(b) needs a non-generic token; a one-token generic label never fires 1(a).**
+  - SPEC §10.3 rule 1(b) (≥ 2 consecutive label tokens → exact): the pair counts only if it holds at least one NON-generic token. When EVERY label token is generic, any pair counts. This keeps AC-165's "City General" vs "City General Hospital" exact (all three tokens are generic). The orchestrator's note said "then only 1(a) whole-label applies", which would have made that row fail; I followed its examples. Pairs of function words still never count (the matcher's rule).
+  - Results: "a primary school in the north of the city" vs "Northfield Primary School" → possible (3(a)); "a high school uniform" vs "Hillcrest High School" → likely (2(c)); "the old town square" vs "The Old Mill" → none.
+  - Rule 1(a): a one-token label or alias that is a generic word ("Hospital") never matches, whatever its length (before: only under 4 characters). Generic strings are not terms (D-79). Such an alias can still share a synonym class (2(c)/3(a)).
+  - Edited: SPEC §10.3; ARCH §12.1; `shared/testvectors/referee.json`; TASKS T-075.
+- D-102 (orchestrator, Nov 21; T-075 review, F-123) **Common English function words are generic.**
+  - `GENERIC_WORDS` (enums.v1.json and SPEC §17.5, together) gains: a, an, with, from, near, by, to, behind, next, this, that, its, my, our, your, their, his, her. They are never distinctive (rule 2(a)) and never a shared token (rule 3(b)). The matcher's separate `FUNCTION_WORDS` set in `tier0/fuzzy.ts` (the, of, and, for, at, in, on: pairs of them never form a run, and acronyms skip them) is unchanged; it lies inside `GENERIC_WORDS`, so there is still one generic list.
+  - Matcher effect: these words can no longer be the "one distinctive token" of a multi-word vault label, and a one-token vault string made of one of them (under 4 characters) never matches. `fuzzy.json`, the matcher tests and vaultScan tests pass unchanged (311 tests). The enums.v1.json hash in `shared/prompts/manifest.json` was refreshed (all prompts are drafts, D-62).
+  - Edited: SPEC §17.5; `shared/prompts/enums.v1.json` + manifest hash; `shared/testvectors/referee.json`.
 
 ### Reconciliation items (T-022, done Nov 19)
 How T-022 ran:
@@ -625,4 +752,18 @@ How T-022 ran:
   - T-057 cross-browser selftest (Safari needs remote automation or the user; Firefox is not installed).
   - T-056 recall needs a face or mannequin image (U-31).
   - AC-064 timing in the user's Chrome (T-085).
+
+### 2026-11-21 (night, batch 1): T-055, T-059, T-060, T-061, T-065, T-075 in parallel; D-84..D-102
+- **How:** the user asked to stop following the schedule and build as much as possible. Five builder agents ran in parallel on disjoint files. Each task then had an independent adversarial reviewer, and the findings went back to the original builder for a fix round, mutation-checked.
+- **Done:**
+  - T-060: routing policy as data with a hard floor, and `remoteconfig.template.json` (pinned to ARCH §13.2/13.3); the iOS bundle includes it.
+  - T-059: frames, box mapping, fail-closed masks, crop.
+  - T-061: capability detection and the panel, mounted in AppShell (R23 keeps the UI cache away from the gate).
+  - T-075: the rules referee (D-94, D-101, D-102 narrow SPEC §10.3/§17.5).
+  - T-065: model factories (fail closed without an on-device adapter).
+  - T-055: vault UI (browser-checked: 0 requests while editing, parser, hold-to-burn, slide-off, screen-reader confirm, AC-270).
+- **Reviews:** they found majors in T-055 (2), T-075 (3 + F-98), the OCR earlier (2), and none in T-059/T-060/T-061/T-065. All are fixed.
+- **Browser (Chrome 156 pane):** selftest ALL PASS including the new `frames` step; capability panel honest (Rules-only); Vault flow checked.
+- check: 1381 tests, 113 planted boundary violations.
+- **Open for the user:** Safari/Firefox selftest; a face image for U-31; "Pin this place" with a Sensors override; a screen-reader pass; AC-064 timing in Chrome.
 

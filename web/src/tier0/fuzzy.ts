@@ -87,7 +87,7 @@ export function tokenSim(a: string, b: string): number {
 /** An OCR word (Tier-0, gate image re-check) or a whitespace-separated word of a text. `line` = its OCR line. */
 export interface WordLike { text: string; line?: number }
 /** A token and the range of source words it came from (inclusive), so a hit can be turned into a mask. */
-interface Tok { t: string; from: number; to: number; line: number }
+export interface Tok { t: string; from: number; to: number; line: number }
 /** Indices of the first and last word a hit covers (inclusive). */
 export type Span = readonly [from: number, to: number];
 
@@ -234,8 +234,8 @@ export function mergeSpans(spans: readonly Span[]): Span[] {
   return out;
 }
 
-/** The words of one scan, tokenised once for every term. */
-interface Prepared { words: readonly WordLike[]; seqs: Tok[][] }
+/** The words of one scan, tokenised once for every term. Exported so the rules referee scores every reading (F-121). */
+export interface Prepared { words: readonly WordLike[]; seqs: Tok[][] }
 /** "Ava's" / "JO'S" → "Ava" / "JO": the possessive form of a word, without its 's (D-77). */
 const POSSESSIVE = /(\p{L})['‘’ʼ][sS](?![\p{L}\p{N}])/gu;
 /**
@@ -243,7 +243,7 @@ const POSSESSIVE = /(\p{L})['‘’ʼ][sS](?![\p{L}\p{N}])/gu;
  * which can never equal a ≤3-character name such as "Ava" (exact-match rule), so short child names were missed
  * (review T-058). Same word indices, so spans stay valid; "St Mary's" still matches via the unstripped sequence.
  */
-const prepare = (words: readonly WordLike[]): Prepared => {
+export const prepare = (words: readonly WordLike[]): Prepared => {
   const seqs = sequences(words);
   const variant = (f: (t: string) => string) => {
     const v = words.map((w) => ({ ...w, text: f(w.text) }));

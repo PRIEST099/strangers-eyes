@@ -816,7 +816,7 @@ AC IDs are SPEC's `AC-xxx` only. **SPEC §18** holds the index and traceability 
     - Step 4 waits for T-011.
     - Step 5 waits for Tier-0 being wired into Check (T-056/T-057). The estimate is in RUNBOOK §4.6.
     - Also checked: the import on the hosted origin works with zero network requests, and the layout works at 375 px.
-    - Still to do: the iOS `project.yml` resource line once the template exists.
+    - iOS resource line **done Nov 21 (T-060, D-85):** `- path: ../remoteconfig.template.json` with `buildPhase: resources` is in `ios/project.yml`. After `xcodegen generate` (4 pbxproj lines) the build gives **BUILD SUCCEEDED**, and the file sits byte-identical at the `.app` root. `xcodebuild test` was not run because no simulator was booted, so the bundled-template XCTest is still open (T-102 or the next iOS task).
   - **iOS (from T-027):** once `remoteconfig.template.json` exists, add it back to `ios/project.yml` as a file resource of the app target (`- path: ../remoteconfig.template.json` with `buildPhase: resources`), run `cd ios && xcodegen generate` and rebuild.
   - Read: RUNBOOK §4.2, §4.6, §3.4; API-NOTES §2.6; ARCH §15.4
   - Do:
@@ -932,7 +932,13 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
     - Vitest round trip with fake-indexeddb. CryptoKey cloning there works (verified in T-023's vault tests).
     - In the browser, `exportKey('raw')` throws, and DevTools IndexedDB shows only ciphertext.
 
-- [ ] T-055 [CLAUDE] Vault UI, "Pin this place", manual coordinates, burn. Due: Sun Nov 22 · Deps: T-050, T-054 · AC: AC-082, AC-083, AC-084, AC-085, AC-270 (P1: AC-087)
+- [x] T-055 [CLAUDE] Vault UI, "Pin this place", manual coordinates, burn. Due: Sun Nov 22 · Deps: T-050, T-054 · AC: AC-082, AC-083, AC-084, AC-085, AC-270 (P1: AC-087) (**Code done Nov 21**, D-92/D-93/D-99: `vault/geolocation.ts` (currentPin with a 30 s watchdog, parseManualCoords), `ui/screens/Vault.tsx`, `ui/components/{VaultItemForm,PinButton,BurnVaultDialog}.tsx`, 93 `ui.vault.*`/`ui.burn.*` strings. Review fixed (F-113–F-116): sliding off the Burn button cancels; an outcome while the sheet is closed shows on the Vault screen and the next open is the confirm step; focus after a hold goes to the status; an assistive-technology click gets an explicit "Yes, burn my vault" step. Tests: `vault/geolocation.test.ts` (47), `ui/vaultUi.test.ts` (50, incl. AC-087), `ui/vaultBehaviour.test.ts` (31, components driven through their own hooks); 52/52 mutants killed in scratch copies; `npm --prefix web run check` green. **Verify (orchestrator, Chrome, Nov 21):** 0 network requests while editing the vault; `95, 10` and `abc` refused; `52.52, 13.405` accepted; burn worked and no key remained after it. **Still open (manual):** AC-085 by eye, the reworked hold on a real touch screen and keyboard (slide-off, Escape mid-burn), the assistive-technology step with a screen reader, and a fresh-key check on the next add (AC-270). Judge Mode's read-only fake vault on this screen waits for the Judge Mode task (TODO in Vault.tsx).) (done Nov 21: built, then reviewed, with 2 majors fixed (DEVLOG F-113). **Chrome 156 (Browser pane), by the orchestrator:**
+  - **Network:** 0 requests while editing the vault.
+  - **Coordinates:** `52.52, 13.405` accepted; `95, 10` and `abc` refused.
+  - **List:** the pin shows only "Coordinates entered by hand", never the coordinates.
+  - **Burn:** a quick click does not burn; a 1.7 s hold burns ("Vault burned.", 0/20). Sliding off the button abandons the hold. A bare click (screen-reader path) opens "Burn your vault now? … Yes, burn my vault".
+  - **AC-270:** no key after the burn; a key is created on the next add.
+  - **Still open:** "Pin this place" with a DevTools Sensors override and a real touch/screen-reader pass, both in the user's Chrome.)
   - **From T-054 (D-79, D-80):**
     - Map every `VaultValidationError.code` to copy: full, label_too_long, alias_too_long, too_many_aliases (max 5), label_required (empty OR generic label on a text item, e.g. an employer "Work"), bad_kind, pin_required, pin_not_allowed, bad_pin, bad_id, duplicate_id, bad_link, bad_timestamp, bad_item, not_found. Also map `VaultCorruptError` (now also an unrecognised record).
     - Burn: `performBurn()` can reject with `BurnPendingError` ("not deleted in time"). Show a pending state with a retry, never `copy.burn.done`, and never claim the only cause is other open tabs.
@@ -1005,7 +1011,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
     - `vaultScan` keeps one **active** index (ARCH §8.4, R-14): the real vault outside Judge Mode, JUDGE_VAULT in Judge Mode (the real vault is then never loaded); `activeTerms()`, `activePins()`, `useJudge()`, `useReal()`; every switch re-registers the tripwire scanner.
   - Verify: tests for `LUCAS`, `Lucas`, `LUCA5`, `L U C A S` and `LUCAS'S` → Lucas; `LOCAL`, `LUCKY` and `PARIS` → no match (AC-042); "CITY GENERAL" → "City General Hospital"; "CITY" alone and "HOSPITAL STAFF" → no match (AC-110); `SE 1234` and `SE-1234` → plate "SE 1234", `SE 1235` → no match.
 
-- [ ] T-059 [CLAUDE] Box mapping, masks and crop. Due: Sun Nov 22 · Deps: T-053 · AC: AC-113, AC-118, AC-192, AC-196
+- [x] T-059 [CLAUDE] Box mapping, masks and crop. Due: Sun Nov 22 · Deps: T-053 · AC: AC-113, AC-118, AC-192, AC-196 (code done Nov 21; review passed with no major findings and #/dev/selftest ALL PASS incl. `frames`; the review follow-ups (fail closed on malformed or unpainted masks D-97, `clampMaxPx` D-98, `frames.canvas.test.ts`, `frames.json`) changed the step only to free its canvases in a `finally`: **orchestrator to re-run #/dev/selftest, then tick**. Built: `core/frames.ts` (deriveFrame/renderFrame/buildFrameJpeg), boxes.ts `box2dToMaster`, `frameToMaster`, `masterToFrame`, `masterToBox2d`, `preferOcrBoxes`, `bestCrop`, `roundOut`, `clampPadRatio`; padRect rounds up and clamps the ratio (D-88, D-89). `drawSolidMasks` is `fillSolid` in mask.ts (ARCH §11.6). Vectors `shared/testvectors/{box2d,crop,frames}.json` (AC-192, AC-196 incl. 2 rules-plan cases). Tests: boxes/frames/frames.canvas/mask Vitest 163 (seeded round-trip properties over any aspect ratio and crop side; the canvas half on a recording canvas). Mutations: round 1, 42 of the pure geometry and `fillSolid`, all killed by `check` (the canvas half was then untested in Node, F-110); round 2, 39 of the canvas half, the fail-closed guards and `clampMaxPx`, all killed by `check`. `npm --prefix web run check` green. AC-113's solid-black look and AC-118's pixel sampling are in the selftest; AC-113 manual check at T-068/T-079.) (done Nov 21: built, then reviewed with no majors; follow-ups applied (D-97 fail-closed masks, D-98 clampMaxPx). **#/dev/selftest re-run by the orchestrator in Chrome 156 after the follow-ups: ALL PASS, including `frames`.** A Gemini box maps back within 1–3 px of the target on the master, and the padded mask covers it. No target pixel survives in the cloud or export frame. The masked pixel reads 0,0,0,255, and the master is untouched. check: 1352 tests.)
   - Read: SPEC SCR-11 (crop), D-20; ARCH §11; API-NOTES §5.8, §6.1
   - Files: `web/src/core/boxes.ts`, `web/src/core/mask.ts`, tests, `shared/testvectors/{box2d,crop}.json`.
   - Do:
@@ -1018,13 +1024,31 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
     - Crop: the minimal crop from the chosen side, capped at 40%.
   - Verify: tests: on 800×600, `[100,250,500,750]` → `{x:200,y:60,w:400,h:240}` before padding; the masked pixel reads `[0,0,0,255]`; the crop cap holds.
 
-- [ ] T-060 [CLAUDE] Routing policy as data with a hard floor. Due: Sun Nov 22 · Deps: T-051 · AC: AC-020, AC-026
+- [x] T-060 [CLAUDE] Routing policy as data with a hard floor. Due: Sun Nov 22 · Deps: T-051 · AC: AC-020, AC-026 (done Nov 21, D-84/D-85; the AC-026 HUD table itself is the HUD task's job: routing.ts gives it `PAYLOAD_CLASSES`, the policy and `warning`)
+  - **Results:**
+    - **Template:** the repo-root `remoteconfig.template.json` is a verbatim copy of ARCH §13.3. Its 27 keys match the §13.2 table in type and default, `routing_policy` deep-equals ARCH §7, and `check-prompts` now validates `prompt_versions`. Against the research copy it differs in the `ocr_max_px` and `auto_mask_types` defaults and in four descriptions (F-83). **After the review (F-106):** two §13.2 clamps were added to the descriptions, and a test pins every key, type, default and clamp to ARCH §13.2 and the file byte for byte to the §13.3 block.
+    - **routing.ts:** `DEFAULT_POLICY` comes from the template and is floor-checked at import. `HARD_FLOOR` is code. The module also has `effectivePolicy`, `jobClass` (Judge Mode → S4) and the rest (ARCH §7 "As built").
+    - **Tests (after the review: 160 tests, 136 of them from `shared/testvectors/rc.json`, D-96; the types are deep-readonly, D-95):** `routing.test.ts` covers good values; each of the 20 S0/S1 loosenings, 27 job moves and 3 S3.web moves on its own; non-strings; invalid JSON; missing, extra and mistyped keys; `__proto__`, `constructor` and `prototype` keys and enum values; versions; homoglyph enum values; duplicate keys; 8 KB and 2 MB inputs; deep nesting; and 3000 seeded random policies.
+    - **Mutations:** 26 of 26 killed, run in a scratch copy, and 41 of 41 after the review: the 26 again through rc.json, plus 8 template/table edits, 2 tsc readonly removals, a dropped vector, 2 unfrozen lists and the 8 KB cap. They covered every floor entry, extra-key tolerance, `in` instead of `hasOwn`, the version check, the size cap, the merge, the warning, freezing, the load-time check and three template edits. The first run let one survive (F-81).
+    - **Check:** `npm --prefix web run check` is green (34 files, 1034 tests).
+    - **iOS:** the T-038 resource line is in and the build gives BUILD SUCCEEDED.
   - Read: SPEC §6.1, D-14; ARCH §7
   - Files: `web/src/core/routing.ts`, tests.
   - Do: `DEFAULT_POLICY` and `HARD_FLOOR` per ARCH §7 (shape per R-01). Invalid or loosening RC values fall back to the bundled policy, and the HUD shows `copy.hud.policyRejected`.
   - Verify: Vitest with good, bad and malicious policy JSON.
 
-- [ ] T-061 [CLAUDE] Capability detection and the capability panel. Due: Sun Nov 22 · Deps: T-050 · AC: AC-001, AC-005, AC-007, AC-072, AC-073, AC-074
+- [x] T-061 [CLAUDE] Capability detection and the capability panel. Due: Sun Nov 22 · Deps: T-050 · AC: AC-001, AC-005, AC-007, AC-072, AC-073, AC-074
+  - **Done Nov 21 (code and unit tests; D-86, D-87, D-100; F-86..F-90, F-117..F-120). Independent review passed (no major); follow-ups applied the same day.**
+    - Built `ai/capabilities.ts`, `ui/hooks/useCapabilities.ts` (with `createCapabilitiesController`) and `ui/components/CapabilityPanel.tsx`, plus `ui.cap.*` strings. The orchestrator mounted the panel in AppShell; `PLACEHOLDER_CAPABILITY` and `ui.cap.pending` are gone.
+    - 140 tests: capabilities 64, hook and controller 38, panel 38. AC-001 is table-driven over all 100 signal combinations. AC-007: the gate path is fresh on every call, and the UI snapshot is cached 30 s (fake timers). The UI never shows a snapshot past its 30 s life while visible (D-100). AC-005 at module level: `deviceReadyNow` is false for `downloadable`/`downloading`. Boundary rule R23 keeps the UI snapshot out of the gate.
+    - **Mutation coverage (corrected, F-117).** The first run's "32/32 killed" covered only the pure functions, the gate path, the download and the static render. The hook's effects were untested, and an independent reviewer's 28 mutations left 14 alive. Now 59/59 of my mutations are killed in a scratch copy: the original set plus the reviewer's survivors and the controller rules.
+    - **Still not unit-covered:** the three one-line React effect bodies that wire things together (the hook's `ctl.start()`/`ctl.stop()`, and the panel's `handOffFocus` and `watchShown` calls). They need a DOM. The functions they call are covered.
+    - `npm --prefix web run check` green.
+  - **Open:**
+    - **SDK download path (T-101):** wire AppShell to `models.initializeDeviceModelFor(ai, io)` once Firebase boot exists. Today the button uses the interim direct `create()` path (D-87).
+    - **T-062:** AC-005 end to end (S0/S1 never reach the SDK while downloading) belongs in the gate's tests; see the "From T-061 review" note there.
+    - **Later signals:** feed the panel's `cloud` row (kill switch, cap, App Check; RC T-102) and `tier0` row (asset loading).
+    - **[USER]-assisted manual checks:** AC-072 in Chrome with Nano, a Chrome guest profile and Safari; AC-073 (download only from a click, progress at least every 5 %, chip flips within 2 s); AC-074 visually.
   - Read: SPEC §5.1–5.4, SCR-02; API-NOTES §1.5–1.6, §1.16; ARCH §9.5 (capability checks: `availabilityNow`/`deviceReadyNow` for the gate, never cached; `uiCapabilities` 30 s UI cache; R-11)
   - Files: `web/src/ai/capabilities.ts` (the only file that touches `globalThis.LanguageModel`), `web/src/ui/components/CapabilityPanel.tsx`, `web/src/ui/hooks/useCapabilities.ts`.
   - Do:
@@ -1036,8 +1060,27 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
   - Verify: a table-driven unit test (AC-001); manual checks in Chrome with Nano, a Chrome guest profile and Safari.
 
 - [ ] T-062 [CLAUDE] Egress Gate: the only door to Firebase AI Logic. Due: Mon Nov 23 · Deps: T-054, T-056, T-057, T-058, T-060, T-061, T-086, T-093 · AC: AC-020–AC-025, AC-040, AC-042–AC-046, AC-048, AC-303
+  - **From T-061 review (D-100) `[VERIFIED: src]`, firebase 13.4.0 `index.esm.js`:**
+    - The SDK reads `window.LanguageModel` only when `getGenerativeModel()` builds the model: `chromeAdapterFactory`, ~line 1224, called at ~4889. With no `LanguageModel` at that moment, the model has **no adapter**.
+    - `callCloudOrDevice` (~line 2562) then sends **even ONLY_ON_DEVICE** to the cloud.
+    - So build each S0/S1 model **after** `deviceReadyNow(io)` returns true, in the same gate call. `models.deviceJsonModel` builds a new model per call: keep it that way; never cache S0/S1 model instances. Or assert the model has an adapter before invoking it.
+    - Only `availabilityNow` / `deviceReadyNow` may feed gate decisions. Boundary rule R23 rejects `uiCapabilities` / `peekUiCapabilities` outside `web/src/ui/**`.
   - **From T-054 (D-80):** before each permit, compare a monotonic vault generation (bumped inside the vault lock by saveUnlocked and burnUnlocked) with the active index's generation, and refresh when they differ. Another tab hears of a vault change only when its BroadcastChannel message runs, so without this check the gate can briefly scan with a stale index (TODO(T-062) in ai/vaultScan.ts).
   - **From T-058/T-093 reviews (D-75, D-77):** map the vault scanner's `template-canary` and `vault-unavailable` (scanner briefly blocks everything while the vault reloads) to their own Ledger reasons, and never treat `vault-unavailable` as a vault leak or BREACH. Follow the ARCH §8.5 caller rules: no nested gate calls while holding the interlock; each cloud retry re-enters the interlock; device timeouts go inside `deviceQueue.run(fn)`.
+  - **From the T-065 review (F-125, API-NOTES §1.9):** `RequestOptions.timeout` (set by `ai/models.ts` from RC `timeouts_ms`) only bounds the wait for response headers; the SDK clears it when `fetch()` resolves. The gate must add its own deadline: one `AbortController` per cloud call, aborted on a timer of the job's `timeouts_ms`, passed as `{ signal }` to `generateContent` / `generateContentStream`, and still armed while pass A's stream is read and while any response body is read. `deviceJsonModel` / `deviceTextModel` now throw `NoDeviceModelError` if the SDK built them without an on-device adapter: treat it as RULES-ONLY (`fallback: no on-device model`), never as a reason to use the cloud.
+  - **From the T-060 review (D-84, D-95):** routing gives the gate `P = cfg().routingPolicy`. It is already parsed, floored and deep-frozen, so never pass it to `effectivePolicy`, which takes the RC string. Use `routing.jobClass(P, job, judge)` for the expected class (ARCH §8.2). Because RC can tune S2, S4 and S3's `cloud`, the gate must also handle these three cases:
+    - (a) **`cloud: false` means not cloud-capable, whatever `web` says.**
+      - S3 is BLOCKED. Reuse `KILL_SWITCH` (an operator switched the cloud off) or `CLASS_FLOOR`; pick one and record it in ARCH §8.7.
+      - S2 and S4 run on the device only if (b) passes. Otherwise they take the deterministic path (RULES_ONLY), never the SDK's cloud fallback.
+      - ARCH §8.2 line `cloudCapable ← mode ≠ ONLY_ON_DEVICE` must become `… ∧ P.classes[cls].cloud`.
+    - (b) **Run `availabilityNow(io)` before any call whose effective mode is `ONLY_ON_DEVICE`, not only S0/S1.** This covers RC setting S2 or S4 to `ONLY_ON_DEVICE`, `cloud: false`, and the kill-switch or offline downgrade.
+      - Check it fresh and never cache it. Without `window.LanguageModel` the web SDK silently sends `ONLY_ON_DEVICE` to the cloud (CLAUDE.md invariant 3).
+      - When it is not `'available'`: RULES_ONLY, without touching the SDK.
+    - (c) **When `jobClass(P, 'explain', judge)` is S0** (the RC tightening), the explainer call must carry `modelSpec: { kind: 'deviceText' }` and an S0 deterministic fallback. `specFitsClass(S0)` accepts only `deviceJson`/`deviceText`, so an `explain` spec would be `CLASS_MISMATCH`. The caller picks the spec from the class.
+    - **`gate-matrix.json` rows, one or more per case:**
+      - (a) S3 with `cloud: false` → BLOCKED, no fetch. S2 with `cloud: false` and no device model → RULES_ONLY, SDK mock never called.
+      - (b) S2 `web: ONLY_ON_DEVICE` with `LanguageModel` absent → RULES_ONLY, SDK never called; the same for S4.
+      - (c) `jobs.explain = 'S0'`: a `deviceText` spec passes step 1; an `explain` spec → `CLASS_MISMATCH`.
   - Read: SPEC §6, §7; ARCH §8.1–8.3 (§8.3 preflight), §8.4 (active-vault term index), §8.5 (tripwire), §8.7 (block reasons → copy), AD-17, AD-31 (with R-14, R-16, R-17, R-24, R-25); API-NOTES §1.4–1.5
   - Files: `web/src/ai/egressGate.ts` (the only `generateContent`/`generateContentStream` call site; it grows from T-086's v0), `egressGate.test.ts`, `shared/testvectors/gate-matrix.json`.
   - Do, in order:
@@ -1086,7 +1129,8 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
     - Collapsed it is at most 40 px high.
   - Verify: a component test with a mocked gate; a 375 px screenshot shows no overlap with the buttons.
 
-- [ ] T-065 [CLAUDE] Firebase AI model factories. Due: Mon Nov 23 · Deps: T-024, T-030 · AC: AC-025, AC-221
+- [x] T-065 [CLAUDE] Firebase AI model factories. Due: Mon Nov 23 · Deps: T-024, T-030 · AC: AC-025, AC-221
+  - **Done Nov 21 (D-91):** `web/src/ai/models.ts` + `models.test.ts` (30 tests; a spy on a mocked `getGenerativeModel` with the real `InferenceMode`/`ThinkingLevel`): every factory's exact options per class (S0/S1 ONLY_ON_DEVICE with no `inCloudParams`, S2/S4 PREFER_ON_DEVICE, S3 ONLY_IN_CLOUD), model/tools/systemInstruction/generationConfig/thinking only under `inCloudParams`, tools only on pass A, no temperature/topP/topK/candidateCount/penalties/thinkingBudget at any depth, plain separate schema copies, the shared `NANO_*_IO` objects by identity, RequestOptions timeouts per RC key, `cloudParamsFor` per ARCH §9.2, the template defaults accepted, `textPart`/`jpegPart`. Also `deviceTextModel` and `initializeDeviceModelFor(ai, io)` (D-87 download). Review round (F-125): device-only factories throw `NoDeviceModelError` without an SDK on-device adapter, and the initializer rejects; 35 tests. 26 + 5 mutations in scratch copies, all killed (one equivalent mutant replaced). `npm --prefix web run check` green. AC-221 (HUD `IN_CLOUD` + `fallback: no on-device model` in state (c)) needs the gate and HUD: verify it at T-085.
   - Read: ARCH §9.2–9.3; API-NOTES §1.3, §1.7–1.8, §1.11, §1.13
   - Files: `web/src/ai/models.ts` (the only `getGenerativeModel` call site; start from `research/day1-artifacts/arch/src/models.ts`).
   - Factories:
@@ -1198,7 +1242,8 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
     - Union with the deterministic referee, keeping the stronger strength.
   - Verify: unit test that the prompt contains no coordinate-like numbers; manual check with Nano on the LUCAS/City General example.
 
-- [ ] T-075 [CLAUDE] Deterministic "rules-only referee". Due: Mon Nov 23 · Deps: T-058 · AC: AC-165
+- [x] T-075 [CLAUDE] Deterministic "rules-only referee". Due: Mon Nov 23 · Deps: T-058 · AC: AC-165
+  - **Done Nov 21 (D-90):** `web/src/core/referee.ts` (`rulesStrength`, `rulesReferee`, `refereeClaims`, `refereeVaultItems`, `mergeMatches`, `RULES_REFEREE_COPY_ID = 'copy.ref.rules'`) over `tier0/fuzzy.ts` only; `shared/testvectors/referee.json` (64 cases: 50 strength incl. the 4 AC-165 rows, AC-167 and the D-94, D-101, D-102, F-121 and F-124 rows, 4 rulesReferee, 8 mergeMatches, 2 refereeVaultItems) drives `core/referee.test.ts` (89 tests). 19 + 8 (D-94) + 16 (review round: readings, D-101, D-102, digits, generic labels, test gaps) mutations in scratch copies, all killed. `npm --prefix web run check` green.
   - Read: SPEC §10.3, §17.4
   - Files: `web/src/core/referee.ts`, tests, `shared/testvectors/referee.json`.
   - Do: the SPEC §10.3 rules with §17.4 kind compatibility and synonym classes. Label it `copy.ref.rules`.
@@ -1446,6 +1491,11 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
     - The user glances at the App Check metrics.
 
 - [ ] T-101 [CLAUDE] Anonymous Auth and the init-order test. Due: Wed Nov 25 · Deps: T-025, T-030 · AC: AC-291
+  - **From T-061 review (D-87, D-100):** once Firebase boot exists in the app shell, wire AppShell to the SDK download path: `useCapabilities({ online, initializeDeviceModel: (io) => initializeDeviceModelFor(ai, io) })` (`ai/models.ts`, D-91). SPEC AC-073 literally says the button calls `initializeDeviceModel`; today it is the interim direct `create()` path. Keep the user activation:
+    - preload the chunk holding `firebase/init` + `ai/models` when the capability panel opens (or at boot), so the click → `create()` path has no slow await;
+    - the factory runs synchronously inside the click;
+    - the SDK's single `availability()` await must fit inside Chrome's transient activation (about 5 s; API-NOTES §1.6).
+    - Re-run AC-073 by hand afterwards.
   - Read: API-NOTES §2.3; ARCH §15.1; RUNBOOK §1.8, §4.5
   - Do:
     - `firebase.json` `"auth":{"providers":{"anonymous":true}}`, then `$FB deploy --only auth` (`[UNVERIFIED]` U-17). Fallback: the user enables Anonymous in the console.
@@ -1453,8 +1503,9 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
   - Verify: a fresh profile gets a UID and the first cloud call has no 401; the AC-291 unit test asserts the init module order.
 
 - [ ] T-102 [CLAUDE] Remote Config as code. Due: Wed Nov 25 · Deps: T-060, T-025, T-022 (R-01) · AC: AC-293, AC-294, AC-295
+  - **From T-060 (D-85):** `remoteconfig.template.json` already exists (copied verbatim from ARCH §13.3 on Nov 21) and iOS bundles it. Do not re-create it. `core/routing.ts` already parses `routing_policy`: `cfg()` calls `effectivePolicy(getValue('routing_policy').asString())` and puts its `warning` in `policyWarning`. `routing.test.ts` already checks every key, type, default and clamp against ARCH §13.2, and `rc.json` already has the `routingPolicy` section. AC-295 (the web and iOS defaults deep-equal the template) is still T-102's.
   - Read: ARCH §13 (the **only** key list); SPEC §16 (behaviour); API-NOTES §2.4
-  - Files: `remoteconfig.template.json` (copy ARCH §13.3 verbatim; R-01 is already applied there. `research/day1-artifacts/arch/remoteconfig.template.json`, generated by `arch/gen.mjs`, is only the pre-R-01 reference: its `ocr_max_px` 2048 and 3-type `auto_mask_types` lose to SPEC D-20/SCR-06. Never use `research/day1-artifacts/arch-ref/`), `web/src/firebase/remoteConfig.ts` (imports `@root/remoteconfig.template.json` and derives `RC_DEFAULTS`, ARCH §13.4). There is no defaults generator and no `scripts/rc-defaults.mjs` (AD-28): web imports the template through `@root` and iOS bundles the same template.
+  - Files: `remoteconfig.template.json` (it already exists, made by T-060 (D-85). Edit the file first, then mirror the edit in ARCH §13.2 and §13.3: `routing.test.ts` pins every key, type, default and clamp to the §13.2 table and the whole file byte for byte to the §13.3 block. Never seed anything from `research/day1-artifacts/`), `shared/testvectors/rc.json` (add one section per key next to T-060's `routingPolicy`, D-96), `web/src/firebase/remoteConfig.ts` (imports `@root/remoteconfig.template.json` and derives `RC_DEFAULTS`, ARCH §13.4). There is no defaults generator and no `scripts/rc-defaults.mjs` (AD-28): web imports the template through `@root` and iOS bundles the same template.
   - Do:
     - Typed getters with validation and clamping; an invalid value → the default plus a HUD note.
     - `ensureInitialized` before any read.

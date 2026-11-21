@@ -51,18 +51,20 @@ export type NoModelFallback = 'DETERMINISTIC' | 'TIER0' | 'CLOUD' | 'NONE';
 /** What actually produced a result (SPEC §17.1 ROUTE); drives every badge in the Router HUD. */
 export type Route = 'ON_DEVICE' | 'IN_CLOUD' | 'RULES_ONLY' | 'CACHED' | 'BLOCKED' | 'QUEUED';
 
+// Deep-readonly (D-95): the policy in force is frozen at runtime (core/routing.ts), and these types stop a write at
+// compile time too, so no gate or HUD code can loosen it in place.
 export interface ClassPolicy {
-  web: WebMode;
-  ios: IosMode;
-  noModel: NoModelFallback;
-  /** May any byte of this class reach a cloud endpoint? Hard-floored to false for S0/S1. */
-  cloud: boolean;
+  readonly web: WebMode;
+  readonly ios: IosMode;
+  readonly noModel: NoModelFallback;
+  /** May any byte of this class reach a cloud endpoint? Hard-floored to false for S0/S1. false = never cloud-capable. */
+  readonly cloud: boolean;
 }
 export interface RoutingPolicy {
-  version: number;
-  classes: Record<PayloadClass, ClassPolicy>;
+  readonly version: number;
+  readonly classes: Readonly<Record<PayloadClass, ClassPolicy>>;
   /** Default class per job outside Judge Mode. In Judge Mode the device jobs run as S4. */
-  jobs: Record<JobName, PayloadClass>;
+  readonly jobs: Readonly<Record<JobName, PayloadClass>>;
 }
 
 // ---------- vault (LOCAL ONLY; sealed with AES-GCM in IndexedDB / Keychain on iOS) ----------

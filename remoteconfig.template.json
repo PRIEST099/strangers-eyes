@@ -1,0 +1,31 @@
+{
+  "parameters": {
+    "kill_switch": {"defaultValue":{"value":"false"},"valueType":"BOOLEAN","description":"true = block every cloud-capable AI call (S3; S2/S4 cloud side). Device and rules paths keep working; Judge Mode uses CACHED samples."},
+    "routing_policy": {"defaultValue":{"value":"{\"version\":1,\"classes\":{\"S0\":{\"web\":\"ONLY_ON_DEVICE\",\"ios\":\"ON_DEVICE_SESSION\",\"noModel\":\"DETERMINISTIC\",\"cloud\":false},\"S1\":{\"web\":\"ONLY_ON_DEVICE\",\"ios\":\"ON_DEVICE_SESSION\",\"noModel\":\"TIER0\",\"cloud\":false},\"S2\":{\"web\":\"PREFER_ON_DEVICE\",\"ios\":\"HYBRID_MODEL\",\"noModel\":\"CLOUD\",\"cloud\":true},\"S3\":{\"web\":\"ONLY_IN_CLOUD\",\"ios\":\"CLOUD\",\"noModel\":\"CLOUD\",\"cloud\":true},\"S4\":{\"web\":\"PREFER_ON_DEVICE\",\"ios\":\"HYBRID_MODEL\",\"noModel\":\"CLOUD\",\"cloud\":true}},\"jobs\":{\"preScreen\":\"S1\",\"vaultTextMatch\":\"S0\",\"referee\":\"S0\",\"fixPlan\":\"S0\",\"explain\":\"S2\",\"adversaryA\":\"S3\",\"adversaryB\":\"S3\"}}"},"valueType":"JSON","description":"Routing by payload class. The client merges it with a hard floor: S0/S1 can never be loosened."},
+    "adversary_model": {"defaultValue":{"value":"gemini-3.8-flash"},"valueType":"STRING","description":"Pass A/B/re-attack model. Exact id, never -latest."},
+    "adversary_thinking_level": {"defaultValue":{"value":"MEDIUM"},"valueType":"STRING","description":"LOW|MEDIUM|HIGH. MINIMAL is a 400 on gemini-3.8-flash and gemini-4-*."},
+    "explain_cloud_model": {"defaultValue":{"value":"gemini-3.5-flash-lite"},"valueType":"STRING","description":"Cloud side of S2 (explainer) and S4 (Judge Mode device jobs)."},
+    "explain_thinking_level": {"defaultValue":{"value":"LOW"},"valueType":"STRING","description":"Flash-Lite accepts MINIMAL|LOW|MEDIUM|HIGH."},
+    "prompt_versions": {"defaultValue":{"value":"{\"advA\":\"advA.v1\",\"advB\":\"advB.v1\",\"nanoPre\":\"nanoPre.v1\",\"nanoVaultText\":\"nanoVaultText.v1\",\"nanoRef\":\"nanoRef.v1\",\"nanoFix\":\"nanoFix.v1\",\"explain\":\"explain.v1\",\"fmPre\":\"fmPre.v1\"}"},"valueType":"JSON","description":"Full prompt ids. Selects among versions BUNDLED in the app; unknown ids fall back to the bundled v1. Prompt text never comes from Remote Config."},
+    "grounding_enabled": {"defaultValue":{"value":"true"},"valueType":"BOOLEAN","description":"Run pass A (Search-grounded notes). false = pass B only."},
+    "data_tier": {"defaultValue":{"value":"paid"},"valueType":"STRING","description":"paid|free. Drives the consent copy; free forces grounding off."},
+    "daily_adversary_cap": {"defaultValue":{"value":"20"},"valueType":"NUMBER","description":"Attack runs (A+B pair = 1) per installation per LOCAL day, client-side. Keep project-wide grounded queries well below 1,500/day. Clamped 1-200."},
+    "max_fix_rounds": {"defaultValue":{"value":"3"},"valueType":"NUMBER","description":"Fix + re-attack rounds per photo."},
+    "bands_m": {"defaultValue":{"value":"{\"street\":250,\"neighbourhood\":1000,\"district\":5000,\"city\":30000,\"country\":500000}"},"valueType":"JSON","description":"Distance-band upper bounds in metres, strictly increasing. street/neighbourhood/district are locked to 250/1000/5000 (D-77); only city/country (placeholders) are tunable."},
+    "auto_mask_types": {"defaultValue":{"value":"[\"name_text\",\"house_number\",\"plate\",\"mail_or_document\",\"screen\"]"},"valueType":"JSON","description":"Nano pre-screen clue types masked in Standard mode when severity is high and the clue is located by OCR (faces, vault hits and regex hits are always masked). Subset of CLUE_TYPES."},
+    "strict_mode_default": {"defaultValue":{"value":"false"},"valueType":"BOOLEAN","description":"Strict mode masks every flagged clue before the cloud sees anything."},
+    "fuzzy_threshold": {"defaultValue":{"value":"0.8"},"valueType":"NUMBER","description":"Normalised Levenshtein similarity for text-to-vault matches (clamped 0.6-0.98)."},
+    "face_min_confidence": {"defaultValue":{"value":"0.3"},"valueType":"NUMBER","description":"Face score that masks (Tier-0) AND blocks (gate). One value for both (clamped 0.2-0.6)."},
+    "mask_pad_ratio": {"defaultValue":{"value":"0.15"},"valueType":"NUMBER","description":"Total mask padding as a fraction of box size (clamped 0-0.5); minimum 4 px."},
+    "cloud_image_max_px": {"defaultValue":{"value":"1536"},"valueType":"NUMBER","description":"Longest side of the redacted JPEG sent to the cloud (clamped 768-2048)."},
+    "nano_image_max_px": {"defaultValue":{"value":"768"},"valueType":"NUMBER","description":"Longest side of the JPEG given to Gemini Nano."},
+    "ocr_max_px": {"defaultValue":{"value":"1600"},"valueType":"NUMBER","description":"Longest side of the Tier-0 Tesseract canvas: a downscale of the <= 2048 px master, never upscaled (SPEC D-20). Clamped 800-2048 (D-83)."},
+    "timeouts_ms": {"defaultValue":{"value":"{\"advA\":90000,\"advB\":60000,\"explain\":20000,\"deviceImage\":60000,\"deviceText\":30000}"},"valueType":"JSON","description":"Per-job timeouts."},
+    "judge_mode_enabled": {"defaultValue":{"value":"true"},"valueType":"BOOLEAN","description":"Show Judge Mode."},
+    "judge_cached_fallback": {"defaultValue":{"value":"true"},"valueType":"BOOLEAN","description":"When the live adversary is unavailable in Judge Mode, replay the recorded pass-B JSON for the synthetic sample (badge CACHED)."},
+    "judge_autoplay_default": {"defaultValue":{"value":"true"},"valueType":"BOOLEAN","description":"Judge Mode autoplay default."},
+    "atlas_enabled": {"defaultValue":{"value":"true"},"valueType":"BOOLEAN","description":"Show the opt-in Leak Atlas."},
+    "extension_enabled": {"defaultValue":{"value":"false"},"valueType":"BOOLEAN","description":"Stretch: accept files from the Chrome extension."},
+    "adversary_seed": {"defaultValue":{"value":"0"},"valueType":"NUMBER","description":"UNVERIFIED experiment: if non-zero, cast-send generationConfig.seed. 0 = do not send."}
+  }
+}

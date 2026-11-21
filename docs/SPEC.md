@@ -294,6 +294,8 @@ The audience is global: the threat and the fix are the same in every country and
 
 States (d) and (e) combine with any of (a), (b) or (c). The header shows one capability chip and one connectivity chip.
 
+Where the definitions overlap (D-86): Nano off or no `LanguageModel` is (c); text `available` is (a), or (a′) when image is not `available`, even while the image model downloads (text jobs really run on the device, and SCR-02 offers the image download); text `downloadable`/`downloading` is (b); text `unavailable` is (c) whatever image says.
+
 ### 5.3 Job behaviour per state (web)
 
 | Job | (a) Nano | (b) downloading | (c) no Nano | (d) offline | (e) refused |
@@ -358,7 +360,7 @@ The classes come from RC `routing_policy` (nested shape; ARCHITECTURE §7) and a
 The prompt text and schemas live in `shared/prompts/` (layout and text in ARCHITECTURE §3 and §10). Once those files exist, they are the source of truth. Every prompt is versioned, and its version is shown in the Ledger. RC `prompt_versions` only selects among versions bundled in the app; prompt text never comes from RC.
 
 ### 6.3 Acceptance criteria: routing
-- **AC-020 (P0) [unit]** The policy loader merges the RC `routing_policy` (nested `{version, classes, jobs}` shape, ARCHITECTURE §7) over the bundled default. Any change that makes S0 or S1 reach the cloud, or that moves an S0/S1 job to another class, is rejected: the floored value is kept and the HUD logs `copy.hud.policyRejected` (D-14).
+- **AC-020 (P0) [unit]** The policy loader merges the RC `routing_policy` (nested `{version, classes, jobs}` shape, ARCHITECTURE §7) over the bundled default. Any change that makes S0 or S1 reach the cloud, or that moves an S0/S1 job to another class, is rejected: the floored value is kept and the HUD logs `copy.hud.policyRejected` (D-14). A value that is not a complete, well-formed policy (invalid JSON, a missing or extra key, another `version`, an unknown enum value) is rejected as a whole: the bundled policy is used, and the HUD logs the same copy (D-84).
 - **AC-021 (P0) [unit]** The gate refuses any S0/S1 SDK call unless the D-03 pre-check returns `'available'` within that same call. The refusal produces a RULES-ONLY fallback, not an error.
 - **AC-022 (P0) [unit]** If an S0/S1 response ever reports `inferenceSource === 'in_cloud'`, or the tripwire fires during an S0/S1 call, then:
   - the gate marks the session **compromised** (BREACH);
@@ -515,7 +517,7 @@ The Cloud Ledger is a rail or a sheet, not a route (§8.2).
 ### 8.2 Global elements
 - **Header**, from left to right:
   - logo and name;
-  - the **capability chip**: `On-device: Gemini Nano`, `On-device: Nano (text only)`, `Downloading Nano 43%` or `Rules-only`. Tapping it opens SCR-02.
+  - the **capability chip**: `On-device: Gemini Nano`, `On-device: Nano (text only)`, `Downloading Nano 43%` or `Rules-only`. Tapping it opens SCR-02. In (b) the percentage shows only while a download runs; `downloadable` with nothing downloading shows `Rules-only` (D-86).
   - the **connectivity chip**, shown only when offline or when the cloud is paused: `Offline`, `Cloud paused` or `Cloud limit reached`;
   - the **Ledger button**, with live counters `0 · 0` (faces · vault items sent);
   - Settings.
@@ -665,12 +667,14 @@ Each screen lists its purpose, layout, behaviour, states (a)–(e), copy IDs and
      - An empty label, or a generic label (Home, Work, School, Place), is display-only and is never matched or sent to the referee (D-36). Show the hint `copy.vault.genericLabel`.
   3. **Pin this place** (`copy.vault.pinHelp`): `navigator.geolocation.getCurrentPosition` with `enableHighAccuracy: true, timeout: 15000, maximumAge: 0`.
      - Show the accuracy.
-     - If the accuracy is worse than 250 m, show `copy.vault.lowAccuracy`.
+     - If the accuracy is worse than 250 m, show `copy.vault.lowAccuracy`. Accuracy is shown rounded up to whole metres.
+     - The browser's timeout starts only after permission is granted, so after 30 s with no answer (an ignored permission prompt) the read fails as timed out (D-99).
   4. Fallback link **Enter coordinates I know**: a validated "lat, lng" field (`copy.vault.manualCoords`).
      - **No map, no address search, no reverse geocoding, no tile server.** Any of these would leak the pin.
   5. Save.
-- **Add detail flow:** choose the kind, then the value (≤40 characters). Show format hints for plates, phones and house numbers. The kind picker labels `area_name` and `street_name` **"Home area"** and **"Home street"**, because both mean the home everywhere (§17.3, D-63).
-- **Edit and delete:** per item; deleting asks for confirmation.
+- **Add detail flow:** choose the kind, then the value (≤40 characters). Show format hints for plates, phones and house numbers. The kind picker labels `area_name` and `street_name` **"Home area"** and **"Home street"**, because both mean the home everywhere (§17.3, D-63). Optional other spellings, comma-separated, up to 5 (D-92).
+- **Edit and delete:** per item; deleting asks for confirmation. The kind is fixed while editing (D-92).
+- **Coordinates are never shown** (D-92): a pin is described only by how it was set and its accuracy, in the list and in the form.
 - **Storage:**
   - AES-GCM 256 with a **non-extractable** WebCrypto key.
   - Key and data live in separate IndexedDB databases (`se-vault-keys`, `se-vault-data`), one object store each.
@@ -1196,12 +1200,14 @@ Each screen lists its purpose, layout, behaviour, states (a)–(e), copy IDs and
 
 ### SCR-19 Burn vault · P0
 - **Entry:** the Vault screen (two taps away) and Settings › Data.
-- **Sheet:** `copy.burn.confirm`, plus a hold-to-confirm button (1.5 s) labelled **Burn vault**.
+- **Sheet:** `copy.burn.confirm`, plus a hold-to-confirm button (1.5 s) labelled **Burn vault**. Space or Enter also holds; releasing early, or leaving the button, abandons the hold. A screen reader's or switch's activation (a click with no press) opens an explicit second step, "Burn your vault now?" with **Yes, burn my vault** and Cancel; still no checkbox (D-99).
 - **Order (D-31):**
   1. Delete the key record in `se-vault-keys`.
   2. Delete the `se-vault-data` (vault), `se-sessions` (sessions and queue) and `se-ledger` (ledger) databases. There is no checkbox and no partial option (D-31).
   3. Clear in-memory session state.
   4. Show `copy.burn.done`.
+- **Not deleted in time** (`BurnPendingError`, after the key is gone): a pending state with **Try again**, never `copy.burn.done`. It turns to `copy.burn.done` by itself once a later load finishes the burn (D-93).
+- **Closed before the outcome** (Escape mid-burn, or a pending burn finishing later): the Vault screen shows the outcome as its status line, and the next open starts at the confirm step; a pending burn keeps its retry (D-99).
 - The Tesseract cache in `keyval-store` is not touched. A new vault key is created only when the next item is added.
 - **Clear history** (Settings › Data) is separate: it deletes sessions and the ledger and keeps the vault.
 - **ACs**
@@ -1316,18 +1322,18 @@ The city and country thresholds are placeholders; winner-spec only said "same ci
 - KIND display names are in §17.3.
 
 ### 10.3 Rules-only referee
-Apply the same normalisation as the vault matcher (SCR-06). Then, for each claim *c* and each eligible vault item *v* (label or aliases; generic labels excluded) whose kinds are compatible (§17.4), take the first rule that holds:
+Apply the same normalisation as the vault matcher (SCR-06), on **every reading** the matcher builds for a text: spaced letters joined, each word with a possessive 's removed, and format characters read as spaces; the strongest result over the readings wins. Plate, house_number and phone use the SCR-06 digit match in image mode (a standalone 1–2 character value counts), since claims never leave the device. Then, for each claim *c* and each eligible vault item *v* (label or aliases; an item whose label is empty or generic is excluded with its aliases, and so is any generic alias) whose kinds are compatible (§17.4), take the first rule that holds:
 
 1. **exact**
-   - (a) the full normalised label (or an alias) appears as a whole-word substring of the claim; or
-   - (b) the claim contains a run of **≥2 consecutive label tokens**.
+   - (a) the full normalised label (or an alias) appears as a whole-word substring of the claim; a one-token label or alias that is a generic word (for example "Hospital") never counts (D-101); or
+   - (b) the claim contains a run of **≥2 consecutive label tokens** that includes at least one **non-generic** token. When every label token is generic (for example "City General Hospital"), any run of ≥2 counts. So "primary school" is not exact against "Northfield Primary School", while "City General" stays exact against "City General Hospital" (D-101).
 2. **likely**
    - (a) the claim contains one **distinctive** label token (≥4 characters, not a generic word); or
    - (b) the label's acronym (≥3 letters, for example `cgh`) appears as a claim token; or
    - (c) claim and label share a **synonym class** (§17.5) **and** the claim contains an **artefact term** (the §17.5 artefact terms: logo, lanyard, badge, crest, uniform, scrubs, sign, signage, emblem, name tag).
 3. **possible**
    - (a) they share a synonym class without an artefact term; or
-   - (b) the kinds are compatible and the claim's confidence is high.
+   - (b) the kinds are compatible, the claim's confidence is high, **and** the claim shares at least one non-generic label or alias token with the item under the matcher's token rule (similarity ≥ `fuzzy_threshold`; tokens of ≤ 3 characters must be equal; generic words never count) (D-94). Without a shared token a confident claim never marks a vault item: geography is the distance bands' job. Plate, house_number and phone never reach (b) without a digit match.
 
 Worked examples (these are the AC-165 vectors):
 - "hospital staff lanyard logo" vs "City General Hospital": **likely**, via the hospital class plus the artefacts "lanyard" and "logo".
@@ -1855,7 +1861,8 @@ These are canonical. The code lives in `shared/prompts/enums.v1.json` and next t
 Name kinds (`self_name`, `child_name`, `person_name`) are matched by OCR, W3b and the echo scan. Claims never name people, by the pass B rules.
 
 ### 17.5 Matching word lists (initial; extended through the vectors)
-- **Generic words** (never distinctive): city, general, school, primary, secondary, high, academy, college, university, hospital, clinic, medical, centre, center, street, road, avenue, lane, park, station, north, south, east, west, new, the, of, and, for, at, in, on, central, old, house, home, office, company, group, church, market, saint.
+- **Generic words** (never distinctive): city, general, school, primary, secondary, high, academy, college, university, hospital, clinic, medical, centre, center, street, road, avenue, lane, park, station, north, south, east, west, new, the, of, and, for, at, in, on, central, old, house, home, office, company, group, church, market, saint, a, an, with, from, near, by, to, behind, next, this, that, its, my, our, your, their, his, her.
+  - D-102 added the common function words from "a" onward: they are never distinctive (rule 2(a)) and never a shared token (rule 3(b)). The matcher's separate function-word set (`the, of, and, for, at, in, on`: pairs of them never form a 2-token run, and acronyms skip them) is unchanged and lies inside this list.
 - **Synonym classes:**
   - hospital ~ {hospital, hosp, clinic, medical, nurse, nursing, doctor, scrubs, health, ward};
   - school ~ {school, primary, secondary, elementary, academy, college, crest, pupil, pupils, uniform, playground};

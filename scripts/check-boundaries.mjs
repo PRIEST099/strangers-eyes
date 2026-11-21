@@ -146,6 +146,9 @@ const WEB_RULES = [
       // T-053 fix rounds 2-3: the active vault's pins (getPins / pinsWhenReady / importAndSettle) and the GPS warning
       'web/src/ui/components/ImportDropzone.tsx', 'web/src/ui/screens/Check.tsx', 'web/src/ui/importTransfer.ts',
       'web/src/ui/checkState.ts',
+      // T-055: the vault UI holds labels, aliases and the user's own pin coordinates
+      'web/src/ui/screens/Vault.tsx', 'web/src/ui/components/VaultItemForm.tsx', 'web/src/ui/components/PinButton.tsx',
+      'web/src/ui/components/BurnVaultDialog.tsx',
     ].includes(r)),
     why: "No console where vault data, pins or the original photo's GPS flow (SR-15): no console.x(…), console[…], console?.…, alias or destructuring." },
   { id: 'R10-AdversaryNotes', re: /\bAdversaryNotes\b/,
@@ -178,6 +181,13 @@ const WEB_RULES = [
   { id: 'R17-raw-egress', re: /\bsendBeacon\b|\bXMLHttpRequest\b|\bnew\s+WebSocket\b|\bEventSource\b|googleapis\.com/,
     only: ['web/src/ai/tripwire.ts'], exempt: isTest,
     why: 'No network channel around the tripwire: no sendBeacon/XHR/WebSocket/EventSource, no hard-coded googleapis.com URLs.' },
+  // R23 (T-061 review, SPEC AC-007): the cached UI snapshot (uiCapabilities / peekUiCapabilities, up to 30 s old) is
+  // for the header chip, the SCR-02 panel and the HUD Policy tab only. Outside web/src/ui/** and the module that
+  // defines it, the identifiers may not appear at all (imports, re-exports, `ns.x`, `ns['x']`), so the Egress Gate
+  // can only decide with availabilityNow / deviceReadyNow (fresh on every call). Tests are exempt.
+  { id: 'R23-ui-snapshot', re: /\b(?:uiCapabilities|peekUiCapabilities)\b/, only: [],
+    scope: (r) => !r.startsWith('web/src/ui/') && r !== 'web/src/ai/capabilities.ts', exempt: isTest,
+    why: 'The cached capability snapshot (uiCapabilities, peekUiCapabilities) is UI-only (web/src/ui/**): the gate must check availabilityNow / deviceReadyNow fresh before every S0/S1 call (AC-007, D-03).' },
 ];
 
 // Static imports (also multi-line, also `import type`), dynamic import() and re-exports, with ' " or ` specifiers.
@@ -403,7 +413,10 @@ function selfTest() {
     w('web/src/ai/tripwire.ts', "export const AI_HOST = 'firebasevertexai.googleapis.com';\nexport function installTripwire() { const o = globalThis.fetch; globalThis.fetch = o; }\n");
     w('web/src/ai/egressGate.ts', 'export async function invoke(m: any) { return m.generateContent([]); }\n');
     w('web/src/ai/models.ts', "import { getGenerativeModel } from 'firebase/ai';\nexport const f = (ai: any) => getGenerativeModel(ai, {} as any);\n");
-    w('web/src/ai/capabilities.ts', 'export const lm = (globalThis as any).LanguageModel;\n');
+    w('web/src/ai/capabilities.ts', 'export const lm = (globalThis as any).LanguageModel;\nexport const uiCapabilities = async () => lm;\nexport const peekUiCapabilities = () => null;\n');
+    // R23: the cached UI snapshot is fine anywhere under web/src/ui, and in tests.
+    w('web/src/ui/hooks/useCaps.ts', "import { peekUiCapabilities, uiCapabilities } from '../../ai/capabilities';\nexport const u = () => uiCapabilities(peekUiCapabilities() === null);\n");
+    w('web/src/ai/gate.test.ts', "import { uiCapabilities } from './capabilities';\nexport const t = uiCapabilities;\n");
     w('web/src/ai/prompts.ts', "export const all = import.meta.glob('@prompts/*', { query: '?raw' });\n");
     w('web/src/firebase/init.ts', "import { initializeApp } from 'firebase/app';\nexport const app = initializeApp({});\n");
     w('web/src/firebase/atlas.ts', "import type { Firestore } from 'firebase/firestore';\nimport type { ClueType } from '../core/types';\nlet db: Firestore | null = null;\nexport const load = () => import('firebase/firestore');\n");
@@ -468,6 +481,8 @@ function selfTest() {
       ['R7-localStorage', 'web/src/ui/bad7.ts', "localStorage.setItem('a', 'b');\n"],
       ['R8-url-input', 'web/src/ui/components/ImportDropzone.tsx', 'export const I = () => <input type="url" />;\n'],
       ['R9-console-in-sensitive', 'web/src/vault/bad9.ts', "console.log('vault');\n"],
+      ['R9-console-in-sensitive', 'web/src/ui/components/VaultItemForm.tsx', "export const f = (label: string) => console.log(label);\n"],
+      ['R9-console-in-sensitive', 'web/src/ui/components/PinButton.tsx', "export const f = (lat: number) => console.debug(lat);\n"],
       ['R9-console-in-sensitive', 'web/src/vault/bad9b.ts', "console.error('vault');\n"],
       ['R9-console-in-sensitive', 'web/src/tier0/gpsWarning.ts', 'export const f = (point: unknown, pins: unknown) => console.log(point, pins);\n'],
       ['R9-console-in-sensitive', 'web/src/tier0/importPhoto.ts', 'export const f = (exif: unknown) => console.debug(exif);\n'],
@@ -563,6 +578,13 @@ function selfTest() {
       ['R21-idb-open', 'web/src/core/idbPath.ts', "import * as raw from '../../node_modules/idb/build/index.js';\nexport const r = raw;\n"],
       ['R1-ai-call', 'web/src/dev/selftest/bad.ts', `// ${DEV_MARKER}\nexport const x = (m: any) => m.generateContent(r);\n`],
       ['R7-localStorage', 'web/src/dev/bench/bad.ts', `// ${DEV_MARKER}\nlocalStorage.setItem('a', 'b');\n`],
+      // R23: the cached UI snapshot outside web/src/ui (T-061 review): a gate import, a namespace member, a bracket
+      // string, a re-export under another name, and a DEV page.
+      ['R23-ui-snapshot', 'web/src/ai/egressGate.ts', "import { uiCapabilities } from './capabilities';\nexport const ready = async () => (await uiCapabilities()).text === 'available';\n"],
+      ['R23-ui-snapshot', 'web/src/core/routing.ts', "import * as caps from '../ai/capabilities';\nexport const s = () => caps.peekUiCapabilities();\n"],
+      ['R23-ui-snapshot', 'web/src/ai/jobs.ts', "export const s = (c: any) => c['uiCapabilities'](true);\n"],
+      ['R23-ui-snapshot', 'web/src/ai/index.ts', "export { uiCapabilities as snapshot } from './capabilities';\n"],
+      ['R23-ui-snapshot', 'web/src/dev/selftest/caps.ts', `// ${DEV_MARKER}\nimport { peekUiCapabilities } from '../../ai/capabilities';\n`],
     ];
     const failures = [];
     for (const [rule, rel, body] of planted) {

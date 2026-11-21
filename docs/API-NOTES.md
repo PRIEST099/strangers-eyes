@@ -258,6 +258,12 @@ export const deviceOnlyAllowed = async (createOptions: object) => (await nanoSta
 - It calls `LanguageModel.availability(createOptions)`. If the model is downloadable, it calls `LanguageModel.create({...createOptions, monitor})`, which reports `downloadprogress` → `e.loaded`.
 - It **must run inside or after a user gesture** (a click handler); a download without one throws `[VERIFIED: docs]`.
 - It is a no-op for ONLY_IN_CLOUD or when there is no adapter. The SDK exposes **no** availability method; use `availabilityNow()` (ARCH §9.5; `nanoState()` in §1.5).
+- Internals, firebase 13.4.0 `ChromeAdapterImpl` (T-061) `[VERIFIED: src]`:
+  - `downloadIfAvailable` awaits `availability(createOptions)` and starts `create({...createOptions, monitor})` for `downloadable` **and** `downloading` (a create during Chrome's own download attaches to it). There is one await before `create()`, so the click's transient activation must survive it.
+  - The session that `create()` resolves to is **never destroyed**: the SDK keeps only the promise, so the model stays resident. `ai/capabilities.ts`'s direct path destroys it at once (D-87).
+  - Your `monitor` in `createOptions` wins over `onDownloadProgress`. `initializeDeviceModel` throws `API_NOT_ENABLED` for `unavailable` only in ONLY_ON_DEVICE mode.
+  - The constructor writes default `expectedInputs`/`expectedOutputs` into `createOptions` only when they are missing, so a deep-frozen, fully specified object is safe (D-86).
+  - With ONLY_ON_DEVICE and `downloadable`/`downloading`, `isAvailable` awaits `downloadPromise` (null unless `initializeDeviceModel` ran) and returns true; the call then creates a session, which can itself trigger the download. That is one more reason the gate pre-checks `availability()` and never calls the SDK unless the answer is `available`.
 - **Each on-device call creates a new `LanguageModel` session and destroys the previous one** `[VERIFIED: src]`. Consequences:
   - single-turn only;
   - `initialPrompts` are re-processed on every call;
@@ -356,6 +362,7 @@ const final = await response;   // GenerateContentStreamResult.response is a Pro
 
 - Streaming works on the device (the SDK wraps `promptStreaming`) and in the cloud.
 - **Timeouts:** `RequestOptions.timeout` (ms) can be set in `getGenerativeModel(…, requestOptions)` or per call via `SingleRequestOptions` (which adds `signal`). The default is 180000 ms. It is implemented with an internal `AbortController` combined with the caller's signal through `AbortSignal.any` `[VERIFIED: src]`.
+  - **It only covers the wait for the response headers.** `makeRequest` clears the timer in a `finally` as soon as `fetch()` resolves, so neither reading a non-streamed body nor a stream's chunks is bounded by it (the SDK's own comment: a stream that starts at 300 ms and ends at 5,000 ms is not aborted by a 3,000 ms timeout). The model-level `requestOptions` are spread into each call's `SingleRequestOptions`, so the same holds for a timeout set in `getGenerativeModel` `[VERIFIED: src 13.4.0, T-065 review]`. The gate therefore needs its own deadline (an `AbortSignal` passed per call, aborted on its own timer) to bound pass A's stream and every body read (TASKS T-062).
 - `signal` and `timeout` abort **only the cloud fetch**; they are not passed to the device. Aborting does not stop billing `[VERIFIED: src]`. For device timeouts use `Promise.race`; the next device call destroys the old session (§1.6).
 - When streaming, the SDK's aggregated `groundingMetadata` is **overwritten by every chunk, including with `undefined`**. Capture it inside the loop (§1.13).
 - U-05: Chrome 157's `promptStreaming` chunks may be deltas (the SDK assumes deltas) or cumulative.
@@ -397,6 +404,7 @@ try {
   - Setting both thinkingLevel and thinkingBudget throws.
   - Thinking cannot be turned off on 3.x+.
 - `ThinkingLevel` = `{ MINIMAL: 'MINIMAL', LOW: 'LOW', MEDIUM: 'MEDIUM', HIGH: 'HIGH' }` `[VERIFIED: src]`. A validated Remote Config string ('LOW'|'MEDIUM'|'HIGH') therefore maps 1:1 onto it.
+  - The 3.1.0 typings declare it as `{ MINIMAL: string; LOW: string; … }`, so the `ThinkingLevel` **type** is plain `string` and the compiler accepts any value `[VERIFIED: d.ts 3.1.0, T-065]`. `ai/models.ts` therefore checks the level at run time (D-91); a unit test pins `ThinkingLevel[l] === l` for all four.
 - `seed` is **not** in the `firebase/ai` type. A cast would send it, because generationConfig is forwarded unchanged. Whether the server honours it is U-11.
 - Whether thinking tokens count toward `maxOutputTokens` is U-12, so don't set it low.
 

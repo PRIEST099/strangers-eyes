@@ -27,8 +27,8 @@ targets:
       - path: ../shared/strings # UI copy (en.json), never inline
         type: folder
         buildPhase: resources
-      # ../remoteconfig.template.json (file resource) is added by T-038 when the stub exists. XcodeGen's
-      # `optional: true` still adds a dangling reference and the build fails, so it stays out until then.
+      - path: ../remoteconfig.template.json # RC keys + client defaults (ARCH §13.4, AD-28) → Bundle.main root
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.strangerseyes.app # T-019, D-69

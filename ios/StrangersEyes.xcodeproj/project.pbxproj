@@ -17,6 +17,7 @@
 		8A3B28D6DF2977F9D9BEE167 /* testvectors in Resources */ = {isa = PBXBuildFile; fileRef = 59896B03499FF23507846539 /* testvectors */; };
 		991A51865982BBEE0D15EB62 /* prompts in Resources */ = {isa = PBXBuildFile; fileRef = 8270A0AA799604672292571F /* prompts */; };
 		A09299289B0CC08498E79FDB /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 929507E282FD6939FBCC0DAB /* FirebaseAuth */; };
+		BDC84980F6F16065B21EA28A /* remoteconfig.template.json in Resources */ = {isa = PBXBuildFile; fileRef = 2783217B2C297DACCEC160C9 /* remoteconfig.template.json */; };
 		D652D24A5EBEB92BDD91546F /* FirebaseRemoteConfig in Frameworks */ = {isa = PBXBuildFile; productRef = 122C87FFD674776A6AB45614 /* FirebaseRemoteConfig */; };
 /* End PBXBuildFile section */
 
@@ -33,6 +34,7 @@
 /* Begin PBXFileReference section */
 		0245E645A8C092E2F90E6AAC /* strings */ = {isa = PBXFileReference; lastKnownFileType = folder; name = strings; path = ../shared/strings; sourceTree = SOURCE_ROOT; };
 		0B636D70BF26DC725BFB9F2C /* StrangersEyesTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = StrangersEyesTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		2783217B2C297DACCEC160C9 /* remoteconfig.template.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = remoteconfig.template.json; sourceTree = "<group>"; };
 		404CB8537CD6A08E70C8620B /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		51379D8501083B55D1669F3C /* StrangersEyesApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StrangersEyesApp.swift; sourceTree = "<group>"; };
 		59896B03499FF23507846539 /* testvectors */ = {isa = PBXFileReference; lastKnownFileType = folder; name = testvectors; path = ../shared/testvectors; sourceTree = SOURCE_ROOT; };
@@ -106,6 +108,7 @@
 		A3C6AAD0D8A9A2B12E43048F /* firebase buildathon */ = {
 			isa = PBXGroup;
 			children = (
+				2783217B2C297DACCEC160C9 /* remoteconfig.template.json */,
 				11CB52852E23586C1288CFB0 /* shared */,
 			);
 			name = "firebase buildathon";
@@ -231,6 +234,7 @@
 			files = (
 				3A3281D7F26629BA43CD775D /* GoogleService-Info.plist in Resources */,
 				991A51865982BBEE0D15EB62 /* prompts in Resources */,
+				BDC84980F6F16065B21EA28A /* remoteconfig.template.json in Resources */,
 				56481E8043998DADDD856A17 /* strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

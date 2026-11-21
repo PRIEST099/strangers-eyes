@@ -265,7 +265,7 @@ web/
 │   │   ├── tripwire.ts            fetch wrapper (§8.5) [compiled]
 │   │   ├── tripwire-install.ts    side-effect module: installTripwire() [compiled]
 │   │   ├── capabilities.ts        availabilityNow (gate, never cached), uiCapabilities (UI, 30 s cache), enableDeviceModel() [compiled]
-│   │   ├── models.ts              ONLY getGenerativeModel call site [compiled]
+│   │   ├── models.ts              ONLY getGenerativeModel call site; CloudParams, cloudParamsFor, textPart/jpegPart (§9.3, D-91) [built T-065]
 │   │   ├── egressGate.ts          ONLY generateContent / generateContentStream call site (§8.2); gateState.compromised
 │   │   ├── preflight.ts           §8.3 — consent dry run on the exact outgoing bytes: auto-mask (≤ 2 rounds), warn on user-unmasked items, or disable Send; the gate blocks at send
 │   │   ├── interlock.ts           local/cloud interlock (§8.5)
@@ -290,7 +290,7 @@ web/
 │   │   ├── faces.ts               MediaPipe FaceDetector singleton (full-range, CPU); detectFaces(img, minConfidence) → PxRect[]
 │   │   ├── ocr.ts                 Tesseract worker singleton (PSM.SPARSE_TEXT, {blocks:true}); ocrWords(canvas) → OcrWord[]
 │   │   ├── regex.ts               plate / phone / house-number candidates from OCR words
-│   │   ├── fuzzy.ts               THE text matcher + rules-referee strength (§8.4) [compiled + ran]
+│   │   ├── fuzzy.ts               THE text matcher (§8.4) [compiled + ran]; the referee rules over it are core/referee.ts (D-90)
 │   │   └── tier0.ts               runTier0(master, terms, cfg) → { clues, words, timings }
 │   ├── vault/
 │   │   ├── crypto.ts              non-extractable AES-GCM-256 key in IDB 'se-vault-keys'; ensureVaultKey (single-flight), seal(value, key) /
@@ -300,15 +300,17 @@ web/
 │   │   │                          finishPendingBurn() (§16.4, D-79, D-80)
 │   │   ├── sync.ts                'vault changed' signal in this tab and across tabs (BroadcastChannel 'se-vault', no data)
 │   │   ├── burn.ts                performBurn(): burnVault, then clear or reload the in-memory index (§16.4 step 4)
-│   │   ├── geolocation.ts         currentPosition() (enableHighAccuracy, 15 s timeout, maximumAge 0)
+│   │   ├── geolocation.ts         currentPin() (enableHighAccuracy, 15 s timeout, maximumAge 0; GeolocationFailure
+│   │   │                          denied/timeout/unavailable), parseManualCoords() ("lat, lng"), manualPin(); no map (D-92)
 │   │   └── judgeVault.ts          JUDGE_VAULT from samples/manifest.json (in memory only, never persisted)
 │   ├── core/
 │   │   ├── types.ts               §6 [compiled]
 │   │   ├── routing.ts             DEFAULT_POLICY (from the RC template), HARD_FLOOR, effectivePolicy(rcJson) (§7)
 │   │   ├── geo.ts                 haversine, bandFor, effectiveMeters, pinBand [compiled]
-│   │   ├── boxes.ts               box2dToPx, cloudToMaster, padRect, gridCellRect, clampRect, iou, minimalCrop (§11.5)
-│   │   ├── mask.ts                applyMasks(master, rects, crop) → canvas (solid #000, alpha 1, source-over)
-│   │   ├── referee.ts             rulesReferee (uses tier0/fuzzy), mergeMatches(device, rules)
+│   │   ├── boxes.ts               pure: box2dToPx, box2dToMaster, cloudToMaster, frameToMaster, masterToFrame, padRect, preferOcrBoxes, gridCellRect, clampRect, iou, minimalCrop, bestCrop (§11.5)
+│   │   ├── mask.ts                fillSolid(ctx, rects) and applyMasks(master, rects, crop) → canvas (solid #000, alpha 1, source-over)
+│   │   ├── frames.ts              deriveFrame (ImageFrame bookkeeping), renderFrame, buildFrameJpeg (master + masks + crop → JPEG → assertCleanJpeg) (§11.1)
+│   │   ├── referee.ts             rulesStrength, rulesReferee, refereeClaims, refereeVaultItems (over tier0/fuzzy), mergeMatches(device, rules) (§12.1, D-90) [built T-075]
 │   │   ├── verdict.ts             buildVerdict, compareVerdicts (SPEC §10) → view models with copy ids, no coordinates
 │   │   ├── fixPlanner.ts          deterministicFix, validateDevicePlan
 │   │   ├── ledger.ts              begin/commit, counters, receipt, persistence in 'se-ledger' (unsealed; §16.3)
@@ -455,7 +457,7 @@ Query parameters read once at boot:
 
 ### 4.2 Import and call-site rules (`scripts/check-boundaries.mjs`)
 
-The script ignores comments but **not** string contents, so `m['generateContent']` is caught. It scans `.ts .tsx .js .jsx .mts .cts .mjs .cjs` under `web/src` and `.swift` under `ios/`. Every run first proves itself on planted violations (106 as of Nov 20, including every evasion found in the T-023, T-053 and T-054 reviews), then checks the repo. Test files (`*.test.*`) are exempt from the global-access rows only.
+The script ignores comments but **not** string contents, so `m['generateContent']` is caught. It scans `.ts .tsx .js .jsx .mts .cts .mjs .cjs` under `web/src` and `.swift` under `ios/`. Every run first proves itself on planted violations (113 as of Nov 21, including every evasion found in the T-023, T-053 and T-054 reviews and five R23 cases from the T-061 review), then checks the repo. Test files (`*.test.*`) are exempt from the global-access rows only.
 
 | Rule | Symbol, import or pattern | Allowed only in |
 |---|---|---|
@@ -470,11 +472,12 @@ The script ignores comments but **not** string contents, so `m['generateContent'
 | R13 | `vault/*` imports, including the `../vault` directory form | not from `firebase/*` or `tier0/*` (Tier-0 receives terms as plain arguments) |
 | R7 | `localStorage` | `web/src/core/localPrefs.ts` |
 | R8 | `type="url"`, `new URL(` in `ui/components/ImportDropzone.tsx` | nowhere |
-| R9 | The word `console` in any form (`console.x(…)`, `console['x']`, `console?.x`, an alias, destructuring, `globalThis.console`; also inside strings; comments ignored) | not in any non-test file of `vault/`, nor in `ai/vaultScan.ts`, `core/referee.ts`, `tier0/fuzzy.ts`, `tier0/gpsWarning.ts`, `tier0/importPhoto.ts`, `tier0/sniff.ts`, `ui/components/ImportDropzone.tsx`, `ui/screens/Check.tsx`, `ui/importTransfer.ts` or `ui/checkState.ts`: wherever vault data, pins or the original photo's GPS flow (SR-15; T-053/T-054 reviews) |
+| R9 | The word `console` in any form (`console.x(…)`, `console['x']`, `console?.x`, an alias, destructuring, `globalThis.console`; also inside strings; comments ignored) | not in any non-test file of `vault/`, nor in `ai/vaultScan.ts`, `core/referee.ts`, `tier0/fuzzy.ts`, `tier0/gpsWarning.ts`, `tier0/importPhoto.ts`, `tier0/sniff.ts`, `ui/components/ImportDropzone.tsx`, `ui/screens/Check.tsx`, `ui/importTransfer.ts`, `ui/checkState.ts`, `ui/screens/Vault.tsx`, `ui/components/VaultItemForm.tsx`, `ui/components/PinButton.tsx` or `ui/components/BurnVaultDialog.tsx`: wherever vault data, pins or the original photo's GPS flow (SR-15; T-053/T-054 reviews) |
 | R21 | Opening IndexedDB: every `createStore` identifier (whatever package), `IDBFactory`, `openDB`, the specifier `'idb'` / `'idb/…'` or a path into `node_modules/…/idb` (any case: macOS's file system ignores it; a `?query` or `#hash` suffix too), and every `indexedDB` except `indexedDB.deleteDatabase(` / `.databases(` on the same line, a `typeof [globalThis\|window\|self.]indexedDB[.deleteDatabase\|.databases]` feature test followed by a comparison or punctuation (never a call or another member), and the string in `'indexedDB' in X` | `web/src/vault/idb.ts` (`closableStore`, which closes on `versionchange` so Burn vault never blocks, and `databaseExists`), plus the test helper `vault/idb.testutil.ts`. Test files are exempt; DEV-only files are not |
 | R22 | Any `'idb-keyval'` string, as a bare specifier, a subpath or any path segment (e.g. into `node_modules` or Vite's deps), in any case and with a `?query` or `#hash` suffix, outside an `import type` / `export type` (value imports, re-exports, `import()`, `require()`, computed specifiers; `import { type X }` counts as a value import) | `vault/idb.ts`, `vault/crypto.ts`, `vault/vaultStore.ts`, `dev/selftest/vaultStorageCheck.ts`, each of which passes its own closable store to every call. Tests exempt. idb-keyval calls without a store use the default `keyval-store` (the Tesseract cache, §16.3), which Burn vault never deletes and whose connection never closes |
 | R10 | `AdversaryNotes` (the type) | only `core/types.ts`, `ai/jobs.ts`, `ai/parse.ts` (`isDeclinedNotes`), `core/session.ts` and `ui/components/NotesView.tsx`. The pass-A notes **component** is `NotesView` (D-54), so screens can import it without naming the type |
 | R17 | `sendBeacon`, `XMLHttpRequest`, `new WebSocket`, `EventSource`, the string `googleapis.com` | `web/src/ai/tripwire.ts` (its `AI_HOST` constant). No network channel may bypass the fetch tripwire |
+| R23 | The identifiers `uiCapabilities` and `peekUiCapabilities` (the cached UI snapshot, up to 30 s old), in any form: import, re-export under another name, `ns.x`, `ns['x']` | `web/src/ui/**` and `web/src/ai/capabilities.ts` (which defines them). Tests exempt. The gate decides only with `availabilityNow` / `deviceReadyNow`, fresh on every call (AC-007, D-03; T-061 review) |
 | R14 | `web/src/dev/**` | imported only from `App.tsx`, only as `import.meta.env.DEV ? lazy(() => import('./dev/…'))`, `import.meta.env.DEV && import(…)` or inside `if (import.meta.env.DEV) { … }`. A negated guard (`!import.meta.env.DEV`) fails (AC-065) |
 | R18 | `import(…)` with a non-literal specifier; any import/export specifier containing a backslash escape | the first: nowhere outside `web/src/dev` and tests (the checker must see every specifier); the second: nowhere |
 | R19 | `import.meta.glob` reaching `dev/` or `vault/`, or a broad `**` pattern outside `@prompts`/`@strings`/`@vectors`; and, in EVERY non-test file (DEV-only too), a glob that names `node_modules` (any case), starts at the root (`/…`), climbs out of `web/src` before its first wildcard, or passes `exhaustive` | nowhere |
@@ -637,18 +640,18 @@ export type NoModelFallback = 'DETERMINISTIC' | 'TIER0' | 'CLOUD' | 'NONE';
 /** What actually produced a result (SPEC §17.1 ROUTE); drives every badge in the Router HUD. */
 export type Route = 'ON_DEVICE' | 'IN_CLOUD' | 'RULES_ONLY' | 'CACHED' | 'BLOCKED' | 'QUEUED';
 
-export interface ClassPolicy {
-  web: WebMode;
-  ios: IosMode;
-  noModel: NoModelFallback;
-  /** May any byte of this class reach a cloud endpoint? Hard-floored to false for S0/S1. */
-  cloud: boolean;
+export interface ClassPolicy {                 // deep-readonly (D-95); the runtime object is also frozen
+  readonly web: WebMode;
+  readonly ios: IosMode;
+  readonly noModel: NoModelFallback;
+  /** May any byte of this class reach a cloud endpoint? Hard-floored to false for S0/S1. false = never cloud-capable. */
+  readonly cloud: boolean;
 }
 export interface RoutingPolicy {
-  version: number;
-  classes: Record<PayloadClass, ClassPolicy>;
+  readonly version: number;
+  readonly classes: Readonly<Record<PayloadClass, ClassPolicy>>;
   /** Default class per job outside Judge Mode. In Judge Mode the device jobs run as S4. */
-  jobs: Record<JobName, PayloadClass>;
+  readonly jobs: Readonly<Record<JobName, PayloadClass>>;
 }
 
 // ---------- vault (LOCAL ONLY; sealed with AES-GCM in IndexedDB / Keychain on iOS) ----------
@@ -926,6 +929,14 @@ The default policy is the `routing_policy` default in `remoteconfig.template.jso
 4. **Judge Mode:** the device jobs (`preScreen`, `vaultTextMatch`, `referee`, `fixPlan`, `explain`) run as class `S4` and need a `SyntheticProof`.
 5. User and developer downgrades (AD-33) are applied in the gate, not here.
 
+**As built (T-060, D-84/D-85).** `core/routing.ts` exports `DEFAULT_POLICY`, `HARD_FLOOR`, `effectivePolicy`, `parsePolicy`, `floorViolations`, `loadBundledDefault`, `jobClass(policy, job, judgeMode)` (step 4: S4 for `JUDGE_DEVICE_JOBS` in Judge Mode), `PAYLOAD_CLASSES`, `JOB_NAMES` and `POLICY_REJECTED_COPY`.
+- `HARD_FLOOR` is code, never read from the template. `DEFAULT_POLICY` is validated at import: a template default that is not JSON, has the wrong shape or breaks the floor throws, so `npm run check` fails.
+- Step 1 is strict. These all mean the bundled policy as a whole: `undefined` (silently), a non-string, more than 8 KB, invalid JSON, any missing, extra or mistyped key (`__proto__` included), `version` ≠ 1, or an unknown enum value. There is no partial merge. The only "merge" is step 2's per-entry floor.
+- `warning` is a string: `<reason>` or `<reason>: <paths>`. The reason is `not_string`, `too_large`, `invalid_json`, `bad_shape`, `bad_version`, `unknown_enum` or `floor`. The paths come from the module's own key lists and never echo RC text. AppConfig's `policyWarning` carries it.
+- RC can tune S2 and S4 in full, S3 apart from `web` (`cloud: false` switches the adversary off), and `jobs.explain` (S2 or S0). The gate rules these tunable entries need (`cloud: false`, an availability check before any `ONLY_ON_DEVICE` mode, a `deviceText` spec when `explain` is S0) are listed in TASKS T-062 "From the T-060 review".
+- `RoutingPolicy` and `ClassPolicy` are deep-readonly types (D-95), and the objects are frozen at runtime, so the policy in force cannot be edited in place.
+- The parse and floor cases live in `shared/testvectors/rc.json` (`routingPolicy`, D-96). Vitest runs them, and the iOS `RemoteConfigService` port must pass the same file.
+
 The HUD Policy tab draws the effective table live (class → mode → where it runs in this browser) with its source: `Remote Config, fetched HH:MM`, `Cached` or `Built-in default` (AC-026).
 
 ---
@@ -976,14 +987,16 @@ Which spec fits which class (`specFitsClass`):
 
 ```
 async gate(req, opts?):                                     // opts = { reuseLedgerId, notes }: internal, used only by RECLASSIFY
-  t0 ← now(); P ← routing.effective(cfg().routingPolicy); cls ← req.payloadClass; judge ← req.judge ≠ null
+  t0 ← now(); P ← cfg().routingPolicy; cls ← req.payloadClass; judge ← req.judge ≠ null
+      // P is already effectivePolicy()'d by cfg() (§7, §13.4): deep-frozen and floored. Never pass it to effectivePolicy,
+      // which takes the RC string. Belt and braces: if routing.floorViolations(P) ≠ []        BLOCK(CLASS_FLOOR)
   await vaultScan.ready                                        // the ACTIVE vault's index (§8.4): JUDGE_VAULT in Judge Mode, else the real vault ([] if none)
   terms ← vaultScan.activeTerms(); pins ← vaultScan.activePins()   // the real vault is never loaded in Judge Mode (D-37)
   id ← opts?.reuseLedgerId ?? ledger.begin(req)               // status 'pending'; RECLASSIFY reuses the S2 call's entry
   notes ← opts?.notes ?? []
 
   ── 1. CLASS AND CAPABILITY ─────────────────────────────────────────────────────────────
-  expected ← judge ∧ req.job ∈ DEVICE_JOBS ? 'S4' : P.jobs[req.job]
+  expected ← routing.jobClass(P, req.job, judge)                  // S4 for JUDGE_DEVICE_JOBS in Judge Mode, else P.jobs[req.job] (§7 step 4)
   if cls ≠ expected ∧ ¬(expected = 'S2' ∧ cls = 'S0')              BLOCK(CLASS_MISMATCH)
   if ¬specFitsClass(req.modelSpec, cls)                             BLOCK(CLASS_MISMATCH)
   if cls = S4 ∧ ¬syntheticOk(req)                                   BLOCK(NOT_SYNTHETIC)
@@ -1091,7 +1104,7 @@ RECLASSIFY(req, hit):                                              // S2 payload
 ```
 
 Notes:
-- `DEVICE_JOBS = {preScreen, vaultTextMatch, referee, fixPlan, explain}`.
+- `DEVICE_JOBS = {preScreen, vaultTextMatch, referee, fixPlan, explain}` is `routing.JUDGE_DEVICE_JOBS` (§7 step 4), and `routing.jobClass` applies it.
 - `vaultScan.activeTerms()` / `activePins()` are the **active** vault's index (§8.4): `JUDGE_VAULT` in Judge Mode, the real vault otherwise. In Judge Mode the real vault is never unsealed or loaded (D-37, AC-241), and S4 skips the image vault-OCR check, the prompt scan and the tripwire text scan, which the sample allowlist replaces (AD-17).
 - An S0 call that arrives through `RECLASSIFY` passes step 1 because `expected = 'S2'` and `cls = 'S0'` is the allowed tightening. It reuses the S2 call's Ledger entry (`opts.reuseLedgerId`), so the call still has exactly one entry, `pending` → `done`, noted `RECLASSIFIED S2→S0` (SPEC §7.1 step 10, AC-210).
 - `caps` and `prefs` both live in `core/localPrefs.ts`. The cap key is `se.cap.<YYYY-MM-DD local>`.
@@ -1198,7 +1211,7 @@ export function termInWords(term: Term, words: string[], theta: number, opts: { 
   return false;
 }
 
-// ---------- rules referee (SPEC §10.3, §17.4) ----------
+// ---------- rules referee (SPEC §10.3, §17.4) ---------- [historical sketch: as built, this lives in core/referee.ts over the exports above (D-90, §12.1)]
 export const KIND_COMPAT: Record<ClaimKind, readonly VaultKind[]> = {
   workplace: ['work_pin', 'employer', 'descriptor'],
   school: ['school_pin', 'school_name', 'descriptor'],
@@ -1500,7 +1513,7 @@ Empty enums are invalid JSON Schema. If `removableIds`, `claimIds` or `vaultIds`
 5. referee, as soon as B resolves.
 6. fix → preflight → consent → re-attack.
 
-### 9.3 Model factories (`web/src/ai/models.ts`) [compiled]
+### 9.3 Model factories (`web/src/ai/models.ts`) [compiled; built in T-065 with the D-91 changes listed under Notes: the code wins where this sketch differs]
 
 ```ts
 // web/src/ai/models.ts — the ONLY file that calls getGenerativeModel. No generateContent here.
@@ -1578,9 +1591,18 @@ export function adversaryBModel(ai: AI, system: string, model: string, level: Th
 ```
 
 Notes:
+- **As built (T-061, D-86):** `NANO_TEXT_IO` and `NANO_IMAGE_IO` are defined (deep-frozen) in `ai/capabilities.ts`, not here. `models.ts` imports them (and may re-export them), so the gate's fresh `availability()` check uses the very objects the SDK passes to `availability()` itself. Do not define a second copy.
 - The S2 explainer no longer uses `createOptions.initialPrompts`. Its instructions are the first user-turn segment for both device and cloud (D-04). `initialPrompts` with role `system` remains an optional experiment [UNVERIFIED: U-44].
 - `adversary_seed`: if non-zero, add `seed` to `generationConfig` by a cast [UNVERIFIED that it has any effect: U-11].
 - `MINIMAL` thinking returns 400 on `gemini-3.8-flash` and `gemini-4-*`. The `adversary_thinking_level` getter rejects it.
+- **As built (T-065, D-91):**
+  - Signatures: `deviceJsonModel(ai, io, schema)`, `deviceTextModel(ai)`, `judgeJsonModel(ai, io, schema, cloud)`, `explainModel(ai, cloud, mode)`, `adversaryAModel(ai, system, cloud)`, `adversaryBModel(ai, system, cloud, schema)`. `io` is `'text' | 'image'` → `ioOptions(io)` from capabilities.ts (same object). `cloud: CloudParams = {model, thinkingLevel, timeoutMs, seed?}`, built by `cloudParamsFor(cfg, job)` from the AppConfig fields (§13.4) per §9.2: adversary jobs → `adversary_model` + `advA`/`advB`; explain → `explain_cloud_model` + `explain`; the S4 device jobs → `explain_cloud_model` + `deviceImage` (preScreen) or `deviceText`.
+  - Modes come from `CLASS_MODE` (S0/S1 ONLY_ON_DEVICE, S2/S4 PREFER_ON_DEVICE, S3 ONLY_IN_CLOUD). Device-only models have no `inCloudParams` and no RequestOptions; cloud-capable ones pass `{ timeout: cloud.timeoutMs }` as getGenerativeModel's third argument. `explainModel` accepts only PREFER_ON_DEVICE or ONLY_IN_CLOUD.
+  - Checked before building (RangeError): exact model id (lowercase, no spaces, never `-latest`), allowed thinking level (MINIMAL refused for the adversary), integer timeout 1 s–10 min, integer seed. The seed is cast in only when non-zero.
+  - `MAX_OUTPUT_TOKENS`: judge 2048, explain 512, pass A 4096, **pass B 16384** (was 8192; U-12 open, 16384 is the value T-031 exercised).
+  - `textPart(text)` / `jpegPart(base64)` always set `type`; `jpegPart` takes bare base64 only (no `data:` prefix).
+  - `initializeDeviceModelFor(ai, io)` returns a capabilities.ts `DeviceModelInitializer` (the SDK's `initializeDeviceModel` on an ONLY_ON_DEVICE model with `ioOptions(io)`), for SCR-02's download (D-87). It is per io, so the caller must pick the io being downloaded. capabilities.ts's direct path stays the default (D-87).
+  - **Fail closed (F-125):** the SDK reads the on-device API only inside `getGenerativeModel`; a model built without it has no `chromeAdapter` and sends every call to the cloud. `deviceJsonModel` / `deviceTextModel` throw `NoDeviceModelError` in that case, and `initializeDeviceModelFor` rejects with it (instead of resolving as if downloaded). `RequestOptions.timeout` only bounds the wait for headers (API-NOTES §1.9): the gate adds its own `AbortSignal` deadline (T-062).
 
 ### 9.4 How the gate invokes models (inside `egressGate.ts` only) [compiled pattern]
 
@@ -1621,6 +1643,15 @@ export async function uiCapabilities(force = false) {
 `enableDeviceModel(onProgress)` calls `deviceJsonModel(ai, NANO_IMAGE_IO, …).initializeDeviceModel(onProgress)`. It must run **inside the click handler** of the capability panel's "Download Gemini Nano" button, because a user gesture is required. Before the download finishes, PREFER mode silently uses the cloud.
 
 Capability states (a), (a′), (b), (c) and the (d) flag map from these signals exactly as SPEC §5.2 describes; a table-driven test covers it (AC-001).
+
+**As built (T-061, D-86, D-87).** The snippet above is the starting point; `web/src/ai/capabilities.ts` differs as follows.
+- It owns `NANO_TEXT_IO` / `NANO_IMAGE_IO` (deep-frozen) and `ioOptions(io)`; `models.ts` imports them (§9.3).
+- `availabilityNow(io)`: a missing or throwing global → `'no-api'`; a missing method, a throw, a rejection, an answer outside the four known values, or no answer within `AVAILABILITY_TIMEOUT_MS` (5 s) → `'unavailable'`. Never cached. `deviceReadyNow(io)` is `=== 'available'`.
+- `uiCapabilities(force?)`: the 30 s snapshot (`Date.now()`; a clock that jumps backwards invalidates it). Unforced callers share one in-flight check, and a slow older check never overwrites a newer snapshot. `peekUiCapabilities()` returns a fresh snapshot synchronously (the hook's first render). The gate never calls either; boundary rule R23 (§4.2) keeps both inside `web/src/ui/**`.
+- `capabilityOf({text, image, nanoEnabled, online})` → `{state: 'a'|'a-prime'|'b'|'c', offline, noNano, downloadIo, downloading}` with the D-86 precedence. `expectedRoutes(capability)` gives the display-only SPEC §5.3 route per class for the SCR-02 policy table.
+- `enableDeviceModel(io, onProgress, initialize?)` replaces `enableDeviceModel(onProgress)`. Call it synchronously in the click handler. Without `initialize` (the default), `LanguageModel.create({...ioOptions(io), monitor})` is reached in the click's own task and the session is destroyed at once (D-87). With `initialize` (the SDK's `initializeDeviceModel`, from `models.initializeDeviceModelFor(ai, io)`, D-91), the SDK awaits `availability()` before its `create()`, so it relies on Chrome's transient activation surviving that await. Progress is clamped to 0–1, never goes backwards, and ends at 1.
+- `isChromeDesktop(navigator)`: Google Chrome on a desktop OS (UA-CH brands first, else the UA string), for the SCR-02 how-to.
+- UI (D-100): `ui/hooks/useCapabilities.ts` is called once, in AppShell. All timing is in its `createCapabilitiesController(deps)` (injected uiCapabilities, enableDeviceModel, clock, timers, document, service worker), unit-tested with fake timers. First render (c)/Rules-only until a check returns. Re-checks: at start; when the snapshot expires (30 s after it was taken) while visible; when the panel becomes visible (both unforced); on `visibilitychange` to visible (forced); every 2 s while a download runs (forced); right after our download ends (forced). A rejected check is retried after 30 s. `initializeDeviceModel?: (io) => DeviceModelInitializer` is built inside the click for the io being fetched. `ui/components/CapabilityPanel.tsx` (SCR-02) asks for a re-check when it becomes visible (`watchShown`, IntersectionObserver) and moves focus to row 1's heading when the Download button goes away (`handOffFocus`).
 
 ---
 
@@ -2242,6 +2273,12 @@ LABELS:
 
 Every box (faces, OCR, Nano, Gemini) is computed on, or mapped onto, the **same** oriented master. Never letterbox before sending: Gemini's boxes are normalised to the image as sent.
 
+**Frame bookkeeping (`core/frames.ts`, T-059, D-88).** A derived frame is described by its `ImageFrame` `{id, width, height, cropInMaster}`, and that object is the only description of its pixels:
+- `deriveFrame(id, W, H, {maxPx?, crop?})` snaps the crop **inward** to whole master pixels (a crop never keeps a sliver it was meant to remove), then scales it with `fitWithin`: longest side ≤ `maxPx`, never upscaled, **width and height rounded separately**, so x and y scale factors can differ by a hair. `maxPx` goes through `clampMaxPx(id, raw)` (D-98): floored to a whole number (RC 1536.6 → 1536, never a 1537 px frame) and clamped to cloud 768–2048 (§13.2), nano768 256–768, export 1–4096; missing or non-finite → 1536 / 768 / master size. Only `crop: undefined` means no crop; a null or malformed crop throws.
+- `renderFrame(master, frame, masks)` draws the solid masks on a copy of the master, then exactly `cropInMaster` into exactly `width × height`, **from that copy only**. The master is never modified. It **fails closed** (D-97): a frame that is invalid, not in whole pixels or outside the master, a malformed mask (non-finite, null, negative extent), or a mask that paints nothing (wholly outside the master, zero area: `fillSolid`'s count must equal the number of masks) throws, and every canvas it made is freed.
+- `buildFrameJpeg(id, master, {masks, crop})` = derive + render + JPEG (q 0.85 nano768/cloud, 0.92 export) + `assertCleanJpeg`, returning `{jpeg, frame}`. The `frame` travels with the bytes (e.g. `AdversaryResult.sentFrame`) so boxes map back without drift. `core/pipeline.ts` builds the cloud frame with it (`buildCloudJpeg`: the boxes of the session's clues with `masked`, each through `padRect`, plus the crop). `Clue.box` is stored **unpadded** (evidence boxes draw it as found); padding is applied when masks are built (D-88).
+- `core/frames.canvas.test.ts` pins the call order and arguments on a recording canvas in Node (masks on the copy before the output draw, the output drawn from the copy with the crop rect, JPEG 0.85 cloud / 0.92 export, a rejected `assertCleanJpeg` → no blob, canvases freed). The DEV selftest step `frames` checks the pixels (AC-118): a box_2d read off the encoded, cropped, anisotropically downscaled cloud JPEG maps back onto the master fixture; no target pixel survives the padded mask in the cloud or export frame; a grid cell named on nano768 lands on the target in the master.
+
 ### 11.2 Tier-0 (`tier0/tier0.ts`)
 
 1. Decode and orient. If `createImageBitmap` fails (HEIC in desktop Chrome [UNVERIFIED: U-32]), show `copy.import.heic`. Size limits are 30 MB and 40 MP (`copy.import.tooLarge`).
@@ -2280,17 +2317,20 @@ Un-ticking a face or vault-hit mask is allowed, to make the gate demo possible. 
 
 ### 11.5 Box mapping, padding and crop (`core/boxes.ts`)
 
-- `box2dToPx([ymin,xmin,ymax,xmax], W, H)`: divide by 1000 and multiply by `[H,W,H,W]`, clamp, and swap corners if needed. Test vector: [100,250,500,750] on 800×600 → {x:200, y:60, w:400, h:240} (AC-192).
-- `cloudToMaster(rect, frame)`: `x_m = crop.x + x × crop.w / frame.width`, and the same for y.
-- `padRect(r, mask_pad_ratio = 0.15)`: total padding is 15% of the box's width and height (7.5% per side), minimum 4 px, clamped to the frame.
-- Where a pass-B clue overlaps OCR words of the same text (IoU > 0.3), mask the **union of the OCR boxes**, which are tighter.
-- `minimalCrop(side, boxes, W, H)` (SPEC SCR-11) finds the smallest crop from `side` that removes every cited box. The cap is 40% of that dimension; beyond it the result is `copy.fix.cropTooMuch`.
+- `box2dToPx([ymin,xmin,ymax,xmax], W, H)`: multiply by `[H,W,H,W]` and divide by 1000 (multiplying first avoids float noise growing a box), clamp, swap corners if needed, round outward. Test vector: [100,250,500,750] on 800×600 → {x:200, y:60, w:400, h:240} (AC-192). A zero-area box comes back with w or h 0.
+- `box2dToMaster(box, frame)` (D-88) is what callers use for pass-B boxes: straight from 0..1000 to master pixels, `x_m = crop.x + x × crop.w / 1000` (y with `crop.h`), no intermediate frame-pixel rounding, rounded outward once, kept inside the crop. A non-finite value or zero area (judged on the 0..1000 values) → `null` (parse already drops such boxes; this is defence in depth).
+- `cloudToMaster(rect, frame)`: `x_m = crop.x + x × crop.w / frame.width`, and the same for y with `crop.h / frame.height` (exact, fractional). `frameToMaster` is the same, clamped and rounded outward (for faces or OCR found in the outgoing JPEG, §8.3); `masterToFrame` is the inverse (drawing master boxes on a frame; zero area = cropped away). `masterToBox2d` is the inverse of `box2dToMaster`, for fixtures and synthetic samples.
+- `padRect(r, W, H, mask_pad_ratio = 0.15)`: total padding is 15% of the box's width and height (7.5% per side, **rounded up**), minimum 4 px, rounded outward to whole pixels, clamped to the frame. The ratio is clamped 0–0.5 like the RC key; non-finite → 0.15.
+- Where a pass-B clue overlaps OCR words of the same text, mask the **union of the OCR boxes**, which are tighter: `preferOcrBoxes(passBBox, sameTextOcrBoxes)` unions the words that touch the pass-B box and uses that union when its IoU with the pass-B box is > 0.3 (D-89). Matching the text is the caller's job.
+- `minimalCrop(side, boxes, W, H)` (SPEC SCR-11) finds the smallest whole-pixel crop from `side` that removes every cited box. The cap is 40% of that dimension (exactly 40% allowed); beyond it the result is `copy.fix.cropTooMuch`. Boxes are the **padded** boxes a mask would cover (D-89).
+- `bestCrop(boxes, W, H)` (rules plan, §12.5, D-89): every side's `minimalCrop`; the smallest share of the photo within the cap wins, ties in the order top, bottom, left, right; none fits → `too_much` (crop `'none'`, `copy.fix.unremovable`).
 - A crop comes from the Nano plan, from the rules plan (only when every clue cited by an exact or likely target, or by the closest-band hypothesis, is non-removable; SPEC §10.4, D-35), or from the user (CropTool, P1).
-- Crop vectors live in `shared/testvectors/crop.json`.
+- **Fail closed (D-97):** `padRect`, `minimalCrop`/`bestCrop`, `frameToMaster`, `masterToFrame`, `masterToBox2d` and `preferOcrBoxes` call `assertRect`: a rect with a non-finite or missing field or a negative w or h throws; it is never zeroed or skipped (a zero-area box is valid and removes or masks nothing). `assertFrame` requires a finite positive size and a finite crop with positive extent at x, y ≥ 0. Only `box2dToMaster` returns `null`, for Gemini output (documented contract).
+- Vectors live in `shared/testvectors/box2d.json` (mapping, padding incl. the `ceilPx(v) = ceil(v − 1e-9)` convention, grid cells), `shared/testvectors/crop.json` (crop, including the rules-plan and fail-closed cases) and `shared/testvectors/frames.json` (`clampMaxPx`, `snapCrop`, `deriveFrame`, `frameToMaster`, `masterToFrame`, `regionOf`); the iOS port runs the same files (AC-352).
 
 ### 11.6 Masks (`core/mask.ts`)
 
-`ctx.save(); globalAlpha = 1; globalCompositeOperation = 'source-over'; fillStyle = '#000'; fillRect(...)`. Never blur or pixelate. Fills may animate in the UI; the exported pixels are always solid.
+`ctx.save(); globalAlpha = 1; globalCompositeOperation = 'source-over'; filter = 'none'; fillStyle = '#000'; fillRect(...)`. Never blur or pixelate. Fills may animate in the UI; the exported pixels are always solid. In code: `fillSolid(ctx, rects, W, H)` (rects in master px, clamped, snapped outward to whole pixels; returns how many it painted, zero-area or off-image rects paint nothing; a malformed rect throws before anything is painted; what TASKS T-059 called `drawSolidMasks`), `applyMasks(master, rects, crop?)` → a new canvas (throws if any mask painted nothing; frees its copy on every path), and `renderFrame` (§11.1) for derived frames. Masks always go on the master, before any crop or downscale.
 
 ### 11.7 Metadata and export checks (`tier0/exif.ts`)
 
@@ -2304,9 +2344,11 @@ Un-ticking a face or vault-hit mask is allowed, to make the gate demo possible. 
 
 ## 12. Referee, distance bands, verdict, fix planner
 
-### 12.1 Referee (`core/referee.ts`)
+### 12.1 Referee (`core/referee.ts`) [built T-075, D-90; vectors `shared/testvectors/referee.json`]
 
-- **`rulesReferee(claims, vaultPromptItems)`:** for each claim and each vault item with a compatible kind (`KIND_COMPAT`), take `rulesStrength` (§8.4) and keep one match per (claim, vault item) pair, as SPEC §10.3 and `mergeMatches` require; the verdict later takes the strongest per vault item (§12.3). `reason` is a template, one per rule:
+- **Inputs:** `refereeClaims(adv)` = pass-B inferences, then hypotheses as `{kind: 'area', value: label}`; `refereeVaultItems(vault)` = `{id, kind, label, aliases}` (no coordinates), generic or empty pins dropped with their aliases, generic aliases dropped. T-074 builds CLAIMS_JSON / VAULT_JSON from the same two.
+- **`rulesStrength(claim, item, θ)`** (D-90: here, not in `tier0/fuzzy.ts`; it uses only fuzzy.ts's normalisation, folds, `tokenSim`, `isDistinctive`, word lists and digit match) returns `{strength, rule, reason}` or null. Label tokens compare by token similarity ≥ θ; synonym-class words and artefact terms as whole tokens; every rule runs on every claim reading from fuzzy.ts `prepare()` (possessive removed, format characters as spaces, spaced letters joined; F-121); plate / house_number / phone use the SCR-06 digit match in image mode for exact and skip the text rules. A one-token generic label/alias never fires 1(a), and a 1(b) pair needs a non-generic token unless every label token is generic (D-101). Rule 3(b) also needs a shared non-generic label/alias token, never for digit kinds (D-94). GENERIC_WORDS includes the common function words (D-102). An item with an empty or generic label (`isGenericLabel`, = the vault store's `isGenericVaultString`) is dropped, aliases included. Eligibility is re-checked inside, so raw `VaultItem[]` are safe.
+- **`rulesReferee(claims, items, θ = 0.8)`:** for each claim and each vault item with a compatible kind (`KIND_COMPAT`), take `rulesStrength` and keep one match per (claim, vault item) pair, as SPEC §10.3 and `mergeMatches` require; the verdict later takes the strongest per vault item (§12.3). `reason` is a template, one per rule:
   - exact: "named in the claim"
   - likely (a): "shares '<token>'"
   - likely (b): "acronym '<acronym>'"
@@ -2314,7 +2356,7 @@ Un-ticking a face or vault-hit mask is allowed, to make the gate demo possible. 
   - possible (a): "same category: <class>"
   - possible (b): "compatible kind, high confidence"
 - Vault items include labelled pins (AD-29). Generic-labelled pins are skipped; their distance is shown through bands.
-- **`mergeMatches(device, rules)`** takes the union per (claim, vault) pair and keeps the stronger strength. `route` is `ON_DEVICE` if the device found the pair (with the note `+rules` if both did), otherwise `RULES_ONLY`.
+- **`mergeMatches(device, rules)`** returns `{matches, notes}`: the union per (claim, vault) pair, keeping the stronger strength (the device wins a tie; reason and clue IDs come from the side kept). When the device found the pair, `route` is the device match's own route (`ON_DEVICE`, or `IN_CLOUD` for an S4 Judge Mode cloud fallback), even when the rules strength is kept; otherwise `RULES_ONLY`. `notes` is `['+rules']` when at least one valid rules match entered the union (D-90). The rules-only path uses `rulesReferee` directly, labelled `copy.ref.rules` (`RULES_REFEREE_COPY_ID`).
 - Device output is validated against the runtime enums. Unknown IDs or strengths are dropped. If the output is invalid, the rules result is used alone and the HUD shows `fallback: invalid output` (AC-161).
 
 ### 12.2 Distance bands (`core/geo.ts`) [compiled]
@@ -2494,7 +2536,7 @@ All values are strings: booleans are `"true"`/`"false"` and JSON is stringified.
 
 ### 13.3 `remoteconfig.template.json` (generated and validated with Node on 2026-11-19; two defaults changed by T-022 R-01)
 
-The generated copy `research/day1-artifacts/arch/remoteconfig.template.json` predates R-01. It still has `ocr_max_px` 2048 and a 3-type `auto_mask_types`. This section wins: `ocr_max_px` is 1600 (SPEC D-20) and `auto_mask_types` is SPEC SCR-06's 5-type default. Never seed from `research/day1-artifacts/arch-ref/remoteconfig.template.json`, which still has `clue_types`, cap 25, threshold 0.82 and `"v1"` prompt IDs. T-102 copies this section verbatim to the repo root. After the R-01 edit the block below was re-validated with Node (`JSON.parse` of the file and of every `JSON`-typed value, 27 keys); re-validate it again after any edit.
+The generated copy `research/day1-artifacts/arch/remoteconfig.template.json` predates R-01. It still has `ocr_max_px` 2048 and a 3-type `auto_mask_types`. This section wins: `ocr_max_px` is 1600 (SPEC D-20) and `auto_mask_types` is SPEC SCR-06's 5-type default. Never seed from `research/day1-artifacts/arch-ref/remoteconfig.template.json`, which still has `clue_types`, cap 25, threshold 0.82 and `"v1"` prompt IDs. **T-060 copied this block verbatim to the repo root on Nov 21 (D-85). From then on the repo file is canonical: change the file first, then mirror it here.** `web/src/core/routing.test.ts` pins every key, valueType, default and clamp of the file to the §13.2 table, and the file byte for byte to the block below (F-106). After the R-01 edit the block below was re-validated with Node (`JSON.parse` of the file and of every `JSON`-typed value, 27 keys); re-validate it again after any edit.
 
 ```json
 {
@@ -2508,7 +2550,7 @@ The generated copy `research/day1-artifacts/arch/remoteconfig.template.json` pre
     "prompt_versions": {"defaultValue":{"value":"{\"advA\":\"advA.v1\",\"advB\":\"advB.v1\",\"nanoPre\":\"nanoPre.v1\",\"nanoVaultText\":\"nanoVaultText.v1\",\"nanoRef\":\"nanoRef.v1\",\"nanoFix\":\"nanoFix.v1\",\"explain\":\"explain.v1\",\"fmPre\":\"fmPre.v1\"}"},"valueType":"JSON","description":"Full prompt ids. Selects among versions BUNDLED in the app; unknown ids fall back to the bundled v1. Prompt text never comes from Remote Config."},
     "grounding_enabled": {"defaultValue":{"value":"true"},"valueType":"BOOLEAN","description":"Run pass A (Search-grounded notes). false = pass B only."},
     "data_tier": {"defaultValue":{"value":"paid"},"valueType":"STRING","description":"paid|free. Drives the consent copy; free forces grounding off."},
-    "daily_adversary_cap": {"defaultValue":{"value":"20"},"valueType":"NUMBER","description":"Attack runs (A+B pair = 1) per installation per LOCAL day, client-side. Keep project-wide grounded queries well below 1,500/day."},
+    "daily_adversary_cap": {"defaultValue":{"value":"20"},"valueType":"NUMBER","description":"Attack runs (A+B pair = 1) per installation per LOCAL day, client-side. Keep project-wide grounded queries well below 1,500/day. Clamped 1-200."},
     "max_fix_rounds": {"defaultValue":{"value":"3"},"valueType":"NUMBER","description":"Fix + re-attack rounds per photo."},
     "bands_m": {"defaultValue":{"value":"{\"street\":250,\"neighbourhood\":1000,\"district\":5000,\"city\":30000,\"country\":500000}"},"valueType":"JSON","description":"Distance-band upper bounds in metres, strictly increasing. street/neighbourhood/district are locked to 250/1000/5000 (D-77); only city/country (placeholders) are tunable."},
     "auto_mask_types": {"defaultValue":{"value":"[\"name_text\",\"house_number\",\"plate\",\"mail_or_document\",\"screen\"]"},"valueType":"JSON","description":"Nano pre-screen clue types masked in Standard mode when severity is high and the clue is located by OCR (faces, vault hits and regex hits are always masked). Subset of CLUE_TYPES."},
@@ -2518,7 +2560,7 @@ The generated copy `research/day1-artifacts/arch/remoteconfig.template.json` pre
     "mask_pad_ratio": {"defaultValue":{"value":"0.15"},"valueType":"NUMBER","description":"Total mask padding as a fraction of box size (clamped 0-0.5); minimum 4 px."},
     "cloud_image_max_px": {"defaultValue":{"value":"1536"},"valueType":"NUMBER","description":"Longest side of the redacted JPEG sent to the cloud (clamped 768-2048)."},
     "nano_image_max_px": {"defaultValue":{"value":"768"},"valueType":"NUMBER","description":"Longest side of the JPEG given to Gemini Nano."},
-    "ocr_max_px": {"defaultValue":{"value":"1600"},"valueType":"NUMBER","description":"Longest side of the Tier-0 Tesseract canvas: a downscale of the <= 2048 px master, never upscaled (SPEC D-20)."},
+    "ocr_max_px": {"defaultValue":{"value":"1600"},"valueType":"NUMBER","description":"Longest side of the Tier-0 Tesseract canvas: a downscale of the <= 2048 px master, never upscaled (SPEC D-20). Clamped 800-2048 (D-83)."},
     "timeouts_ms": {"defaultValue":{"value":"{\"advA\":90000,\"advB\":60000,\"explain\":20000,\"deviceImage\":60000,\"deviceText\":30000}"},"valueType":"JSON","description":"Per-job timeouts."},
     "judge_mode_enabled": {"defaultValue":{"value":"true"},"valueType":"BOOLEAN","description":"Show Judge Mode."},
     "judge_cached_fallback": {"defaultValue":{"value":"true"},"valueType":"BOOLEAN","description":"When the live adversary is unavailable in Judge Mode, replay the recorded pass-B JSON for the synthetic sample (badge CACHED)."},
@@ -2993,6 +3035,7 @@ ios/
 | `ai/prompts.ts` | `AI/PromptLibrary.swift` | Reads the bundled `prompts/` folder; same render and segment rules |
 | `ai/parse.ts` | `AI/Generables.swift` + `Core/Parsers.swift` | snake_case `@Generable` properties; same validation as web |
 | `core/geo.ts`, `boxes.ts`, `referee.ts`, `verdict.ts`, `fixPlanner.ts`, `pipeline.ts` | `Core/*` | Parity-tested against `shared/testvectors/*` |
+| `core/routing.ts` + `firebase/remoteConfig.ts` | `Firebase/RemoteConfigService.swift` | Same strict parse and the same hard floor written in Swift code, never read from data (§7, D-84/D-85). Parity-tested against `shared/testvectors/rc.json`: run every `routingPolicy` case except `notString` (an RC value is always a string on iOS) |
 | `firebase/atlas.ts` | none | Web only (AD-15) |
 | offline queue | none | iOS keeps the session in memory while in the foreground ("Send when online"). No persistent queue (SPEC §14.4) |
 
@@ -3040,7 +3083,8 @@ actor EgressGate {
 | File | Covers |
 |---|---|
 | `core/geo.test.ts` | Berlin→Paris = 877,465 m ± 1; band edges (250 → street, 250.01 → neighbourhood, …); `effectiveMeters = max(d, r)`; closest of 3; NaN → none; `bands.json` |
-| `core/boxes.test.ts` | [100,250,500,750] on 800×600 → {200,60,400,240}; swapped corners; clamping; zero-area dropped; 15% padding with a 4 px minimum; grid cells; `cloudToMaster` with and without crop; `minimalCrop` with the 40% cap (`box2d.json`, `crop.json`) |
+| `core/boxes.test.ts` | [100,250,500,750] on 800×600 → {200,60,400,240}; swapped corners; clamping; zero-area dropped; 15% padding with a 4 px minimum; grid cells; `cloudToMaster` with and without crop; `minimalCrop` with the 40% cap and `bestCrop` (`box2d.json`, `crop.json`); seeded property tests: master → cloud frame → box_2d → master within tolerance and covered by the padded mask (any aspect ratio, crop on each side), outward rounding never shrinks, clamping, crop minimal and ≤ 40%, anisotropic downscales; `preferOcrBoxes` |
+| `core/frames.test.ts`, `core/frames.canvas.test.ts`, `core/mask.test.ts` | `deriveFrame` sizes, `clampMaxPx`, inward crop snapping (`frames.json`); `renderFrame`/`buildFrameJpeg`/`applyMasks` on a stubbed recording canvas with `toJpeg`/`assertCleanJpeg` mocked: masks on the copy before the output draw, output drawn from the copy with the crop rect, q 0.85 / 0.92, a rejected clean check → throw, canvases freed, malformed or unpainted masks → throw (D-97); `fillSolid`: alpha 1, `source-over`, no filter, outward snap on both edges, state restored, malformed rects throw. Real pixels: DEV selftest step `frames` (AC-118) |
 | `tier0/exif.test.ts` | `jpegAppSegments` on fixture bytes (APP1 → fail; Chrome-like APP0+APP2 → pass); non-JPEG throws |
 | `tier0/fuzzy.test.ts` | all `fuzzy.json` rows (§8.4, including AC-042 and AC-110), digit terms, short terms, `GENERIC_PIN_LABELS` exclusion; enums.v1.json lists equal the in-code sets |
 | `tier0/regex.test.ts` | phone, plate and house-number positives; false positives (years, prices) |

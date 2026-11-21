@@ -5,21 +5,23 @@
 // (a `#main` link would change the hash route). On a route change, focus moves to main and the title updates.
 // A sheet belongs to the route it was opened on, so a route change (Back, Forward, a typed hash) closes it
 // (derived in render, no setState in an effect); focus then moves to main once the sheet has closed.
-// Placeholders until their tasks: capability state (T-061), connectivity cloud states (T-061/RC), Ledger
+// The capability chip and the SCR-02 panel share one useCapabilities view (T-061).
+// Placeholders until their tasks: connectivity cloud states (RC), Ledger
 // counters and entries (T-063), HUD lines (T-064), the Judge banner across the top (SPEC §8.2, T-105).
 import { useEffect, useRef, useState, type PropsWithChildren } from 'react';
 import { t } from '../../core/strings';
 import { useMediaQuery } from '../hooks/useMediaQuery';
+import { useCapabilities } from '../hooks/useCapabilities';
 import { useOnline } from '../hooks/useOnline';
 import { hrefFor, type AppRoute } from '../router';
 import {
   LEDGER_RAIL_ID,
   LEDGER_RAIL_QUERY,
-  PLACEHOLDER_CAPABILITY,
   SCREEN_TITLE,
   ZERO_COUNTERS,
   connectivityOf,
 } from '../layout';
+import { CapabilityPanel } from './CapabilityPanel';
 import { Header } from './Header';
 import { LedgerPanel } from './LedgerPanel';
 import { RouterHUD } from './RouterHUD';
@@ -38,7 +40,8 @@ export function AppShell({ route, children }: PropsWithChildren<{ route: AppRout
   const focusMainOnSheetClose = useRef(false);
 
   const counters = ZERO_COUNTERS;
-  const capability = PLACEHOLDER_CAPABILITY;
+  const caps = useCapabilities({ online }); // ONE view for the chip and the panel (fails closed: Rules-only first)
+  const capability = caps.chip;
   const connectivity = connectivityOf({ online });
   const routeKey = hrefFor(route);
   const titleId = route.name === 'dev' ? SCREEN_TITLE.home : SCREEN_TITLE[route.name];
@@ -137,7 +140,7 @@ export function AppShell({ route, children }: PropsWithChildren<{ route: AppRout
         <LedgerPanel counters={counters} />
       </Sheet>
 
-      {/* SCR-02 placeholder: T-061 replaces the body with CapabilityPanel. Never claims on-device AI. */}
+      {/* SCR-02: the capability panel (T-061). Never claims on-device AI before a fresh check says so. */}
       <Sheet
         open={capOpen}
         onClose={() => {
@@ -146,8 +149,7 @@ export function AppShell({ route, children }: PropsWithChildren<{ route: AppRout
         }}
         title={t('copy.cap.title')}
       >
-        <p className="font-medium">{t('copy.cap.invariant')}</p>
-        <p className="mt-3 text-sm text-muted">{t('ui.cap.pending')}</p>
+        <CapabilityPanel caps={caps} />
       </Sheet>
     </div>
   );

@@ -1,0 +1,64 @@
+{
+  "description": "Derived image frames and frame ↔ master mapping (ARCH §11.1, §11.5; SPEC D-20; D-88, D-98; AC-118). Single source of truth for web/src/core/frames.test.ts (Vitest) and the iOS port (XCTest, AC-352). Each case has an `fn` naming the function under test, a human `name`, its inputs and an `expect` object.",
+  "conventions": [
+    "Rects are {x, y, w, h} in pixels. A frame is an ImageFrame {id, width, height, cropInMaster}; ids are master, nano768, cloud, export.",
+    "A non-finite number is written as the string \"NaN\", \"Infinity\" or \"-Infinity\" (JSON has no literal for them). `expect: {throws: true}` means the call must fail (throw / return an error), never return a value.",
+    "clampMaxPx(id, raw): a non-number or non-finite raw → the default (nano768 768, cloud 1536, export \"Infinity\" = master size). Otherwise floor(raw), clamped to the frame's range: nano768 256..768, cloud 768..2048, export 1..4096.",
+    "snapCrop(crop, W, H): a malformed crop (non-finite, negative extent) throws. Clamp to W×H, then snap INWARD: x0 = ceil(x), y0 = ceil(y), x1 = floor(x + w), y1 = floor(y + h). Nothing left (x1 ≤ x0 or y1 ≤ y0) throws.",
+    "deriveFrame(id, W, H, {maxPx?, crop?}): cropInMaster = snapCrop(crop ?? whole master). maxPx = master size for export without maxPx, else clampMaxPx(id, maxPx). s = min(1, maxPx / max(crop.w, crop.h)); width = max(1, round(crop.w × s)), height = max(1, round(crop.h × s)), each side rounded separately, round half up.",
+    "frameToMaster(rect, frame): clamp rect to width×height; x = crop.x + x × crop.w / width (y with crop.h / height), far edges likewise; floor the near edges, ceil the far edges; intersect with the crop.",
+    "masterToFrame(rect, frame): x = (x − crop.x) × width / crop.w (y with height / crop.h), far edges likewise; floor near, ceil far; clamp to width×height (zero area = cropped away).",
+    "regionOf(rect, W, H): the rect's centre, clamped to [0, W − 1e-9] × [0, H − 1e-9]; col = min(2, floor(cx / W × 3)), row likewise; a centre exactly on a cell boundary belongs to the cell to its right / below."
+  ],
+  "cases": [
+    { "fn": "clampMaxPx", "name": "a fractional RC value is floored", "id": "cloud", "raw": 1536.6, "expect": { "maxPx": 1536 } },
+    { "fn": "clampMaxPx", "name": "cloud above the range", "id": "cloud", "raw": 4096, "expect": { "maxPx": 2048 } },
+    { "fn": "clampMaxPx", "name": "cloud below the range", "id": "cloud", "raw": 100, "expect": { "maxPx": 768 } },
+    { "fn": "clampMaxPx", "name": "cloud non-finite → default", "id": "cloud", "raw": "NaN", "expect": { "maxPx": 1536 } },
+    { "fn": "clampMaxPx", "name": "cloud missing → default", "id": "cloud", "raw": null, "expect": { "maxPx": 1536 } },
+    { "fn": "clampMaxPx", "name": "nano768 never above 768", "id": "nano768", "raw": 2048, "expect": { "maxPx": 768 } },
+    { "fn": "clampMaxPx", "name": "nano768 never below 256", "id": "nano768", "raw": 100, "expect": { "maxPx": 256 } },
+    { "fn": "clampMaxPx", "name": "export at most 4096", "id": "export", "raw": 5000, "expect": { "maxPx": 4096 } },
+    { "fn": "clampMaxPx", "name": "export missing → master size", "id": "export", "raw": null, "expect": { "maxPx": "Infinity" } },
+
+    { "fn": "snapCrop", "name": "a fractional crop snaps inward", "crop": { "x": 0.2, "y": 99.5, "w": 799.6, "h": 400.7 }, "W": 800, "H": 600, "expect": { "crop": { "x": 1, "y": 100, "w": 798, "h": 400 } } },
+    { "fn": "snapCrop", "name": "clamped to the master", "crop": { "x": -10, "y": -10, "w": 2000, "h": 2000 }, "W": 800, "H": 600, "expect": { "crop": { "x": 0, "y": 0, "w": 800, "h": 600 } } },
+    { "fn": "snapCrop", "name": "less than one whole pixel left", "crop": { "x": 10.2, "y": 0, "w": 0.5, "h": 600 }, "W": 800, "H": 600, "expect": { "throws": true } },
+    { "fn": "snapCrop", "name": "wholly outside the master", "crop": { "x": 900, "y": 0, "w": 10, "h": 10 }, "W": 800, "H": 600, "expect": { "throws": true } },
+    { "fn": "snapCrop", "name": "a non-finite value fails closed", "crop": { "x": "NaN", "y": 0, "w": 10, "h": 10 }, "W": 800, "H": 600, "expect": { "throws": true } },
+    { "fn": "snapCrop", "name": "a negative extent fails closed", "crop": { "x": 0, "y": 0, "w": -5, "h": 10 }, "W": 800, "H": 600, "expect": { "throws": true } },
+
+    { "fn": "deriveFrame", "name": "nano768 default: 2048×1536 → 768×576", "id": "nano768", "W": 2048, "H": 1536, "expect": { "frame": { "id": "nano768", "width": 768, "height": 576, "cropInMaster": { "x": 0, "y": 0, "w": 2048, "h": 1536 } } } },
+    { "fn": "deriveFrame", "name": "cloud default, portrait: 1536×2048 → 1152×1536", "id": "cloud", "W": 1536, "H": 2048, "expect": { "frame": { "id": "cloud", "width": 1152, "height": 1536, "cropInMaster": { "x": 0, "y": 0, "w": 1536, "h": 2048 } } } },
+    { "fn": "deriveFrame", "name": "anisotropic: 2047×1023 → 1536×768 (767.62 rounds up; x and y scales differ)", "id": "cloud", "W": 2047, "H": 1023, "expect": { "frame": { "id": "cloud", "width": 1536, "height": 768, "cropInMaster": { "x": 0, "y": 0, "w": 2047, "h": 1023 } } } },
+    { "fn": "deriveFrame", "name": "1537×1536 → 1536×1535 (1535.0007 rounds down)", "id": "cloud", "W": 1537, "H": 1536, "expect": { "frame": { "id": "cloud", "width": 1536, "height": 1535, "cropInMaster": { "x": 0, "y": 0, "w": 1537, "h": 1536 } } } },
+    { "fn": "deriveFrame", "name": "a one-pixel side never rounds to 0", "id": "cloud", "W": 2048, "H": 1, "expect": { "frame": { "id": "cloud", "width": 1536, "height": 1, "cropInMaster": { "x": 0, "y": 0, "w": 2048, "h": 1 } } } },
+    { "fn": "deriveFrame", "name": "the CROP is scaled, not the master", "id": "cloud", "W": 2048, "H": 1536, "crop": { "x": 0, "y": 536, "w": 2048, "h": 1000 }, "expect": { "frame": { "id": "cloud", "width": 1536, "height": 750, "cropInMaster": { "x": 0, "y": 536, "w": 2048, "h": 1000 } } } },
+    { "fn": "deriveFrame", "name": "export is the crop at master scale", "id": "export", "W": 1999, "H": 1201, "crop": { "x": 0, "y": 162, "w": 1999, "h": 1039 }, "expect": { "frame": { "id": "export", "width": 1999, "height": 1039, "cropInMaster": { "x": 0, "y": 162, "w": 1999, "h": 1039 } } } },
+    { "fn": "deriveFrame", "name": "a fractional crop is snapped inward first; never upscaled", "id": "cloud", "W": 800, "H": 600, "crop": { "x": 0.2, "y": 99.5, "w": 799.6, "h": 400.7 }, "expect": { "frame": { "id": "cloud", "width": 798, "height": 400, "cropInMaster": { "x": 1, "y": 100, "w": 798, "h": 400 } } } },
+    { "fn": "deriveFrame", "name": "RC 1536.6 gives 1536, not 1537", "id": "cloud", "W": 2048, "H": 1536, "maxPx": 1536.6, "expect": { "frame": { "id": "cloud", "width": 1536, "height": 1152, "cropInMaster": { "x": 0, "y": 0, "w": 2048, "h": 1536 } } } },
+    { "fn": "deriveFrame", "name": "RC 100 is clamped to 768", "id": "cloud", "W": 2048, "H": 1536, "maxPx": 100, "expect": { "frame": { "id": "cloud", "width": 768, "height": 576, "cropInMaster": { "x": 0, "y": 0, "w": 2048, "h": 1536 } } } },
+    { "fn": "deriveFrame", "name": "RC 4096 is clamped to 2048 (no upscale of a 2048 master)", "id": "cloud", "W": 2048, "H": 1536, "maxPx": 4096, "expect": { "frame": { "id": "cloud", "width": 2048, "height": 1536, "cropInMaster": { "x": 0, "y": 0, "w": 2048, "h": 1536 } } } },
+    { "fn": "deriveFrame", "name": "a non-finite RC value falls back to 1536", "id": "cloud", "W": 2048, "H": 1536, "maxPx": "NaN", "expect": { "frame": { "id": "cloud", "width": 1536, "height": 1152, "cropInMaster": { "x": 0, "y": 0, "w": 2048, "h": 1536 } } } },
+    { "fn": "deriveFrame", "name": "nano768 is never larger than 768", "id": "nano768", "W": 2048, "H": 1536, "maxPx": 2048, "expect": { "frame": { "id": "nano768", "width": 768, "height": 576, "cropInMaster": { "x": 0, "y": 0, "w": 2048, "h": 1536 } } } },
+    { "fn": "deriveFrame", "name": "a non-integer master size fails", "id": "cloud", "W": 10.5, "H": 10, "expect": { "throws": true } },
+
+    { "fn": "frameToMaster", "name": "anisotropic: the full frame is the crop", "rect": { "x": 0, "y": 0, "w": 1536, "h": 768 }, "frame": { "id": "cloud", "width": 1536, "height": 768, "cropInMaster": { "x": 0, "y": 0, "w": 2047, "h": 1023 } }, "expect": { "rect": { "x": 0, "y": 0, "w": 2047, "h": 1023 } } },
+    { "fn": "frameToMaster", "name": "anisotropic: the bottom frame row covers the bottom master rows", "rect": { "x": 0, "y": 767, "w": 1536, "h": 1 }, "frame": { "id": "cloud", "width": 1536, "height": 768, "cropInMaster": { "x": 0, "y": 0, "w": 2047, "h": 1023 } }, "expect": { "rect": { "x": 0, "y": 1021, "w": 2047, "h": 2 } } },
+    { "fn": "frameToMaster", "name": "top-cropped frame", "rect": { "x": 768, "y": 384, "w": 15, "h": 15 }, "frame": { "id": "cloud", "width": 1536, "height": 768, "cropInMaster": { "x": 0, "y": 100, "w": 2048, "h": 1024 } }, "expect": { "rect": { "x": 1024, "y": 612, "w": 20, "h": 20 } } },
+    { "fn": "frameToMaster", "name": "a rect past the frame edge is clamped first", "rect": { "x": 1500, "y": 700, "w": 100, "h": 100 }, "frame": { "id": "cloud", "width": 1536, "height": 768, "cropInMaster": { "x": 0, "y": 100, "w": 2048, "h": 1024 } }, "expect": { "rect": { "x": 2000, "y": 1033, "w": 48, "h": 91 } } },
+    { "fn": "frameToMaster", "name": "a non-finite rect fails closed", "rect": { "x": "NaN", "y": 0, "w": 1, "h": 1 }, "frame": { "id": "cloud", "width": 1536, "height": 768, "cropInMaster": { "x": 0, "y": 100, "w": 2048, "h": 1024 } }, "expect": { "throws": true } },
+    { "fn": "frameToMaster", "name": "a frame with a negative crop origin fails", "rect": { "x": 0, "y": 0, "w": 1, "h": 1 }, "frame": { "id": "cloud", "width": 100, "height": 100, "cropInMaster": { "x": -1, "y": 0, "w": 100, "h": 100 } }, "expect": { "throws": true } },
+
+    { "fn": "masterToFrame", "name": "anisotropic: the bottom master row is the bottom frame row", "rect": { "x": 0, "y": 1022, "w": 2047, "h": 1 }, "frame": { "id": "cloud", "width": 1536, "height": 768, "cropInMaster": { "x": 0, "y": 0, "w": 2047, "h": 1023 } }, "expect": { "rect": { "x": 0, "y": 767, "w": 1536, "h": 1 } } },
+    { "fn": "masterToFrame", "name": "top-cropped frame", "rect": { "x": 1024, "y": 612, "w": 20, "h": 20 }, "frame": { "id": "cloud", "width": 1536, "height": 768, "cropInMaster": { "x": 0, "y": 100, "w": 2048, "h": 1024 } }, "expect": { "rect": { "x": 768, "y": 384, "w": 15, "h": 15 } } },
+    { "fn": "masterToFrame", "name": "a box the crop removed has zero area", "rect": { "x": 100, "y": 0, "w": 400, "h": 100 }, "frame": { "id": "cloud", "width": 1536, "height": 768, "cropInMaster": { "x": 0, "y": 100, "w": 2048, "h": 1024 } }, "expect": { "rect": { "x": 75, "y": 0, "w": 300, "h": 0 } } },
+    { "fn": "masterToFrame", "name": "a frame with a negative crop origin fails", "rect": { "x": 0, "y": 0, "w": 1, "h": 1 }, "frame": { "id": "cloud", "width": 100, "height": 100, "cropInMaster": { "x": 0, "y": -1, "w": 100, "h": 100 } }, "expect": { "throws": true } },
+
+    { "fn": "regionOf", "name": "top_left", "rect": { "x": 0, "y": 0, "w": 10, "h": 10 }, "W": 900, "H": 600, "expect": { "region": "top_left" } },
+    { "fn": "regionOf", "name": "middle_center", "rect": { "x": 445, "y": 295, "w": 10, "h": 10 }, "W": 900, "H": 600, "expect": { "region": "middle_center" } },
+    { "fn": "regionOf", "name": "a centre exactly on a boundary belongs to the next cell", "rect": { "x": 299, "y": 0, "w": 2, "h": 2 }, "W": 900, "H": 600, "expect": { "region": "top_center" } },
+    { "fn": "regionOf", "name": "a centre past the frame is clamped", "rect": { "x": 2000, "y": 2000, "w": 10, "h": 10 }, "W": 900, "H": 600, "expect": { "region": "bottom_right" } },
+    { "fn": "regionOf", "name": "on a 768×461 nano frame", "rect": { "x": 557, "y": 215, "w": 115, "h": 54 }, "W": 768, "H": 461, "expect": { "region": "middle_right" } }
+  ]
+}
