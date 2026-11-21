@@ -395,6 +395,11 @@ How a flaw was found:
 - The Cloud Ledger rail shows live counters and "What the cloud saw": the exact redacted JPEG of the last cloud send, kept in memory and shown only when the hash of its own bytes equals the hash the gate recorded, with the same 8-character prefix the consent sheet shows. The original photo is never registered. It all lives in memory for this page; nothing is stored or sent.
 - No real AI call was made. Browser check with the DEV fake Nano and fake adversary on a synthetic image: pre-screen and referee ON-DEVICE, pass B IN CLOUD, matching hashes. Found F-220..F-222.
 
+### Nov 21 (evening): the full flow goes public (T-107, hosting only)
+- With the user's go-ahead the hosted site moved from Thursday's walking skeleton to the whole demo flow: check, fix, re-attack, HUD, ledger and Judge Mode. Only Hosting was deployed; Remote Config stays on the free-tier override until Blaze.
+- Checked that the hosted bundle is byte-for-byte the build that passed the checks (same hashed file names), that no dev-only seam shipped (check-dist), and that headers and MIME types are right. No real AI call was made.
+- Known gap, stated plainly: on the free tier the attacker answers in 80–143 s, past the app's 60 s timeout, so a live attack on the hosted site will probably show the timeout state until the paid tier (T-003) and the T-034 timeout decision. Judge Mode's cached fallback covers judges meanwhile.
+
 ### Nov 21: Judge Mode with placeholder samples (T-105)
 - `#/judge` now runs the whole check on three drawn placeholder samples with a fake vault (Home, City General Hospital, Lucas, SE 1234) that lives in memory only; the real vault is never loaded while the screen is open, and Exit restores it. The samples carry a PLACEHOLDER watermark until the staged photos replace them (a data-only swap, RUNBOOK §6.2a).
 - The private-class steps (pre-screen model step, referee) run as S4 on the samples, so on a laptop without on-device AI they honestly show IN CLOUD. The attacker runs live; when it is unavailable, a recorded answer is replayed with a CACHED SAMPLE badge. Autoplay walks every step with coach marks.

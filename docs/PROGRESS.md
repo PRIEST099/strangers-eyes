@@ -6,14 +6,14 @@
 
 ## STATE (overwrite in place; never append here)
 - Today: Sat Nov 21 2026 (Day 3)
-- Now: batch 3 in review. Built: T-062 Egress Gate (security + policy review fix round running: TOCTOU, strict JPEG validator, export lock-down, breach halt; NOT ticked), T-076 verdict engine (reviewed, fixed, ticked), T-077 verdict card (in review), T-068 pre-screen Tier-0 half (in review), the T-090 / T-091-094 / T-101-102 fix rounds (done). RC + Auth deployed (D-126; live RC has the D-70 free-tier override). T-031 live resume runs from 10:02 (photos 04–10).
+- Now: the whole demo path is built and committed (slice, fix/re-attack, Nano referee + pre-screen, HUD + ledger, Judge Mode; last commit 5b84a94) and **redeployed to Hosting on Nov 21 evening** (`--only hosting`; live RC v2 keeps the D-70 free-tier override). Tested with fake AI only: no real pass B through the app yet, and real Nano not yet seen in the user's Chrome (T-007). Free-tier flash latency (80–143 s) exceeds advB 60 s, so a real attack on the hosted site will likely time out until Blaze / T-034.
 - Next:
   - T-031 scoring → gate table, advB.v1 release, T-034.
   - Land the T-062 fix round; then the check-boundaries ai/models import rule (scanner agent waits for the whitelist).
   - Then the slice: T-069 consent, T-071 pass B, Check → Verdict (T-086); T-074 Nano referee and T-066 Nano pre-screen built Nov 21 (D-145..D-147; not ticked until the user's Chrome runs real Nano, T-007); T-063 ledger, T-064 HUD (minimal demo-path versions built Nov 21, in memory, not ticked: D-148, D-149); D-80 vault generation counter (gate `vaultFresh`); Judge Mode wiring (`setSampleAllowlist`).
 - Blocked: nothing (T-031 waits only for the 10:00 quota reset).
 - Last green commit: see git log (batch-3 checkpoint, gate files excluded). `npm --prefix web run check` green: 58 files / 2974 tests; 165 planted boundary violations, 11 prompt cases, 167 image cases; `npm run build` + check-dist ok.
-- Checkpoints: G1 in progress (3/10 photos; resume Nov 21 10:02) | G1b – | G2 – | G3 – | slice Nov 22 – | loop Nov 24 – | hosted Nov 25 – (skeleton live Nov 20)
+- Checkpoints: G1 in progress (3/10 photos; resume Nov 21 10:02) | G1b – | G2 – | G3 – | slice Nov 22 – | loop Nov 24 – | hosted Nov 25 – (full flow live Nov 21, hosting only; T-107 still owes firestore/RC deploy after T-003)
 - Adversary model: **gemini-4-hydrogen for T-031** (D-73; re-test flash in T-034 before the RC default) | iOS path: A (firebase-ios-sdk 12.19.3)
 - Cuts applied: D-141 demo path only (deferred: T-081 beyond plain export, T-083, T-084, T-096, T-104, T-106, T-120–T-135, T-151/T-152, T-160, T-200–T-203)
 
@@ -1107,3 +1107,8 @@ How T-022 ran:
 - **Browser (pane, `?fakeAdv=ok&fakeNano=ok`, synthetic canvas image, a synthetic "Harbourside" area item added then deleted):** HUD lists Nano pre-screen [S1] ON-DEVICE 932 ms, attacker pass B [S3] IN CLOUD 2.4 s, referee [S0] ON-DEVICE 716 ms; pill `referee › ON-DEVICE (Gemini Nano) 716 ms`, 40 px; rail "On-device AI calls: 3"; the rail's image re-hashed in the page = `01d9b388…` = the consent sheet's `sha256 01d9b388`; prompt `advB.v1`. Requests/Bytes read 0 in the fake run (F-221). No googleapis request. Without a vault item the referee makes no gate call and has no HUD line (F-222).
 - **Open:** Policy tab (AC-026), persistence, receipt download, Burn vault clearing the in-memory ledger/images, Tier-0 HUD lines, AC-213/AC-222 manual checks at 1024/375 px, AC-211 e2e with real calls.
 - Nothing committed (user's instruction).
+
+### 2026-11-21 (evening): hosting redeploy with the full demo flow (T-107 partial)
+- The user approved the redeploy ("Yes, redeploy"). `npm --prefix web run check` green (69 files / 3188 tests); `npm run build` + check-dist ok; `firebase-tools@15.37.0 deploy --only hosting` → https://strangers-eyes.web.app.
+- **Verified:** the served `index-Ch-uuQNE.js` / `index-DpDtMj9H.css` match the local dist; the new Welcome screen renders; App Check reCAPTCHA loads; no console errors; `curl -sI` shows text/html no-cache for `/`, immutable JS assets, no-cache `sw.js` and `manifest.webmanifest` (application/manifest+json), `samples/manifest.json` application/json; nosniff everywhere. The age checkbox was left for the user, so the flow past Welcome was not driven on the hosted site.
+- **Not done:** RC was deliberately NOT redeployed (the repo template would drop the D-70 override; redeploy it as is after T-003). Firestore is deferred (T-104 cut by D-141). T-107 stays unticked until the post-Blaze `hosting,remoteconfig` deploy; T-108 hosted matrix pending.
