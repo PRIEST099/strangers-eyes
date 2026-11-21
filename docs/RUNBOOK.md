@@ -1143,6 +1143,15 @@ The repo ships three SYNTHETIC PLACEHOLDER samples (drawn scenes with a PLACEHOL
 5. **Hashes:** `node scripts/make-judge-samples.mjs --hash` (re-checks the JPEGs and the JSON, rewrites `imageSha256` / `nano768Sha256`). Do NOT run it without `--hash`: that redraws the placeholders.
 6. **Checks:** `node scripts/check-images.mjs`, `npm --prefix web run check` (`ui/judge/judgeMode.test.ts` checks the hashes, clean JPEGs, valid pass B; its open-ocean coordinate assertion must be relaxed to the approved pins), then a browser run of each sample (live, then offline for the CACHED badge).
 
+### 6.2b Judge Mode samples from openly licensed photos (D-153; replaces §6.2a's shoot)
+The shipped samples are three CC0 Wikimedia Commons photos of public places in Ljubljana (`web/public/samples/SOURCES.md`).
+1. **Pick** CC0/public-domain photos of public places only (no homes, no schools), with no identifiable people, never from the PRIV spike/benchmark set. Download a 2048 px rendition into the scratchpad, never into the repo.
+2. **Compose:** write a spec (per sample: `masks` over people, adverts showing people and real plates; optional `badge` / `tag` props), then `swiftc -O -o compose scripts/compose-judge-photos.swift && ./compose spec.json <srcDir> <outDir>`. Check every mask at zoom (sample 3 needed two passes, F-229).
+3. **Strip and hash:** copy the outputs over `web/public/samples/judge-0N{,.nano768}.jpg`, run `node scripts/strip-jpeg.mjs web/public/samples/judge-0*.jpg` (ImageIO adds EXIF/APP13), then `node scripts/make-judge-samples.mjs --hash`.
+4. **Pass B:** until live recordings exist, the `*.advB*.v1.json` files are authored stand-ins (`model: "authored stand-in (live recording pending)"`, `placeholder: true`). Each first-pass street-level hypothesis cites every clue so the default fix masks all removable clues; the "after" file drops only removable clues (the coverage check in `judgeFlow.fixedRecordingApplies` otherwise replays the first answer, F-230).
+5. **Record for real (after T-003, quota approved):** run each sample live in `#/judge`, save the validated pass B (never pass A) over the stand-ins, set `model`, `recordedAt`, `placeholder: false`, re-run `--hash`, and drop the stand-in wording from `ui.judge.placeholderNote`.
+6. **Check:** `npm --prefix web run check`, then `#/judge?fakeAdv=network` (CACHED path): each sample red → "Risk reduced", the badge header and "LUCAS" masked on the device.
+
 ### 6.3 Recording setup [USER, with Claude preparing app state]
 - **Capture:** 1920×1080 at 30 fps. Keep the Router HUD (bottom-left) and the Cloud Ledger (right) in frame.
 - **macOS:**

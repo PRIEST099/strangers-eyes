@@ -1,17 +1,34 @@
 {
   "audit_status": "ok",
-  "scene_summary": "The same scene with several solid black areas; little readable text remains.",
-  "clues": [],
+  "scene_summary": "A cycle path and a statue in front of a historic building; signs, bikes and vehicles are covered by solid blocks.",
+  "clues": [
+    {
+      "id": "c3",
+      "type": "landmark",
+      "box_2d": [
+        320,
+        300,
+        520,
+        650
+      ],
+      "evidence": "Equestrian statue in front of a cream station building with a clock tower.",
+      "reveals": "street",
+      "severity": "high",
+      "removable": false
+    }
+  ],
   "hypotheses": [
     {
       "id": "h9",
-      "label": "A coastal city",
-      "level": "city",
-      "lat": 0.6,
-      "lng": -30.3,
-      "radius_km": 25,
+      "label": "A city in Central Europe",
+      "level": "region",
+      "lat": 46.3,
+      "lng": 14.8,
+      "radius_km": 80,
       "confidence": "low",
-      "clue_ids": []
+      "clue_ids": [
+        "c3"
+      ]
     }
   ],
   "inferences": []

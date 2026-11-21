@@ -52,7 +52,7 @@
     "nanoPre.v1": {
       "user": "nanoPre.v1.user.md",
       "schema": "nanoPre.v1.schema.json",
-      "released": false
+      "released": true
     },
     "nanoVaultText.v1": {
       "user": "nanoVaultText.v1.user.md",
@@ -62,7 +62,7 @@
     "nanoRef.v1": {
       "user": "nanoRef.v1.user.md",
       "schemaBuilder": "refereeSchema",
-      "released": false
+      "released": true
     },
     "nanoFix.v1": {
       "user": "nanoFix.v1.user.md",

@@ -61,15 +61,15 @@ describe('the bundled placeholder samples (AC-244 pre-check; D-150)', () => {
       expect((await checkCleanJpeg(new Blob([b], { type: 'image/jpeg' }))).clean).toBe(true);
     }
   });
-  it('the recorded pass-B files are valid advB.v1 with open-ocean coordinates only; the fixed one drops the removable clues', () => {
+  it('the recorded pass-B files are valid advB.v1 with coordinates near the approved public-place pins only (D-153); the fixed one drops the removable clues', () => {
     for (const s of MANIFEST.samples) {
       const first = parseAdvB(JSON.parse(file(s.cachedAdvB).toString('utf8')));
       const fixed = parseAdvB(JSON.parse(file(s.cachedAdvBFixed).toString('utf8')));
       expect(first.repairs).toEqual([]);
       for (const h of [...first.hypotheses, ...fixed.hypotheses]) {
-        expect(Math.abs(h.lat)).toBeLessThan(1); // the open South Atlantic test area: no land within 100 km
-        expect(h.lng).toBeGreaterThan(-31);
-        expect(h.lng).toBeLessThan(-30);
+        // D-153: public places around the approved fake-vault pins (Ljubljana, a park and a square); never anywhere else
+        expect(Math.abs(h.lat - MANIFEST.fakeVault.homePin.lat)).toBeLessThan(1.5);
+        expect(Math.abs(h.lng - MANIFEST.fakeVault.homePin.lng)).toBeLessThan(1.5);
       }
       const gone = first.clues.filter((c) => !fixed.clues.some((f) => f.id === c.id));
       expect(gone.length).toBeGreaterThan(0);
@@ -232,7 +232,9 @@ describe('the CACHED replay (AC-243, AC-246)', () => {
     expect(o.kind).toBe('result');
     if (o.kind !== 'result') return;
     expect([o.call.route, o.result.route, o.recorded]).toEqual(['CACHED', 'CACHED', { recordedAt: s.recordedAt, model: s.model }]);
-    expect(o.result.clues.find((c) => c.id === 'c2')?.box2d).toEqual([700, 300, 860, 470]);
+    // a full-frame crop leaves every recorded box as recorded
+    const rec = (json as { clues: { id: string; box_2d: number[] }[] }).clues[1];
+    expect(o.result.clues.find((c) => c.id === rec.id)?.box2d).toEqual(rec.box_2d);
     expect(() => recordedOutcome({ audit_status: 'nope' }, { runId: 'r1', sentImageSha256: '', sentFrame: frame, recordedAt: '', model: '', echo: () => [] }, 1600, 1200)).toThrow();
   });
   it('the "after fix" recording stands only when the masks sent hide every clue it dropped; a crop counts, boxes follow the crop', () => {
@@ -240,11 +242,15 @@ describe('the CACHED replay (AC-243, AC-246)', () => {
     const first = parseAdvB(JSON.parse(file(s.cachedAdvB).toString('utf8')));
     const fixed = parseAdvB(JSON.parse(file(s.cachedAdvBFixed).toString('utf8')));
     const px = (b: number[]) => ({ x: (b[1] / 1000) * 1600 - 5, y: (b[0] / 1000) * 1200 - 5, w: ((b[3] - b[1]) / 1000) * 1600 + 10, h: ((b[2] - b[0]) / 1000) * 1200 + 10 });
-    const masks = first.clues.filter((c) => c.removable).map((c) => px(c.box2d));
-    expect(fixedRecordingApplies(first, fixed, masks, null, 1600, 1200)).toBe(true);
-    expect(fixedRecordingApplies(first, fixed, masks.slice(1), null, 1600, 1200)).toBe(false);
-    // the street sign (top right) cut away by a crop instead of a mask
-    expect(fixedRecordingApplies(first, fixed, masks.slice(1), { x: 0, y: 300, w: 1600, h: 900 }, 1600, 1200)).toBe(true);
+    const removable = first.clues.filter((c) => c.removable);
+    expect(fixedRecordingApplies(first, fixed, removable.map((c) => px(c.box2d)), null, 1600, 1200)).toBe(true);
+    // leave the top-most removable clue unmasked: its top edge is not under any other mask, so the recording does not stand
+    const top = removable.reduce((a, c) => (c.box2d[0] < a.box2d[0] ? c : a));
+    const others = removable.filter((c) => c !== top).map((c) => px(c.box2d));
+    expect(fixedRecordingApplies(first, fixed, others, null, 1600, 1200)).toBe(false);
+    // …and the same clue cut away by a crop instead of a mask
+    const cutY = Math.ceil((top.box2d[2] / 1000) * 1200) + 10;
+    expect(fixedRecordingApplies(first, fixed, others, { x: 0, y: cutY, w: 1600, h: 1200 - cutY }, 1600, 1200)).toBe(true);
     expect(boxIntoCrop([500, 0, 1000, 500], { x: 0, y: 600, w: 1600, h: 600 }, 1600, 1200)).toEqual([0, 0, 1000, 500]);
   });
 });

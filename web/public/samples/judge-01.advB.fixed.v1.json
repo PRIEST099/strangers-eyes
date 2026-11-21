@@ -1,30 +1,30 @@
 {
   "audit_status": "ok",
-  "scene_summary": "The same scene with several solid black areas; little readable text remains.",
+  "scene_summary": "A forecourt with coaches and a long historic building; signs and lettering are covered by solid blocks.",
   "clues": [
     {
       "id": "c5",
-      "type": "architecture",
+      "type": "landmark",
       "box_2d": [
-        150,
-        0,
-        800,
-        1000
+        160,
+        125,
+        450,
+        850
       ],
-      "evidence": "Pale stone facade with regular courses.",
-      "reveals": "city",
-      "severity": "low",
+      "evidence": "Cream-and-yellow station building with a central clock tower.",
+      "reveals": "street",
+      "severity": "high",
       "removable": false
     }
   ],
   "hypotheses": [
     {
       "id": "h9",
-      "label": "A coastal city",
-      "level": "city",
-      "lat": 0.6,
-      "lng": -30.3,
-      "radius_km": 25,
+      "label": "A railway station in Central Europe",
+      "level": "region",
+      "lat": 46.3,
+      "lng": 14.8,
+      "radius_km": 120,
       "confidence": "low",
       "clue_ids": [
         "c5"

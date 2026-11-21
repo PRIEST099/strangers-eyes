@@ -1,97 +1,96 @@
 {
   "audit_status": "ok",
-  "scene_summary": "An outdoor café table with a cup, a bag and a lanyard; a transit sign and a street sign behind.",
+  "scene_summary": "A castle courtyard seen from a tower, with a city skyline, a river and mountains beyond. A solid dark block covers an object in the lower left.",
   "clues": [
     {
       "id": "c1",
-      "type": "transit_sign",
+      "type": "landmark",
       "box_2d": [
-        160,
-        100,
-        270,
-        330
+        230,
+        0,
+        720,
+        1000
       ],
-      "evidence": "Green transit sign for line 4.",
-      "reveals": "neighbourhood",
+      "evidence": "Castle courtyard with stone arcades, a round tower and café parasols, seen from above.",
+      "reveals": "street",
       "severity": "high",
-      "removable": true
+      "removable": false
     },
     {
       "id": "c2",
-      "type": "street_sign",
+      "type": "window_view",
       "box_2d": [
-        90,
-        650,
-        190,
-        930
+        0,
+        0,
+        230,
+        1000
       ],
-      "evidence": "Street sign naming a station road.",
-      "reveals": "street",
+      "evidence": "City skyline with high-rise blocks and a river bend.",
+      "reveals": "city",
       "severity": "high",
       "removable": true
     },
     {
       "id": "c3",
-      "type": "uniform_or_lanyard",
+      "type": "vegetation_or_terrain",
       "box_2d": [
-        760,
-        120,
-        900,
-        320
+        30,
+        0,
+        110,
+        1000
       ],
-      "evidence": "Lanyard card printed HOSPITAL STAFF on the table.",
-      "reveals": "venue_or_organisation",
-      "severity": "high",
-      "removable": true
-    },
-    {
-      "id": "c4",
-      "type": "storefront_text",
-      "box_2d": [
-        540,
-        430,
-        770,
-        560
-      ],
-      "evidence": "Cup with a small local brand name.",
-      "reveals": "city",
-      "severity": "low",
+      "evidence": "Forested foothills and mountains on the horizon.",
+      "reveals": "region",
+      "severity": "medium",
       "removable": true
     }
   ],
   "hypotheses": [
     {
       "id": "h1",
-      "label": "Station Road, by the line 4 stop",
+      "label": "Ljubljana Castle courtyard, Slovenia",
       "level": "street",
-      "lat": 0.528,
-      "lng": -30.463,
-      "radius_km": 0.7,
-      "confidence": "medium",
+      "lat": 46.049,
+      "lng": 14.508,
+      "radius_km": 0.2,
+      "confidence": "high",
       "clue_ids": [
         "c1",
-        "c2"
+        "c2",
+        "c3"
+      ]
+    },
+    {
+      "id": "h2",
+      "label": "Ljubljana old town, Slovenia",
+      "level": "district",
+      "lat": 46.05,
+      "lng": 14.506,
+      "radius_km": 1.5,
+      "confidence": "medium",
+      "clue_ids": [
+        "c2",
+        "c3"
       ]
     }
   ],
   "inferences": [
     {
       "id": "i1",
-      "kind": "transit_line",
-      "value": "Takes line 4 from Station Road",
-      "confidence": "medium",
+      "kind": "venue",
+      "value": "A visit to Ljubljana Castle",
+      "confidence": "high",
       "clue_ids": [
         "c1"
       ]
     },
     {
       "id": "i2",
-      "kind": "workplace",
-      "value": "A hospital near the line 4 route",
-      "confidence": "medium",
+      "kind": "routine",
+      "value": "Spends time in Ljubljana's old town",
+      "confidence": "low",
       "clue_ids": [
-        "c1",
-        "c3"
+        "c2"
       ]
     }
   ]

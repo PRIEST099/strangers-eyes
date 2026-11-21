@@ -1,17 +1,34 @@
 {
   "audit_status": "ok",
-  "scene_summary": "The same scene with several solid black areas; little readable text remains.",
-  "clues": [],
+  "scene_summary": "A castle courtyard seen from above, cropped to the courtyard; the skyline is no longer in frame.",
+  "clues": [
+    {
+      "id": "c1",
+      "type": "landmark",
+      "box_2d": [
+        230,
+        0,
+        720,
+        1000
+      ],
+      "evidence": "Castle courtyard with stone arcades, a round tower and café parasols, seen from above.",
+      "reveals": "street",
+      "severity": "high",
+      "removable": false
+    }
+  ],
   "hypotheses": [
     {
       "id": "h9",
-      "label": "A coastal city",
-      "level": "city",
-      "lat": 0.6,
-      "lng": -30.3,
-      "radius_km": 25,
+      "label": "A castle courtyard in Central Europe",
+      "level": "region",
+      "lat": 47.0,
+      "lng": 14.0,
+      "radius_km": 300,
       "confidence": "low",
-      "clue_ids": []
+      "clue_ids": [
+        "c1"
+      ]
     }
   ],
   "inferences": []

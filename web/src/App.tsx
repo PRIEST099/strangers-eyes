@@ -32,6 +32,9 @@ const DevAdversarySpike: LazyExoticComponent<ComponentType> | null = import.meta
 const DevVerdictGallery: LazyExoticComponent<ComponentType> | null = import.meta.env.DEV
   ? lazy(() => import('./dev/verdicts/VerdictGallery'))
   : null;
+const DevNanoCheck: LazyExoticComponent<ComponentType> | null = import.meta.env.DEV
+  ? lazy(() => import('./dev/nano/NanoCheckPage'))
+  : null;
 // D-137: DEV builds may answer pass B from a fake adversary (`?fakeAdv=ok|declined|blocked|…`), never the SDK.
 if (import.meta.env.DEV) {
   void import('./dev/fakeAdversary').then((m) => m.installFakeAdversary(), () => undefined);
@@ -98,6 +101,14 @@ export default function App() {
     return (
       <Suspense fallback={<p className="p-6 font-mono text-sm">loading gallery…</p>}>
         <DevVerdictGallery />
+      </Suspense>
+    );
+  }
+
+  if (DevNanoCheck && route.name === 'dev' && route.page === 'nano') {
+    return (
+      <Suspense fallback={<p className="p-6 font-mono text-sm">loading Nano check…</p>}>
+        <DevNanoCheck />
       </Suspense>
     );
   }

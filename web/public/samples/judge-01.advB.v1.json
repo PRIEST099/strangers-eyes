@@ -1,102 +1,90 @@
 {
   "audit_status": "ok",
-  "scene_summary": "A stone building entrance with a street sign, a bus stop, a backpack and a lanyard on a railing.",
+  "scene_summary": "A station forecourt with coaches parked in numbered bays in front of a long cream building with a clock tower.",
   "clues": [
     {
       "id": "c1",
-      "type": "street_sign",
+      "type": "transit_sign",
       "box_2d": [
-        80,
-        560,
-        220,
-        900
+        418,
+        430,
+        440,
+        560
       ],
-      "evidence": "Blue street sign naming a harbour road and a number range.",
+      "evidence": "Facade lettering in Slovene naming the building as the railway station.",
       "reveals": "street",
       "severity": "high",
       "removable": true
     },
     {
       "id": "c2",
-      "type": "uniform_or_lanyard",
-      "box_2d": [
-        700,
-        300,
-        860,
-        470
-      ],
-      "evidence": "Lanyard card printed HOSPITAL STAFF with a red logo.",
-      "reveals": "venue_or_organisation",
-      "severity": "high",
-      "removable": true
-    },
-    {
-      "id": "c3",
-      "type": "house_number",
-      "box_2d": [
-        320,
-        600,
-        420,
-        680
-      ],
-      "evidence": "Door number plaque beside the entrance.",
-      "reveals": "street",
-      "severity": "medium",
-      "removable": true
-    },
-    {
-      "id": "c4",
       "type": "transit_sign",
       "box_2d": [
-        250,
-        880,
-        380,
-        980
+        375,
+        30,
+        445,
+        960
       ],
-      "evidence": "Green bus stop sign at the kerb.",
+      "evidence": "Numbered blue bus-bay boards along the forecourt.",
       "reveals": "neighbourhood",
       "severity": "medium",
       "removable": true
     },
     {
-      "id": "c5",
-      "type": "architecture",
+      "id": "c3",
+      "type": "crest_or_logo",
       "box_2d": [
-        150,
-        0,
-        800,
-        1000
+        420,
+        10,
+        540,
+        900
       ],
-      "evidence": "Pale stone facade with regular courses.",
+      "evidence": "Coach liveries with a regional operator's name.",
       "reveals": "city",
-      "severity": "low",
+      "severity": "medium",
+      "removable": true
+    },
+    {
+      "id": "c5",
+      "type": "landmark",
+      "box_2d": [
+        160,
+        125,
+        450,
+        850
+      ],
+      "evidence": "Cream-and-yellow station building with a central clock tower.",
+      "reveals": "street",
+      "severity": "high",
       "removable": false
     }
   ],
   "hypotheses": [
     {
       "id": "h1",
-      "label": "Harbour Road, a coastal district",
+      "label": "Ljubljana railway station forecourt, Slovenia",
       "level": "street",
-      "lat": 0.502,
-      "lng": -30.497,
-      "radius_km": 0.6,
-      "confidence": "medium",
+      "lat": 46.058,
+      "lng": 14.511,
+      "radius_km": 0.3,
+      "confidence": "high",
       "clue_ids": [
         "c1",
-        "c3"
+        "c2",
+        "c3",
+        "c5"
       ]
     },
     {
       "id": "h2",
-      "label": "The harbour district of a coastal city",
-      "level": "district",
-      "lat": 0.51,
-      "lng": -30.48,
+      "label": "Central Ljubljana, Slovenia",
+      "level": "city",
+      "lat": 46.054,
+      "lng": 14.506,
       "radius_km": 3,
-      "confidence": "low",
+      "confidence": "medium",
       "clue_ids": [
-        "c4",
+        "c3",
         "c5"
       ]
     }
@@ -104,20 +92,20 @@
   "inferences": [
     {
       "id": "i1",
-      "kind": "workplace",
-      "value": "A hospital (staff lanyard)",
+      "kind": "routine",
+      "value": "Regular trips through Ljubljana's main bus and rail station",
       "confidence": "medium",
       "clue_ids": [
-        "c2"
+        "c2",
+        "c5"
       ]
     },
     {
       "id": "i2",
-      "kind": "home_area",
-      "value": "Near Harbour Road",
-      "confidence": "medium",
+      "kind": "transit_line",
+      "value": "Regional coach routes from the main station",
+      "confidence": "low",
       "clue_ids": [
-        "c1",
         "c3"
       ]
     }

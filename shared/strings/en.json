@@ -245,6 +245,8 @@
   "ui.hud.running": "running…",
   "ui.hud.engine.nano": "Gemini Nano",
   "ui.hud.engine.rules": "rules",
+  "ui.hud.engine.fm": "Apple FM",
+  "ui.hud.engine.fake": "DEBUG fake attacker (no network)",
   "ui.hud.tag.sample": "S4 sample",
   "ui.job.preScreen": "Nano pre-screen",
   "ui.job.vaultTextMatch": "vault text match",
@@ -397,8 +399,8 @@
   "ui.judge.autoplay": "Autoplay",
   "ui.judge.autoplayHint": "Steps advance by themselves; sample photos send themselves after 3 s.",
   "ui.judge.exit": "Exit Judge Mode",
-  "ui.judge.placeholder": "PLACEHOLDER",
-  "ui.judge.placeholderNote": "These samples are drawn placeholders. The staged sample photos replace them before judging.",
+  "ui.judge.placeholder": "STAND-IN ANSWERS",
+  "ui.judge.placeholderNote": "Openly licensed (CC0) photos of public places, with drawn props and a made-up vault. Their recorded attacker answers are stand-ins written by the team until live recordings replace them; a live attack runs whenever the cloud model is available.",
   "ui.judge.loading": "Loading the samples…",
   "ui.judge.loadFailed": "The samples could not be loaded. Reload the page to try again.",
   "ui.judge.disabled": "Judge Mode is turned off right now.",
@@ -552,5 +554,11 @@
   "ui.about.prior.diff": "Strangers' Eyes differs by grading the attacker on this device, against a private vault the cloud never sees.",
   "ui.about.use": "Who it's for",
   "ui.about.adults": "Strangers' Eyes is for adults (18+). Only check photos you took or own.",
-  "ui.about.repo": "Source code on GitHub"
+  "ui.about.repo": "Source code on GitHub",
+  "ui.ios.fmReady": "On-device: Apple Foundation Models",
+  "ui.ios.sample": "Use synthetic test photo",
+  "ui.ios.vaultButton": "Vault ({n})",
+  "ui.ios.tier0Summary": "Tier-0 on this device: {faces} faces · {words} words read · {hits} vault matches masked",
+  "ui.ios.demoVault": "Demo vault: synthetic test items, not real places or people.",
+  "ui.ios.fakeBanner": "DEBUG build: the attacker is a canned stand-in. No photo leaves this device."
 }

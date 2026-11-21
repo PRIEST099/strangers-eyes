@@ -1,60 +1,60 @@
 {
   "audit_status": "ok",
-  "scene_summary": "An item for sale indoors: a stool and a lamp, a box, a lanyard, and a window onto a brick street.",
+  "scene_summary": "A cycle path beside a row of docked shared bikes, an office corner with a bank branch, and a station building behind a statue. A solid dark block covers an object in the foreground.",
   "clues": [
     {
       "id": "c1",
-      "type": "window_view",
+      "type": "storefront_text",
       "box_2d": [
-        80,
-        540,
-        570,
-        960
+        370,
+        0,
+        445,
+        200
       ],
-      "evidence": "Window view of a brick terrace and a street sign.",
-      "reveals": "street",
-      "severity": "high",
+      "evidence": "Red bank branch signage on the corner office building.",
+      "reveals": "neighbourhood",
+      "severity": "medium",
       "removable": true
     },
     {
       "id": "c2",
-      "type": "street_sign",
+      "type": "crest_or_logo",
       "box_2d": [
-        150,
+        530,
         600,
-        250,
-        900
+        1000,
+        1000
       ],
-      "evidence": "Street sign naming a market street.",
-      "reveals": "street",
+      "evidence": "Green city bike-share bikes and docking posts with the scheme's name.",
+      "reveals": "city",
       "severity": "high",
       "removable": true
     },
     {
       "id": "c3",
-      "type": "uniform_or_lanyard",
+      "type": "landmark",
       "box_2d": [
-        520,
+        320,
         300,
-        680,
-        460
+        520,
+        650
       ],
-      "evidence": "Lanyard card printed HOSPITAL STAFF hanging on the lamp.",
-      "reveals": "venue_or_organisation",
+      "evidence": "Equestrian statue in front of a cream station building with a clock tower.",
+      "reveals": "street",
       "severity": "high",
-      "removable": true
+      "removable": false
     },
     {
-      "id": "c4",
-      "type": "house_number",
+      "id": "c5",
+      "type": "transit_sign",
       "box_2d": [
-        300,
-        760,
-        370,
-        830
+        470,
+        630,
+        530,
+        1000
       ],
-      "evidence": "House number plaque across the street.",
-      "reveals": "street",
+      "evidence": "Coaches parked in a line with operator liveries.",
+      "reveals": "city",
       "severity": "medium",
       "removable": true
     }
@@ -62,35 +62,48 @@
   "hypotheses": [
     {
       "id": "h1",
-      "label": "Market Street, an old brick quarter",
+      "label": "Square beside Ljubljana railway station, Slovenia",
       "level": "street",
-      "lat": 0.498,
-      "lng": -30.503,
-      "radius_km": 0.5,
-      "confidence": "medium",
+      "lat": 46.057,
+      "lng": 14.51,
+      "radius_km": 0.4,
+      "confidence": "high",
       "clue_ids": [
         "c1",
         "c2",
-        "c4"
+        "c3",
+        "c5"
+      ]
+    },
+    {
+      "id": "h2",
+      "label": "Ljubljana, Slovenia",
+      "level": "city",
+      "lat": 46.054,
+      "lng": 14.506,
+      "radius_km": 4,
+      "confidence": "medium",
+      "clue_ids": [
+        "c2",
+        "c5"
       ]
     }
   ],
   "inferences": [
     {
       "id": "i1",
-      "kind": "home_area",
-      "value": "The seller lives near Market Street",
+      "kind": "routine",
+      "value": "Uses the city bike-share near Ljubljana's main station",
       "confidence": "medium",
       "clue_ids": [
-        "c1",
         "c2"
       ]
     },
     {
       "id": "i2",
-      "kind": "workplace",
-      "value": "A hospital (staff lanyard)",
-      "confidence": "medium",
+      "kind": "home_area",
+      "value": "Lives or works within walking distance of the main station",
+      "confidence": "low",
       "clue_ids": [
         "c3"
       ]

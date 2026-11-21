@@ -1,7 +1,8 @@
 // ARCH §16.1. The PWA settings are the verified shape (API-NOTES §5.5); paths follow ARCH §3 / R-08.
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { VitePWA } from 'vite-plugin-pwa';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -26,6 +27,33 @@ function gitSha(): string {
  * controls the page, About's licence links opened the app shell (T-092 review). scripts/check-dist.mjs asserts it.
  */
 export const NAVIGATE_FALLBACK_DENYLIST = [/^\/__\//, /\.md$/, /^\/vendor\//, /^\/models\//];
+
+/**
+ * DEV server only (apply: 'serve'): #/dev/nano POSTs its synthetic Nano report here, and it is written OUTSIDE the repo
+ * (PRIV/raw/nano-check.json) so Claude can read it without driving the user's Chrome. Accepts small JSON only.
+ */
+function devNanoReport(): Plugin {
+  return {
+    name: 'se-dev-nano-report',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/__se_dev/nano-report', (req, res) => {
+        if (req.method !== 'POST') { res.statusCode = 405; res.end(); return; }
+        let body = '';
+        req.on('data', (c: Buffer) => { body += c.toString('utf8'); if (body.length > 20_000) req.destroy(); });
+        req.on('end', () => {
+          try {
+            const parsed: unknown = JSON.parse(body);
+            mkdirSync(`${PRIV}/raw`, { recursive: true });
+            writeFileSync(`${PRIV}/raw/nano-check.json`, JSON.stringify(parsed, null, 2));
+            res.statusCode = 204;
+          } catch { res.statusCode = 400; }
+          res.end();
+        });
+      });
+    },
+  };
+}
 
 export default defineConfig(({ mode }) => {
   const spike = mode === 'development' && process.env.VITE_SPIKE === '1';
@@ -57,6 +85,7 @@ export default defineConfig(({ mode }) => {
       }
     : { fs: { allow: ['..'] } },
   plugins: [
+    devNanoReport(),
     react(),
     tailwindcss(),
     VitePWA({

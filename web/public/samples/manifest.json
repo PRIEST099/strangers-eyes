@@ -1,58 +1,58 @@
 {
   "version": 1,
   "placeholder": true,
-  "about": "Judge Mode samples (T-105). PLACEHOLDERS: drawn synthetic scenes and authored pass-B answers until the T-010 photos and recorded pass B replace them (RUNBOOK §6.2a). Coordinates are in the open-ocean test area.",
+  "about": "Judge Mode samples (D-153). CC0 photos of public places in Ljubljana from Wikimedia Commons (credits in SOURCES.md), with solid masks over people, adverts showing people and real number plates, and drawn props (a staff badge, a name-tag lunchbox). The pass-B answers are AUTHORED STAND-INS until live recordings replace them (RUNBOOK §6.2b). The fake-vault pins are in public places (a park and a square).",
   "fakeVault": {
     "homePin": {
-      "lat": 0.5,
-      "lng": -30.5
+      "lat": 46.054,
+      "lng": 14.516
     },
     "workPin": {
-      "lat": 0.53,
-      "lng": -30.46
+      "lat": 46.05,
+      "lng": 14.504
     }
   },
   "samples": [
     {
       "id": "judge-01",
-      "title": "Doorstep entrance (placeholder)",
+      "title": "Station forecourt, no text of yours",
       "placeholder": true,
       "image": "judge-01.jpg",
-      "imageSha256": "7d744e1756dc83f300b1921aaee4fde50bd81d7f43cf1e9953cc25fafd24dd1e",
+      "imageSha256": "808c117e3ffff1563a6006c7a4852cfc053fc27afeb91b4d2981a21e01e7c896",
       "nano768": "judge-01.nano768.jpg",
-      "nano768Sha256": "6ab0f2c1aec548ba7112f883a663a6abb81b2ab2d423a9aead65206ef564ed99",
+      "nano768Sha256": "aa3d97f4718a8bea7b182e37340b69383fe524e8499bb67bac65330437683de1",
       "cachedAdvB": "judge-01.advB.v1.json",
       "cachedAdvBFixed": "judge-01.advB.fixed.v1.json",
       "recordedAt": "2026-11-21",
-      "model": "placeholder (authored, not recorded)",
+      "model": "authored stand-in (live recording pending)",
       "expected": null
     },
     {
       "id": "judge-02",
-      "title": "Marketplace listing (placeholder)",
+      "title": "Bike-share path with a work badge",
       "placeholder": true,
       "image": "judge-02.jpg",
-      "imageSha256": "67062f77ca8b528317beca337fd480ab1c79d618b4b374b178a154c411a5f39c",
+      "imageSha256": "832e0787b9757963a74b9bd31288c9273468ae186ef3a7f28656ce9cbfca9dc7",
       "nano768": "judge-02.nano768.jpg",
-      "nano768Sha256": "a13164b0bad6b40aae03c371af83f036f53c22bcf783c40a0b62c2f0acf07b5e",
+      "nano768Sha256": "069f6e776b5553bac3aa640d9b2246eb4ac29d23ea07f2612e2fbe43b7bb7338",
       "cachedAdvB": "judge-02.advB.v1.json",
       "cachedAdvBFixed": "judge-02.advB.fixed.v1.json",
       "recordedAt": "2026-11-21",
-      "model": "placeholder (authored, not recorded)",
+      "model": "authored stand-in (live recording pending)",
       "expected": null
     },
     {
       "id": "judge-03",
-      "title": "Café table creator shot (placeholder)",
+      "title": "Castle view with a name-tag lunchbox",
       "placeholder": true,
       "image": "judge-03.jpg",
-      "imageSha256": "1b6d6fd9aa20bf061a7e5f85256741fd04493a69302b000b216b654cad8a5a23",
+      "imageSha256": "0cc8660d452669a5e484d05cf0b57232f5c678879043f8612ee38b9429c0a2ed",
       "nano768": "judge-03.nano768.jpg",
-      "nano768Sha256": "095c5b6f4dbbd0cc0ea718be9da50281e62092172c399e85eb10918e7717eeec",
+      "nano768Sha256": "c47d84f7daabd05887d9499e94f9664dfdb3bf9f55f07fab6c4c1f02aa463873",
       "cachedAdvB": "judge-03.advB.v1.json",
       "cachedAdvBFixed": "judge-03.advB.fixed.v1.json",
       "recordedAt": "2026-11-21",
-      "model": "placeholder (authored, not recorded)",
+      "model": "authored stand-in (live recording pending)",
       "expected": null
     }
   ]
