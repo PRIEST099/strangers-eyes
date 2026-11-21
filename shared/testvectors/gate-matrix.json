@@ -1,0 +1,2844 @@
+{
+  "description": "Egress Gate routing matrix (SPEC §5.3, §6, §7.1; ARCH §8.2; TASKS T-062). One row = one gate call. Shared by web/src/ai/egressGate.test.ts and the iOS EgressGate XCTest port (T-088).",
+  "conventions": [
+    "nano: the fresh availability() answer for the call (no-api = no LanguageModel global). nanoEnabled: Settings \"Use Gemini Nano\". simulateNoNano: the Developer simulation.",
+    "policy: entries merged over the bundled routing_policy default, then sent through effectivePolicy (so the hard floor applies); omitted = the bundled default.",
+    "config: AppConfig fields overridden (grounding, data tier). capUsed: cap = at the daily cap, cap-1 = one below. consent: missing | literal (not minted by the consent sheet) | expired. uid: null = anonymous sign-in failed.",
+    "spec: the model spec kind when it is not the job default (deviceJson for S0/S1 device jobs, explain for explain, judgeJson for S4 device jobs, adversaryB for pass B).",
+    "expect.route: the GateResult route, BLOCKED with expect.reason (GateBlocked), or ERROR with expect.error (GateError code). expect.sdk: a model was built. expect.cloud: a request reached the AI host. expect.mode: the inference mode the model was built with, when it matters.",
+    "The fake SDK runs PREFER_ON_DEVICE on the device when availability is \"available\" and in the cloud otherwise, as firebase/ai 3.1.0 does (API-NOTES §1.4)."
+  ],
+  "iosMapping": {
+    "modes": {
+      "ONLY_ON_DEVICE": "ON_DEVICE_SESSION: a FirebaseAI.SystemLanguageModel.default session, never inside a HybridModel",
+      "PREFER_ON_DEVICE": "HYBRID_MODEL: HybridModel(primary: system, secondary: Gemini)",
+      "ONLY_IN_CLOUD": "CLOUD: generativeModel (Gemini)",
+      "PREFER_IN_CLOUD": "CLOUD: runs as ONLY_IN_CLOUD (D-113)",
+      "RULES": "NONE: the deterministic path; no model is built"
+    },
+    "nano": {
+      "available": "SystemLanguageModel.default.isAvailable == true (checked fresh in the call)",
+      "no-api": "no on-device model API at all (FoundationModels absent, or a Simulator without Apple Intelligence): RULES-ONLY for S0/S1",
+      "unavailable": "availability .unavailable(.deviceNotEligible / .appleIntelligenceNotEnabled)",
+      "downloading": "availability .unavailable(.modelNotReady)",
+      "downloadable": "treated like downloading on iOS (no user-triggered download)"
+    },
+    "expectations": "route, reason and error are platform-neutral. expect.sdk = a model/session was created; expect.cloud = a request reached Firebase AI Logic. expect.mode uses the web names above."
+  },
+  "rows": [
+    {
+      "id": "S0-referee/ready/nokill/online",
+      "job": "referee",
+      "class": "S0",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "expect": {
+        "route": "ON_DEVICE",
+        "sdk": true,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S0-referee/ready/nokill/offline",
+      "job": "referee",
+      "class": "S0",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": false,
+      "expect": {
+        "route": "ON_DEVICE",
+        "sdk": true,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S0-referee/ready/kill/online",
+      "job": "referee",
+      "class": "S0",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": true,
+      "expect": {
+        "route": "ON_DEVICE",
+        "sdk": true,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S0-referee/ready/kill/offline",
+      "job": "referee",
+      "class": "S0",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": false,
+      "expect": {
+        "route": "ON_DEVICE",
+        "sdk": true,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S0-referee/absent/nokill/online",
+      "job": "referee",
+      "class": "S0",
+      "judge": false,
+      "nano": "no-api",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S0-referee/absent/nokill/offline",
+      "job": "referee",
+      "class": "S0",
+      "judge": false,
+      "nano": "no-api",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": false,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S0-referee/absent/kill/online",
+      "job": "referee",
+      "class": "S0",
+      "judge": false,
+      "nano": "no-api",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": true,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S0-referee/absent/kill/offline",
+      "job": "referee",
+      "class": "S0",
+      "judge": false,
+      "nano": "no-api",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": false,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S0-referee/downloading/nokill/online",
+      "job": "referee",
+      "class": "S0",
+      "judge": false,
+      "nano": "downloading",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S0-referee/downloading/nokill/offline",
+      "job": "referee",
+      "class": "S0",
+      "judge": false,
+      "nano": "downloading",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": false,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S0-referee/downloading/kill/online",
+      "job": "referee",
+      "class": "S0",
+      "judge": false,
+      "nano": "downloading",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": true,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S0-referee/downloading/kill/offline",
+      "job": "referee",
+      "class": "S0",
+      "judge": false,
+      "nano": "downloading",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": false,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S0-referee/off/nokill/online",
+      "job": "referee",
+      "class": "S0",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": false,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S0-referee/off/nokill/offline",
+      "job": "referee",
+      "class": "S0",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": false,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": false,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S0-referee/off/kill/online",
+      "job": "referee",
+      "class": "S0",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": false,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": true,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S0-referee/off/kill/offline",
+      "job": "referee",
+      "class": "S0",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": false,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": false,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S0-referee/simulated/nokill/online",
+      "job": "referee",
+      "class": "S0",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": true,
+      "killSwitch": false,
+      "online": true,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S0-referee/simulated/nokill/offline",
+      "job": "referee",
+      "class": "S0",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": true,
+      "killSwitch": false,
+      "online": false,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S0-referee/simulated/kill/online",
+      "job": "referee",
+      "class": "S0",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": true,
+      "killSwitch": true,
+      "online": true,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S0-referee/simulated/kill/offline",
+      "job": "referee",
+      "class": "S0",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": true,
+      "killSwitch": true,
+      "online": false,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S1-preScreen/ready/nokill/online",
+      "job": "preScreen",
+      "class": "S1",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "expect": {
+        "route": "ON_DEVICE",
+        "sdk": true,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S1-preScreen/ready/nokill/offline",
+      "job": "preScreen",
+      "class": "S1",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": false,
+      "expect": {
+        "route": "ON_DEVICE",
+        "sdk": true,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S1-preScreen/ready/kill/online",
+      "job": "preScreen",
+      "class": "S1",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": true,
+      "expect": {
+        "route": "ON_DEVICE",
+        "sdk": true,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S1-preScreen/ready/kill/offline",
+      "job": "preScreen",
+      "class": "S1",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": false,
+      "expect": {
+        "route": "ON_DEVICE",
+        "sdk": true,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S1-preScreen/absent/nokill/online",
+      "job": "preScreen",
+      "class": "S1",
+      "judge": false,
+      "nano": "no-api",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S1-preScreen/absent/nokill/offline",
+      "job": "preScreen",
+      "class": "S1",
+      "judge": false,
+      "nano": "no-api",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": false,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S1-preScreen/absent/kill/online",
+      "job": "preScreen",
+      "class": "S1",
+      "judge": false,
+      "nano": "no-api",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": true,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S1-preScreen/absent/kill/offline",
+      "job": "preScreen",
+      "class": "S1",
+      "judge": false,
+      "nano": "no-api",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": false,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S1-preScreen/downloading/nokill/online",
+      "job": "preScreen",
+      "class": "S1",
+      "judge": false,
+      "nano": "downloading",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S1-preScreen/downloading/nokill/offline",
+      "job": "preScreen",
+      "class": "S1",
+      "judge": false,
+      "nano": "downloading",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": false,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S1-preScreen/downloading/kill/online",
+      "job": "preScreen",
+      "class": "S1",
+      "judge": false,
+      "nano": "downloading",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": true,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S1-preScreen/downloading/kill/offline",
+      "job": "preScreen",
+      "class": "S1",
+      "judge": false,
+      "nano": "downloading",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": false,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S1-preScreen/off/nokill/online",
+      "job": "preScreen",
+      "class": "S1",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": false,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S1-preScreen/off/nokill/offline",
+      "job": "preScreen",
+      "class": "S1",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": false,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": false,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S1-preScreen/off/kill/online",
+      "job": "preScreen",
+      "class": "S1",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": false,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": true,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S1-preScreen/off/kill/offline",
+      "job": "preScreen",
+      "class": "S1",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": false,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": false,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S1-preScreen/simulated/nokill/online",
+      "job": "preScreen",
+      "class": "S1",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": true,
+      "killSwitch": false,
+      "online": true,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S1-preScreen/simulated/nokill/offline",
+      "job": "preScreen",
+      "class": "S1",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": true,
+      "killSwitch": false,
+      "online": false,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S1-preScreen/simulated/kill/online",
+      "job": "preScreen",
+      "class": "S1",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": true,
+      "killSwitch": true,
+      "online": true,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S1-preScreen/simulated/kill/offline",
+      "job": "preScreen",
+      "class": "S1",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": true,
+      "killSwitch": true,
+      "online": false,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S2-explain/ready/nokill/online",
+      "job": "explain",
+      "class": "S2",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "expect": {
+        "route": "ON_DEVICE",
+        "sdk": true,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S2-explain/ready/nokill/offline",
+      "job": "explain",
+      "class": "S2",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": false,
+      "expect": {
+        "route": "ON_DEVICE",
+        "sdk": true,
+        "cloud": false,
+        "mode": "ONLY_ON_DEVICE"
+      }
+    },
+    {
+      "id": "S2-explain/ready/kill/online",
+      "job": "explain",
+      "class": "S2",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": true,
+      "expect": {
+        "route": "ON_DEVICE",
+        "sdk": true,
+        "cloud": false,
+        "mode": "ONLY_ON_DEVICE"
+      }
+    },
+    {
+      "id": "S2-explain/ready/kill/offline",
+      "job": "explain",
+      "class": "S2",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": false,
+      "expect": {
+        "route": "ON_DEVICE",
+        "sdk": true,
+        "cloud": false,
+        "mode": "ONLY_ON_DEVICE"
+      }
+    },
+    {
+      "id": "S2-explain/absent/nokill/online",
+      "job": "explain",
+      "class": "S2",
+      "judge": false,
+      "nano": "no-api",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "expect": {
+        "route": "IN_CLOUD",
+        "sdk": true,
+        "cloud": true,
+        "mode": "PREFER_ON_DEVICE"
+      }
+    },
+    {
+      "id": "S2-explain/absent/nokill/offline",
+      "job": "explain",
+      "class": "S2",
+      "judge": false,
+      "nano": "no-api",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": false,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S2-explain/absent/kill/online",
+      "job": "explain",
+      "class": "S2",
+      "judge": false,
+      "nano": "no-api",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": true,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S2-explain/absent/kill/offline",
+      "job": "explain",
+      "class": "S2",
+      "judge": false,
+      "nano": "no-api",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": false,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S2-explain/downloading/nokill/online",
+      "job": "explain",
+      "class": "S2",
+      "judge": false,
+      "nano": "downloading",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "expect": {
+        "route": "IN_CLOUD",
+        "sdk": true,
+        "cloud": true,
+        "mode": "PREFER_ON_DEVICE"
+      }
+    },
+    {
+      "id": "S2-explain/downloading/nokill/offline",
+      "job": "explain",
+      "class": "S2",
+      "judge": false,
+      "nano": "downloading",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": false,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S2-explain/downloading/kill/online",
+      "job": "explain",
+      "class": "S2",
+      "judge": false,
+      "nano": "downloading",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": true,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S2-explain/downloading/kill/offline",
+      "job": "explain",
+      "class": "S2",
+      "judge": false,
+      "nano": "downloading",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": false,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S2-explain/off/nokill/online",
+      "job": "explain",
+      "class": "S2",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": false,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "expect": {
+        "route": "IN_CLOUD",
+        "sdk": true,
+        "cloud": true,
+        "mode": "ONLY_IN_CLOUD"
+      }
+    },
+    {
+      "id": "S2-explain/off/nokill/offline",
+      "job": "explain",
+      "class": "S2",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": false,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": false,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S2-explain/off/kill/online",
+      "job": "explain",
+      "class": "S2",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": false,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": true,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S2-explain/off/kill/offline",
+      "job": "explain",
+      "class": "S2",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": false,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": false,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S2-explain/simulated/nokill/online",
+      "job": "explain",
+      "class": "S2",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": true,
+      "killSwitch": false,
+      "online": true,
+      "expect": {
+        "route": "IN_CLOUD",
+        "sdk": true,
+        "cloud": true,
+        "mode": "ONLY_IN_CLOUD"
+      }
+    },
+    {
+      "id": "S2-explain/simulated/nokill/offline",
+      "job": "explain",
+      "class": "S2",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": true,
+      "killSwitch": false,
+      "online": false,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S2-explain/simulated/kill/online",
+      "job": "explain",
+      "class": "S2",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": true,
+      "killSwitch": true,
+      "online": true,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S2-explain/simulated/kill/offline",
+      "job": "explain",
+      "class": "S2",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": true,
+      "killSwitch": true,
+      "online": false,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S3-adversaryB/ready/nokill/online",
+      "job": "adversaryB",
+      "class": "S3",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "expect": {
+        "route": "IN_CLOUD",
+        "sdk": true,
+        "cloud": true
+      }
+    },
+    {
+      "id": "S3-adversaryB/ready/nokill/offline",
+      "job": "adversaryB",
+      "class": "S3",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": false,
+      "expect": {
+        "route": "BLOCKED",
+        "reason": "OFFLINE",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S3-adversaryB/ready/kill/online",
+      "job": "adversaryB",
+      "class": "S3",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": true,
+      "expect": {
+        "route": "BLOCKED",
+        "reason": "KILL_SWITCH",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S3-adversaryB/ready/kill/offline",
+      "job": "adversaryB",
+      "class": "S3",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": false,
+      "expect": {
+        "route": "BLOCKED",
+        "reason": "KILL_SWITCH",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S3-adversaryB/absent/nokill/online",
+      "job": "adversaryB",
+      "class": "S3",
+      "judge": false,
+      "nano": "no-api",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "expect": {
+        "route": "IN_CLOUD",
+        "sdk": true,
+        "cloud": true
+      }
+    },
+    {
+      "id": "S3-adversaryB/absent/nokill/offline",
+      "job": "adversaryB",
+      "class": "S3",
+      "judge": false,
+      "nano": "no-api",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": false,
+      "expect": {
+        "route": "BLOCKED",
+        "reason": "OFFLINE",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S3-adversaryB/absent/kill/online",
+      "job": "adversaryB",
+      "class": "S3",
+      "judge": false,
+      "nano": "no-api",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": true,
+      "expect": {
+        "route": "BLOCKED",
+        "reason": "KILL_SWITCH",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S3-adversaryB/absent/kill/offline",
+      "job": "adversaryB",
+      "class": "S3",
+      "judge": false,
+      "nano": "no-api",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": false,
+      "expect": {
+        "route": "BLOCKED",
+        "reason": "KILL_SWITCH",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S3-adversaryB/downloading/nokill/online",
+      "job": "adversaryB",
+      "class": "S3",
+      "judge": false,
+      "nano": "downloading",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "expect": {
+        "route": "IN_CLOUD",
+        "sdk": true,
+        "cloud": true
+      }
+    },
+    {
+      "id": "S3-adversaryB/downloading/nokill/offline",
+      "job": "adversaryB",
+      "class": "S3",
+      "judge": false,
+      "nano": "downloading",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": false,
+      "expect": {
+        "route": "BLOCKED",
+        "reason": "OFFLINE",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S3-adversaryB/downloading/kill/online",
+      "job": "adversaryB",
+      "class": "S3",
+      "judge": false,
+      "nano": "downloading",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": true,
+      "expect": {
+        "route": "BLOCKED",
+        "reason": "KILL_SWITCH",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S3-adversaryB/downloading/kill/offline",
+      "job": "adversaryB",
+      "class": "S3",
+      "judge": false,
+      "nano": "downloading",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": false,
+      "expect": {
+        "route": "BLOCKED",
+        "reason": "KILL_SWITCH",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S3-adversaryB/off/nokill/online",
+      "job": "adversaryB",
+      "class": "S3",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": false,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "expect": {
+        "route": "IN_CLOUD",
+        "sdk": true,
+        "cloud": true
+      }
+    },
+    {
+      "id": "S3-adversaryB/off/nokill/offline",
+      "job": "adversaryB",
+      "class": "S3",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": false,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": false,
+      "expect": {
+        "route": "BLOCKED",
+        "reason": "OFFLINE",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S3-adversaryB/off/kill/online",
+      "job": "adversaryB",
+      "class": "S3",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": false,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": true,
+      "expect": {
+        "route": "BLOCKED",
+        "reason": "KILL_SWITCH",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S3-adversaryB/off/kill/offline",
+      "job": "adversaryB",
+      "class": "S3",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": false,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": false,
+      "expect": {
+        "route": "BLOCKED",
+        "reason": "KILL_SWITCH",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S3-adversaryB/simulated/nokill/online",
+      "job": "adversaryB",
+      "class": "S3",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": true,
+      "killSwitch": false,
+      "online": true,
+      "expect": {
+        "route": "IN_CLOUD",
+        "sdk": true,
+        "cloud": true
+      }
+    },
+    {
+      "id": "S3-adversaryB/simulated/nokill/offline",
+      "job": "adversaryB",
+      "class": "S3",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": true,
+      "killSwitch": false,
+      "online": false,
+      "expect": {
+        "route": "BLOCKED",
+        "reason": "OFFLINE",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S3-adversaryB/simulated/kill/online",
+      "job": "adversaryB",
+      "class": "S3",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": true,
+      "killSwitch": true,
+      "online": true,
+      "expect": {
+        "route": "BLOCKED",
+        "reason": "KILL_SWITCH",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S3-adversaryB/simulated/kill/offline",
+      "job": "adversaryB",
+      "class": "S3",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": true,
+      "killSwitch": true,
+      "online": false,
+      "expect": {
+        "route": "BLOCKED",
+        "reason": "KILL_SWITCH",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S4-referee/ready/nokill/online",
+      "job": "referee",
+      "class": "S4",
+      "judge": true,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "expect": {
+        "route": "ON_DEVICE",
+        "sdk": true,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S4-referee/ready/nokill/offline",
+      "job": "referee",
+      "class": "S4",
+      "judge": true,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": false,
+      "expect": {
+        "route": "ON_DEVICE",
+        "sdk": true,
+        "cloud": false,
+        "mode": "ONLY_ON_DEVICE"
+      }
+    },
+    {
+      "id": "S4-referee/ready/kill/online",
+      "job": "referee",
+      "class": "S4",
+      "judge": true,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": true,
+      "expect": {
+        "route": "ON_DEVICE",
+        "sdk": true,
+        "cloud": false,
+        "mode": "ONLY_ON_DEVICE"
+      }
+    },
+    {
+      "id": "S4-referee/ready/kill/offline",
+      "job": "referee",
+      "class": "S4",
+      "judge": true,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": false,
+      "expect": {
+        "route": "ON_DEVICE",
+        "sdk": true,
+        "cloud": false,
+        "mode": "ONLY_ON_DEVICE"
+      }
+    },
+    {
+      "id": "S4-referee/absent/nokill/online",
+      "job": "referee",
+      "class": "S4",
+      "judge": true,
+      "nano": "no-api",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "expect": {
+        "route": "IN_CLOUD",
+        "sdk": true,
+        "cloud": true,
+        "mode": "PREFER_ON_DEVICE"
+      }
+    },
+    {
+      "id": "S4-referee/absent/nokill/offline",
+      "job": "referee",
+      "class": "S4",
+      "judge": true,
+      "nano": "no-api",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": false,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S4-referee/absent/kill/online",
+      "job": "referee",
+      "class": "S4",
+      "judge": true,
+      "nano": "no-api",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": true,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S4-referee/absent/kill/offline",
+      "job": "referee",
+      "class": "S4",
+      "judge": true,
+      "nano": "no-api",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": false,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S4-referee/downloading/nokill/online",
+      "job": "referee",
+      "class": "S4",
+      "judge": true,
+      "nano": "downloading",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "expect": {
+        "route": "IN_CLOUD",
+        "sdk": true,
+        "cloud": true,
+        "mode": "PREFER_ON_DEVICE"
+      }
+    },
+    {
+      "id": "S4-referee/downloading/nokill/offline",
+      "job": "referee",
+      "class": "S4",
+      "judge": true,
+      "nano": "downloading",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": false,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S4-referee/downloading/kill/online",
+      "job": "referee",
+      "class": "S4",
+      "judge": true,
+      "nano": "downloading",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": true,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S4-referee/downloading/kill/offline",
+      "job": "referee",
+      "class": "S4",
+      "judge": true,
+      "nano": "downloading",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": false,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S4-referee/off/nokill/online",
+      "job": "referee",
+      "class": "S4",
+      "judge": true,
+      "nano": "available",
+      "nanoEnabled": false,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "expect": {
+        "route": "IN_CLOUD",
+        "sdk": true,
+        "cloud": true,
+        "mode": "ONLY_IN_CLOUD"
+      }
+    },
+    {
+      "id": "S4-referee/off/nokill/offline",
+      "job": "referee",
+      "class": "S4",
+      "judge": true,
+      "nano": "available",
+      "nanoEnabled": false,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": false,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S4-referee/off/kill/online",
+      "job": "referee",
+      "class": "S4",
+      "judge": true,
+      "nano": "available",
+      "nanoEnabled": false,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": true,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S4-referee/off/kill/offline",
+      "job": "referee",
+      "class": "S4",
+      "judge": true,
+      "nano": "available",
+      "nanoEnabled": false,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": false,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S4-referee/simulated/nokill/online",
+      "job": "referee",
+      "class": "S4",
+      "judge": true,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": true,
+      "killSwitch": false,
+      "online": true,
+      "expect": {
+        "route": "IN_CLOUD",
+        "sdk": true,
+        "cloud": true,
+        "mode": "ONLY_IN_CLOUD"
+      }
+    },
+    {
+      "id": "S4-referee/simulated/nokill/offline",
+      "job": "referee",
+      "class": "S4",
+      "judge": true,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": true,
+      "killSwitch": false,
+      "online": false,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S4-referee/simulated/kill/online",
+      "job": "referee",
+      "class": "S4",
+      "judge": true,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": true,
+      "killSwitch": true,
+      "online": true,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S4-referee/simulated/kill/offline",
+      "job": "referee",
+      "class": "S4",
+      "judge": true,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": true,
+      "killSwitch": true,
+      "online": false,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S4-explain/ready/nokill/online",
+      "job": "explain",
+      "class": "S4",
+      "judge": true,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "expect": {
+        "route": "ON_DEVICE",
+        "sdk": true,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S4-explain/ready/nokill/offline",
+      "job": "explain",
+      "class": "S4",
+      "judge": true,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": false,
+      "expect": {
+        "route": "ON_DEVICE",
+        "sdk": true,
+        "cloud": false,
+        "mode": "ONLY_ON_DEVICE"
+      }
+    },
+    {
+      "id": "S4-explain/ready/kill/online",
+      "job": "explain",
+      "class": "S4",
+      "judge": true,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": true,
+      "expect": {
+        "route": "ON_DEVICE",
+        "sdk": true,
+        "cloud": false,
+        "mode": "ONLY_ON_DEVICE"
+      }
+    },
+    {
+      "id": "S4-explain/ready/kill/offline",
+      "job": "explain",
+      "class": "S4",
+      "judge": true,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": false,
+      "expect": {
+        "route": "ON_DEVICE",
+        "sdk": true,
+        "cloud": false,
+        "mode": "ONLY_ON_DEVICE"
+      }
+    },
+    {
+      "id": "S4-explain/absent/nokill/online",
+      "job": "explain",
+      "class": "S4",
+      "judge": true,
+      "nano": "no-api",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "expect": {
+        "route": "IN_CLOUD",
+        "sdk": true,
+        "cloud": true,
+        "mode": "PREFER_ON_DEVICE"
+      }
+    },
+    {
+      "id": "S4-explain/absent/nokill/offline",
+      "job": "explain",
+      "class": "S4",
+      "judge": true,
+      "nano": "no-api",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": false,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S4-explain/absent/kill/online",
+      "job": "explain",
+      "class": "S4",
+      "judge": true,
+      "nano": "no-api",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": true,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S4-explain/absent/kill/offline",
+      "job": "explain",
+      "class": "S4",
+      "judge": true,
+      "nano": "no-api",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": false,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S4-explain/downloading/nokill/online",
+      "job": "explain",
+      "class": "S4",
+      "judge": true,
+      "nano": "downloading",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "expect": {
+        "route": "IN_CLOUD",
+        "sdk": true,
+        "cloud": true,
+        "mode": "PREFER_ON_DEVICE"
+      }
+    },
+    {
+      "id": "S4-explain/downloading/nokill/offline",
+      "job": "explain",
+      "class": "S4",
+      "judge": true,
+      "nano": "downloading",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": false,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S4-explain/downloading/kill/online",
+      "job": "explain",
+      "class": "S4",
+      "judge": true,
+      "nano": "downloading",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": true,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S4-explain/downloading/kill/offline",
+      "job": "explain",
+      "class": "S4",
+      "judge": true,
+      "nano": "downloading",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": false,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S4-explain/off/nokill/online",
+      "job": "explain",
+      "class": "S4",
+      "judge": true,
+      "nano": "available",
+      "nanoEnabled": false,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "expect": {
+        "route": "IN_CLOUD",
+        "sdk": true,
+        "cloud": true,
+        "mode": "ONLY_IN_CLOUD"
+      }
+    },
+    {
+      "id": "S4-explain/off/nokill/offline",
+      "job": "explain",
+      "class": "S4",
+      "judge": true,
+      "nano": "available",
+      "nanoEnabled": false,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": false,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S4-explain/off/kill/online",
+      "job": "explain",
+      "class": "S4",
+      "judge": true,
+      "nano": "available",
+      "nanoEnabled": false,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": true,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S4-explain/off/kill/offline",
+      "job": "explain",
+      "class": "S4",
+      "judge": true,
+      "nano": "available",
+      "nanoEnabled": false,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": false,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S4-explain/simulated/nokill/online",
+      "job": "explain",
+      "class": "S4",
+      "judge": true,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": true,
+      "killSwitch": false,
+      "online": true,
+      "expect": {
+        "route": "IN_CLOUD",
+        "sdk": true,
+        "cloud": true,
+        "mode": "ONLY_IN_CLOUD"
+      }
+    },
+    {
+      "id": "S4-explain/simulated/nokill/offline",
+      "job": "explain",
+      "class": "S4",
+      "judge": true,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": true,
+      "killSwitch": false,
+      "online": false,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S4-explain/simulated/kill/online",
+      "job": "explain",
+      "class": "S4",
+      "judge": true,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": true,
+      "killSwitch": true,
+      "online": true,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S4-explain/simulated/kill/offline",
+      "job": "explain",
+      "class": "S4",
+      "judge": true,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": true,
+      "killSwitch": true,
+      "online": false,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "policy-a/S3-cloud-false",
+      "job": "adversaryB",
+      "class": "S3",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "policy": {
+        "classes": {
+          "S3": {
+            "cloud": false
+          }
+        }
+      },
+      "expect": {
+        "route": "BLOCKED",
+        "reason": "KILL_SWITCH",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "policy-a/S2-cloud-false-absent",
+      "job": "explain",
+      "class": "S2",
+      "judge": false,
+      "nano": "no-api",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "policy": {
+        "classes": {
+          "S2": {
+            "cloud": false
+          }
+        }
+      },
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "policy-a/S2-cloud-false-ready",
+      "job": "explain",
+      "class": "S2",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "policy": {
+        "classes": {
+          "S2": {
+            "cloud": false
+          }
+        }
+      },
+      "expect": {
+        "route": "ON_DEVICE",
+        "sdk": true,
+        "cloud": false,
+        "mode": "ONLY_ON_DEVICE"
+      }
+    },
+    {
+      "id": "policy-a/S4-cloud-false-absent",
+      "job": "referee",
+      "class": "S4",
+      "judge": true,
+      "nano": "no-api",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "policy": {
+        "classes": {
+          "S4": {
+            "cloud": false
+          }
+        }
+      },
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "policy-b/S2-only-on-device-absent",
+      "job": "explain",
+      "class": "S2",
+      "judge": false,
+      "nano": "no-api",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "policy": {
+        "classes": {
+          "S2": {
+            "web": "ONLY_ON_DEVICE"
+          }
+        }
+      },
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "policy-b/S4-only-on-device-absent",
+      "job": "referee",
+      "class": "S4",
+      "judge": true,
+      "nano": "no-api",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "policy": {
+        "classes": {
+          "S4": {
+            "web": "ONLY_ON_DEVICE"
+          }
+        }
+      },
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "policy-b/S2-only-on-device-ready",
+      "job": "explain",
+      "class": "S2",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "policy": {
+        "classes": {
+          "S2": {
+            "web": "ONLY_ON_DEVICE"
+          }
+        }
+      },
+      "expect": {
+        "route": "ON_DEVICE",
+        "sdk": true,
+        "cloud": false,
+        "mode": "ONLY_ON_DEVICE"
+      }
+    },
+    {
+      "id": "policy-b/S2-prefer-in-cloud",
+      "job": "explain",
+      "class": "S2",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "policy": {
+        "classes": {
+          "S2": {
+            "web": "PREFER_IN_CLOUD"
+          }
+        }
+      },
+      "expect": {
+        "route": "IN_CLOUD",
+        "sdk": true,
+        "cloud": true,
+        "mode": "ONLY_IN_CLOUD"
+      }
+    },
+    {
+      "id": "policy-c/explain-S0-deviceText-ready",
+      "job": "explain",
+      "class": "S0",
+      "spec": "deviceText",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "policy": {
+        "jobs": {
+          "explain": "S0"
+        }
+      },
+      "expect": {
+        "route": "ON_DEVICE",
+        "sdk": true,
+        "cloud": false
+      }
+    },
+    {
+      "id": "policy-c/explain-S0-deviceText-absent",
+      "job": "explain",
+      "class": "S0",
+      "spec": "deviceText",
+      "judge": false,
+      "nano": "no-api",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "policy": {
+        "jobs": {
+          "explain": "S0"
+        }
+      },
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "policy-c/explain-S0-explain-spec",
+      "job": "explain",
+      "class": "S0",
+      "spec": "explain",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "policy": {
+        "jobs": {
+          "explain": "S0"
+        }
+      },
+      "expect": {
+        "route": "BLOCKED",
+        "reason": "CLASS_MISMATCH",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "policy-c/explain-S2-after-tightening",
+      "job": "explain",
+      "class": "S2",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "policy": {
+        "jobs": {
+          "explain": "S0"
+        }
+      },
+      "expect": {
+        "route": "BLOCKED",
+        "reason": "CLASS_MISMATCH",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "floor/S0-cloud-true-absent",
+      "job": "referee",
+      "class": "S0",
+      "judge": false,
+      "nano": "no-api",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "policy": {
+        "classes": {
+          "S0": {
+            "web": "PREFER_ON_DEVICE",
+            "cloud": true,
+            "noModel": "CLOUD"
+          }
+        }
+      },
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "floor/S1-only-in-cloud-ready",
+      "job": "preScreen",
+      "class": "S1",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "policy": {
+        "classes": {
+          "S1": {
+            "web": "ONLY_IN_CLOUD",
+            "cloud": true
+          }
+        }
+      },
+      "expect": {
+        "route": "ON_DEVICE",
+        "sdk": true,
+        "cloud": false
+      }
+    },
+    {
+      "id": "floor/referee-moved-to-S2",
+      "job": "referee",
+      "class": "S0",
+      "judge": false,
+      "nano": "no-api",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "policy": {
+        "jobs": {
+          "referee": "S2"
+        }
+      },
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "floor/S3-web-prefer-on-device",
+      "job": "adversaryB",
+      "class": "S3",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "policy": {
+        "classes": {
+          "S3": {
+            "web": "PREFER_ON_DEVICE"
+          }
+        }
+      },
+      "expect": {
+        "route": "IN_CLOUD",
+        "sdk": true,
+        "cloud": true
+      }
+    },
+    {
+      "id": "S3-adversaryA/ready/nokill/online",
+      "job": "adversaryA",
+      "class": "S3",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "expect": {
+        "route": "IN_CLOUD",
+        "sdk": true,
+        "cloud": true
+      }
+    },
+    {
+      "id": "S3-adversaryA/ready/kill/online",
+      "job": "adversaryA",
+      "class": "S3",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": true,
+      "expect": {
+        "route": "BLOCKED",
+        "reason": "KILL_SWITCH",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S3-adversaryA/ready/nokill/offline",
+      "job": "adversaryA",
+      "class": "S3",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": false,
+      "expect": {
+        "route": "BLOCKED",
+        "reason": "OFFLINE",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S4-preScreen/ready/nokill/online",
+      "job": "preScreen",
+      "class": "S4",
+      "judge": true,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "expect": {
+        "route": "ON_DEVICE",
+        "sdk": true,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S4-preScreen/ready/kill/online",
+      "job": "preScreen",
+      "class": "S4",
+      "judge": true,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": true,
+      "expect": {
+        "route": "ON_DEVICE",
+        "sdk": true,
+        "cloud": false,
+        "mode": "ONLY_ON_DEVICE"
+      }
+    },
+    {
+      "id": "S4-preScreen/ready/nokill/offline",
+      "job": "preScreen",
+      "class": "S4",
+      "judge": true,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": false,
+      "expect": {
+        "route": "ON_DEVICE",
+        "sdk": true,
+        "cloud": false,
+        "mode": "ONLY_ON_DEVICE"
+      }
+    },
+    {
+      "id": "S4-preScreen/absent/nokill/online",
+      "job": "preScreen",
+      "class": "S4",
+      "judge": true,
+      "nano": "no-api",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "expect": {
+        "route": "IN_CLOUD",
+        "sdk": true,
+        "cloud": true
+      }
+    },
+    {
+      "id": "S4-preScreen/absent/kill/online",
+      "job": "preScreen",
+      "class": "S4",
+      "judge": true,
+      "nano": "no-api",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": true,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S4-preScreen/absent/nokill/offline",
+      "job": "preScreen",
+      "class": "S4",
+      "judge": true,
+      "nano": "no-api",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": false,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S4-preScreen/off/nokill/online",
+      "job": "preScreen",
+      "class": "S4",
+      "judge": true,
+      "nano": "available",
+      "nanoEnabled": false,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "expect": {
+        "route": "IN_CLOUD",
+        "sdk": true,
+        "cloud": true
+      }
+    },
+    {
+      "id": "S4-preScreen/off/kill/online",
+      "job": "preScreen",
+      "class": "S4",
+      "judge": true,
+      "nano": "available",
+      "nanoEnabled": false,
+      "simulateNoNano": false,
+      "killSwitch": true,
+      "online": true,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "S4-preScreen/off/nokill/offline",
+      "job": "preScreen",
+      "class": "S4",
+      "judge": true,
+      "nano": "available",
+      "nanoEnabled": false,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": false,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "grounding-off/adversaryA",
+      "job": "adversaryA",
+      "class": "S3",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "config": {
+        "groundingEnabled": false,
+        "dataTier": "free"
+      },
+      "expect": {
+        "route": "ERROR",
+        "error": "GROUNDING_OFF",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "grounding-off/adversaryB-still-runs",
+      "job": "adversaryB",
+      "class": "S3",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "config": {
+        "groundingEnabled": false,
+        "dataTier": "free"
+      },
+      "expect": {
+        "route": "IN_CLOUD",
+        "sdk": true,
+        "cloud": true
+      }
+    },
+    {
+      "id": "cap/adversaryB-at-cap",
+      "job": "adversaryB",
+      "class": "S3",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "capUsed": "cap",
+      "expect": {
+        "route": "BLOCKED",
+        "reason": "DAILY_CAP",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "cap/adversaryB-below-cap",
+      "job": "adversaryB",
+      "class": "S3",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "capUsed": "cap-1",
+      "expect": {
+        "route": "IN_CLOUD",
+        "sdk": true,
+        "cloud": true
+      }
+    },
+    {
+      "id": "consent/missing",
+      "job": "adversaryB",
+      "class": "S3",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "consent": "missing",
+      "expect": {
+        "route": "BLOCKED",
+        "reason": "NO_CONSENT",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "consent/not-minted",
+      "job": "adversaryB",
+      "class": "S3",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "consent": "literal",
+      "expect": {
+        "route": "BLOCKED",
+        "reason": "NO_CONSENT",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "consent/expired",
+      "job": "adversaryB",
+      "class": "S3",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "consent": "expired",
+      "expect": {
+        "route": "BLOCKED",
+        "reason": "NO_CONSENT",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "auth/S3-signin-failed",
+      "job": "adversaryB",
+      "class": "S3",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "uid": null,
+      "expect": {
+        "route": "ERROR",
+        "error": "CLOUD_AUTH",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "auth/S2-signin-failed-ready",
+      "job": "explain",
+      "class": "S2",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "uid": null,
+      "expect": {
+        "route": "ON_DEVICE",
+        "sdk": true,
+        "cloud": false,
+        "mode": "ONLY_ON_DEVICE"
+      }
+    },
+    {
+      "id": "auth/S2-signin-failed-absent",
+      "job": "explain",
+      "class": "S2",
+      "judge": false,
+      "nano": "no-api",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "uid": null,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "auth/S4-signin-failed-absent",
+      "job": "referee",
+      "class": "S4",
+      "judge": true,
+      "nano": "no-api",
+      "nanoEnabled": true,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "uid": null,
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "policy-a/S2-cloud-false-nano-off",
+      "job": "explain",
+      "class": "S2",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": false,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "policy": {
+        "classes": {
+          "S2": {
+            "cloud": false
+          }
+        }
+      },
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "policy-b/S2-only-on-device-nano-off",
+      "job": "explain",
+      "class": "S2",
+      "judge": false,
+      "nano": "available",
+      "nanoEnabled": false,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "policy": {
+        "classes": {
+          "S2": {
+            "web": "ONLY_ON_DEVICE"
+          }
+        }
+      },
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "policy-b/S4-only-on-device-simulated",
+      "job": "referee",
+      "class": "S4",
+      "judge": true,
+      "nano": "available",
+      "nanoEnabled": true,
+      "simulateNoNano": true,
+      "killSwitch": false,
+      "online": true,
+      "policy": {
+        "classes": {
+          "S4": {
+            "web": "ONLY_ON_DEVICE"
+          }
+        }
+      },
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    },
+    {
+      "id": "policy-a/S4-cloud-false-nano-off",
+      "job": "referee",
+      "class": "S4",
+      "judge": true,
+      "nano": "available",
+      "nanoEnabled": false,
+      "simulateNoNano": false,
+      "killSwitch": false,
+      "online": true,
+      "policy": {
+        "classes": {
+          "S4": {
+            "cloud": false
+          }
+        }
+      },
+      "expect": {
+        "route": "RULES_ONLY",
+        "sdk": false,
+        "cloud": false
+      }
+    }
+  ]
+}

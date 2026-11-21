@@ -194,12 +194,14 @@ export function deviceTextModel(ai: AI): GenerativeModel {
 
 /**
  * S4 Judge Mode, generic over the device jobs (preScreen, vaultTextMatch, referee, fixPlan): the same schema on the
- * device and in the cloud, PREFER_ON_DEVICE so judges without Nano get a real cloud fallback.
+ * device and in the cloud, PREFER_ON_DEVICE so judges without Nano get a real cloud fallback. `mode` is
+ * ONLY_IN_CLOUD when the user turned Nano off (AC-277; the gate passes it, T-062), as for explainModel.
  */
-export function judgeJsonModel(ai: AI, io: NanoIo, schema: object, cloud: CloudParams): GenerativeModel {
+export function judgeJsonModel(ai: AI, io: NanoIo, schema: object, cloud: CloudParams, mode: ExplainMode = CLASS_MODE.S4): GenerativeModel {
+  if (mode !== InferenceMode.PREFER_ON_DEVICE && mode !== InferenceMode.ONLY_IN_CLOUD) throw new RangeError('judgeJsonModel: mode must be PREFER_ON_DEVICE or ONLY_IN_CLOUD');
   checkCloud(cloud, EXPLAIN_THINKING_LEVELS);
   return getGenerativeModel(ai, {
-    mode: CLASS_MODE.S4,
+    mode,
     onDeviceParams: { createOptions: ioOptions(io), promptOptions: { responseConstraint: plainSchema(schema) } },
     inCloudParams: {
       model: cloud.model,
