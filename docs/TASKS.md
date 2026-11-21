@@ -1115,7 +1115,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
     - after a BREACH: S0/S1 and S2/S4 return RULES_ONLY, S3 is BLOCKED `TRIPWIRE` with no fetch, and the breaching call has exactly one BLOCKED `TRIPWIRE` Ledger entry (AC-022).
     - Then `node scripts/check-boundaries.mjs` (AC-025).
 
-- [ ] T-063 [CLAUDE] Cloud Ledger and "What the cloud saw". Due: Mon Nov 23 · Deps: T-062 · AC: AC-045, AC-210, AC-211, AC-212, AC-213, AC-230, AC-231
+- [ ] T-063 [CLAUDE] Cloud Ledger and "What the cloud saw". Due: Mon Nov 23 · Deps: T-062 · AC: AC-045, AC-210, AC-211, AC-212, AC-213, AC-230, AC-231 (**Minimal demo-path version built Nov 21, not ticked:** D-148, F-221. In memory only (no `se-ledger`); `core/ledgerView.ts` counters/receipt/cloud-send pick, `core/ledgerImages.ts` (consented JPEGs keyed by their own sha256, AC-230), `ui/hud/useLedger.ts`, live `LedgerPanel` (counters, What the cloud saw with sha prefix = consent sheet, prompt id, entries), Settings Usage counters + Copy receipt. Tests: `core/ledgerView.test.ts`, `core/ledgerImages.test.ts`. **Open:** persistence, receipt download, session filter, per-entry gate checks, Burn vault clearing the in-memory ledger, AC-211 with real calls, AC-213 manual.)
   - Read: SPEC SCR-13, SCR-15; ARCH §8.6, §16.3
   - Files: `web/src/core/ledger.ts` (unsealed, in its own IndexedDB database `se-ledger`/`entries`, newest 500 entries, IDs/kinds/hashes/numbers only, **never Firestore**; ARCH §8.6, §16.3), `web/src/ui/components/{LedgerPanel,CloudSawToggle}.tsx`.
   - Do:
@@ -1125,7 +1125,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
     - The toggle shows the exact blob of the most recent send. The selector for earlier sends is P1 (D-33).
   - Verify: a unit test scans the serialised ledger and receipt for fixture vault strings; in T-085 the counters equal the captured requests.
 
-- [ ] T-064 [CLAUDE] Router HUD. Due: Mon Nov 23 · Deps: T-062 · AC: AC-026, AC-220, AC-221, AC-222
+- [ ] T-064 [CLAUDE] Router HUD. Due: Mon Nov 23 · Deps: T-062 · AC: AC-026, AC-220, AC-221, AC-222 (**Calls tab built Nov 21, not ticked:** D-149, F-222. Live lines from the Ledger (AC-220 unit in `core/ledgerView.test.ts`), pill = last call, 40 px. Browser (fakes): pre-screen ON-DEVICE, pass B IN CLOUD, referee ON-DEVICE with latencies. **Open:** Policy tab (AC-026), Tier-0 and no-call rules-referee lines, AC-221 with real Nano/cloud, AC-222 375 px screenshot.)
   - Read: SPEC SCR-14
   - Files: `web/src/ui/components/RouterHUD.tsx`.
   - Do:

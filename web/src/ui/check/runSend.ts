@@ -10,6 +10,7 @@ import { runPreflight, type DryRun } from '../../ai/preflight';
 import { vaultScan } from '../../ai/vaultScan';
 import type { OutgoingImage } from '../../ai/egressGate';
 import { buildFrameJpeg } from '../../core/frames';
+import { sentImages } from '../../core/ledgerImages';
 import { refereeClaims, refereeVaultItems, rulesReferee } from '../../core/referee';
 import type { AdversaryResult, ConsentToken, PxRect, VaultItem } from '../../core/types';
 import { FACE_DETECT_TIMEOUT_MS, FACE_LOAD_TIMEOUT_MS, vaultIndexReady, withTimeout } from './runPrescreen';
@@ -67,6 +68,9 @@ export async function consentTo(dry: DryRun, sessionId: string): Promise<SentIma
 
 /** Pass B on the consented image; `runId` is 'r1' for the first attack, 'r2'… for re-attacks (T-080). */
 export async function runAttack(sent: SentImage, cache: AdvBCache, runId = 'r1'): Promise<AttackOutcome> {
+  // SCR-15 (D-148): keep the consented JPEG in memory, keyed by its own sha256, for the Ledger rail. The rail shows it
+  // only once the gate commits an IN_CLOUD entry with that same hash (the bytes it checked and sent).
+  void sentImages.remember(sent.image.jpeg).catch(() => undefined);
   const { adversaryB } = await import('../../ai/jobs/adversaryB');
   return adversaryB({ sessionId: sent.sessionId, image: sent.image, consent: sent.consent, model: sent.model, runId }, { cache });
 }

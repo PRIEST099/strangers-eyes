@@ -14,14 +14,16 @@
 // Focus is never left on <body> (D-117): after Welcome the shell focuses main; when a sheet closes and its opener is
 // gone (focus fell back to <body>), main takes it; dismissing a banner moves it to main.
 // "Simulate: no Nano" shows state (c) as a browser without the Prompt API would (ui/simulate.ts, AC-072).
-// Placeholders until their tasks: Ledger counters and entries (T-063), HUD lines (T-064), the Judge banner across the
-// top (SPEC §8.2, T-105).
+// The header counters, the Ledger rail/sheet (counters, "What the cloud saw", entries) and the HUD read the app's
+// in-memory Ledger live (ui/hud/useLedger.ts; T-063/T-064, D-148). Placeholder until its task: the Judge banner across
+// the top (SPEC §8.2, T-105).
 import { useEffect, useRef, useState, type MouseEvent, type PropsWithChildren } from 'react';
 import { t } from '../../core/strings';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useCapabilities } from '../hooks/useCapabilities';
 import { useOnline } from '../hooks/useOnline';
 import { useCapUsed, useSettings, useSimulations } from '../hooks/usePrefs';
+import { useLedgerCounters, useLedgerEntries, useSentImages } from '../hud/useLedger';
 import { useSystemStatus } from '../hooks/useSystemStatus';
 import { hrefFor, type AppRoute } from '../router';
 import { ShellContext } from '../shellContext';
@@ -31,7 +33,6 @@ import {
   LEDGER_RAIL_ID,
   LEDGER_RAIL_QUERY,
   SCREEN_TITLE,
-  ZERO_COUNTERS,
   connectivityOf,
 } from '../layout';
 import { CapabilityPanel } from './CapabilityPanel';
@@ -73,7 +74,9 @@ export function AppShell({ route, capabilityOnStart = false, focusMainOnStart = 
   const railHeadingRef = useRef<HTMLHeadingElement>(null);
   const focusMainOnSheetClose = useRef(false);
 
-  const counters = ZERO_COUNTERS;
+  const ledgerEntries = useLedgerEntries();
+  const counters = useLedgerCounters();
+  const images = useSentImages();
   // ONE view for the chip, the panel and Settings (fails closed: Rules-only first). Nano off → (c) 'disabled'; simulated
   // "no Nano" → (c) exactly as a browser without the Prompt API shows it.
   const realCaps = useCapabilities({ online, nanoEnabled: settings.useNano });
@@ -198,7 +201,7 @@ export function AppShell({ route, capabilityOnStart = false, focusMainOnStart = 
           aria-labelledby={RAIL_TITLE_ID}
           className="hidden w-80 shrink-0 overflow-y-auto border-l border-line bg-surface p-4 lg:block xl:w-96"
         >
-          <LedgerPanel counters={counters} headingId={RAIL_TITLE_ID} headingRef={railHeadingRef} />
+          <LedgerPanel counters={counters} entries={ledgerEntries} images={images} headingId={RAIL_TITLE_ID} headingRef={railHeadingRef} />
         </aside>
       </div>
 
@@ -213,7 +216,7 @@ export function AppShell({ route, capabilityOnStart = false, focusMainOnStart = 
         }}
         title={t('ui.ledger.title')}
       >
-        <LedgerPanel counters={counters} />
+        <LedgerPanel counters={counters} entries={ledgerEntries} images={images} />
       </Sheet>
 
       {/* SCR-02: the capability panel (T-061). Never claims on-device AI before a fresh check says so. */}

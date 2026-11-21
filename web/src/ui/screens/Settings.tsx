@@ -2,14 +2,17 @@
 //   - On-device AI: the capability state (the same view as the header chip and SCR-02), the Download button when Chrome
 //     offers the model, a button that opens SCR-02, and "Use Gemini Nano when available" (on; AC-277). Off: S0/S1 run
 //     RULES-ONLY and S2/S4 run in the cloud (AD-33); the capability view shows (c) at once.
-//   - Usage: "Cloud checks today: {used}/{cap}" (local counter, RC cap) with copy.settings.capNote.
-//   - Data: Burn vault (the shared BurnVaultDialog), Clear history and Copy ledger receipt. The last two appear once their
-//     stores exist (TASKS T-063 ledger, T-096 sessions): until then `deps.clearHistory` / `deps.receipt` are null.
+//   - Usage: "Cloud checks today: {used}/{cap}" (local counter, RC cap) with copy.settings.capNote, then this page's
+//     Ledger counters (requests, on-device calls, rule checks, blocked; T-063, live from the in-memory Ledger).
+//   - Data: Burn vault (the shared BurnVaultDialog), Clear history and Copy ledger receipt (T-063: copy.receipt.line from
+//     the counters only, AC-212). Clear history appears once the sessions store exists (T-096): until then it is null.
 //   - Developer (P1, AC-006): with `?debug=1`, or while a simulation is on (so it can always be turned off), "Simulate:
 //     no Nano" and "Simulate: offline". Both only remove capability. RC values and a forced fetch join with T-102.
 // Every setting is stored by core/localPrefs inside try/catch: when storage throws, the change still applies for this
 // visit and a status line says it is not kept (AC-275). P1 toggles (privacy, display, Atlas) are not shown yet.
 import { useState, type ReactNode } from 'react';
+import { ledger } from '../../core/ledger';
+import { ledgerCounters, receiptText } from '../../core/ledgerView';
 import { localPrefs } from '../../core/localPrefs';
 import { t, type StringId } from '../../core/strings';
 import { BurnVaultDialog } from '../components/BurnVaultDialog';
@@ -19,7 +22,8 @@ import { Toggle } from '../components/Toggle';
 import { debugFlag } from '../gate';
 import { useCapUsed, useSettings, useSimulations } from '../hooks/usePrefs';
 import { useSystemStatus } from '../hooks/useSystemStatus';
-import { capabilityChipCopy } from '../layout';
+import { useLedgerCounters } from '../hud/useLedger';
+import { capabilityChipCopy, kilobytes } from '../layout';
 import { useShell } from '../shellContext';
 import { burnNotice } from './Vault';
 
@@ -34,7 +38,7 @@ export interface SettingsDeps {
 
 const APP_DEPS: SettingsDeps = {
   clearHistory: null, // TODO(T-063/T-096): the ledger and sessions stores' clear (no vault lock needed for the ledger)
-  receipt: null, // TODO(T-063): ledger receipt
+  receipt: () => receiptText(ledgerCounters(ledger.entries())),
   copyText: (text) => navigator.clipboard.writeText(text),
 };
 
@@ -66,6 +70,7 @@ export function Settings({ deps = APP_DEPS, debug = debugFlag() }: SettingsProps
   const settings = useSettings();
   const sims = useSimulations();
   const capUsed = useCapUsed();
+  const lc = useLedgerCounters();
   const { dailyCap } = useSystemStatus();
   const shell = useShell();
   const [notice, setNotice] = useState<StringId | null>(null);
@@ -142,6 +147,10 @@ export function Settings({ deps = APP_DEPS, debug = debugFlag() }: SettingsProps
       <Section id="settings-usage" titleId="ui.settings.usage">
         <p className="tabular-nums">{t('ui.settings.usage.today', { used: capUsed, cap: dailyCap })}</p>
         <p className="text-sm text-muted">{t('copy.settings.capNote')}</p>
+        <p className="text-sm tabular-nums">
+          {t('ui.ledger.traffic', { unique: lc.uniqueImages, n: lc.cloudRequests, kb: t('ui.unit.kb', { n: kilobytes(lc.bytesSent) }) })}
+        </p>
+        <p className="text-sm tabular-nums">{t('ui.ledger.local', { k: lc.onDeviceCalls, r: lc.rulesChecks, b: lc.blocked })}</p>
       </Section>
 
       <Section id="settings-data" titleId="ui.settings.data">
