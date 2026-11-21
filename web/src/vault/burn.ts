@@ -4,6 +4,8 @@
 // No logging in this folder (SR-15).
 import { burnVault } from './vaultStore';
 import { vaultScan } from '../ai/vaultScan';
+import { ledger } from '../core/ledger';
+import { sentImages } from '../core/ledgerImages';
 
 export interface BurnDeps {
   /** ARCH §16.4 steps 0–3, under the vault lock: the key FIRST (AC-271), then se-vault-data, se-sessions, se-ledger. */
@@ -20,6 +22,11 @@ export interface BurnDeps {
    * (the tripwire fails closed, NO_SCANNER); in Judge Mode the real vault is not in memory.
    */
   reloadIndex: () => Promise<void>;
+  /**
+   * SCR-19: this tab's in-memory Cloud Ledger and the redacted images kept for "What the cloud saw". Cleared after the
+   * storage step whether it succeeded or not (forgetting memory is always safe). Optional for older test wiring.
+   */
+  clearMemory?: () => void;
 }
 
 // Late-bound, so the app's single vaultScan instance is always the one cleared.
@@ -27,6 +34,7 @@ const APP_DEPS: BurnDeps = {
   burnStorage: burnVault,
   clearIndex: () => vaultScan.clearReal(),
   reloadIndex: () => vaultScan.refresh(),
+  clearMemory: () => { ledger.clear(); sentImages.clear(); },
 };
 
 /**
@@ -52,7 +60,9 @@ export async function performBurn(deps: BurnDeps = APP_DEPS): Promise<void> {
     // tab's burn retry, so waiting for it delayed this error by each open tab's retry. The index is already blocked
     // (reloadIndex blocks it synchronously); a reload that then fails leaves it blocked: fail closed.
     void deps.reloadIndex().catch(() => undefined);
+    deps.clearMemory?.();
     throw e;
   }
   deps.clearIndex();
+  deps.clearMemory?.();
 }

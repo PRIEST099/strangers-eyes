@@ -56,6 +56,15 @@ describe('performBurn: storage first, then memory (SPEC SCR-19, ARCH §16.4 step
     expect(log).toEqual(['storage', 'reload']);
   });
 
+  it('clears the in-memory ledger and sent images after storage, on success AND on failure (SCR-19)', async () => {
+    const log: string[] = [];
+    await performBurn({ burnStorage: async () => { log.push('storage'); }, clearIndex: () => { log.push('clear'); }, reloadIndex: async () => undefined, clearMemory: () => { log.push('memory'); } });
+    expect(log).toEqual(['storage', 'clear', 'memory']);
+    const log2: string[] = [];
+    await expect(performBurn({ burnStorage: async () => { throw new Error('quota'); }, clearIndex: () => { log2.push('clear'); }, reloadIndex: async () => { log2.push('reload'); }, clearMemory: () => { log2.push('memory'); } })).rejects.toThrow('quota');
+    expect(log2).toEqual(['reload', 'memory']);
+  });
+
   it('app wiring: key record, then se-vault-data, se-sessions, se-ledger, then vaultScan.clearReal (AC-271)', async () => {
     const lucas = await addItem(lucasInput);
     await vaultScan.init({ judge: false });
