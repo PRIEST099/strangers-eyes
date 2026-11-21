@@ -548,6 +548,43 @@ const IDB_KEYVAL_SPEC_RE = /(?:^|\/)idb-keyval(?:[./?#]|$)/i;
 const IDB_KEYVAL_STRING_RE = /(['"`])(?:[^'"`\n]*\/)?idb-keyval(?:[./?#][^'"`\n]*)?\1/gi;
 const R22_WHY = "Value imports of 'idb-keyval' only in vault/idb.ts, vault/crypto.ts, vault/vaultStore.ts and dev/selftest/vaultStorageCheck.ts, which pass a closable store to every call: get/set/del… without a store use the default 'keyval-store' (the Tesseract cache; Burn vault never deletes it, its connection never closes). `import type` is fine anywhere.";
 
+// R25 / R26 (T-062 security review, D-135): ai/models.ts builds the model handles and parts that only the Egress Gate may
+// use, so its VALUE exports may be imported only by name, only by the files below; `import type` is fine anywhere and
+// tests are exempt. The gate's test seam ai/egressGate.testing.ts may be imported (any form) only by the gate and tests.
+const MODELS_VALUE_IMPORTS = {
+  'web/src/ai/egressGate.ts': ['adversaryAModel', 'adversaryBModel', 'cloudParamsFor', 'deviceJsonModel', 'deviceTextModel',
+    'explainModel', 'jpegPart', 'judgeJsonModel', 'NoDeviceModelError', 'textPart'],
+  'web/src/firebase/rcParse.ts': ['ADVERSARY_THINKING_LEVELS', 'EXPLAIN_THINKING_LEVELS', 'isExactModelId', 'TIMEOUT_MS_MAX', 'TIMEOUT_MS_MIN'],
+  'web/src/ui/components/AppShell.tsx': ['initializeDeviceModelFor'], // planned T-101 wiring
+};
+const GATE_SEAM_IMPORTERS = ['web/src/ai/egressGate.ts'];
+/** A specifier as a repo path stem, lowercased (macOS ignores case): relative, @root/…, Vite root-relative /src/…. */
+function importTarget(fromRel, spec) {
+  const s = spec.replace(/[?#].*$/, '');
+  const stem = (p) => p.replace(/\.(c|m)?(ts|js)x?$/, '').replace(/\/index$/, '');
+  if (s.startsWith('.')) return resolveImport(fromRel, s).toLowerCase();
+  if (s.startsWith('@root/')) return stem(resolveWithin('x', s.slice(6)) ?? '').toLowerCase();
+  if (s.startsWith('/')) return stem(resolveWithin('web/x', s.slice(1)) ?? '').toLowerCase();
+  return s.toLowerCase();
+}
+/** The value names an import or re-export takes ('*' for a namespace, default, side-effect or dynamic import). */
+function valueNames(code, im) {
+  if (im.typeOnly) return [];
+  if (im.dynamic) return ['* (dynamic import())'];
+  const clause = code.slice(im.pos, im.specPos).replace(/^(import|export)\b/, '').replace(/\bfrom\s*$/, '');
+  const names = [];
+  const brace = /\{([^}]*)\}/.exec(clause);
+  if (brace) {
+    for (const item of brace[1].split(',').map((x) => x.trim()).filter(Boolean)) {
+      if (/^type\s/.test(item)) continue;
+      names.push(item.split(/\s+as\s+/)[0].trim());
+    }
+  }
+  const rest = clause.replace(/\{[^}]*\}/, '').replace(/[\s,]/g, '');
+  if (rest || !brace) names.push(rest === '' ? '* (side-effect import)' : `* (${rest.replace(/^\*as/, '* as ')})`);
+  return names;
+}
+
 export function check(root) {
   const violations = [];
   const add = (rule, rel, line, msg) => violations.push({ rule, file: rel, line, msg });
@@ -581,6 +618,22 @@ export function check(root) {
     }
 
     const imps = importsOf(code);
+
+    // R25 / R26 (D-135): value imports of ai/models by name and file; the gate's test seam only from the gate
+    if (!isTest(rel)) {
+      for (const im of imps) {
+        const target = importTarget(rel, im.spec);
+        if (target === 'web/src/ai/models' && rel !== 'web/src/ai/models.ts') {
+          const ok = MODELS_VALUE_IMPORTS[rel] ?? [];
+          for (const name of valueNames(code, im)) {
+            if (!ok.includes(name)) add('R25-models-import', rel, im.line, `ai/models value import ${name} is not allowed here: model handles and parts are used only by ai/egressGate.ts (named whitelist in check-boundaries; \`import type\` is fine anywhere, tests are exempt).`);
+          }
+        }
+        if (target === 'web/src/ai/egressgate.testing' && !GATE_SEAM_IMPORTERS.includes(rel)) {
+          add('R26-gate-test-seam', rel, im.line, 'ai/egressGate.testing.ts (the test seam that builds a gate on injected dependencies) may be imported only by ai/egressGate.ts and *.test.ts files.');
+        }
+      }
+    }
 
     // R11: firestore must be a dynamic import inside atlas.ts (type-only imports are erased and allowed)
     if (rel === 'web/src/firebase/atlas.ts') {
@@ -702,7 +755,12 @@ function selfTest() {
     w('web/src/main.tsx', "import './ai/tripwire-install';\nimport App from './App';\n");
     w('web/src/ai/tripwire-install.ts', "import { installTripwire } from './tripwire';\ninstallTripwire();\n");
     w('web/src/ai/tripwire.ts', "export const AI_HOST = 'firebasevertexai.googleapis.com';\nexport function installTripwire() { const o = globalThis.fetch; globalThis.fetch = o; }\n");
-    w('web/src/ai/egressGate.ts', 'export async function invoke(m: any) { return m.generateContent([]); }\n');
+    w('web/src/ai/egressGate.ts', "import {\n  adversaryAModel, jpegPart as jp, type ModelSpec,\n} from './models';\nimport { registerGateFactory } from './egressGate.testing';\nexport async function invoke(m: any) { return m.generateContent([]); }\n");
+    w('web/src/ai/egressGate.testing.ts', 'export const registerGateFactory = (f: unknown) => f;\n');
+    w('web/src/firebase/rcParse.ts', "import { isExactModelId, TIMEOUT_MS_MAX, type TimeoutsMs } from '../ai/models';\nexport const ok = isExactModelId;\n");
+    w('web/src/ui/components/AppShell.tsx', "import { initializeDeviceModelFor } from '../../ai/models';\nimport type { ModelSpec } from '../../ai/models';\nexport const A = () => null;\n");
+    w('web/src/core/modelTypes.ts', "import type { ModelSpec } from '../ai/models';\nimport { type TimeoutsMs } from '../ai/models';\nexport type { ModelSpec as M } from '../ai/models';\nexport type T = ModelSpec | TimeoutsMs;\n");
+    w('web/src/ai/models.test.ts', "import * as m from './models';\nimport { createTestGate } from './egressGate.testing';\nexport const t = [m, createTestGate];\n");
     w('web/src/ai/models.ts', "import { getGenerativeModel } from 'firebase/ai';\nexport const f = (ai: any) => getGenerativeModel(ai, {} as any);\n");
     w('web/src/ai/capabilities.ts', 'export const lm = (globalThis as any).LanguageModel;\nexport const uiCapabilities = async () => lm;\nexport const peekUiCapabilities = () => null;\n');
     // R23: the cached UI snapshot is fine anywhere under web/src/ui, and in tests.
@@ -955,6 +1013,25 @@ function selfTest() {
       ['R19-glob', 'web/src/core/globStar.ts', "export const m = import.meta.glob('./**/*.ts');\n"],
       ['R19-glob', 'web/src/core/globNested.ts', "export const m = import.meta.glob('./*.ts', { query: { a: { b: 1 } } });\n"],
       ['R9-console-in-sensitive', 'web/src/core/verdict.ts', 'export const f = (ids: string[]) => console.log(ids);\n'],
+      // R25 / R26 (T-062 security review, D-135): ai/models value imports by name and file; the gate's test seam
+      ['R25-models-import', 'web/src/ui/screens/Check.tsx', "import { adversaryAModel } from '../../ai/models';\n"],
+      ['R25-models-import', 'web/src/firebase/rcParse.ts', "import { isExactModelId, adversaryBModel } from '../ai/models';\n"],
+      ['R25-models-import', 'web/src/ai/egressGate.ts', "import * as models from './models';\nexport const x = models;\n"],
+      ['R25-models-import', 'web/src/ai/egressGate.ts', "import models from './models.ts';\nexport const x = models;\n"],
+      ['R25-models-import', 'web/src/ai/jobs.ts', "import './models';\n"],
+      ['R25-models-import', 'web/src/core/lazyModel.ts', "export const m = () => import('../ai/models');\n"],
+      ['R25-models-import', 'web/src/ai/index.ts', "export * from './models';\n"],
+      ['R25-models-import', 'web/src/ai/parse.ts', "export { jpegPart as part } from './models';\n"],
+      ['R25-models-import', 'web/src/ui/rootAlias.ts', "import { textPart } from '@root/web/src/ai/models.ts';\n"],
+      ['R25-models-import', 'web/src/ui/viteRoot.ts', "import { textPart } from '/src/ai/models';\n"],
+      ['R25-models-import', 'web/src/ui/caseAlias.ts', "import { textPart } from '../ai/Models?x=1';\n"],
+      ['R25-models-import', 'web/src/ui/mixed.ts', "import {\n  type ModelSpec,\n  explainModel,\n} from '../ai/models';\n"],
+      ['R25-models-import', 'web/src/ui/components/AppShell.tsx', "import { initializeDeviceModelFor, deviceTextModel } from '../../ai/models';\n"],
+      ['R26-gate-test-seam', 'web/src/ui/seam.ts', "import { createTestGate } from '../ai/egressGate.testing';\n"],
+      ['R26-gate-test-seam', 'web/src/ai/jobs.ts', "import type { TestGate } from './egressGate.testing';\n"],
+      ['R26-gate-test-seam', 'web/src/ai/seamDyn.ts', "export const s = () => import('./egressGate.testing.ts');\n"],
+      ['R26-gate-test-seam', 'web/src/ai/index.ts', "export * from './egressGate.testing';\n"],
+      ['R26-gate-test-seam', 'web/src/vault/seamUtil.testutil.ts', "import { createTestGate } from '../ai/egressGate.testing';\n"],
       ['R9-console-in-sensitive', 'web/src/ui/check/anyNewFile.ts', 'export const f = (terms: string[]) => console.log(terms);\n'],
       ['R9-console-in-sensitive', 'web/src/ui/components/verdict/AnyLine.tsx', 'export const f = (label: string) => console.log(label);\n'],
       ['R9-console-in-sensitive', 'web/src/tier0/tier0.ts', 'export const f = (words: string[]) => console.log(words);\n'],

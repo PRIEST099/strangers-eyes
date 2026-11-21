@@ -93,7 +93,7 @@ Test image: a white "LUCAS" tag with dark letters, tilted 4°, composited in mem
 Canonical IDs:
 - **D-01..D-39** are in SPEC §0.4 (read them there).
 - **AD-xx** are in ARCH §2. Where an AD duplicates a D, the D wins.
-- **The next free number is D-135.** (Batch 3, Nov 21: T-062 gate D-111..114 and its fix round D-129..131, T-076 verdict D-115..116 and its fix round D-127..128, UI fixes D-117, boot fixes D-118, scanner fixes D-119..120, T-068 pre-screen D-121..123, T-077 verdict card D-124..125; D-126 is the RC/Auth deploy. Unused reserved numbers stay unused. DEVLOG F-185..F-192 are reserved for the T-062 fix round.)
+- **The next free number is D-137.** (Batch 3, Nov 21: gate D-111..114 + D-129..131, verdict D-115..116 + D-127..128, UI fixes D-117, boot D-118, scanner D-119..120 + D-135, pre-screen D-121..123 + D-132..133, verdict card D-124..125 + D-134, RC/Auth deploy D-126, spike model D-136. Unused reserved numbers stay unused. Next free DEVLOG row: F-202.)
 
 - D-00 (Nov 19) Idea: **Strangers' Eyes**, chosen by a 29-agent tournament (score 8.18) and approved by the user. **Blindfill** is the Day-1 fallback, *only* with the user's OK if G1 fails (TASKS T-034). Health/Rwanda "Muganga" was rejected (the user wants a global idea).
 - D-00a (Nov 19) Platforms: Web PWA (primary) + iOS. **Android cut**: no physical device, and the emulator has no Nano.
@@ -630,6 +630,16 @@ Canonical IDs:
   - **Spaced plates** (`tier0/regex.ts` `spacedPlates`): 2–3 adjacent words on one OCR line, each 1–4 upper-case letters/digits at confidence ≥ 60, never an all-letter word of 4 or more ("ROOM 12", "PARK 3"), similar heights (ratio ≥ 0.6), a gap of at most 1.5× the height, joined text plate-like (5–8, ≥ 2 letters, ≥ 2 digits). The longest run wins, and words already in a single-token plate are skipped. "SE 1234", "AB12 CDE", "B MW 1234" are caught. In the browser a synthetic yellow plate's "AB12" was read at confidence 48 after the JPEG step, below SPEC's 60, so it was not flagged; that threshold is SPEC's and stays.
   - Edited: ARCH §11.2 (As built); TASKS T-068.
 
+- D-135 (Claude, Nov 21; T-062 security review, F-201) **Boundary rules R25 and R26: `ai/models` value imports by file and name; the gate's test seam only from the gate and tests.**
+  - **R25:** every import of `web/src/ai/models.ts` is resolved (relative, `@root/…`, Vite root-relative `/src/…`, any case, `?query`/`#hash` stripped). Each VALUE name must be on that file's whitelist: `ai/egressGate.ts` (the ten model handles, parts and errors it uses), `firebase/rcParse.ts` (the five thinking-level and timeout constants) and `ui/components/AppShell.tsx` (`initializeDeviceModelFor`, pre-allowed for the planned T-101 wiring). A namespace, default or side-effect import, a dynamic `import()`, `export * from` and a re-export of a non-whitelisted name always fail. `import type`, `export type` and inline `type X` names are allowed anywhere; tests are exempt. A per-name list (not per-file) keeps `rcParse.ts` from reaching the model handles.
+  - **R26:** `ai/egressGate.testing.ts` may be imported in any form (type-only too) only by `ai/egressGate.ts` and `*.test.*` files.
+  - 18 planted cases (183 in all); a scratch mutation run killed 14 of 14 mutants (each rule removed, a whole-file whitelist, namespace/default/dynamic ignored, alias vs. original name, case, query, `@root`, `/src`, test exemption, type-only, a widened seam list).
+  - Edited: ARCH §4.2 (R25, R26 rows; planted count).
+
+- D-136 (Claude, Nov 21; T-031) **T-031 returns to gemini-3.8-flash for photos 04–10.**
+  - Nov 21 10:02: gemini-4-hydrogen answered 503 twice and then timed out (196 s, 202 s, 240 s), so the runner stopped after 3 failures (raw in PRIV). A text-only schema probe at 10:24 got answers from both models: flash in 19.5 s, hydrogen in 205.7 s.
+  - Hydrogen at about 200 s is far beyond pass B's 60 s timeout (RC `timeouts_ms.advB`), so it can never be the product's adversary. Flash is the RC default (`adversary_model`). D-73 chose hydrogen only because flash was down on Nov 20 ("use hydrogen if flash stays down").
+  - So photos 04–10 run on flash (`--primary flash --models flash --adaptive`). s01–s03 stay as hydrogen data. G1 is reported per model. Flash's s01–s03 run on Sun Nov 22 after the quota reset (20 requests/day/model), so G1 on flash covers all 10 photos.
 ### Reconciliation items (T-022, done Nov 19)
 How T-022 ran:
 - Workflow wf_a7c14f46-79f: 6 analysts, 5 per-doc editors, 2 verification rounds and 1 fix round.
