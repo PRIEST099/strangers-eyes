@@ -259,6 +259,8 @@
   --animate-wipe: se-wipe 350ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
   --animate-pop: se-pop 250ms ease-out both;
   --animate-rise: se-rise 200ms ease-out both;
+  /* StoryReel (D-162): the attacker's scan line sweeping the drawn copy once per scene, left to right. */
+  --animate-scan: se-scan 900ms ease-in-out both;
 
   @keyframes se-sheet-in {
     from {
@@ -340,6 +342,22 @@
       transform: translateY(0);
     }
   }
+  @keyframes se-scan {
+    0% {
+      opacity: 0;
+      transform: translateX(0);
+    }
+    15% {
+      opacity: 1;
+    }
+    85% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+      transform: translateX(160px);
+    }
+  }
 }
 
 @layer base {
@@ -374,6 +392,12 @@
   dialog::backdrop {
     background: var(--se-overlay);
   }
+}
+
+/* StoryReel (D-162): Pause, an off-screen reel and a hidden tab also freeze the one-shot animations of the current scene
+   (WCAG 2.2.2); the JS stepper stops its timer at the same moment. */
+.se-reel[data-paused='true'] * {
+  animation-play-state: paused !important;
 }
 
 /* AC-063: with prefers-reduced-motion, animations (sheet slide, chip-in, the packet crossing, the mask fill, the

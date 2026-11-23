@@ -10,7 +10,7 @@
 |---|---|---|---|
 | Name | 15 | [UNVERIFIED: T-167] (Devpost usually 60) | fits the usual limit |
 | Elevator pitch | 165 | [UNVERIFIED: T-167] (Devpost usually 200; SPEC §1 says ≤200) | fits |
-| About the project (Markdown) | 7,090 (1,185 words) | [UNVERIFIED: T-167] (no limit known) | re-check after T-167 |
+| About the project (Markdown) | 7,921 (1,331 words; re-measured Nov 23 after the D-162 hook) | [UNVERIFIED: T-167] (no limit known) | re-check after T-167 |
 | Testing instructions | 1,538 | [UNVERIFIED: T-167] | re-check after T-167 |
 | Built during the submission period | 583 | [UNVERIFIED: T-167] | re-check after T-167 |
 
@@ -45,6 +45,8 @@ firebase-ai-logic, gemini, gemini-nano, apple-foundation-models, firebase-app-ch
 ## About the project
 <!-- about -->
 ## Inspiration
+**Location off isn't location hidden.** Turn location off, post a coffee photo, feel covered. In our test, a cloud AI still placed 5 of 10 GPS-free photos within 5 km (two at street level, about 200–250 m) and refused none of its 20 runs. Strangers' Eyes lets that AI attack a redacted copy first. Your device, not the cloud, works out how close it got to home, masks the clues, and asks again: masking the clues it named moved 3 of the 4 re-attacked photos to country level or no guess. (Our Nov 23 test used 10 openly licensed photos of public places with gemini-3.5-flash-lite; they may be in the model's training data, so a never-published photo may fare differently.)
+
 Deleting GPS data no longer protects a photo. Multimodal models now place photos from the pixels alone: a bus-stop code, a street sign, a staff lanyard, the view from a window. Published studies report up to about 60% street-level accuracy on social-media-like images (Privacy International, "Nowhere to Hide?", 2026). Tools that strip EXIF ignore the pixels, and research prototypes send the raw photo to the cloud and know nothing about what you personally need to hide.
 
 We built Strangers' Eyes for parents, marketplace sellers and creators, and above all for people who must not reveal where they live: domestic-violence survivors, journalists and activists.

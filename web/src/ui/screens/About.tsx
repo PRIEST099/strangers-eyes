@@ -4,8 +4,9 @@
 //   Firebase AI Logic, App Check's reCAPTCHA Enterprise, the libraries and licences of THIRD_PARTY_NOTICES) · prior art
 //   (E11, E12) · the 18+ notice · copy.about.support · the repo link.
 // Honest limits: it says "reduces risk", never "safe" (CLAUDE.md invariant 6). Static: no AI call, works offline.
-// Layout (docs/DESIGN.md §5.1): opens with the lanes explainer; prose at text-body max-w-[68ch]; the how-it-works <li>
-// stay bare (systemScreens.test), styled from their parent.
+// Layout (docs/DESIGN.md §5.1, D-162): opens with the StoryReel strip (the six illustrated frames) and "How we know"
+// (the Day-1 spike numbers with their scope and caveat), then the lanes explainer; prose at text-body max-w-[68ch];
+// the how-it-works <li> stay bare (systemScreens.test), styled from their parent.
 import pkg from '../../../package.json';
 import { PAYLOAD_CLASSES, type PayloadClass } from '../../ai/capabilities';
 import { t, type StringId } from '../../core/strings';
@@ -13,6 +14,7 @@ import type { Route } from '../../core/types';
 import type { ReactNode } from 'react';
 import { Badge } from '../components/Badge';
 import { HybridLanes } from '../components/HybridLanes';
+import { StoryReel } from '../components/StoryReel';
 import { CARD, H1, H2 } from '../components/surface';
 
 /** Link targets (not copy). The repo is public from T-170 (Nov 29). */
@@ -54,6 +56,9 @@ const CLASS_ROUTES: Readonly<Record<PayloadClass, readonly Route[]>> = {
   S4: ['ON_DEVICE', 'IN_CLOUD'],
 };
 
+/** "How we know": benchmark/spike/day1-adversary.md (Nov 23). Re-check every figure when the T-150 benchmark lands. */
+const RECEIPTS: readonly StringId[] = ['ui.story.how.r1', 'ui.story.how.r2', 'ui.story.how.r3', 'ui.story.how.r4'];
+
 const EXTERNAL = { target: '_blank', rel: 'noopener noreferrer' } as const;
 const LINK = 'inline-flex min-h-11 items-center underline underline-offset-4';
 /** Bulleted lists: the <li> stay bare (the how-it-works test reads `<li>{point}</li>`), so the parent styles them. */
@@ -82,6 +87,21 @@ export function About() {
             : t('ui.about.versionNoCommit', { version: pkg.version })}
         </p>
       </div>
+
+      <StoryReel variant="strip" className="w-full" />
+
+      <section aria-labelledby="about-know" data-about="howWeKnow" className={`${CARD} flex max-w-[68ch] flex-col gap-3`}>
+        <h2 id="about-know" className="text-title font-semibold">
+          {t('ui.story.how')}
+        </h2>
+        <p className="text-body font-medium">{t('ui.story.how.lead')}</p>
+        <ul className={LIST}>
+          {RECEIPTS.map((id) => (
+            <li key={id}>{t(id)}</li>
+          ))}
+        </ul>
+        <p className="text-small text-muted">{t('ui.story.how.caveat')}</p>
+      </section>
 
       <HybridLanes mode="explainer" className="w-full" />
 

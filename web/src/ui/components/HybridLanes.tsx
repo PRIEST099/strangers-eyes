@@ -44,7 +44,7 @@ const stroke = { fill: 'none', strokeLinecap: 'round', strokeLinejoin: 'round', 
 // ---------- the Wall (inline SVG, fixed geometry, no DOM measurement) ----------
 
 /** The vertical Wall: a 2 px boundary bar with a gate notch spanning the out and back arrows (25 % and 50 %). */
-function WallBar({ open }: { open: boolean }) {
+export function WallBar({ open }: { open: boolean }) {
   return (
     <svg viewBox="0 0 56 200" preserveAspectRatio="none" aria-hidden="true" className="absolute inset-0 size-full">
       <path d="M28 0V30 M28 120V200" stroke="var(--se-boundary)" strokeWidth="2" {...stroke} />
@@ -53,11 +53,11 @@ function WallBar({ open }: { open: boolean }) {
   );
 }
 
-type ArrowKind = 'out' | 'back' | 'never';
+export type ArrowKind = 'out' | 'back' | 'never';
 const ARROW_AT: Record<ArrowKind, string> = { out: '25%', back: '50%', never: '75%' };
 
 /** One horizontal arrow across the 56 px Wall column (device → cloud is left → right). */
-function ArrowGlyph({ kind, className, style }: { kind: ArrowKind; className?: string; style?: CSSProperties }) {
+export function ArrowGlyph({ kind, className, style }: { kind: ArrowKind; className?: string; style?: CSSProperties }) {
   return (
     <svg viewBox="0 0 56 12" aria-hidden="true" className={className} style={style}>
       {kind === 'out' && <path d="M4 6H50 M45 2l5 4-5 4" stroke="var(--se-fg)" strokeWidth="1.75" {...stroke} />}

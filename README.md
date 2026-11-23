@@ -2,6 +2,8 @@
 
 [Live app](https://strangers-eyes.web.app) · [Demo video, under 3 min]([TBD: YOUTUBE_URL after T-187]) · [Apache-2.0](LICENSE) · Built for #BuildHybridAI 2026 (Web PWA, iOS in progress)
 
+**Location off isn't location hidden.** A cloud AI tries to work out where your photo was taken; your own device decides whether it got close to home, and never tells it.
+
 > The cloud plays the attacker. Your device holds the answers. The attacker never learns whether it guessed right.
 
 **Value proposition:** find out what a stranger's AI could work out from your photo about where you live, where you work and what your children are called, and fix it before you post. Your secrets are never handed to any cloud.

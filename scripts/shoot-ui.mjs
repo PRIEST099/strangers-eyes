@@ -4,10 +4,11 @@
 // to app URLs, so no AI request ever reaches the cloud. A fresh Chrome profile per run: no vault, nothing of the user's.
 //
 //   npm --prefix web run dev                      (port 5173)
-//   node scripts/shoot-ui.mjs --out <dir> [--only home,judge-run] [--viewports desktop,mobile] [--scheme dark,light] [--port 5173]
+//   node scripts/shoot-ui.mjs --out <dir> [--only home,judge-run] [--viewports desktop,mobile] [--scheme dark,light] [--reduced] [--port 5173]
 //
 // Writes <out>/<shot>.<viewport>.png (full page), or <out>/<shot>.<viewport>.<scheme>.png with --scheme (prefers-color-scheme
 // emulated over CDP; a comma list shoots each scheme in turn), and prints one line per file plus any console errors.
+// --reduced also emulates prefers-reduced-motion: reduce and adds `.reduced` to every file name (D-162 review).
 import { spawn } from 'node:child_process';
 import { mkdirSync, readFileSync, rmSync, writeFileSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -17,9 +18,9 @@ import { parseArgs } from 'node:util';
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const { values: a } = parseArgs({ options: {
   out: { type: 'string' }, only: { type: 'string' }, viewports: { type: 'string', default: 'desktop,mobile' }, port: { type: 'string', default: '5173' },
-  scheme: { type: 'string' },
+  scheme: { type: 'string' }, reduced: { type: 'boolean', default: false },
 } });
-const USAGE = 'usage: --out <dir> [--only a,b] [--viewports desktop,mobile] [--scheme dark|light|dark,light] [--port 5173]';
+const USAGE = 'usage: --out <dir> [--only a,b] [--viewports desktop,mobile] [--scheme dark|light|dark,light] [--reduced] [--port 5173]';
 if (!a.out) { console.error(USAGE); process.exit(2); }
 /** [null] = no emulation (the browser default) and the old file names; otherwise each scheme in turn. */
 const schemes = a.scheme ? a.scheme.split(',') : [null];
@@ -118,8 +119,9 @@ async function navigate(url) {
 await send('Runtime.enable');
 await send('Page.enable');
 for (const scheme of schemes) {
-if (scheme) await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: scheme }] });
-const sfx = scheme ? `.${scheme}` : '';
+const features = [...(scheme ? [{ name: 'prefers-color-scheme', value: scheme }] : []), ...(a.reduced ? [{ name: 'prefers-reduced-motion', value: 'reduce' }] : [])];
+if (features.length) await send('Emulation.setEmulatedMedia', { features });
+const sfx = `${scheme ? `.${scheme}` : ''}${a.reduced ? '.reduced' : ''}`;
 for (const [vpName, vp] of vps) {
   await send('Emulation.setDeviceMetricsOverride', { width: vp.width, height: vp.height, deviceScaleFactor: 1, mobile: vp.mobile });
   for (const s of shots) {

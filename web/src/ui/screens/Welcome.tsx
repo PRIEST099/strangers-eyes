@@ -4,14 +4,16 @@
 //   the box is ticked (AC-070).
 // App stores the acknowledgement (core/localPrefs, inside try/catch) and never shows this screen again on this device;
 // when storage is unavailable it still continues, for this session only. No network, so it works offline (state d).
-// Layout (docs/DESIGN.md §5.1): two columns at lg (the pitch on the left, the lanes explainer on the right), stacked
-// below. Test hooks: the checkbox is its label's first child, and Continue holds text only.
+// Layout (docs/DESIGN.md §5.1, D-162): two columns at lg (the pitch on the left, the StoryReel on the right; the reel
+// draws both lanes and the Wall, so it also does the explainer's job), stacked below with the reel AFTER the form, so
+// the checkbox and Continue stay near the top on a phone and the eyebrow carries the hook there.
+// Test hooks: the checkbox is its label's first child, and Continue holds text only.
 import { useEffect, useState, type FormEvent } from 'react';
 import { t, type StringId } from '../../core/strings';
 import { Button } from '../components/Button';
-import { HybridLanes } from '../components/HybridLanes';
 import { BrandMark, Icon, type IconName } from '../components/Icon';
-import { CARD, EYEBROW } from '../components/surface';
+import { StoryReel } from '../components/StoryReel';
+import { CARD, EYEBROW, LEAD } from '../components/surface';
 
 /** Each bullet with its icon: b1 is context (info), b2 is the cloud attack (blue), b3 is what stays here (teal lock). */
 const BULLETS: readonly { id: StringId; icon: IconName; tone: string }[] = [
@@ -50,6 +52,7 @@ export function Welcome({ onContinue }: WelcomeProps) {
             <h1 className="text-display-sm font-extrabold tracking-[-0.035em] text-balance sm:text-display">
               {t('copy.app.tagline')}
             </h1>
+            <p className={LEAD}>{t('ui.welcome.sub')}</p>
           </div>
           <ul className="flex max-w-[68ch] flex-col gap-4">
             {BULLETS.map(({ id, icon, tone }) => (
@@ -77,7 +80,7 @@ export function Welcome({ onContinue }: WelcomeProps) {
             </Button>
           </form>
         </div>
-        <HybridLanes mode="explainer" className="min-w-0" />
+        <StoryReel variant="hero" className="w-full min-w-0 lg:max-w-[560px] lg:justify-self-end" />
       </div>
     </main>
   );
