@@ -1319,7 +1319,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
     - (P1, D-33) Share card: 1080×1350 PNG built **only** from the allowlisted strings. Never the photo, place names or coordinates.
   - Verify: segment check on the downloaded file; (P1) AC-261 injection test.
 
-- [ ] T-082 [CLAUDE] Leak-demo path and the gate toast. Due: Tue Nov 24 · Deps: T-062, T-068 · AC: AC-041, AC-180, AC-181
+- [ ] T-082 [CLAUDE] Leak-demo path and the gate toast. Due: Tue Nov 24 · Deps: T-062, T-068 · AC: AC-041, AC-180, AC-181 · PARTIAL Nov 23 (D-163): gate block seen in a real browser (BLOCKED VAULT_TEXT_IN_IMAGE, 0 bytes, Attack-panel alert); the separate toast component is not built.
   - Read: SPEC SCR-07 (dry run), SCR-10, §7.3; ARCH §5.5, §8.3
   - Files: `web/src/ui/components/GateToast.tsx`.
   - Do:
@@ -1350,7 +1350,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
     - Each queued check writes one Ledger entry with route `QUEUED` and no bytes (SPEC SCR-18; ARCH §5.3, §8.6), shown as a `QUEUED` HUD line.
   - Verify: in DevTools set the network offline → flow → chip → reconnect → banner within 5 s → nothing is sent until "Send this image". (Persistence is P1 per D-33: build it last, or skip it if time is short.)
 
-- [ ] T-085 [CLAUDE] Web end-to-end run and **network egress audit**. **The Tue Nov 24 gate.** Due: Tue Nov 24 · Deps: T-050–T-084, T-089 · AC: AC-002, AC-003, AC-041, AC-130, AC-211, AC-300
+- [ ] T-085 [CLAUDE] Web end-to-end run and **network egress audit**. **The Tue Nov 24 gate.** Due: Tue Nov 24 · Deps: T-050–T-084, T-089 · AC: AC-002, AC-003, AC-041, AC-130, AC-211, AC-300 · PARTIAL Nov 23 (D-163): on the gate block no request left the browser (resource timing); full egress audit not run.
   - Read: SPEC §12 (AC-300), SCR-13; ARCH §20.2
   - Files: `web/tests/e2e/egress-audit.mjs`, run with `npm --prefix web run audit:egress` (ARCH §3.1, §3.3, §20.2; Playwright, `channel:'chrome'`, `[UNVERIFIED]` on this Mac; fallback: the rescued CDP harness).
   - Do:
@@ -1365,7 +1365,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
   - Then repeat the flow by hand in the user's Chrome with Nano: pre-screen, referee and fix show **ON-DEVICE** (AC-003).
   - Verify: the audit exits 0; red→green is demonstrated; PROGRESS says "GATE Nov 24: PASS". On failure, apply cuts 1–4 at once.
 
-- [ ] T-086 [CLAUDE] Thin vertical slice. Due: Sun Nov 22 · Deps: T-024, T-030, T-031, T-051, T-052, T-053, T-054, T-059 (**Check → Verdict built Nov 21 in the product screen instead of `dev/slice` (D-139):** import → pre-screen → consent → gate → pass B → rules referee → VerdictCard, checked in the browser with the DEV fake adversary only. **Open:** steps 5–6 (fix, re-attack: T-078–T-080) and the real-photo evidence "slice green" (needs one real pass B).)
+- [ ] T-086 [CLAUDE] Thin vertical slice. Due: Sun Nov 22 · Deps: T-024, T-030, T-031, T-051, T-052, T-053, T-054, T-059 (**Check → Verdict built Nov 21 in the product screen instead of `dev/slice` (D-139):** import → pre-screen → consent → gate → pass B → rules referee → VerdictCard, checked in the browser with the DEV fake adversary only. **Open:** steps 5–6 (fix, re-attack: T-078–T-080) and the real-photo evidence "slice green" (needs one real pass B).) · EVIDENCE Nov 23 (D-161): real pass B through the app for the 3 Judge samples.
   - Read: ARCH §5.1; SPEC §10
   - Files: `web/src/dev/slice/Slice.tsx`; `web/src/ai/egressGate.ts` v0 (S3 path only: EXIF check, consent hash, a ledger line), so the boundary check passes.
   - Do: on a plain page:
@@ -1816,7 +1816,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
   - Do: empty, loading and error states; accessibility (contrast, focus order, labels, `prefers-reduced-motion`); 375 px; dark mode.
   - Verify: Browser-pane screenshots at 375 and 1440 px, light and dark; optional Lighthouse accessibility ≥90.
 
-- [ ] T-161 [CLAUDE] Copy and safety audit. Due: Sun Nov 29 · Deps: T-087 · AC: AC-276, AC-304
+- [x] T-161 [CLAUDE] Copy and safety audit. Due: Sun Nov 29 · Deps: T-087 · AC: AC-276, AC-304 · DONE Nov 23 (D-163): copy audit applied; SPEC §11 rows in step; F-270..F-272, F-277 open.
   - Verify:
     - the "safe" scan runs only over user-facing strings (`shared/strings/en.json` and rendered template output) with the `copy.about.notGuarantee` allowlist;
     - `grep -rn 'type="url"' web/src` finds nothing;
@@ -1824,7 +1824,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
     - the 18+, data-tier, dual-use and refusal copy is present;
     - prior art is in About.
 
-- [ ] T-162 [CLAUDE] README. Due: Sun Nov 29 · Deps: T-153, T-107 · AC: AC-302, AC-353, AC-361
+- [x] T-162 [CLAUDE] README. Due: Sun Nov 29 · Deps: T-153, T-107 · AC: AC-302, AC-353, AC-361 · DONE Nov 23 (D-163): README filled from real numbers; only the [USER: …] markers remain (T-170, T-172, T-187).
   - Read: RUNBOOK §7.2, §7.6, §7.8
   - Sections:
     1. Value proposition, live URL, video link, license.
@@ -1845,15 +1845,15 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
     14. License.
   - Verify: a script checks that every backticked path exists; `curl -sI` succeeds on every link.
 
-- [ ] T-163 [CLAUDE] Architecture diagram and routing graphic. Due: Sun Nov 29
+- [x] T-163 [CLAUDE] Architecture diagram and routing graphic. Due: Sun Nov 29 · DONE Nov 23 (D-163): docs/img/architecture.png and routing.png (PNG, not SVG: check-images allowlist).
   - Files: `docs/img/architecture.svg` (+PNG), `docs/img/routing.svg`.
   - Verify: both render in the GitHub README preview.
 
-- [ ] T-164 [CLAUDE] `THIRD_PARTY_NOTICES.md` and `NOTICE`. Due: Sun Nov 29
+- [x] T-164 [CLAUDE] `THIRD_PARTY_NOTICES.md` and `NOTICE`. Due: Sun Nov 29 · DONE Nov 23 (D-163): licences checked against node_modules and the SPM cache.
   - Do: list MediaPipe tasks-vision and the BlazeFace models (Apache-2.0), tesseract.js and its core (Apache-2.0), @tesseract.js-data/eng (MIT; check it), exifr (MIT), idb-keyval (Apache-2.0), React/Vite/Tailwind (MIT), and the firebase JS and iOS SDKs (Apache-2.0).
   - Verify: the `license` fields in `node_modules/*/package.json` match.
 
-- [ ] T-165 [CLAUDE] Devpost text in `docs/DEVPOST.md`. Due: Sun Nov 29 · Deps: T-153, T-167, T-172
+- [x] T-165 [CLAUDE] Devpost text in `docs/DEVPOST.md`. Due: Sun Nov 29 · Deps: T-153, T-167, T-172 · DONE Nov 23 (D-163): docs/DEVPOST.md filled; field limits still [UNVERIFIED] until T-167 reads the draft.
   - Read: RUNBOOK §7.5, §7.7
   - Do:
     - Name.
@@ -1864,7 +1864,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
     - Platforms per T-172.
   - Verify: the character counts fit the limits recorded in T-167.
 
-- [ ] T-166 [CLAUDE] Gallery screenshots and thumbnail. Due: Sun Nov 29 · Deps: T-160, T-173
+- [x] T-166 [CLAUDE] Gallery screenshots and thumbnail. Due: Sun Nov 29 · Deps: T-160, T-173 · DONE Nov 23 (D-163): gallery 01–07 + thumbnail (scripts/shoot-gallery.mjs, DEV server + App Check debug token); 03/04 show CACHED SAMPLE.
   - Files:
     - `docs/img/thumbnail.png` (3:2);
     - `docs/img/gallery-{hero,capability,red-verdict-ledger,blocked-leak,risk-reduced,architecture,benchmark,ios}.png`.
@@ -1875,7 +1875,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
   - Do: read the draft in the browser, **read only**. Record field names, character limits, multi-platform selection and custom questions in RUNBOOK §7.5. These stay `[UNVERIFIED]` until then.
   - Verify: the RUNBOOK section exists.
 
-- [ ] T-168 [CLAUDE] Repo hygiene. Due: Sun Nov 29 · Deps: T-110 · AC: AC-364
+- [x] T-168 [CLAUDE] Repo hygiene. Due: Sun Nov 29 · Deps: T-110 · AC: AC-364 · DONE Nov 23 (D-163): RUNBOOK §7.2 scans clean (AIza web keys expected); no file > 10 MB; images pass.
   - Do:
     - Re-run the T-110 scans.
     - `node scripts/check-images.mjs` over every committed image; no people; nothing from PRIV.
@@ -1883,7 +1883,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
     - No files over 10 MB.
   - Verify: everything clean, logged in PROGRESS.
 
-- [ ] T-169 [CLAUDE] Clean-clone test. Due: Sun Nov 29 · Deps: T-162
+- [x] T-169 [CLAUDE] Clean-clone test. Due: Sun Nov 29 · Deps: T-162 · DONE Nov 23 (D-163): web steps followed literally on a clone of HEAD 3d5057f (npm ci, check, build ok); iOS steps read, not run in the clone.
   - Do: clone into **this session's own scratchpad**. Web: `npm ci && npm run build && npm run check`. iOS: `xcodegen generate && xcodebuild … build`. Follow the README steps literally.
   - Verify: everything passes; fix the README wherever a step was missing.
 
@@ -1905,7 +1905,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
 
 ## M7: Video and submission (Fri Nov 27 to Mon Nov 30)
 
-- [ ] T-180 [CLAUDE] Script, shot list and edit decision list in `docs/VIDEO.md`. Due: Fri Nov 27 · Deps: T-085
+- [x] T-180 [CLAUDE] Script, shot list and edit decision list in `docs/VIDEO.md`. Due: Fri Nov 27 · Deps: T-085 · DONE Nov 23 (D-163): docs/VIDEO.md script, VO, SRT draft, EDL; in-points set at the cut.
   - Read: RUNBOOK §6.1–6.5
   - Do:
     - Compress the 8 beats to **≤2:50**. The first 30 s cover who it is for, the problem, and how the Firebase AI Logic hybrid works.

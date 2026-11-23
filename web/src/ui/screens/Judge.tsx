@@ -92,10 +92,10 @@ export function Judge() {
         {load.kind === 'failed' && <p role="alert" className="text-body">{t('ui.judge.loadFailed')}</p>}
         {manifest && vault && <p className={LEAD}>{t('ui.judge.intro')}</p>}
         {manifest && vault && (
-          <p className="flex max-w-[68ch] gap-2 text-small text-muted" data-testid={manifest.placeholder ? 'judge-placeholder-note' : 'judge-samples-note'}>
+          <p className="flex max-w-[68ch] gap-2 text-small text-muted" data-testid="judge-samples-note">
             <Icon name="info" className="mt-0.5 size-4" />
-            {/* D-161: the CC0 disclosure stays when the answers are live recordings; only the stand-in wording goes. */}
-            <span>{t(manifest.placeholder ? 'ui.judge.placeholderNote' : 'ui.judge.samplesNote')}</span>
+            {/* D-161: the answers are live recordings; the CC0 disclosure stays. The stand-in wording is gone (T-161). */}
+            <span>{t('ui.judge.samplesNote')}</span>
           </p>
         )}
       </div>

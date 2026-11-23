@@ -35,7 +35,9 @@ export function compareRows(before: Verdict, after: Verdict, vault: readonly Vau
     seen.add(item.id);
     rows.push(tr('ui.compare.row', { KIND: kindDisplay(item.kind), before: cell(before, item.id, tr), after: cell(after, item.id, tr) }));
   }
-  const guess = (v: Verdict) => (v.bestGuess ? tr('ui.compare.guessLevel', { level: v.bestGuess.level }) : tr('ui.compare.noGuess'));
+  // SR-07: an attacker guess always shows its confidence (T-161).
+  const guess = (v: Verdict) =>
+    v.bestGuess ? tr('ui.compare.guessLevelConf', { level: v.bestGuess.level, confidence: v.bestGuess.confidence }) : tr('ui.compare.noGuess');
   rows.push(tr('ui.compare.guess', { before: guess(before), after: guess(after) }));
   return rows;
 }

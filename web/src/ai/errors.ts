@@ -210,8 +210,9 @@ export function errorCopy(code: GateErrorCode): StringId | null {
       return 'copy.adv.declined';
     case 'CLOUD_TRUNCATED':
     case 'PARSE_FAILED':
-    case 'TIMEOUT':
       return 'copy.adv.truncated';
+    case 'TIMEOUT':
+      return 'copy.adv.timeout'; // T-161: a timeout is no answer at all, not a cut-off one
     case 'CLOUD_QUOTA':
       return 'copy.err.rateLimit';
     case 'CLOUD_AUTH':
@@ -243,7 +244,7 @@ export function statusEventFor(code: GateErrorCode): 'rateLimit' | 'network' | '
     case 'CLOUD_NETWORK':
     case 'CLOUD_SERVER': return 'network';
     case 'CLOUD_BAD_REQUEST': return 'cloudFailed';
-    default: return null; // TIMEOUT included: "Lost connection. Your check is queued." would be untrue (D-131)
+    default: return null; // TIMEOUT included: a "couldn't be reached" banner would be untrue for a slow answer (D-131)
   }
 }
 

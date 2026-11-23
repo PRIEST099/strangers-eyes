@@ -4,7 +4,6 @@
   "description": "Root tooling for Strangers' Eyes: Firebase CLI, rules tests and repo checks. The app lives in web/ and ios/.",
   "license": "Apache-2.0",
   "scripts": {
-    "test:rules": "cd tests/rules && npx -y firebase-tools@13.35.1 emulators:exec --only firestore --project demo-strangers-eyes \"node atlas.rules.test.mjs\"",
     "check:boundaries": "node scripts/check-boundaries.mjs"
   },
   "devDependencies": {

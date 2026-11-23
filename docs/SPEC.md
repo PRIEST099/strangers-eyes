@@ -318,7 +318,7 @@ Where the definitions overlap (D-86): Nano off or no `LanguageModel` is (c); tex
   - every S0/S1 HUD entry reads RULES-ONLY;
   - **no** S0/S1 network request is made (checked in the network log).
 - **AC-003 (P0) [manual]** In Chrome with Nano ready, the pre-screen, referee and fix entries read `ON-DEVICE · Gemini Nano`, and the adversary entries read `IN CLOUD`.
-- **AC-004 (P0) [e2e]** With the network forced offline after the first load, the app loads, the vault opens, Tier-0 and the pre-screen run, and the cloud step shows `copy.queue.queued`.
+- **AC-004 (P0) [e2e]** With the network forced offline after the first load, the app loads, the vault opens, Tier-0 and the pre-screen run, and the cloud step shows `copy.queue.queued` (nothing is queued: T-084 deferred, D-163).
 - **AC-005 (P0) [unit]** When availability is `downloadable` or `downloading`, S0/S1 jobs call the deterministic fallback and never call `generateContent`.
 - **AC-006 (P1) [manual]** Settings › Developer › "Simulate: no Nano / offline" can only **downgrade** capability, and the HUD shows `(simulated)` on the affected entries.
 - **AC-007 (P0) [unit]** The gate re-evaluates availability right before every S0/S1 call and never reuses a cached value. Only the UI chip may cache, for up to 30 s.
@@ -446,7 +446,7 @@ The block reasons are ARCHITECTURE's `GateBlockReason` values.
 | `NO_CONSENT` | `copy.gate.blockedConsent` | |
 | `KILL_SWITCH` | `copy.err.killSwitch` | banner, not a red toast |
 | `DAILY_CAP` | `copy.err.dailyCap` | banner |
-| `OFFLINE` | `copy.queue.queued` | the session is queued |
+| `OFFLINE` | `copy.queue.queued` | the cloud step does not run; nothing is queued (T-084 deferred, D-163) |
 | `TRIPWIRE` | `copy.gate.tripwire` | persistent red banner |
 
 When a call is blocked, it is not made. A blocked call:
@@ -1183,7 +1183,7 @@ Each screen lists its purpose, layout, behaviour, states (a)–(e), copy IDs and
   - vite-plugin-pwa (`generateSW`) precaches the app, the MediaPipe wasm and models, the Tesseract core and language data, and the Judge Mode samples. That is about 31 MB plus samples; `maximumFileSizeToCacheInBytes` is 32 MB.
   - The capability panel shows `copy.cap.offlineReady` once precaching completes.
 - **Queue (P0, in memory):**
-  - When offline, **Queue cloud check** keeps the session (master, masks, redacted JPEG) in memory with status `waiting` and shows `copy.queue.queued` plus `copy.queue.keepOpen`.
+  - Not built (T-084 deferred, D-163): offline, the button reads `ui.prescreen.queue` ("Cloud check needs a connection") and stays disabled. The original design: when offline, **Queue cloud check** keeps the session (master, masks, redacted JPEG) in memory with status `waiting` and shows `copy.queue.queued` plus `copy.queue.keepOpen`.
   - Home shows a **Waiting for connection (n)** list: masked thumbnail · time · **Remove**.
   - The Ledger records a QUEUED entry with no bytes.
   - On reconnecting, the banner `copy.queue.backOnline` appears with **Review and send**, which opens the consent sheet for the oldest item. A **new** consent token is issued. **Nothing is sent automatically** (D-17).
@@ -1276,7 +1276,7 @@ Each screen lists its purpose, layout, behaviour, states (a)–(e), copy IDs and
 | App Check token failure, 401 or 403 | No cloud. Everything on the device still works. | `copy.err.appCheck` |
 | HTTP 429 or the per-user limit, after retries | Try again after 60 s | `copy.err.rateLimit` |
 | HTTP 400 | Cloud step fails; recorded in the Ledger as a bug; no retry | `copy.err.cloudFailed` |
-| Network error mid-call, after retries | The session is queued; Try again is offered | `copy.err.network` |
+| Network error mid-call, after retries | Try again is offered; nothing is queued (D-163) | `copy.err.network` |
 | Anonymous sign-in failed | Treated like an App Check failure for cloud calls | `copy.err.auth` |
 | S0/S1 tripwire or BREACH (AC-022) | A persistent red banner; the session is RULES-ONLY; the cloud is off until reload | `copy.gate.tripwire` |
 | Unsupported browser (no WebAssembly or IndexedDB) | A full-page message | `copy.err.browser` |
@@ -1405,7 +1405,7 @@ Otherwise show `copy.verdict.still`, naming the worst remaining line.
 | copy.cap.cloudPaused | Cloud checks are paused right now. On-device checks still work. |
 | copy.cap.cloudCap | You've reached today's cloud checks on this device. On-device checks still work. |
 | copy.cap.appCheckFail | This copy of the app couldn't be verified, so cloud checks are off. On-device checks still work. |
-| copy.cap.offline | You're offline. On-device checks work; the cloud attacker will wait until you reconnect. |
+| copy.cap.offline | You're offline. On-device checks work; the cloud attacker needs a connection. |
 | copy.cap.offlineReady | Ready to work offline. |
 | copy.vault.lock | Stays on this device. Never geocoded. Never uploaded. |
 | copy.vault.howUsed | Only used on this device: to mask matching text before anything is sent, and to grade the attacker's guesses. |
@@ -1433,7 +1433,7 @@ Otherwise show `copy.verdict.still`, naming the worst remaining line.
 | copy.editor.warnVault | This matches your vault. The Egress Gate will block sending it. |
 | copy.editor.warnFace | This is a face. The Egress Gate will block sending it. |
 | copy.editor.confirmRemoveCell | Make sure "{TEXT}" is covered by another mask before removing this one. |
-| copy.queue.queued | Deeper check queued until you're online. |
+| copy.queue.queued | You're offline, so nothing was sent. The cloud check needs a connection; on-device findings still work. |
 | copy.queue.keepOpen | Keep this tab open: queued checks aren't saved when you close it. |
 | copy.queue.backOnline | You're back online. {n} photo(s) ready for the cloud check. |
 | copy.queue.full | The queue holds 5 photos. Send or remove one first. |
@@ -1446,12 +1446,13 @@ Otherwise show `copy.verdict.still`, naming the worst remaining line.
 | copy.consent.send | Send this image |
 | copy.consent.cancel | Keep it on this device |
 | copy.adv.running | The attacker is studying your redacted photo… |
-| copy.adv.declined | Adversary declined; on-device findings only. We don't retry or rephrase when a model declines. |
+| copy.adv.declined | The attacker declined; on-device findings only. We don't retry or rephrase when a model declines. |
 | copy.adv.notesDeclined | The investigator declined to write notes. The structured check still ran. |
-| copy.adv.notesOff | Live search notes are off. Showing the attacker's structured findings. |
+| copy.adv.notesOff | Live search notes aren't part of this version. Showing the attacker's structured findings. |
 | copy.adv.notesNotStored | Live search notes aren't stored. These are the attacker's structured findings from that check. |
 | copy.adv.noSignal | The attacker found no usable location clues in this photo. |
 | copy.adv.truncated | The attacker's answer was cut off. Try again. |
+| copy.adv.timeout | The attacker didn't answer in time. Nothing was queued; try again in a minute. On-device findings are still shown. |
 | copy.ref.running | Referee comparing guesses with your vault… on this device |
 | copy.ref.rules | Rules-only referee (no on-device AI). Your vault still stays here. |
 | copy.verdict.red | A stranger could find you from this photo |
@@ -1490,16 +1491,16 @@ Otherwise show `copy.verdict.still`, naming the worst remaining line.
 | copy.ledger.otherTraffic | Other network traffic: App Check, anonymous sign-in and Remote Config. None of it carries your photo or vault. |
 | copy.cloudSaw.empty | Nothing has left this device yet. |
 | copy.export.check | Export check: no metadata · 0 faces · 0 vault text |
-| copy.share.headline | AI found {n} location clues in my photo. I fixed them on my own device before posting. |
-| copy.share.headlineNear | AI found my neighbourhood. I fixed it. |
+| copy.share.headline | AI found {n} location clues in my photo. I masked what I could on my own device before posting. |
+| copy.share.headlineNear | AI found my neighbourhood. I reduced the risk before posting. |
 | copy.share.footer | The attacker never learned it was right. · Strangers' Eyes |
 | copy.burn.confirm | Burn your vault? The key is deleted first, so your places, names, recent checks, queued checks and ledger can't be recovered. This can't be undone. |
 | copy.burn.done | Vault burned. |
-| copy.judge.banner | Judge Mode: sample photos and a fake vault. Nothing here is real, so private steps may run in the cloud when this browser has no on-device AI. |
+| copy.judge.banner | Judge Mode: openly licensed sample photos of public places and a made-up vault. Nothing here is yours, so private steps may run in the cloud when this browser has no on-device AI. |
 | copy.judge.fakeVault | Fake vault for Judge Mode. Your real vault isn't loaded. |
 | copy.judge.autoConfirm | Sample photo: sending in {s} s… |
 | copy.judge.cached | Recorded result for this sample ({date}, {model}). The live attacker isn't available right now. |
-| copy.judge.notesNeedLive | Live search notes need a live connection. |
+| copy.judge.notesNeedLive | Live search notes aren't part of this version. |
 | copy.atlas.optIn | Help others: add anonymous counts of the clue types the attacker found (like "street sign"). No photos, places or vault data. |
 | copy.atlas.notEnough | Not enough data yet this week. |
 | copy.err.killSwitch | Cloud checks are paused by the operator. On-device checks still work. |
@@ -1507,7 +1508,7 @@ Otherwise show `copy.verdict.still`, naming the worst remaining line.
 | copy.err.appCheck | This copy of the app couldn't be verified (App Check), so cloud checks are off. On-device checks still work. |
 | copy.err.rateLimit | The cloud is busy. Try again in a minute. |
 | copy.err.cloudFailed | The cloud check failed. On-device findings are still shown. |
-| copy.err.network | Lost connection. Your check is queued. |
+| copy.err.network | The cloud attacker couldn't be reached. Nothing was queued; try again in a minute. On-device findings are still shown. |
 | copy.err.auth | Couldn't start an anonymous session, so cloud checks are off. On-device checks still work. |
 | copy.err.browser | This browser can't run Strangers' Eyes (it needs WebAssembly and IndexedDB). Try a current Chrome, Edge, Firefox or Safari. |
 | copy.settings.capNote | The daily limit protects against misuse; it resets at midnight. |

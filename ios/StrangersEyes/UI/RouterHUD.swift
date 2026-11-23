@@ -20,7 +20,8 @@ struct RouterHUD: View {
         HStack(spacing: 6) {
           if let r = e.route { RouteBadge(route: r) } else { ProgressView().controlSize(.mini) }
           Text(e.route == nil ? Strings.t("ui.hud.pillRunning", ["job": e.job])
-               : Strings.t("ui.hud.pill", ["job": e.job, "route": e.cls.rawValue, "engine": e.engine, "latency": latency(e.latencyMs)]))
+               : Strings.t("ui.hud.pill", ["job": e.job, "route": routeLabel(e.route), "engine": e.engine,
+                                           "latency": latency(e.latencyMs)]))
             .font(.caption2).lineLimit(1)
         }
       }
@@ -28,8 +29,14 @@ struct RouterHUD: View {
     .padding(10)
     .background(.regularMaterial)
   }
+  /// The on-screen route label (ON-DEVICE, IN CLOUD, ...), as the web HUD pill shows it (core/ledgerView.ts).
+  private func routeLabel(_ r: Route?) -> String {
+    guard let r else { return "" }
+    return Strings.t("ui.route.\(r.rawValue)")
+  }
   private func latency(_ ms: Int?) -> String {
     guard let ms else { return "" }
-    return ms >= 1000 ? String(format: "%.1f s", Double(ms) / 1000) : "\(ms) ms"
+    return ms >= 1000 ? Strings.t("ui.unit.seconds", ["n": String(format: "%.1f", Double(ms) / 1000)])
+                      : Strings.t("ui.unit.ms", ["n": String(ms)])
   }
 }

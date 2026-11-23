@@ -49,11 +49,18 @@ export function subscribeConfig(listener: () => void): () => void {
 function refresh(): void {
   const raw: Record<string, string> = {};
   let anyRemote = false;
+  let tierFromTemplate = false;
   for (const k of RC_KEYS) {
     const v = getValue(rc, k);
     raw[k] = v.asString();
     if (v.getSource() === 'remote') anyRemote = true;
+    else if (k === 'data_tier') tierFromTemplate = true;
   }
+  // T-161 fail safe: the template default for data_tier is 'paid', which would claim "not used to train Google's
+  // models". When other keys came from the server but data_tier did not, it reads as 'free' (the parser's own
+  // fail-safe value). With no server values at all (source 'default') cfg() stays DEFAULT_CONFIG, and the consent
+  // sheet ignores a default-sourced tier (ui/check/sendFlow.ts consentTierCopy).
+  if (anyRemote && tierFromTemplate) raw.data_tier = 'free';
   // 'remote' = fetched in this page load; 'cached' = activated in an earlier one (offline start); 'default' = template.
   const source: ConfigSource = anyRemote ? (fetchedThisSession ? 'remote' : 'cached') : 'default';
   const next = parseConfig(raw, source);

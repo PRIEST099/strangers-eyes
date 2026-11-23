@@ -287,6 +287,14 @@ How a flaw was found:
 | F-267 | Nov 23 | D-162 | reviewer (visual) | minor | Caption reserve (72 px) was exactly full at 390 px; at 375 px or with text zoom captions reached four lines and the page shifted again | Captions get their own row on phones, reserve 3 lines (2 from sm) in `lh` units; s4/s5 shortened |
 | F-268 | Nov 23 | D-162 | reviewer (process) | minor | The build ended without the D-76 DEVLOG entry and ledger rows for its own self-found flaws | This entry and F-255..F-269 |
 | F-269 | Nov 23 | D-162 | reviewer (process) | minor | The build's handoff said en.json and PROGRESS.md still held the other session's uncommitted D-161 hunks; HEAD already had them | Handoff corrected: both files hold only D-162 changes |
+| F-270 | Nov 23 | D-163 | copy-audit agent | major | The consent sheet's tier line used the RC template default `paid` until Remote Config loaded or when the fetch failed, so the free-tier hosted app could claim the redacted copy is "not used to train Google's models" | Fail-safe: paid copy only from a fetched `paid`; defaults read as free; tests |
+| F-271 | Nov 23 | D-163 | copy-audit agent | minor | Copy promised an offline queue that was never built (T-084) and called a 45 s timeout a "cut off" answer | Honest copy; `copy.adv.timeout`; SPEC rows in step |
+| F-272 | Nov 23 | D-163 | copy-audit agent | minor | Judge copy said "Nothing here is real" about real CC0 photos; stale stand-in keys still shipped in the bundle | Reworded ("nothing in them is yours"); keys and the STANDIN chip removed |
+| F-273 | Nov 23 | D-163 | gallery agent | minor | Headless Chrome fails reCAPTCHA Enterprise App Check on the hosted origin, so the first gallery showed "Cloud paused" | Re-shot on a DEV server with the registered debug token (the project's test path; no evasion) |
+| F-274 | Nov 23 | D-163 | main session (self) | minor | The 05-blocked shot fired right after Send, while the gate was still re-reading the image, so it looked like a send in progress | Script waits for the verdict, then reopens the Attack step; verified BLOCKED, 0 bytes, no request |
+| F-275 | Nov 23 | D-163 | gallery run | minor | Open: on the evening of Nov 23 the free-tier gemini-3.5-flash-lite returned HTTP 500 to every pass-B call (6/6), so judges may see the labelled CACHED SAMPLE replay instead of a live attack | Open (by design Judge falls back to the recordings); consider Blaze or a quieter hour for filming |
+| F-276 | Nov 23 | D-163 | hygiene agent | minor | firebase.json kept a dead `firestore` key (cut D-141; files missing) and the root package.json a `test:rules` script for missing tests | Removed both |
+| F-277 | Nov 23 | D-163 | copy-audit agent | nit | Open: `copy.verdict.bestGuess` renders a bare confidence word ("· high"); 33 byte-for-byte test-vector rows (web + iOS) lock it | Open |
 
 ---
 
@@ -437,6 +445,10 @@ How a flaw was found:
 - The HUD at the bottom left now lists every AI call as it happens: which job, its privacy class, where it ran (ON-DEVICE, IN CLOUD, RULES-ONLY, BLOCKED), the engine, how long it took, how many bytes left, and tags such as "fallback: no on-device model" or "Nano off". Collapsed, the pill shows the last call. Everything comes from the Ledger, which only holds ids, kinds, hashes and numbers.
 - The Cloud Ledger rail shows live counters and "What the cloud saw": the exact redacted JPEG of the last cloud send, kept in memory and shown only when the hash of its own bytes equals the hash the gate recorded, with the same 8-character prefix the consent sheet shows. The original photo is never registered. It all lives in memory for this page; nothing is stored or sent.
 - No real AI call was made. Browser check with the DEV fake Nano and fake adversary on a synthetic image: pre-screen and referee ON-DEVICE, pass B IN CLOUD, matching hashes. Found F-220..F-222.
+
+### Nov 23 (evening): getting ready to submit (D-163)
+- The submission text, video script, diagrams and gallery were written from the real numbers. An audit of every word the app shows found one claim that mattered: before Remote Config loaded, the consent sheet could tell a free-tier user their photo was on a paid tier and not used for training. It now says the paid line only when the server says so.
+- The gate's most important promise was finally watched in a real browser: with the "LUCAS" tag deliberately left visible, the Send was refused on the device, nothing left the browser, and the app said exactly why.
 
 ### Nov 23: a story for first-time readers (D-162)
 - New readers did not get the risk from a diagram of lanes. The landing screens now open with "The Coffee Post", an 18-second illustrated story: a coffee photo posted with location off, a cloud AI that still claims "street level" from the pixels, the device alone knowing that lands within 1 km of your work, solid masks over the clues, and a re-attack whose best guess drops to country. It ends on "The attacker never learns whether it guessed right." It is a drawing, labelled as one; the only numbers on the landing pages come from the Day-1 spike, with its caveat on About.

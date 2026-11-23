@@ -539,7 +539,7 @@ export function Check({ judge = null }: { judge?: JudgeCheck | null } = {}) {
         )}
         {current === 'send' && (
           <ConsentPanel
-            send={state.flow.send} candidate={candidate} tierCopy={consentTierCopy(rc?.dataTier ?? 'free')}
+            send={state.flow.send} candidate={candidate} tierCopy={consentTierCopy(rc)}
             model={rc?.adversaryModel ?? ''} sent={attackKind !== 'idle'} onSend={onSend} onCancel={onCancelSend}
           />
         )}
@@ -574,7 +574,7 @@ export function Check({ judge = null }: { judge?: JudgeCheck | null } = {}) {
           <div className="mt-3 flex flex-col gap-2">
             {re.send.kind === 'ready' && <p className="self-start rounded-chip border border-line bg-surface-2 px-3 py-1.5 text-small font-medium" data-testid="consent-diff">{t('ui.consent.diff', { n: Math.max(0, re.send.dry.masks.length - prevSentMasks) })}</p>}
             <ConsentPanel
-              send={re.send} candidate={candidate} tierCopy={consentTierCopy(rc?.dataTier ?? 'free')}
+              send={re.send} candidate={candidate} tierCopy={consentTierCopy(rc)}
               model={rc?.adversaryModel ?? ''} sent={false} onSend={onResend} onCancel={() => dispatch({ type: 'cancelResend' })}
             />
           </div>

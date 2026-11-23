@@ -31,7 +31,14 @@ export function sendBlockedCopy(s: { online: boolean; status: SystemStatus; capU
   }
 }
 
-export const consentTierCopy = (dataTier: 'free' | 'paid'): StringId => (dataTier === 'paid' ? 'copy.consent.tierPaid' : 'copy.consent.tierFree');
+/**
+ * Fail safe (T-161): the paid-tier line ("not used to train Google's models") shows ONLY when a fetched or activated
+ * Remote Config value says `paid`. The template default is `paid`, so before RC loads, after a failed fetch (source
+ * `default`), or with no config at all, the line is the free-tier one. remoteConfig.ts also reads `data_tier` as free
+ * when that key's own value is not from the server.
+ */
+export const consentTierCopy = (rc: { readonly dataTier: 'free' | 'paid'; readonly source: 'remote' | 'cached' | 'default' } | null | undefined): StringId =>
+  rc && rc.source !== 'default' && rc.dataTier === 'paid' ? 'copy.consent.tierPaid' : 'copy.consent.tierFree';
 /** Pass A (T-070) is not built, so the box never shows yet; with grounding off (the free tier) it never shows at all. */
 export const PASS_A_BUILT = false;
 export const groundingOffered = (groundingEnabled: boolean, passABuilt: boolean = PASS_A_BUILT): boolean => groundingEnabled && passABuilt;

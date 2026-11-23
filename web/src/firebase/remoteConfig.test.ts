@@ -114,6 +114,26 @@ describe('loadConfig', () => {
     expect(m.cfg()).toEqual(m.DEFAULT_CONFIG);
   });
 
+  it('T-161: data_tier reads paid only when the server sent it; a template-default tier next to remote keys is free', async () => {
+    h.state.active = { kill_switch: 'false' }; // a server template without data_tier
+    const m = await load();
+    expect(m.RC_DEFAULTS.data_tier).toBe('paid'); // the template default this guards against
+    await m.loadConfig();
+    expect(m.cfg()).toMatchObject({ source: 'cached', dataTier: 'free', groundingEnabled: false });
+    expect(m.cfg().warnings).toEqual([]);
+  });
+
+  it('T-161: a server-sent data_tier is used as sent (paid or free)', async () => {
+    h.state.active = { data_tier: 'paid' };
+    const m = await load();
+    await m.loadConfig();
+    expect(m.cfg()).toMatchObject({ source: 'cached', dataTier: 'paid' });
+    h.state.active = { data_tier: 'free' };
+    const m2 = await load();
+    await m2.loadConfig();
+    expect(m2.cfg()).toMatchObject({ source: 'cached', dataTier: 'free' });
+  });
+
   it('a successful fetch publishes the new values with source remote and notifies once', async () => {
     h.state.fetch = 'ok';
     h.state.fetched = { adversary_model: 'gemini-4-hydrogen' };

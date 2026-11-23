@@ -4,10 +4,8 @@
 // run sits near the top of the page. Thumbnails are the bundled same-origin `/samples/*.nano768.jpg` files (openly
 // licensed, already solid-masked); no network beyond the app's own origin.
 // Test hooks: every sample button keeps `data-sample` and `aria-pressed`, and its accessible name is exactly the title
-// (the image is alt="", the STAND-IN chip sits OUTSIDE the button, a compact title below sm is a sr-only span, never
-// aria-label).
+// (the image is alt="", a compact title below sm is a sr-only span, never aria-label).
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { t } from '../../core/strings';
 import { sampleUrl, type JudgeSample } from '../../vault/judgeVault';
 import { Button } from '../components/Button';
 
@@ -20,10 +18,6 @@ export interface SamplePickerProps {
   onPick: (index: number) => void;
 }
 
-/** The dashed mono chip for authored stand-in answers (copy ui.judge.placeholder). */
-const STANDIN =
-  'pointer-events-none inline-flex h-[22px] items-center rounded-chip border border-dashed border-route-cached-line bg-surface px-2 ' +
-  'font-mono text-caption font-bold tracking-[0.06em] whitespace-nowrap text-route-cached';
 /** The card: CARD without its padding (the thumbnail runs edge to edge). The selected card gets the device ring. */
 const cardClass = (on: boolean) =>
   `relative rounded-card border border-line bg-surface ${on ? 'ring-2 ring-route-device-fill shadow-glow-device' : 'shadow-e1'}`;
@@ -77,14 +71,11 @@ export function SamplePicker({ samples, selected, compact, onPick }: SamplePicke
                         src={sampleUrl(s.nano768)} alt="" width={768} height={480} loading="lazy" decoding="async"
                         className="h-14 w-[88px] shrink-0 rounded-chip bg-surface-2 object-cover sm:aspect-[16/10] sm:h-auto sm:w-full sm:rounded-none"
                       />
-                      <span className={`line-clamp-2 min-w-0 flex-1 text-left text-small font-semibold sm:px-3 sm:py-2.5 ${s.placeholder ? 'pb-7 sm:pb-2.5' : ''}`}>
+                      <span className="line-clamp-2 min-w-0 flex-1 text-left text-small font-semibold sm:px-3 sm:py-2.5">
                         {s.title}
                       </span>
                     </span>
                   </Button>
-                  {s.placeholder && (
-                    <span className={`${STANDIN} absolute bottom-2.5 left-[108px] sm:bottom-auto sm:left-2 sm:top-2`}>{t('ui.judge.placeholder')}</span>
-                  )}
                 </li>
               );
             })}

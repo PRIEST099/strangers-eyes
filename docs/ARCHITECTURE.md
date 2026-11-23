@@ -2635,6 +2635,8 @@ The generated copy `research/day1-artifacts/arch/remoteconfig.template.json` pre
 
 ### 13.4 Client loading (`web/src/firebase/remoteConfig.ts`)
 
+**D-163 data-tier fail-safe:** the consent sheet shows the paid-tier line only when a value fetched from the server says `data_tier = paid` (`sendFlow.consentTierCopy(rc)`); a config from the in-code defaults (`source: 'default'`) reads as free, and `refresh()` forces `data_tier` to `free` when other keys came from the server but `data_tier` did not. The repo template still ships `paid`; the live (free-tier) config overrides it (RUNBOOK §4.4).
+
 ```ts
 // [sketch; built and tested in T-102 as firebase/rcParse.ts (pure parse) + firebase/remoteConfig.ts (SDK), D-108/D-109: the code wins where it differs]
 import { getRemoteConfig, ensureInitialized, fetchAndActivate, activate, onConfigUpdate } from 'firebase/remote-config';

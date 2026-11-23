@@ -12,6 +12,7 @@ import { compareVerdicts, comparisonHeadline } from '../../core/verdict';
 import { compareRows, receiptParams } from './fixFlow';
 import { resultStatus } from '../importTransfer';
 import { INITIAL_STATUS } from '../systemStatus';
+import { DEFAULT_CONFIG } from '../../firebase/rcParse';
 import { caughtOf, consentTierCopy, groundingOffered, sendBlockedCopy, userUnmaskedBoxes, verdictOf } from './sendFlow';
 
 const SHA = '1'.repeat(64);
@@ -100,8 +101,22 @@ describe('Send → Attack → Verdict transitions (D-139)', () => {
 
 describe('sendFlow helpers', () => {
   it('AC-131: the tier line follows data_tier; the grounding box is hidden on the free tier and until pass A exists', () => {
-    expect(consentTierCopy('free')).toBe('copy.consent.tierFree');
-    expect(consentTierCopy('paid')).toBe('copy.consent.tierPaid');
+    expect(consentTierCopy({ dataTier: 'free', source: 'remote' })).toBe('copy.consent.tierFree');
+    expect(consentTierCopy({ dataTier: 'paid', source: 'remote' })).toBe('copy.consent.tierPaid');
+    expect(consentTierCopy({ dataTier: 'paid', source: 'cached' })).toBe('copy.consent.tierPaid');
+  });
+
+  it('T-161 fail safe: the paid-tier line never shows from the template default or with no config', () => {
+    expect(DEFAULT_CONFIG.dataTier).toBe('paid'); // the template default this guards against (ARCH §13.3)
+    expect(DEFAULT_CONFIG.source).toBe('default');
+    expect(consentTierCopy(DEFAULT_CONFIG)).toBe('copy.consent.tierFree'); // before RC loads, or after a failed fetch
+    expect(consentTierCopy({ dataTier: 'paid', source: 'default' })).toBe('copy.consent.tierFree');
+    expect(consentTierCopy(null)).toBe('copy.consent.tierFree');
+    expect(consentTierCopy(undefined)).toBe('copy.consent.tierFree');
+    expect(consentTierCopy({ dataTier: 'free', source: 'cached' })).toBe('copy.consent.tierFree');
+  });
+
+  it('pass A grounding box', () => {
     expect(groundingOffered(false)).toBe(false);
     expect(groundingOffered(true)).toBe(false); // pass A is not built (T-070)
     expect(groundingOffered(true, true)).toBe(true);
@@ -225,7 +240,7 @@ describe('fixFlow helpers (AC-194)', () => {
 
   it('Before → After rows use KIND names and band or link words, never the label; the receipt counts cloud calls only', () => {
     const rows = compareRows(before, afterFix, VAULT);
-    expect(rows.at(-1)).toBe("Attacker's best guess: neighbourhood level → city level");
+    expect(rows.at(-1)).toMatch(/^Attacker's best guess: neighbourhood level \(attacker confidence \w+\) → city level \(attacker confidence \w+\)$/); // SR-07
     expect(rows.some((r) => r.includes('exact link → not linked'))).toBe(true);
     expect(rows.join(' ')).not.toMatch(/Lucas|City General/);
     expect(compareRows(before, verdictOf({ kind: 'refused', why: 'declined', call }, VAULT, c), VAULT)).toEqual([]);

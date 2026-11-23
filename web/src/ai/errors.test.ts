@@ -90,14 +90,14 @@ describe('copy (ARCH §17, §8.7; SPEC §7.2, SCR-22)', () => {
     expect(errorCopy('CLOUD_NETWORK')).toBe('copy.err.network');
     expect(errorCopy('BREACH')).toBe('copy.gate.tripwire');
     expect(errorCopy('DEVICE_FAILED')).toBeNull();
-    expect(errorCopy('TIMEOUT')).toBe('copy.adv.truncated');
+    expect(errorCopy('TIMEOUT')).toBe('copy.adv.timeout'); // T-161: not "cut off"
     expect(errorCopy('PARSE_FAILED')).toBe('copy.adv.truncated');
     expect(errorCopy('CLOUD_TRUNCATED')).toBe('copy.adv.truncated');
     expect(errorCopy('CLOUD_DECLINED')).toBe('copy.adv.declined');
     expect(errorCopy('CLOUD_SERVER')).toBe('copy.err.network');
     expect(errorCopy('GROUNDING_OFF')).toBeNull();
     expect(errorCopy('ABORTED')).toBeNull();
-    expect(statusEventFor('TIMEOUT')).toBeNull(); // no "queued" banner for a timeout (D-131)
+    expect(statusEventFor('TIMEOUT')).toBeNull(); // no network banner for a timeout (D-131)
     expect(statusEventFor('CLOUD_SERVER')).toBe('network');
     expect(retriesAllowed('GROUNDING_OFF', { busy: 3, parse: 3, quota: 3, network: 3 }, { cloud: true })).toBe(0);
     expect(new GateError('INTERNAL', { detail: 'Error' }).message).toBe('gate:INTERNAL (Error)');

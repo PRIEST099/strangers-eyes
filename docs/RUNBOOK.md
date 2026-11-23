@@ -582,7 +582,7 @@ npm run check        # tsc -b && node ../scripts/check-boundaries.mjs && vitest 
 npm run build        # tsc -b && vite build -> web/dist (~31 MB precached + samples)
 npm run preview      # http://localhost:4173, production build + service worker (no debug token: AI calls fail here)
 npm run test:e2e     # Playwright on `vite build --mode e2e` + preview, fake AI transport behind the gate
-npm --prefix .. run test:rules   # ROOT package.json script: Firestore rules in the emulator (§2.6)
+# (no test:rules any more: Firestore and its rules tests were cut, D-141; the root script was removed)
 ```
 For the Browser pane tools, create `.claude/launch.json` (no secrets; may be committed):
 ```json
@@ -602,7 +602,7 @@ For the Browser pane tools, create `.claude/launch.json` (no secrets; may be com
    - S4 without a sample allowlist match.
 
    `check-boundaries.mjs` fails on any `generateContent`, `getGenerativeModel`, `getAI` or `LanguageModel` call outside its allowed file.
-2. **Firestore rules (emulator; Java 17 works with CLI 13.35.1, and its jar is cached in `~/.cache/firebase/emulators`).** These live in the root **`tests/rules/`** (ARCH §3, §14.4), with their **own** `firebase.json`, so the old CLI never reads the root config (which has `auth` and `remoteconfig` keys the old CLI may reject [UNVERIFIED]).
+2. **Cut (D-141), history only:** Firestore is not used, `firestore.rules` and `tests/rules/` do not exist, and the root `test:rules` script and the `firestore` key in `firebase.json` were removed. The original steps follow for the record. **Firestore rules (emulator; Java 17 works with CLI 13.35.1, and its jar is cached in `~/.cache/firebase/emulators`).** These live in the root **`tests/rules/`** (ARCH §3, §14.4), with their **own** `firebase.json`, so the old CLI never reads the root config (which has `auth` and `remoteconfig` keys the old CLI may reject [UNVERIFIED]).
    - Port from `research/day1-artifacts/firestore-tests/` (the current rules and test: no `outcomes` block, 20/20; `firestore-tests-v2/` is history only):
      - `test.mjs` → `tests/rules/atlas.rules.test.mjs`. Read the rules with `resolve(import.meta.dirname, '../../firestore.rules')`, set `projectId: 'demo-strangers-eyes'`, and **keep** its outcome-rejection cases ('outcomes collection create rejected', 'band outcome doc rejected', 'band type as clue rejected': `outcomes/*`, `outcomes/band_moved`, `clues/fix_moved_band`; §4.3).
    - `tests/rules/firebase.json`:
@@ -622,7 +622,7 @@ For the Browser pane tools, create `.claude/launch.json` (no secrets; may be com
    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --remote-debugging-port=9222 \
      --user-data-dir="/Users/mac/Documents/firebase buildathon/.scratch/chrome-test" http://localhost:5173/#/judge
    ```
-   Expected: the capability panel says rules-only/cloud, and Judge Mode goes red to green.
+   Expected: the capability panel says rules-only/cloud, and Judge Mode reaches a final verdict (AC-240; the recorded samples do not end in "Risk reduced", D-161).
 4. **E2E (Playwright).**
    - Prefer `channel: 'chrome'`, which uses the installed Chrome with no download [UNVERIFIED on this Mac]. Fallback: `npx playwright install chromium`.
    - Smoke and offline specs per ARCH §20.2. The fake transport only exists with `--mode e2e`.
@@ -846,6 +846,8 @@ Check with `$FB projects:list`; the active project is marked.
   - If §3.4 finds an origin trial is needed, add an `Origin-Trial` header here.
 
 ### 4.3 Firestore rules and indexes [CLAUDE]
+**Cut (D-141): history only.** Firestore is not used; `firestore.rules`, `firestore.indexes.json` and `tests/rules/` do not exist, and `firebase.json` has no `firestore` key. Never run the steps below or `--only firestore`.
+
 **Constraint (SPEC D-11, invariant 1):**
 - The only writable documents are `/atlas/{weekId}/clues/{clueType}`;
 - `clueType` must be one of the **18 `CLUE_TYPES`** (`shared/prompts/enums.v1.json`);
@@ -913,7 +915,7 @@ FB="npx -y firebase-tools@15.37.0"
 npm --prefix web run check && npm --prefix web run build
 $FB deploy --only hosting -m "<what changed>"
 # Day 6 full deploy:
-$FB deploy --only hosting,firestore,auth,remoteconfig -m "Day 6: first full hosted build"
+$FB deploy --only hosting,auth,remoteconfig -m "Day 6: first full hosted build"   # no firestore (cut, D-141)
 ```
 **Checklist after every hosted deploy** (results go in PROGRESS):
 1. **Headers and MIME** [UNVERIFIED until run]:
@@ -934,7 +936,7 @@ $FB deploy --only hosting,firestore,auth,remoteconfig -m "Day 6: first full host
    ```
 3. **Judges' path:** a browser **without Nano** (Chrome guest profile, headless Chrome or Safari).
    - The capability panel is honest.
-   - Judge Mode runs red to green in **≤90 s (goal about 60 s)** with IN_CLOUD/RULES_ONLY badges.
+   - Judge Mode reaches a final verdict in **≤90 s** (AC-240; D-161: the recorded samples end "Still exposed" or red, not "Risk reduced") with IN CLOUD / RULES-ONLY badges.
    - The Ledger and HUD fill in.
 4. **App Check:** in DevTools → Network, requests to `firebasevertexai.googleapis.com` carry `X-Firebase-AppCheck` and return 200 (not 401 or 403). In the App Check console APIs tab, verified requests rise and unverified stay near 0.
 5. **Grounded pass A:** the Search Suggestions chip is unmodified, the same width as the notes, and always visible with them; `webSearchQueries` and the source links are shown.
@@ -964,7 +966,7 @@ $FB deploy --only hosting,firestore,auth,remoteconfig -m "Day 6: first full host
 | Not yet possible | Hosted AI call (needs T-011); `--only remoteconfig` (the template exists since Nov 21, T-060; the first publish is T-038 step 1 / T-102); cold "Tier-0 ready" under Fast 4G (Tier-0 is not wired into Check until T-056/T-057). Estimate: about 22.6 MB of wasm, traineddata and model, ≈ 20 s at 9 Mbit/s plus latency. Measure it in T-107/T-108 |
 
 **Hosted verification matrix** (TASKS T-108; fill on Day 6 and again before submission):
-| Browser | Nano | Capability panel honest | Tier-0 faces + OCR work | Judge Mode red→green (s) | App Check 200 | Cold first visit (s) | Notes |
+| Browser | Nano | Capability panel honest | Tier-0 faces + OCR work | Judge Mode final verdict (s) | App Check 200 | Cold first visit (s) | Notes |
 |---|---|---|---|---|---|---|---|
 | Chrome 157, this Mac (Nano profile) | | | | | | | |
 | Chrome guest profile (no Nano) | | | | | | | |
@@ -1195,7 +1197,7 @@ The FAQ says the first 30 s must cover who it's for, the problem, and how Fireba
 | 3 Offline pre-screen | 0:35–0:58 | Chrome PWA + Nano; **Simulator shut down**; **Wi-Fi OFF** | Demo profile; PWA cached; Nano `available`; pre-mask **Standard** | Drop photo → ON-DEVICE (Gemini Nano) badge + Tier-0 chip → "'LUCAS' matches your child's name. Masked on this device." → solid masks on the tag and house-number card → lanyard flagged amber "Possible identifier" → chip "Deeper check queued until you're online" | Wi-Fi off in the menu bar; HUD ON_DEVICE lines | If Nano isn't available that day, film honestly with RULES_ONLY or use the iOS take, and adjust the VO |
 | 4 Red team | 0:58–1:40 | Chrome; Wi-Fi ON | Continues from Beat 3 | Consent sheet "This, and only this, will be sent." → approve → IN_CLOUD badge → notes stream with Search chip and sources → evidence boxes (stop code, sign, lanyard) → "Referee comparing guesses with your vault… on this device" (ON-DEVICE) → red verdict lines as produced (expected: "Linked to your WORKPLACE", a home band) | Ledger "Faces sent: 0 · Vault items sent: 0" throughout | Insert a 4-second split graphic in the edit: "The cloud sees masked pixels; the device holds the truth." |
 | 5 Gate | 1:40–1:55 | Chrome | Same state | Untick the name-tag mask → re-check → consent sheet warns `copy.consent.unmasked`, Send stays enabled → Send → red toast "Blocked: 'LUCAS' would have left this device." → "What the cloud saw" shows only the earlier masked copy | Toast text | Must be the real gate code path. Depends on Tesseract reading the tag at 1536 px (checked Nov 21) |
-| 6 Fix and re-attack | 1:55–2:20 | Chrome | Same state | Tap Fix → on-device plan text → solid fills animate → re-attack IN_CLOUD → real result → green **"Risk reduced"** → receipt line → (only if T-081's P1 share card shipped) share card with no location | "Risk reduced", never "safe"; confidence shown | Pre-tested ≥10× (§6.2); film what it really does |
+| 6 Fix and re-attack | 1:55–2:20 | Chrome | Same state | Tap Fix → on-device plan text → solid fills animate → re-attack IN CLOUD → real result → the final verdict as produced (**"Still exposed"** or **"Risk reduced"**; the recorded samples end "Still exposed", D-161) → receipt line → (only if T-081's P1 share card shipped) share card with no location | "Risk reduced", never "safe"; confidence shown | Pre-tested ≥10× (§6.2); film what it really does |
 | 7 Proof and platforms | 2:20–2:42 | Edit + iOS cameo from Session A | `benchmark/results/summary.md` final | Benchmark card with real numbers; iOS verdict with the Apple Foundation Models badge and Vision masks (×4); routing-table overlay | Caption "iOS 27 Simulator on Apple-silicon Mac · Apple Foundation Models on-device" | Routing table: vault and original photo ONLY_ON_DEVICE; public explanations PREFER_ON_DEVICE with cloud fallback; attacker ONLY_IN_CLOUD |
 | 8 Close | 2:42–2:50 | Edit | — | Firebase stack strip as text (AI Logic hybrid, App Check, Remote Config, Anonymous Auth, Hosting (Firestore cut, D-141)). "Try it in any browser, no on-device AI needed: Judge Mode, about 60 seconds." URL and repo. | URL readable for ≥3 s | Text names, not product logos |
 
@@ -1280,16 +1282,16 @@ Claude samples frames from `final.mp4` to check the numbers, captions, absence o
 - [ ] Clean-clone test passes (web build and check; iOS `xcodegen generate` + build) by following the README literally.
 
 ### 7.3 App checklist
-- [ ] Hosted URL works with no login (anonymous auth), at no cost to the judge, **in a browser without Nano**. Judge Mode goes red to green in ≤90 s.
+- [ ] Hosted URL works with no login (anonymous auth), at no cost to the judge, **in a browser without Nano**. Judge Mode reaches a final verdict in ≤90 s (AC-240; D-161: the recorded samples do not end in "Risk reduced").
 - [ ] App Check is Enforced for AI Logic. The hosted site uses reCAPTCHA Enterprise.
 - [ ] Both inference sides are demonstrably used. `inferenceSource` badges and the Ledger are visible.
-- [ ] Grounded notes render Search Suggestions and sources, and are never cached across users.
+- [ ] Grounded notes (pass A) are not shown: Search grounding is off on the free tier (T-070). Pass A is never cached anywhere.
 - [ ] 18+ notice and "own photos only" checkbox on first run.
 - [ ] The consent sheet shows the exact outgoing image. Burn vault works.
 - [ ] Pre-mask default is **Standard**.
-- [ ] Kill switch tested. `daily_adversary_cap` is set, and Judge Mode falls back to CACHED pass B when the cap or quota hits, so judges are never locked out.
+- [ ] Kill switch tested. `daily_adversary_cap` is set, and Judge Mode falls back to the recorded pass B (CACHED SAMPLE) when the live attacker is unavailable (offline, quota or daily cap, kill switch, App Check failure, a timeout or a server error), so judges are never locked out.
 - [ ] UI is in English. Refusals show "Adversary declined; on-device findings only".
-- [ ] Budget alerts on. The site stays up until Dec 16, 14:00 PT.
+- [ ] Budget alerts do not apply: the project is on Spark (no billing). The site stays up until Dec 16, 14:00 PT.
 
 ### 7.4 Video checklist
 - [ ] ≤3:00 (aim ≤2:50), **Public** on YouTube, English voice plus captions.
@@ -1324,20 +1326,20 @@ Claude records the real fields and limits here after Nov 22.
 - **Try it out:** hosted URL, repo URL
 - **Thumbnail:** `docs/img/thumbnail.png`, 3:2, no third-party logos.
 - **Gallery** (no third-party logos, no real home or school):
-  1. hero shot;
-  2. capability panel;
-  3. red verdict with the Ledger reading "Faces sent: 0 · Vault items sent: 0";
-  4. blocked-leak toast;
-  5. green "Risk reduced";
-  6. S0–S4 routing/architecture diagram;
-  7. benchmark table;
-  8. iOS screen with the Apple FM badge.
+  1. `01-home.png`: Home, tagline and illustrated story;
+  2. `02-judge-run.png`: a Judge Mode run, device lane and cloud lane, with HUD badges;
+  3. `03-verdict-red.png`: a red verdict as distance bands, with the Ledger reading "Faces sent: 0 · Vault items sent: 0";
+  4. `04-reattack.png`: fix and re-attack, before and after (no promise of a green "Risk reduced": the recorded samples end "Still exposed", D-161);
+  5. `05-blocked.png`: the Egress Gate blocking an unmasked vault match (drop it if the shot does not exist);
+  6. `06-about-routing.png`: what leaves this device, S0–S4 routing;
+  7. `07-capabilities.png`: what runs where on this browser.
+  Captions are in `docs/DEVPOST.md`. Optional extras: `docs/img/architecture.png`, `docs/img/routing.png`; an iOS shot only with a caption saying the attacker was a labelled stand-in.
 
 **Testing-instructions template:**
 ```
 1. Open HOSTED_URL in any browser (desktop or mobile). No login: an anonymous session is created automatically. Free.
-2. Click "Judge Mode": 3 CC0 photos of public places (people and plates solid-masked, drawn props; D-153) and a fictional vault load. Press Run. The full loop runs red→green in about 60–90 s.
-3. Watch the Router HUD (bottom-left): every step is labelled ON-DEVICE, IN_CLOUD or RULES-ONLY, with latency.
+2. Click "Judge Mode": 3 CC0 photos of public places (people and plates solid-masked, drawn props; D-153) and a fictional vault load. Press Run. The full loop reaches a final verdict within 90 s (AC-240); the recorded samples end "Still exposed" or red, not "Risk reduced" (D-161).
+3. Watch the Router HUD (bottom-left): every step is labelled ON-DEVICE, IN CLOUD or RULES-ONLY, with latency.
    The Cloud Ledger (right) counts exactly what left the device.
 4. Optional on-device AI: Chrome desktop with on-device AI enabled (chrome://settings/ai and
    chrome://flags/#prompt-api-for-gemini-nano-multimodal-input), then reload. The capability panel shows Gemini Nano.

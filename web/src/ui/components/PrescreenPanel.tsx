@@ -103,7 +103,7 @@ export function PrescreenPanel({ master, state, onOp, onRetry, canSend = false, 
           </div>
           <div className="flex flex-col gap-2 border-t border-line pt-4">
             <div className="flex flex-wrap items-center gap-2">
-              {/* Offline: "Queue cloud check" (SCR-18) stays disabled until the offline queue exists (T-084). */}
+              {/* Offline: the button reads "Cloud check needs a connection" and stays disabled; there is no offline queue (T-084). */}
               <Button variant="primary" size="lg" disabled={!online || !canSend || !onCloud} onClick={onCloud} data-action="cloud">
                 <Icon name="cloud" className="size-5" />
                 {t(online ? 'ui.prescreen.cloud' : 'ui.prescreen.queue')}
