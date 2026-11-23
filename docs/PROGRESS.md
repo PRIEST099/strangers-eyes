@@ -6,7 +6,7 @@
 
 ## STATE (overwrite in place; never append here)
 - Today: Mon Nov 23 2026 (Day 5). Internal deadline Mon Nov 30 12:00 GMT+2.
-- Now: web demo path complete and live (hosting redeployed late Nov 21). Nov 23: attacker switched to gemini-3.5-flash-lite (D-159, RC published); G1 + G1b PASS; **web redesign (D-160, docs/DESIGN.md) live on hosting (redeploy #3, Nov 23, commit f26c241).** Real Nano verified (D-154). Lean iOS app (D-155; 20/20 XCTest). README / DEVPOST / VIDEO drafted with [TBD]s.
+- Now: web demo path complete and live (hosting redeployed late Nov 21). Nov 23: attacker switched to gemini-3.5-flash-lite (D-159, RC published); G1 + G1b PASS; **Hosting live at commit 2560a57 (redeploy #5, Nov 23): D-160 redesign, D-161 live Judge recordings, D-163 copy fixes.** Real Nano verified (D-154). Lean iOS app (D-155; 20/20 XCTest). README / DEVPOST / VIDEO filled (D-163); only 3 [USER] markers left: YOUTUBE_URL, REPO_URL, platforms/category.
 - Next:
   - Judge samples replay live recordings (D-161, kept by the user); none ends in "Risk reduced" (landmarks). Hosting redeploy of D-161 needs the user's OK. The video VO should say the fix can't hide a landmark.
   - Real pass B through the app (T-086 evidence) and live recordings for the 3 Judge samples (RUNBOOK §6.2b step 5) — needs paid quota (Sprint 2 window today if the user has it, else Blaze T-003 / Sprint 3).
@@ -1211,3 +1211,4 @@ How T-022 ran:
 ### 2026-11-23 (evening): submission finishing (D-163; side session)
 - Hosting redeploy #4 (user: "deploy and keep going"): built clean HEAD 3d5057f, `deploy --only hosting`; live index JS/CSS, manifest and the 3 recordings byte-identical to local.
 - Two workflows (13 agents): README/DEVPOST/VIDEO, notices + hygiene scan + clean-clone test (web, on HEAD), diagrams, gallery, copy audit, two critics; then the main session's own fixes. Gate block verified live in the browser; gallery 05 shot. iOS RouterHUD change: `xcodebuild test` (see the commit). Not deployed: the copy fixes need a hosting redeploy (user OK).
+- **Hosting redeploy #5 (user: "Yes, redeploy"):** built 2560a57 in a detached clean worktree (so the uncommitted SOURCES.md / launch.json stayed out), `npm ci` + build + check-dist ok, `deploy --only hosting` (RC untouched). Live index.html, sw.js, index JS/CSS, the strings chunk, manifest, judge-01 recording and SOURCES.md byte-identical to that dist. D-163 copy fixes (incl. the F-270 data-tier fail-safe) are now live.
