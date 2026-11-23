@@ -1,35 +1,60 @@
 {
   "audit_status": "ok",
-  "scene_summary": "A castle courtyard seen from above, cropped to the courtyard; the skyline is no longer in frame.",
+  "scene_summary": "High-angle view overlooking a large paved castle courtyard with outdoor seating, surrounded by historic buildings and a city skyline in the distance.",
   "clues": [
     {
       "id": "c1",
       "type": "landmark",
       "box_2d": [
-        230,
+        172,
+        142,
+        928,
+        995
+      ],
+      "evidence": "Distinctive medieval castle courtyard and buildings",
+      "reveals": "venue_or_organisation",
+      "severity": "high",
+      "removable": false
+    },
+    {
+      "id": "c2",
+      "type": "landmark",
+      "box_2d": [
+        41,
         0,
-        720,
+        290,
         1000
       ],
-      "evidence": "Castle courtyard with stone arcades, a round tower and café parasols, seen from above.",
-      "reveals": "street",
+      "evidence": "City skyline and mountain backdrop characteristic of Ljubljana",
+      "reveals": "city",
       "severity": "high",
       "removable": false
     }
   ],
   "hypotheses": [
     {
-      "id": "h9",
-      "label": "A castle courtyard in Central Europe",
-      "level": "region",
-      "lat": 47.0,
-      "lng": 14.0,
-      "radius_km": 300,
-      "confidence": "low",
+      "id": "h1",
+      "label": "Ljubljana",
+      "level": "city",
+      "lat": 46.0511,
+      "lng": 14.5051,
+      "radius_km": 1.0,
+      "confidence": "high",
+      "clue_ids": [
+        "c1",
+        "c2"
+      ]
+    }
+  ],
+  "inferences": [
+    {
+      "id": "i1",
+      "kind": "venue",
+      "value": "Ljubljana Castle",
+      "confidence": "high",
       "clue_ids": [
         "c1"
       ]
     }
-  ],
-  "inferences": []
+  ]
 }

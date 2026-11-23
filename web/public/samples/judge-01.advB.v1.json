@@ -1,91 +1,48 @@
 {
   "audit_status": "ok",
-  "scene_summary": "A station forecourt with coaches parked in numbered bays in front of a long cream building with a clock tower.",
+  "scene_summary": "A historic yellow railway station building with a clock tower overlooking a bus terminal and a city street.",
   "clues": [
     {
       "id": "c1",
-      "type": "transit_sign",
+      "type": "name_text",
       "box_2d": [
-        418,
-        430,
-        440,
-        560
+        415,
+        420,
+        438,
+        568
       ],
-      "evidence": "Facade lettering in Slovene naming the building as the railway station.",
-      "reveals": "street",
+      "evidence": "Text reading 'ŽELEZNIŠKA POSTAJA' visible on the station facade",
+      "reveals": "city",
       "severity": "high",
       "removable": true
     },
     {
       "id": "c2",
-      "type": "transit_sign",
-      "box_2d": [
-        375,
-        30,
-        445,
-        960
-      ],
-      "evidence": "Numbered blue bus-bay boards along the forecourt.",
-      "reveals": "neighbourhood",
-      "severity": "medium",
-      "removable": true
-    },
-    {
-      "id": "c3",
       "type": "crest_or_logo",
       "box_2d": [
-        420,
-        10,
-        540,
-        900
+        484,
+        535,
+        501,
+        564
       ],
-      "evidence": "Coach liveries with a regional operator's name.",
-      "reveals": "city",
+      "evidence": "Arriva transport company logo visible on the parked buses",
+      "reveals": "country",
       "severity": "medium",
       "removable": true
-    },
-    {
-      "id": "c5",
-      "type": "landmark",
-      "box_2d": [
-        160,
-        125,
-        450,
-        850
-      ],
-      "evidence": "Cream-and-yellow station building with a central clock tower.",
-      "reveals": "street",
-      "severity": "high",
-      "removable": false
     }
   ],
   "hypotheses": [
     {
       "id": "h1",
-      "label": "Ljubljana railway station forecourt, Slovenia",
-      "level": "street",
-      "lat": 46.058,
-      "lng": 14.511,
-      "radius_km": 0.3,
+      "label": "Maribor",
+      "level": "city",
+      "lat": 46.5603,
+      "lng": 15.6556,
+      "radius_km": 0.5,
       "confidence": "high",
       "clue_ids": [
         "c1",
-        "c2",
-        "c3",
-        "c5"
-      ]
-    },
-    {
-      "id": "h2",
-      "label": "Central Ljubljana, Slovenia",
-      "level": "city",
-      "lat": 46.054,
-      "lng": 14.506,
-      "radius_km": 3,
-      "confidence": "medium",
-      "clue_ids": [
-        "c3",
-        "c5"
+        "c2"
       ]
     }
   ],
@@ -93,20 +50,11 @@
     {
       "id": "i1",
       "kind": "routine",
-      "value": "Regular trips through Ljubljana's main bus and rail station",
-      "confidence": "medium",
+      "value": "Maribor Railway Station and Bus Terminal",
+      "confidence": "high",
       "clue_ids": [
-        "c2",
-        "c5"
-      ]
-    },
-    {
-      "id": "i2",
-      "kind": "transit_line",
-      "value": "Regional coach routes from the main station",
-      "confidence": "low",
-      "clue_ids": [
-        "c3"
+        "c1",
+        "c2"
       ]
     }
   ]

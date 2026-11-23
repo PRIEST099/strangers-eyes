@@ -5,7 +5,9 @@
 //   - recordedOutcome: a recorded pass B (judge-0N.advB*.v1.json) → the AttackOutcome Check shows, validated by the same
 //     strict parser as a live answer (invariant 8: only pass B ever feeds code), route CACHED, badged `recorded`.
 //   - fixedRecordingApplies: the "after fix" recording stands for a re-attack only when the masks (and crop) actually
-//     sent hide every clue that recording dropped; otherwise the first recording is replayed (honest: still exposed).
+//     sent hide the first recording's clues that the live fix masked (manifest `fixMasked`; absent = every removable
+//     clue); otherwise the first recording is replayed (honest: still exposed). D-161: keyed on the FIRST answer's own
+//     boxes, never on the after-fix answer's ids, which a live model numbers independently (its c1 is not the first c1).
 //   - nextAutoAction: what autoplay does next, from a small view of Check's state.
 // Nothing here reads the vault, the network or the DOM.
 import type { AttackOutcome } from '../../ai/jobs/adversaryB';
@@ -50,10 +52,11 @@ export function hiddenShare(box: PxRect, masks: readonly PxRect[], crop: PxRect 
 export const HIDDEN_ENOUGH = 0.9;
 
 export function fixedRecordingApplies(
-  first: Pick<ParsedAdvB, 'clues'>, fixed: Pick<ParsedAdvB, 'clues'>, masks: readonly PxRect[], crop: PxRect | null, W: number, H: number,
+  first: Pick<ParsedAdvB, 'clues'>, masks: readonly PxRect[], crop: PxRect | null, W: number, H: number,
+  fixMasked: readonly string[] | null = null,
 ): boolean {
-  const kept = new Set(fixed.clues.map((c) => c.id));
-  return first.clues.filter((c) => !kept.has(c.id)).every((c) => hiddenShare(boxToPx(c.box2d, W, H), masks, crop) >= HIDDEN_ENOUGH);
+  const must = fixMasked ? first.clues.filter((c) => fixMasked.includes(c.id)) : first.clues.filter((c) => c.removable);
+  return must.every((c) => hiddenShare(boxToPx(c.box2d, W, H), masks, crop) >= HIDDEN_ENOUGH);
 }
 
 /** A box of the uncropped sample mapped into a cropped frame (clamped; 0..1000 of the crop). */

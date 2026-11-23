@@ -85,9 +85,8 @@ export async function recordedAttack(i: RecordedAttackInput): Promise<AttackOutc
   try {
     const first = await fetchJson(i.sample.cachedAdvB);
     let use = first;
-    if (i.fix) {
-      const fixed = await fetchJson(i.sample.cachedAdvBFixed);
-      if (fixedRecordingApplies(parseAdvB(first), parseAdvB(fixed), i.fix.masks, i.fix.crop, i.master.width, i.master.height)) use = fixed;
+    if (i.fix && fixedRecordingApplies(parseAdvB(first), i.fix.masks, i.fix.crop, i.master.width, i.master.height, i.sample.fixMasked)) {
+      use = await fetchJson(i.sample.cachedAdvBFixed);
     }
     return recordedOutcome(use, {
       runId: i.runId, sentImageSha256: i.image.sha256, sentFrame: i.image.frame, recordedAt: i.sample.recordedAt, model: i.sample.model,

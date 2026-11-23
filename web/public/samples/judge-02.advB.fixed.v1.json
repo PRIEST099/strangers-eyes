@@ -1,35 +1,74 @@
 {
   "audit_status": "ok",
-  "scene_summary": "A cycle path and a statue in front of a historic building; signs, bikes and vehicles are covered by solid blocks.",
+  "scene_summary": "A paved public square with bicycle sharing racks, parked buses, and a historic yellow building with a clock tower in the background.",
   "clues": [
     {
-      "id": "c3",
+      "id": "c1",
+      "type": "transit_sign",
+      "box_2d": [
+        726,
+        875,
+        780,
+        930
+      ],
+      "evidence": "Bicikelj bicycle sharing branding visible on bike frame",
+      "reveals": "city",
+      "severity": "high",
+      "removable": true
+    },
+    {
+      "id": "c2",
       "type": "landmark",
       "box_2d": [
-        320,
-        300,
-        520,
-        650
+        285,
+        296,
+        490,
+        663
       ],
-      "evidence": "Equestrian statue in front of a cream station building with a clock tower.",
-      "reveals": "street",
+      "evidence": "Distinctive yellow railway station building with clock tower",
+      "reveals": "city",
       "severity": "high",
       "removable": false
+    },
+    {
+      "id": "c3",
+      "type": "uniform_or_lanyard",
+      "box_2d": [
+        778,
+        546,
+        929,
+        755
+      ],
+      "evidence": "Staff ID badge or lanyard graphic",
+      "reveals": "venue_or_organisation",
+      "severity": "high",
+      "removable": true
     }
   ],
   "hypotheses": [
     {
-      "id": "h9",
-      "label": "A city in Central Europe",
-      "level": "region",
-      "lat": 46.3,
-      "lng": 14.8,
-      "radius_km": 80,
-      "confidence": "low",
+      "id": "h1",
+      "label": "Ljubljana",
+      "level": "city",
+      "lat": 46.056,
+      "lng": 14.512,
+      "radius_km": 1.0,
+      "confidence": "high",
+      "clue_ids": [
+        "c1",
+        "c2"
+      ]
+    }
+  ],
+  "inferences": [
+    {
+      "id": "i1",
+      "kind": "workplace",
+      "value": "Ljubljana railway station or related transport organisation",
+      "confidence": "medium",
       "clue_ids": [
         "c3"
       ]
     }
-  ],
-  "inferences": []
+  ]
 }

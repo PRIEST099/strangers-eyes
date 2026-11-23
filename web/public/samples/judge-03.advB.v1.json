@@ -1,76 +1,48 @@
 {
   "audit_status": "ok",
-  "scene_summary": "A castle courtyard seen from a tower, with a city skyline, a river and mountains beyond. A solid dark block covers an object in the lower left.",
+  "scene_summary": "High-angle view overlooking a large paved castle courtyard with outdoor seating, surrounded by historic buildings and a city skyline in the distance.",
   "clues": [
     {
       "id": "c1",
       "type": "landmark",
       "box_2d": [
-        230,
-        0,
-        720,
-        1000
+        172,
+        142,
+        928,
+        995
       ],
-      "evidence": "Castle courtyard with stone arcades, a round tower and café parasols, seen from above.",
-      "reveals": "street",
+      "evidence": "Distinctive medieval castle courtyard and buildings",
+      "reveals": "venue_or_organisation",
       "severity": "high",
       "removable": false
     },
     {
       "id": "c2",
-      "type": "window_view",
+      "type": "landmark",
       "box_2d": [
+        41,
         0,
-        0,
-        230,
+        290,
         1000
       ],
-      "evidence": "City skyline with high-rise blocks and a river bend.",
+      "evidence": "City skyline and mountain backdrop characteristic of Ljubljana",
       "reveals": "city",
       "severity": "high",
-      "removable": true
-    },
-    {
-      "id": "c3",
-      "type": "vegetation_or_terrain",
-      "box_2d": [
-        30,
-        0,
-        110,
-        1000
-      ],
-      "evidence": "Forested foothills and mountains on the horizon.",
-      "reveals": "region",
-      "severity": "medium",
-      "removable": true
+      "removable": false
     }
   ],
   "hypotheses": [
     {
       "id": "h1",
-      "label": "Ljubljana Castle courtyard, Slovenia",
-      "level": "street",
-      "lat": 46.049,
-      "lng": 14.508,
-      "radius_km": 0.2,
+      "label": "Ljubljana",
+      "level": "city",
+      "lat": 46.0511,
+      "lng": 14.5051,
+      "radius_km": 1.0,
       "confidence": "high",
       "clue_ids": [
         "c1",
-        "c2",
-        "c3"
-      ]
-    },
-    {
-      "id": "h2",
-      "label": "Ljubljana old town, Slovenia",
-      "level": "district",
-      "lat": 46.05,
-      "lng": 14.506,
-      "radius_km": 1.5,
-      "confidence": "medium",
-      "clue_ids": [
-        "c2",
-        "c3"
+        "c2"
       ]
     }
   ],
@@ -78,19 +50,10 @@
     {
       "id": "i1",
       "kind": "venue",
-      "value": "A visit to Ljubljana Castle",
+      "value": "Ljubljana Castle",
       "confidence": "high",
       "clue_ids": [
         "c1"
-      ]
-    },
-    {
-      "id": "i2",
-      "kind": "routine",
-      "value": "Spends time in Ljubljana's old town",
-      "confidence": "low",
-      "clue_ids": [
-        "c2"
       ]
     }
   ]

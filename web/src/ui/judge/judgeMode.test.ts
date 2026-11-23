@@ -42,13 +42,15 @@ const MANIFEST = parseJudgeManifest(MANIFEST_JSON)!;
 const bytes = (name: string): Uint8Array<ArrayBuffer> => { const b = file(name); const out = new Uint8Array(new ArrayBuffer(b.length)); out.set(b); return out; };
 const sha = (b: Uint8Array) => createHash('sha256').update(b).digest('hex');
 
-describe('the bundled placeholder samples (AC-244 pre-check; D-150)', () => {
+describe('the bundled samples (AC-244 pre-check; D-150, D-153, D-161 live recordings)', () => {
   it('parse as the Judge manifest AND as the gate allowlist; every hash is the file on disk', () => {
     expect(MANIFEST.samples.map((s) => s.id)).toEqual(['judge-01', 'judge-02', 'judge-03']);
-    expect(MANIFEST.placeholder).toBe(true);
+    // D-161: the recorded answers are live (gemini-3.5-flash-lite, Nov 23), no longer authored stand-ins.
+    expect(MANIFEST.placeholder).toBe(false);
     const allow = parseSampleManifest(MANIFEST_JSON)!;
     for (const s of MANIFEST.samples) {
-      expect(s.placeholder).toBe(true);
+      expect(s.placeholder).toBe(false);
+      expect(s.model).not.toMatch(/stand-in/);
       expect(sha(file(s.image))).toBe(s.imageSha256);
       expect(sha(file(s.nano768))).toBe(s.nano768Sha256);
       expect(allow.get(s.id)).toEqual({ imageSha256: s.imageSha256, nano768Sha256: s.nano768Sha256 });
@@ -71,10 +73,16 @@ describe('the bundled placeholder samples (AC-244 pre-check; D-150)', () => {
         expect(Math.abs(h.lat - MANIFEST.fakeVault.homePin.lat)).toBeLessThan(1.5);
         expect(Math.abs(h.lng - MANIFEST.fakeVault.homePin.lng)).toBeLessThan(1.5);
       }
-      const gone = first.clues.filter((c) => !fixed.clues.some((f) => f.id === c.id));
-      expect(gone.length).toBeGreaterThan(0);
-      expect(gone.every((c) => c.removable)).toBe(true);
-      expect(fixed.clues.every((c) => !c.removable)).toBe(true);
+      expect(fixed.repairs).toEqual([]);
+      // Authored stand-ins (D-153) drop exactly the removable clues. Live answers (D-161) number their clues
+      // independently, so no id-level relation between the two recordings is asserted; the replay rule
+      // (fixedRecordingApplies) is covered by its own test below.
+      if (s.placeholder) {
+        const gone = first.clues.filter((c) => !fixed.clues.some((f) => f.id === c.id));
+        expect(gone.length).toBeGreaterThan(0);
+        expect(gone.every((c) => c.removable)).toBe(true);
+        expect(fixed.clues.every((c) => !c.removable)).toBe(true);
+      }
     }
   });
   it('rejects a manifest with a bad hash, a duplicate id or a path in a file name', () => {
@@ -237,20 +245,32 @@ describe('the CACHED replay (AC-243, AC-246)', () => {
     expect(o.result.clues.find((c) => c.id === rec.id)?.box2d).toEqual(rec.box_2d);
     expect(() => recordedOutcome({ audit_status: 'nope' }, { runId: 'r1', sentImageSha256: '', sentFrame: frame, recordedAt: '', model: '', echo: () => [] }, 1600, 1200)).toThrow();
   });
-  it('the "after fix" recording stands only when the masks sent hide every clue it dropped; a crop counts, boxes follow the crop', () => {
-    const s = MANIFEST.samples[0];
-    const first = parseAdvB(JSON.parse(file(s.cachedAdvB).toString('utf8')));
-    const fixed = parseAdvB(JSON.parse(file(s.cachedAdvBFixed).toString('utf8')));
-    const px = (b: number[]) => ({ x: (b[1] / 1000) * 1600 - 5, y: (b[0] / 1000) * 1200 - 5, w: ((b[3] - b[1]) / 1000) * 1600 + 10, h: ((b[2] - b[0]) / 1000) * 1200 + 10 });
-    const removable = first.clues.filter((c) => c.removable);
-    expect(fixedRecordingApplies(first, fixed, removable.map((c) => px(c.box2d)), null, 1600, 1200)).toBe(true);
-    // leave the top-most removable clue unmasked: its top edge is not under any other mask, so the recording does not stand
-    const top = removable.reduce((a, c) => (c.box2d[0] < a.box2d[0] ? c : a));
-    const others = removable.filter((c) => c !== top).map((c) => px(c.box2d));
-    expect(fixedRecordingApplies(first, fixed, others, null, 1600, 1200)).toBe(false);
-    // …and the same clue cut away by a crop instead of a mask
-    const cutY = Math.ceil((top.box2d[2] / 1000) * 1200) + 10;
-    expect(fixedRecordingApplies(first, fixed, others, { x: 0, y: cutY, w: 1600, h: 1200 - cutY }, 1600, 1200)).toBe(true);
+  it('the "after fix" recording stands only when the masks sent hide every removable clue of the first answer (D-161: not by clue id); a crop counts, boxes follow the crop', () => {
+    // Synthetic first answer (data-independent): two removable clues and one landmark that no fix removes.
+    const first = parseAdvB({
+      audit_status: 'ok', scene_summary: 'A square with a sign, a badge and a tower.',
+      clues: [
+        { id: 'c1', type: 'street_sign', box_2d: [100, 100, 200, 300], evidence: 'A sign.', reveals: 'street', severity: 'high', removable: true },
+        { id: 'c2', type: 'uniform_or_lanyard', box_2d: [600, 600, 700, 800], evidence: 'A badge.', reveals: 'venue_or_organisation', severity: 'high', removable: true },
+        { id: 'c3', type: 'landmark', box_2d: [0, 400, 500, 600], evidence: 'A tower.', reveals: 'city', severity: 'medium', removable: false },
+      ],
+      hypotheses: [{ id: 'h1', label: 'A city', level: 'city', lat: 46.05, lng: 14.51, radius_km: 5, confidence: 'low', clue_ids: ['c3'] }],
+      inferences: [],
+    });
+    const px = (b: readonly number[]) => ({ x: (b[1]! / 1000) * 1600 - 5, y: (b[0]! / 1000) * 1200 - 5, w: ((b[3]! - b[1]!) / 1000) * 1600 + 10, h: ((b[2]! - b[0]!) / 1000) * 1200 + 10 });
+    const [sign, badge] = first.clues;
+    expect(fixedRecordingApplies(first, [px(sign!.box2d), px(badge!.box2d)], null, 1600, 1200)).toBe(true);
+    // nothing masked, or one removable clue left visible: the first answer is replayed (still exposed)
+    expect(fixedRecordingApplies(first, [], null, 1600, 1200)).toBe(false);
+    expect(fixedRecordingApplies(first, [px(badge!.box2d)], null, 1600, 1200)).toBe(false);
+    // …and the sign cut away by a crop instead of a mask
+    const cutY = Math.ceil((sign!.box2d[2] / 1000) * 1200) + 10;
+    expect(fixedRecordingApplies(first, [px(badge!.box2d)], { x: 0, y: cutY, w: 1600, h: 1200 - cutY }, 1600, 1200)).toBe(true);
+    // D-161 manifest fixMasked: only the clues the live fix masked must be hidden (the sign here), not the badge too
+    expect(fixedRecordingApplies(first, [px(sign!.box2d)], null, 1600, 1200, ['c1'])).toBe(true);
+    expect(fixedRecordingApplies(first, [px(badge!.box2d)], null, 1600, 1200, ['c1'])).toBe(false);
+    // the non-removable landmark never has to be hidden
+    expect(fixedRecordingApplies({ clues: first.clues.filter((c) => !c.removable) }, [], null, 1600, 1200)).toBe(true);
     expect(boxIntoCrop([500, 0, 1000, 500], { x: 0, y: 600, w: 1600, h: 600 }, 1600, 1200)).toEqual([0, 0, 1000, 500]);
   });
 });

@@ -55,6 +55,37 @@ function devNanoReport(): Plugin {
   };
 }
 
+/**
+ * DEV server only (apply: 'serve'; D-161): with `?recordJudge=1`, web/src/dev/judgeRecord.ts POSTs each live Judge Mode
+ * pass-B answer here, and it is written OUTSIDE the repo (PRIV/raw/judge-rec/<sample>.<run>.<time>.json). RUNBOOK §6.2b.
+ */
+function devJudgeRecord(): Plugin {
+  return {
+    name: 'se-dev-judge-record',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/__se_dev/judge-record', (req, res) => {
+        if (req.method !== 'POST') { res.statusCode = 405; res.end(); return; }
+        let body = '';
+        req.on('data', (c: Buffer) => { body += c.toString('utf8'); if (body.length > 200_000) req.destroy(); });
+        req.on('end', () => {
+          try {
+            const p = JSON.parse(body) as { sampleId?: unknown; runId?: unknown };
+            const safe = (v: unknown) => (typeof v === 'string' && /^[a-z0-9-]{1,32}$/.test(v) ? v : null);
+            const id = safe(p.sampleId);
+            const run = safe(p.runId);
+            if (!id || !run) throw new Error('bad ids');
+            mkdirSync(`${PRIV}/raw/judge-rec`, { recursive: true });
+            writeFileSync(`${PRIV}/raw/judge-rec/${id}.${run}.${Date.now()}.json`, JSON.stringify(p, null, 2));
+            res.statusCode = 204;
+          } catch { res.statusCode = 400; }
+          res.end();
+        });
+      });
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => {
   const spike = mode === 'development' && process.env.VITE_SPIKE === '1';
   return {
@@ -86,6 +117,7 @@ export default defineConfig(({ mode }) => {
     : { fs: { allow: ['..'] } },
   plugins: [
     devNanoReport(),
+    devJudgeRecord(),
     react(),
     tailwindcss(),
     VitePWA({

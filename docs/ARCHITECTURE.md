@@ -572,7 +572,8 @@ The full red-to-green loop still works, and the original photo never leaves the 
 4. When the live adversary is unavailable (`KILL_SWITCH`, `DAILY_CAP`, `OFFLINE`, `CLOUD_QUOTA` after its retries, `CLOUD_AUTH`, `CLOUD_BAD_REQUEST`) and RC `judge_cached_fallback` is true, the recorded `judge-0N.advB.v1.json` is replayed with route `CACHED`, the badge `CACHED SAMPLE` (SPEC SCR-17, §8 badge styles) and `copy.judge.cached`. Pass A shows `copy.judge.notesNeedLive`. Judge Mode's live S3 runs count against the same daily-cap counter as real checks (`se.cap.<YYYY-MM-DD>`); there is no separate Judge counter (SPEC SCR-17, AC-246).
 5. If a live sample is refused, the state-(e) UI shows, with an offer of **"Use recorded result"**. This is not a model retry.
 6. Recorded pass-B boxes are normalised to the default-masked sample frame. They map onto the current frame only when the aspect ratio matches and there is no crop, so Judge autoplay never crops before the first attack.
-7. Target: red → green in **≤ 90 s, goal 60 s**, on a judge laptop without Nano (AC-240).
+6a. A CACHED re-attack replays `judge-0N.advB.fixed.v1.json` only when the masks/crop sent hide (≥ 90 % each) the FIRST recording's clues listed in the manifest's `fixMasked` (the clues the live default fix masked before the recorded re-attack); absent = every removable clue. Otherwise the first recording is replayed (still exposed). Never matched by clue id across the two recordings: a live answer numbers its clues independently (D-161).
+7. Target: red → green in **≤ 90 s, goal 60 s**, on a judge laptop without Nano (AC-240). D-161: with the live recordings of Nov 23 no sample ends green (the attacker places them by landmarks a mask cannot hide); see PROGRESS D-161.
 
 ### 5.5 Forced leak (demo beat 5, AC-041)
 

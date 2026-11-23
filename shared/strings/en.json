@@ -401,6 +401,7 @@
   "ui.judge.exit": "Exit Judge Mode",
   "ui.judge.placeholder": "STAND-IN ANSWERS",
   "ui.judge.placeholderNote": "Openly licensed (CC0) photos of public places, with drawn props and a made-up vault. Their recorded attacker answers are stand-ins written by the team until live recordings replace them; a live attack runs whenever the cloud model is available.",
+  "ui.judge.samplesNote": "Openly licensed (CC0) photos of public places, with drawn props and a made-up vault. The recorded attacker answers are real: the cloud attacker's first run on each sample (Nov 23), replayed only when the live attacker is unavailable.",
   "ui.judge.loading": "Loading the samples…",
   "ui.judge.loadFailed": "The samples could not be loaded. Reload the page to try again.",
   "ui.judge.disabled": "Judge Mode is turned off right now.",

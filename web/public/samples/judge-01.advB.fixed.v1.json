@@ -1,35 +1,61 @@
 {
   "audit_status": "ok",
-  "scene_summary": "A forecourt with coaches and a long historic building; signs and lettering are covered by solid blocks.",
+  "scene_summary": "A bus station with Arriva buses parked in front of a large yellow building featuring a clock tower.",
   "clues": [
     {
-      "id": "c5",
+      "id": "c1",
+      "type": "transit_sign",
+      "box_2d": [
+        431,
+        492,
+        545,
+        738
+      ],
+      "evidence": "Arriva branding on the side of the blue buses",
+      "reveals": "country",
+      "severity": "medium",
+      "removable": true
+    },
+    {
+      "id": "c2",
       "type": "landmark",
       "box_2d": [
-        160,
-        125,
-        450,
+        102,
+        126,
+        471,
         850
       ],
-      "evidence": "Cream-and-yellow station building with a central clock tower.",
-      "reveals": "street",
+      "evidence": "Distinctive yellow station building with a central clock tower",
+      "reveals": "city",
       "severity": "high",
       "removable": false
     }
   ],
   "hypotheses": [
     {
-      "id": "h9",
-      "label": "A railway station in Central Europe",
-      "level": "region",
-      "lat": 46.3,
-      "lng": 14.8,
-      "radius_km": 120,
-      "confidence": "low",
+      "id": "h1",
+      "label": "Ljubljana",
+      "level": "city",
+      "lat": 46.0565,
+      "lng": 14.5124,
+      "radius_km": 1.0,
+      "confidence": "high",
       "clue_ids": [
-        "c5"
+        "c1",
+        "c2"
       ]
     }
   ],
-  "inferences": []
+  "inferences": [
+    {
+      "id": "i1",
+      "kind": "venue",
+      "value": "Ljubljana Bus and Railway Station",
+      "confidence": "high",
+      "clue_ids": [
+        "c1",
+        "c2"
+      ]
+    }
+  ]
 }

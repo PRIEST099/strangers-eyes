@@ -27,6 +27,11 @@ export interface JudgeSample {
   cachedAdvBFixed: string;
   recordedAt: string;
   model: string;
+  /**
+   * D-161: the FIRST recording's clue ids that the live default fix masked before the recorded re-attack. The "after
+   * fix" recording is replayed only when the masks sent now hide those clues; null (absent) = every removable clue.
+   */
+  fixMasked: readonly string[] | null;
 }
 export interface JudgeManifest {
   placeholder: boolean;
@@ -36,6 +41,7 @@ export interface JudgeManifest {
 
 const SHA256_HEX = /^[0-9a-f]{64}$/;
 const SAMPLE_ID = /^[a-z0-9][a-z0-9-]{0,31}$/;
+const CLUE_ID = /^[A-Za-z0-9_-]{1,16}$/;
 /** A sample file name in /samples/ (no path, no query): only these are ever fetched. */
 const SAMPLE_FILE = /^[A-Za-z0-9][A-Za-z0-9.-]{0,63}\.(jpg|json)$/;
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -57,7 +63,8 @@ export function parseJudgeManifest(json: unknown): JudgeManifest | null {
   const ids = new Set<string>();
   for (const s of json.samples as unknown[]) {
     if (!isObj(s)) return null;
-    const { id, title, image, imageSha256, nano768, nano768Sha256, cachedAdvB, cachedAdvBFixed, recordedAt, model } = s;
+    const { id, title, image, imageSha256, nano768, nano768Sha256, cachedAdvB, cachedAdvBFixed, recordedAt, model, fixMasked } = s;
+    if (fixMasked !== undefined && (!Array.isArray(fixMasked) || fixMasked.length > 32 || !fixMasked.every((c) => str(c, 16) && CLUE_ID.test(c)))) return null;
     if (!str(id) || !SAMPLE_ID.test(id) || ids.has(id) || !str(title) || !str(recordedAt, 40) || !str(model, 120)) return null;
     if (!str(imageSha256) || !SHA256_HEX.test(imageSha256) || !str(nano768Sha256) || !SHA256_HEX.test(nano768Sha256)) return null;
     for (const f of [image, nano768, cachedAdvB, cachedAdvBFixed]) if (!str(f) || !SAMPLE_FILE.test(f)) return null;
@@ -65,6 +72,7 @@ export function parseJudgeManifest(json: unknown): JudgeManifest | null {
     samples.push(Object.freeze({
       id, title, placeholder: s.placeholder === true, image: image as string, imageSha256, nano768: nano768 as string, nano768Sha256,
       cachedAdvB: cachedAdvB as string, cachedAdvBFixed: cachedAdvBFixed as string, recordedAt, model,
+      fixMasked: Array.isArray(fixMasked) ? Object.freeze([...(fixMasked as string[])]) : null,
     }));
   }
   return Object.freeze({ placeholder: json.placeholder === true, fakeVault: Object.freeze({ homePin, workPin }), samples: Object.freeze(samples) });

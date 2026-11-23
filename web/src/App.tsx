@@ -39,6 +39,10 @@ const DevNanoCheck: LazyExoticComponent<ComponentType> | null = import.meta.env.
 if (import.meta.env.DEV) {
   void import('./dev/fakeAdversary').then((m) => m.installFakeAdversary(), () => undefined);
 }
+// D-161: DEV builds may record live Judge Mode pass-B answers outside the repo (`?recordJudge=1`; RUNBOOK §6.2b).
+if (import.meta.env.DEV) {
+  void import('./dev/judgeRecord').then((m) => m.installJudgeRecorder(), () => undefined);
+}
 // D-147: DEV builds may answer the on-device jobs from a fake Gemini Nano (`?fakeNano=ok|empty|invalid|timeout`).
 if (import.meta.env.DEV) {
   void import('./dev/fakeNano').then((m) => m.installFakeNano(), () => undefined);

@@ -1,60 +1,46 @@
 {
   "audit_status": "ok",
-  "scene_summary": "A cycle path beside a row of docked shared bikes, an office corner with a bank branch, and a station building behind a statue. A solid dark block covers an object in the foreground.",
+  "scene_summary": "A public plaza with a historical station building, parked buses, bicycle-sharing racks, and a modern building on the left.",
   "clues": [
     {
       "id": "c1",
-      "type": "storefront_text",
-      "box_2d": [
-        370,
-        0,
-        445,
-        200
-      ],
-      "evidence": "Red bank branch signage on the corner office building.",
-      "reveals": "neighbourhood",
-      "severity": "medium",
-      "removable": true
-    },
-    {
-      "id": "c2",
-      "type": "crest_or_logo",
-      "box_2d": [
-        530,
-        600,
-        1000,
-        1000
-      ],
-      "evidence": "Green city bike-share bikes and docking posts with the scheme's name.",
-      "reveals": "city",
-      "severity": "high",
-      "removable": true
-    },
-    {
-      "id": "c3",
       "type": "landmark",
       "box_2d": [
-        320,
-        300,
-        520,
-        650
+        304,
+        298,
+        484,
+        658
       ],
-      "evidence": "Equestrian statue in front of a cream station building with a clock tower.",
-      "reveals": "street",
+      "evidence": "The distinct historical railway station building with a clock tower and equestrian statue.",
+      "reveals": "city",
       "severity": "high",
       "removable": false
     },
     {
-      "id": "c5",
-      "type": "transit_sign",
+      "id": "c2",
+      "type": "road_or_street_furniture",
       "box_2d": [
-        470,
-        630,
-        530,
-        1000
+        731,
+        836,
+        991,
+        996
       ],
-      "evidence": "Coaches parked in a line with operator liveries.",
+      "evidence": "Public bicycle-sharing scheme docking system with branded bikes.",
       "reveals": "city",
+      "severity": "high",
+      "removable": false
+    },
+    {
+      "id": "c3",
+      "type": "storefront_text",
+      "box_2d": [
+        395,
+        128,
+        428,
+        172
+      ],
+      "evidence": "Partial bank storefront signage visible on the left building.",
+      "reveals": "country",
       "severity": "medium",
       "removable": true
     }
@@ -62,30 +48,16 @@
   "hypotheses": [
     {
       "id": "h1",
-      "label": "Square beside Ljubljana railway station, Slovenia",
-      "level": "street",
-      "lat": 46.057,
-      "lng": 14.51,
-      "radius_km": 0.4,
+      "label": "Ljubljana",
+      "level": "city",
+      "lat": 46.056,
+      "lng": 14.512,
+      "radius_km": 0.5,
       "confidence": "high",
       "clue_ids": [
         "c1",
         "c2",
-        "c3",
-        "c5"
-      ]
-    },
-    {
-      "id": "h2",
-      "label": "Ljubljana, Slovenia",
-      "level": "city",
-      "lat": 46.054,
-      "lng": 14.506,
-      "radius_km": 4,
-      "confidence": "medium",
-      "clue_ids": [
-        "c2",
-        "c5"
+        "c3"
       ]
     }
   ],
@@ -93,19 +65,11 @@
     {
       "id": "i1",
       "kind": "routine",
-      "value": "Uses the city bike-share near Ljubljana's main station",
-      "confidence": "medium",
+      "value": "Ljubljana Railway Station area",
+      "confidence": "high",
       "clue_ids": [
+        "c1",
         "c2"
-      ]
-    },
-    {
-      "id": "i2",
-      "kind": "home_area",
-      "value": "Lives or works within walking distance of the main station",
-      "confidence": "low",
-      "clue_ids": [
-        "c3"
       ]
     }
   ]

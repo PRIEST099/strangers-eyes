@@ -96,6 +96,26 @@ export function adversaryBRequest(i: AdversaryBInput): GateRequest<AdvBValue> {
   };
 }
 
+// ---------- DEV ONLY: Judge Mode live recordings (RUNBOOK §6.2b step 5; D-161) ----------
+// web/src/dev/judgeRecord.ts (installed by App.tsx inside `if (import.meta.env.DEV)`, opt-in with `?recordJudge=1`) may
+// receive the RAW pass-B text of a live Judge Mode answer, only after the strict parser and every gate check accepted
+// it and it was not a decline. Pass B only, never pass A (invariant 8); Judge Mode only (fake vault, sample photos). A
+// production build has none of it: the setter returns at once, so the recorder is always null.
+export interface DevJudgeRecording {
+  sampleId: string;
+  runId: string;
+  model: string;
+  sentImageSha256: string;
+  cropInMaster: OutgoingImage['frame']['cropInMaster'];
+  raw: string;
+}
+let devJudgeRecorder: ((r: DevJudgeRecording) => void) | null = null;
+/** DEV ONLY: install (or clear, null) the Judge Mode recorder. Does nothing in a production build. */
+export function devSetJudgeRecorder(fn: ((r: DevJudgeRecording) => void) | null): void {
+  if (!import.meta.env.DEV) return;
+  devJudgeRecorder = fn;
+}
+
 function failedState(code: GateErrorCode): 'truncated' | 'unreadable' | 'error' {
   if (code === 'CLOUD_TRUNCATED') return 'truncated';
   if (code === 'PARSE_FAILED') return 'unreadable';
@@ -118,12 +138,19 @@ export async function adversaryB(i: AdversaryBInput, deps: AdversaryBDeps = {}):
   });
   let out: AttackOutcome;
   try {
-    const r = await run(adversaryBRequest(i));
+    const req = adversaryBRequest(i);
+    // DEV recorder only (null in production): keep the raw text the strict parser accepted.
+    let devRaw: string | null = null;
+    const rec = import.meta.env.DEV && i.judge ? devJudgeRecorder : null;
+    const r = await run(rec ? { ...req, parse: (t: string, meta) => { const p = req.parse(t, meta); devRaw = t; return p; } } : req);
     const v = r.value;
     const info = call({ route: r.route, source: r.inferenceSource ?? null, latencyMs: r.latencyMs, ledgerId: r.ledgerId });
     if (v.status === 'declined') {
       out = { kind: 'refused', why: 'declined', call: info };
     } else {
+      if (rec && i.judge && devRaw !== null && r.route === 'IN_CLOUD') {
+        rec({ sampleId: i.judge.sampleId, runId: i.runId ?? 'r1', model: i.model, sentImageSha256: i.image.sha256, cropInMaster: i.image.frame.cropInMaster, raw: devRaw });
+      }
       const result: AdversaryResult = {
         runId: i.runId ?? 'r1', promptVersion: ADV_B_PROMPT, model: i.model, status: v.status,
         ...(v.declineReason !== undefined ? { declineReason: v.declineReason } : {}),
