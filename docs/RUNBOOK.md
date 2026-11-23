@@ -85,7 +85,7 @@ SDK facts live in `docs/API-NOTES.md`. Task IDs and checkboxes live in `docs/TAS
 | Sat Nov 21 | weekend | Props printed; prop-OCR check; walking-skeleton Hosting deploy live (TASKS T-038) |
 | Sun Nov 22 | weekend | Scenes shot; Devpost draft created; G3 (iOS) recorded; vertical slice green |
 | Tue Nov 24 | | **Gate: full red-to-green web loop works and the egress audit passes** |
-| Wed Nov 25 | | **Hosted URL live.** 25 benchmark photos and the gate-test set due. (Google Account Quota Sprint 3 request deadline is 10:00 PT. We don't need it.) |
+| Wed Nov 25 | | **Hosted URL live.** 25 benchmark photos and the gate-test set due. (Google Account Quota Sprint 3 request deadline is 10:00 PT. Optional backup for the benchmark, recordings and filming while Blaze is not active; it ends before judging, so Blaze is still needed for Dec 10–16.) |
 | Thu–Fri Nov 26–27 | | iOS, benchmark, storyboard-screen polish (Nov 27) |
 | Sat Nov 28 | weekend | Filming: web beats in the morning, iOS beats and voice-over in the evening |
 | Sun Nov 29 | weekend | Rough cut; **YouTube Public by 18:00 (latest 23:00)**; repo public; Devpost text pasted |

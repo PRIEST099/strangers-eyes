@@ -5,17 +5,19 @@
 > **Never Read a whole doc.** Grep for the task ID, AC ID or § heading, then Read with offset/limit.
 
 ## STATE (overwrite in place; never append here)
-- Today: Sat Nov 21 2026 (Day 3)
-- Now: demo path built and on Hosting (redeployed Nov 21 evening, before the photo swap). Night of Nov 21: real Gemini Nano verified in the user's Chrome via `#/dev/nano` (D-154; T-074/T-066 ticked, nanoRef/nanoPre released); Judge Mode now uses CC0 Ljubljana photos with drawn props and STAND-IN pass-B answers (D-153, disclosed); D-80 vault generation counter wired into the gate; Burn vault clears the in-memory ledger. iOS lean app being built by a background agent (D-155); README / DEVPOST / VIDEO drafts being written by a second agent. Not yet: real pass B through the app, T-031 benchmark (quota), live recordings for the samples, hosting redeployed again late Nov 21 with the CC0 samples, D-156 and D-157 (user approved).
+- Today: Mon Nov 23 2026 (Day 5). Internal deadline Mon Nov 30 12:00 GMT+2.
+- Now: web demo path complete and live (hosting redeployed late Nov 21: CC0 Judge samples D-153, D-156, D-157). Real Nano verified (D-154). Lean iOS app built and tested (D-155; 20/20 XCTest; Simulator run with Apple FM referee + DEBUG fake attacker). README / DEVPOST / VIDEO drafted with [TBD]s. Nov 23 10:06: T-031 resumed on free-tier flash (photos 05–10, 01–03).
 - Next:
-  - T-031 scoring → gate table, advB.v1 release, T-034.
-  - Land the T-062 fix round; then the check-boundaries ai/models import rule (scanner agent waits for the whitelist).
-  - Then the slice: T-069 consent, T-071 pass B, Check → Verdict (T-086); T-074 Nano referee and T-066 Nano pre-screen built Nov 21 (D-145..D-147; not ticked until the user's Chrome runs real Nano, T-007); T-063 ledger, T-064 HUD (minimal demo-path versions built Nov 21, in memory, not ticked: D-148, D-149); D-80 vault generation counter (gate `vaultFresh`); Judge Mode wiring (`setSampleAllowlist`).
-- Blocked: nothing (T-031 waits only for the 10:00 quota reset).
-- Last green commit: see git log (batch-3 checkpoint, gate files excluded). `npm --prefix web run check` green: 58 files / 2974 tests; 165 planted boundary violations, 11 prompt cases, 167 image cases; `npm run build` + check-dist ok.
-- Checkpoints: G1 in progress (3/10 photos; resume Nov 21 10:02) | G1b – | G2 – | G3 – | slice Nov 22 – | loop Nov 24 – | hosted Nov 25 – (full flow live Nov 21, hosting only; T-107 still owes firestore/RC deploy after T-003)
-- Adversary model: **gemini-4-hydrogen for T-031** (D-73; re-test flash in T-034 before the RC default) | iOS path: A (firebase-ios-sdk 12.19.3)
-- Cuts applied: D-141 demo path only (deferred: T-081 beyond plain export, T-083, T-084, T-096, T-104, T-106, T-120–T-135, T-151/T-152, T-160, T-200–T-203)
+  - T-031 score → gate table, advB.v1 release, T-034 (timeout decision; D-156 notes the 2 × 60 s judge wait).
+  - Real pass B through the app (T-086 evidence) and live recordings for the 3 Judge samples (RUNBOOK §6.2b step 5) — needs paid quota (Sprint 2 window today if the user has it, else Blaze T-003 / Sprint 3).
+  - iOS gaps: real Gemini path once, FM pre-screen (T-125), HybridModel explainer (T-129), Auth/RC on iOS (T-120).
+  - Fill [TBD]s; gallery screenshots (T-166); filming (T-180..T-187).
+- Blocked: paid-tier work waits on the user (Sprint 2 quota status / Blaze T-003 by Nov 26 / Sprint 3 request by Wed Nov 25 10:00 PT).
+- Last green commit: b01d416. `npm --prefix web run check` green: 3197 tests; iOS `xcodebuild test` 20/20.
+- Checkpoints: G1 in progress (resumed Nov 23) | slice done | loop done (fake AI) | hosted done Nov 21 (hosting only; RC template redeploy after T-003)
+- Adversary model: flash for T-031 from photo 04 (D-136) | iOS path: A (firebase-ios-sdk 12.19.3)
+- Cuts applied: D-141 demo path only, partly reversed by D-155 (iOS lean). Still deferred: T-081 beyond plain export, T-083, T-084, T-096, T-104 (Firestore), T-106, T-151/T-152, T-160, T-200–T-203.
+- **Hackathon quota (Devpost email, Nov 20):** a requested Sprint 2 "Google Account Quota" is billing-enabled Fri Nov 20 → Mon Nov 23 midnight PT (= Tue Nov 24 10:00 GMT+2); Sprint 3 (final) must be requested by Wed Nov 25 10:00 AM PT. RUNBOOK's "we don't need it" assumed Blaze by Nov 26; with Blaze not yet active, Sprint 3 is a cheap backup for the benchmark, recordings and filming (USER decision).
 
 ## WIP (exact next step if a task is half-done)
 - **T-031** (G1, D-136: flash from photo 04 on).
