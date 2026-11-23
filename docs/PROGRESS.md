@@ -6,9 +6,9 @@
 
 ## STATE (overwrite in place; never append here)
 - Today: Mon Nov 23 2026 (Day 5). Internal deadline Mon Nov 30 12:00 GMT+2.
-- Now: web demo path complete and live (hosting redeployed late Nov 21). Nov 23: attacker switched to gemini-3.5-flash-lite (D-159, RC published); G1 + G1b PASS; **Hosting live at commit 2560a57 (redeploy #5, Nov 23): D-160 redesign, D-161 live Judge recordings, D-163 copy fixes.** Real Nano verified (D-154). Lean iOS app (D-155; 20/20 XCTest). README / DEVPOST / VIDEO filled (D-163); only 3 [USER] markers left: YOUTUBE_URL, REPO_URL, platforms/category.
+- Now: web demo path complete and live (hosting redeployed late Nov 21). Nov 23: attacker switched to gemini-3.5-flash-lite (D-159, RC published); G1 + G1b PASS; **Hosting live at commit b44a55c (redeploy #6, Nov 23 night): D-160 redesign, D-161 live Judge recordings, D-163 copy fixes, D-164 Berlin judge-02 + per-sample pins.** Real Nano verified (D-154). Lean iOS app (D-155; 20/20 XCTest). README / DEVPOST / VIDEO filled (D-163); only 3 [USER] markers left: YOUTUBE_URL, REPO_URL, platforms/category.
 - Next:
-  - **D-164 (Nov 23 night, committed; pins approved by the user):** judge-02 is now the Berlin level crossing (live recordings: amber → "Risk reduced"); judge-01/03 unchanged. Per-sample fake-vault pins. Hosting redeploy needs the user's OK (prod still serves the bike-share judge-02).
+  - **D-164 (Nov 23 night, committed; pins approved by the user):** judge-02 is now the Berlin level crossing (live recordings: amber → "Risk reduced"); judge-01/03 unchanged. Per-sample fake-vault pins. **Live** (redeploy #6).
   - **Demo video (T-180..T-186) now built by Claude in `video/`** (user, Nov 23: Remotion + Kokoro voice `af_heart` at 1.07, as in the Aftermath project). Footage: headless Chrome on the DEV server; Judge runs replay the recordings ("Simulate offline", CACHED SAMPLE on screen); no Nano in headless, so RULES-ONLY on screen.
   - Real pass B through the app (T-086 evidence) and live recordings for the 3 Judge samples (RUNBOOK §6.2b step 5) — needs paid quota (Sprint 2 window today if the user has it, else Blaze T-003 / Sprint 3).
   - iOS gaps: real Gemini path once, FM pre-screen (T-125), HybridModel explainer (T-129), Auth/RC on iOS (T-120).
@@ -1228,4 +1228,5 @@ How T-022 ran:
 - Review workflow found F-280..F-282; fixed and re-checked. Recording worktree removed; temporary launch.json entry reverted.
 - Video: `video/` (Remotion 4.0.532 + kokoro-js 1.2.1, packages linked from the Aftermath video; `.gitignore` keeps packages, audio, clips and renders out). Kokoro `af_heart` smoke-tested.
 - Video first cut rendered: `video/out/strangers-eyes.mp4` (git-ignored), 156.3 s, 1920×1080 H.264 + AAC, 12 scenes, Kokoro af_heart 1.07; captions `video/out/subtitles.en.srt` (39 cues). Footage clips made 0 AI-host requests except `gate` (1 S4 pre-screen; pass B BLOCKED on the device). Frames reviewed: caption overflow, speed-label overlap and two crops fixed; re-rendered. Not yet heard end to end by a person (pronunciation of "Ljubljana" unchecked).
+- **Hosting redeploy #6 (user: "Yes, redeploy"):** built b44a55c in a detached clean worktree, `npm ci` + build + check-dist ok, `deploy --only hosting` (RC untouched). Live index.html, sw.js, index and types JS chunks (the per-sample vault code), manifest, judge-02 image + both recordings and SOURCES.md byte-identical to that dist.
 
