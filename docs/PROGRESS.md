@@ -1160,3 +1160,9 @@ How T-022 ran:
 
 ### 2026-11-21 (late night): hosting redeploy #2 (T-107 partial)
 - User approved ("Yes, redeploy"). `npm run build` + check-dist ok (no `#/dev/nano` in dist); `deploy --only hosting` (RC v2 free-tier override untouched). Verified: live `index-Dg2g_l7Q.js` = local dist; `/samples/manifest.json` has the Ljubljana pins and the three CC0 titles; `judge-02.jpg` byte-identical; `SOURCES.md` served; Welcome renders with no console errors. Not driven past the age checkbox (left for the user).
+
+### 2026-11-23: spike diagnosis, D-158/D-159, RC publish (flash-lite)
+- Spike Nov 23 10:06 on flash failed (500/503); a diagnosis agent's 4 probe calls showed Google-side overload of gemini-3.8-flash on the free tier (text-only still 503 at 180 s) while gemini-3.5-flash-lite answered the same attack in 4.6–10.2 s. The SDK sends no server deadline (API-NOTES §1.12). D-158: cloud TIMEOUT never retried. D-159 (user): attacker = flash-lite, advB 45 s, advA 60 s.
+- **RC published (user approved "Yes, publish it"):** scratch template with only `data_tier=free`, `grounding_enabled=false` changed (RUNBOOK §4.4); live config verified to differ from the repo template in exactly those two keys; live `adversary_model` = gemini-3.5-flash-lite, `timeouts_ms` advA 60000 / advB 45000.
+- Sprint 2 hackathon quota checked read-only: not active on this account (Spark, billing off, $0 credits). Repo visibility checked: already PRIVATE.
+- Running: G1 benchmark on lite (`--models lite --primary lite --retries 0 --adaptive`, photos 01–10); design-direction workflow (3 concepts → judge panel → docs/DESIGN.md).
