@@ -1,46 +1,46 @@
 {
   "audit_status": "ok",
-  "scene_summary": "A public plaza with a historical station building, parked buses, bicycle-sharing racks, and a modern building on the left.",
+  "scene_summary": "Street sign and railway crossing signal next to a tree-lined path.",
   "clues": [
     {
       "id": "c1",
-      "type": "landmark",
+      "type": "street_sign",
       "box_2d": [
-        304,
-        298,
-        484,
-        658
+        415,
+        230,
+        560,
+        629
       ],
-      "evidence": "The distinct historical railway station building with a clock tower and equestrian statue.",
-      "reveals": "city",
+      "evidence": "Street name sign showing Horstwalder Straße.",
+      "reveals": "street",
       "severity": "high",
-      "removable": false
+      "removable": true
     },
     {
       "id": "c2",
-      "type": "road_or_street_furniture",
+      "type": "street_sign",
       "box_2d": [
-        731,
-        836,
-        991,
-        996
+        2,
+        441,
+        114,
+        643
       ],
-      "evidence": "Public bicycle-sharing scheme docking system with branded bikes.",
+      "evidence": "Sign indicating Berliner Mauerweg route.",
       "reveals": "city",
-      "severity": "high",
-      "removable": false
+      "severity": "medium",
+      "removable": true
     },
     {
       "id": "c3",
-      "type": "storefront_text",
+      "type": "house_number",
       "box_2d": [
-        395,
-        128,
-        428,
-        172
+        553,
+        373,
+        598,
+        472
       ],
-      "evidence": "Partial bank storefront signage visible on the left building.",
-      "reveals": "country",
+      "evidence": "Building number range plate below the street sign.",
+      "reveals": "street",
       "severity": "medium",
       "removable": true
     }
@@ -48,15 +48,14 @@
   "hypotheses": [
     {
       "id": "h1",
-      "label": "Ljubljana",
-      "level": "city",
-      "lat": 46.056,
-      "lng": 14.512,
+      "label": "Horstwalder Straße, Berlin",
+      "level": "street",
+      "lat": 52.413,
+      "lng": 13.385,
       "radius_km": 0.5,
       "confidence": "high",
       "clue_ids": [
         "c1",
-        "c2",
         "c3"
       ]
     }
@@ -65,10 +64,9 @@
     {
       "id": "i1",
       "kind": "routine",
-      "value": "Ljubljana Railway Station area",
+      "value": "Berliner Mauerweg walking or cycling path",
       "confidence": "high",
       "clue_ids": [
-        "c1",
         "c2"
       ]
     }

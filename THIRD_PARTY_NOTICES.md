@@ -50,7 +50,7 @@ The statically linked libraries were identified from the build strings inside th
 
 ## Judge Mode sample photos
 
-The three Judge Mode photos (`web/public/samples/judge-0*.jpg` and their 768 px copies) are based on **CC0 1.0** photos of public places in Ljubljana from Wikimedia Commons. Authors, file links and the changes made (resizing, metadata stripped, solid masks over people, adverts showing people and real number plates, drawn props) are listed in [`web/public/samples/SOURCES.md`](web/public/samples/SOURCES.md). The drawn props (a "City General Hospital" staff badge, a "LUCAS" lunchbox) and the vault are made up.
+The three Judge Mode photos (`web/public/samples/judge-0*.jpg` and their 768 px copies) are based on **CC0 1.0** photos of public places in Ljubljana and Berlin from Wikimedia Commons. Authors, file links and the changes made (resizing, metadata stripped, solid masks over people, adverts showing people and real number plates, drawn props) are listed in [`web/public/samples/SOURCES.md`](web/public/samples/SOURCES.md). The drawn prop (a "LUCAS" lunchbox) and the vault are made up.
 
 The app icons and the explainer illustrations were made for this project and are covered by the project license.
 

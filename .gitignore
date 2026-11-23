@@ -35,3 +35,10 @@ ios/*.log
 DerivedData/
 **/xcuserdata/
 *.xcuserstate
+
+# demo video (Remotion + Kokoro): sources are committed; packages, voice audio, footage and renders are not
+video/node_modules
+video/out/
+video/public/audio/
+video/public/clips/
+video/public/img/

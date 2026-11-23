@@ -2,7 +2,8 @@
 
 > Source rules: RUNBOOK §6.1–6.8 and §7.4, TASKS T-180–T-187, SPEC §14.6. **Total: 2:50 (170 s)**; the hard limit is 3:00.
 > Fill rules: numbers on screen and in the voice-over come only from the Day-1 adversary spike (`benchmark/spike/day1-adversary.md`: 10 openly licensed photos of public places) or from a PROGRESS-logged measurement. The planned 25-photo builder-owned benchmark (T-150..T-153) was **not run**: never quote it. Verdict lines are whatever the app really produced on the take used. The only open markers are `[USER: …]` items.
-> The voice-over is a draft: the user rewrites it in their own words and records it in their own voice (T-185).
+> **Superseded in part (Nov 23 night, D-164): the user asked Claude to build the video in Remotion with the Kokoro voice (`af_heart`, speed 1.07, the same voice as the Aftermath video).** The build lives in `video/` (§6 below); its narration is `video/scripts/narration.json`, which replaces §3's voice-over draft and §4's ffmpeg cut. §0–§2 remain the content rules; where they name judge-02 as unfilmed or a ×4 hand edit, §6 wins.
+> The voice-over draft in §3 was written for the user's own voice (T-185); it is kept as history.
 
 ## 0. Decisions this script depends on
 
@@ -416,3 +417,13 @@ For a jump cut instead of a speed-up (s02, s16): split the segment into two `cli
 - The verdict lines and the VO match the take used; "Still exposed" / "Risk reduced" exactly as the app says, never "safe"; if CACHED SAMPLE appears, its caption is on screen.
 - The Judge Mode tag is on every Judge shot; the iOS caption (with the stand-in note) is on every Simulator shot; the StoryReel shot says "Illustration".
 - `ffprobe` duration ≤ 170 s. After upload (Public, English captions from `video/subtitles.en.srt`): [USER: YOUTUBE_URL after T-187].
+
+## 6. The Remotion build (D-164; supersedes §3–§4 for the cut)
+
+- **Where:** `video/` (Remotion 4.0.532, kokoro-js 1.2.1; packages are linked from the Aftermath video's install; `.gitignore` keeps packages, voice audio, clips, stills and renders out of git).
+- **Voice:** Kokoro `af_heart` at speed 1.07 (`npm run tts`, from `scripts/narration.json`; per-scene WAVs and `public/timings.json`). No music.
+- **Footage:** `node scripts/record.mjs` drives headless Chrome over CDP against the DEV server (`npm --prefix web run dev`), 1280×720 CSS at 1.5× = 1920×1080, 30 fps. No fake seams. Judge runs that reach the attacker turn on the app's own Simulate offline, so Judge Mode replays the Nov 23 live recordings, **badged CACHED SAMPLE on screen**, and no photo is sent to the attacker again. The gate clip runs online but the gate refuses on the device (pass B BLOCKED `VAULT_TEXT_IN_IMAGE`; the only request is the sample's S4 pre-screen). Headless Chrome has no Gemini Nano, so private steps show **RULES-ONLY**, and the narration says so instead of claiming Nano on screen. Every footage scene carries a caption line saying what is real and what is replayed; footage sped up more than 1.25× shows its speed.
+- **Scenes (12):** hook (castle photo, then its red verdict) · idea (cloud attacker vs device vault) · Judge Mode · on-device pre-screen (LUCAS masked) · Egress Gate block · cloud attack + referee (castle, red) · nothing to fix (crop or don't post) · level crossing (amber → fix → "Risk reduced") · station ("Still exposed") · ten-photo numbers (Day-1 spike re-run on Nov 23: 5/10 within 5 km, 0 refusals, 3/4 pushed out) · where each step runs + the iOS cameo (labelled stand-in attacker) · close (URL).
+- **Commands (in `video/`):** `node scripts/assets.mjs` (stills) · `node scripts/record.mjs [clip…]` · `npm run tts` · `npm run studio` · `npm run render` → `out/strangers-eyes.mp4`.
+- **Still open for the user:** a take with Gemini Nano on camera (the user's own Chrome; ON-DEVICE badges) can replace the pre-screen and referee footage; upload (Public, English captions) stays [USER].
+

@@ -6,7 +6,8 @@
 //     own frozen copy of the hashes (egressGate.parseSampleManifest, D-131); this is the UI's view of the same file.
 //   - makeJudgeVault: home_pin "Home" (generic label: no text term), work_pin "City General Hospital", child_name
 //     "Lucas", plate "SE 1234"; pins from the manifest, rounded to 3 decimals (D-26). Frozen: the gate's S4 proof
-//     compares this object by identity (AC-023).
+//     compares this object by identity (AC-023). D-164: a sample may carry its own `fakeVault` pins (public places near
+//     that photo); samplePins picks them, else the manifest's.
 //   - claimJudge / activateJudgeVault: the Judge screen's claim on Judge Mode and the switch to the fake vault. The last
 //     released claim exits Judge Mode on the next tick, so StrictMode's remount in DEV never unseals the real vault (D-37).
 import type { VaultItem } from '../core/types';
@@ -32,10 +33,13 @@ export interface JudgeSample {
    * fix" recording is replayed only when the masks sent now hide those clues; null (absent) = every removable clue.
    */
   fixMasked: readonly string[] | null;
+  /** D-164: this sample's own made-up home and work pins (public places near the photo); null = the manifest's. */
+  fakeVault: JudgePins | null;
 }
+export interface JudgePins { homePin: JudgePinIn; workPin: JudgePinIn }
 export interface JudgeManifest {
   placeholder: boolean;
-  fakeVault: { homePin: JudgePinIn; workPin: JudgePinIn };
+  fakeVault: JudgePins;
   samples: readonly JudgeSample[];
 }
 
@@ -53,17 +57,25 @@ function pinIn(v: unknown): JudgePinIn | null {
   return { lat: v.lat, lng: v.lng };
 }
 
+function pinsIn(v: unknown): JudgePins | null {
+  if (!isObj(v)) return null;
+  const homePin = pinIn(v.homePin);
+  const workPin = pinIn(v.workPin);
+  return homePin && workPin ? Object.freeze({ homePin, workPin }) : null;
+}
+
 /** The manifest, or null when anything is missing, malformed or duplicated (the Judge screen then shows an error). */
 export function parseJudgeManifest(json: unknown): JudgeManifest | null {
-  if (!isObj(json) || json.version !== 1 || !isObj(json.fakeVault) || !Array.isArray(json.samples) || json.samples.length === 0) return null;
-  const homePin = pinIn(json.fakeVault.homePin);
-  const workPin = pinIn(json.fakeVault.workPin);
-  if (!homePin || !workPin) return null;
+  if (!isObj(json) || json.version !== 1 || !Array.isArray(json.samples) || json.samples.length === 0) return null;
+  const fakeVault = pinsIn(json.fakeVault);
+  if (!fakeVault) return null;
   const samples: JudgeSample[] = [];
   const ids = new Set<string>();
   for (const s of json.samples as unknown[]) {
     if (!isObj(s)) return null;
     const { id, title, image, imageSha256, nano768, nano768Sha256, cachedAdvB, cachedAdvBFixed, recordedAt, model, fixMasked } = s;
+    const ownPins = s.fakeVault === undefined ? null : pinsIn(s.fakeVault);
+    if (s.fakeVault !== undefined && !ownPins) return null;
     if (fixMasked !== undefined && (!Array.isArray(fixMasked) || fixMasked.length > 32 || !fixMasked.every((c) => str(c, 16) && CLUE_ID.test(c)))) return null;
     if (!str(id) || !SAMPLE_ID.test(id) || ids.has(id) || !str(title) || !str(recordedAt, 40) || !str(model, 120)) return null;
     if (!str(imageSha256) || !SHA256_HEX.test(imageSha256) || !str(nano768Sha256) || !SHA256_HEX.test(nano768Sha256)) return null;
@@ -73,10 +85,15 @@ export function parseJudgeManifest(json: unknown): JudgeManifest | null {
       id, title, placeholder: s.placeholder === true, image: image as string, imageSha256, nano768: nano768 as string, nano768Sha256,
       cachedAdvB: cachedAdvB as string, cachedAdvBFixed: cachedAdvBFixed as string, recordedAt, model,
       fixMasked: Array.isArray(fixMasked) ? Object.freeze([...(fixMasked as string[])]) : null,
+      fakeVault: ownPins,
     }));
   }
-  return Object.freeze({ placeholder: json.placeholder === true, fakeVault: Object.freeze({ homePin, workPin }), samples: Object.freeze(samples) });
+  return Object.freeze({ placeholder: json.placeholder === true, fakeVault, samples: Object.freeze(samples) });
 }
+
+/** D-164: the pins a sample's fake vault uses: its own when the manifest gives them, else the manifest's. */
+export const samplePins = (m: Pick<JudgeManifest, 'fakeVault'>, s: Pick<JudgeSample, 'fakeVault'> | null): JudgePins =>
+  s?.fakeVault ?? m.fakeVault;
 
 /** D-26: sample pins are rounded to 3 decimals (about 100 m). */
 export const round3 = (x: number): number => Math.round(x * 1000) / 1000;
@@ -135,7 +152,13 @@ export function claimJudge(scan: Pick<JudgeScan, 'mode' | 'useReal'>, defer: (fn
     defer(() => { if (holders === 0 && scan.mode() === 'judge') void scan.useReal(); });
   };
 }
-/** Make `vault` the ACTIVE vault (once per object; the real vault's terms and pins are dropped from memory). */
-export function activateJudgeVault(scan: Pick<JudgeScan, 'judgeVault' | 'useJudge'>, vault: readonly VaultItem[]): void {
+/**
+ * Make `vault` the ACTIVE vault (once per object; the real vault's terms and pins are dropped from memory). Only while a
+ * Judge claim is held (D-164 review): a late caller after Exit must never put Judge Mode back on. Returns whether the
+ * vault is active.
+ */
+export function activateJudgeVault(scan: Pick<JudgeScan, 'judgeVault' | 'useJudge'>, vault: readonly VaultItem[]): boolean {
+  if (holders === 0) return false;
   if (scan.judgeVault() !== vault) void scan.useJudge(vault);
+  return true;
 }

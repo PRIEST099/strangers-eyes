@@ -173,6 +173,10 @@ export function Check({ judge = null }: { judge?: JudgeCheck | null } = {}) {
   const started = useRef(-1);
   const epochNow = useRef(state.epoch);
   epochNow.current = state.epoch;
+  // D-164 review: a pre-screen run does not outlive its Check. Judge Mode switches the active fake vault per sample, so
+  // an unmounted sample's run must not go on to an S4 call with its own (no longer active) vault.
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const current = state.pos.current;
   const prescreenKind = state.prescreen.kind;
   const epoch = state.epoch;
@@ -485,7 +489,7 @@ export function Check({ judge = null }: { judge?: JudgeCheck | null } = {}) {
     void runPrescreen(
       { canvas: m.canvas, jpeg: m.jpeg },
       (report) => dispatch({ type: 'prescreenStep', run, report }),
-      { isCurrent: () => epochNow.current === run, sessionId: session.current.id, ...(judge ? { nano: judgeNanoStep(judge.sample, judge.vault) } : {}) },
+      { isCurrent: () => mounted.current && epochNow.current === run, sessionId: session.current.id, ...(judge ? { nano: judgeNanoStep(judge.sample, judge.vault) } : {}) },
     ).then((outcome) => dispatch({ type: 'prescreenDone', run, outcome }));
   }, [current, prescreenKind, epoch, judge]);
 

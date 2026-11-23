@@ -1,0 +1,54 @@
+{
+ "voice": "af_heart",
+ "speed": 1.07,
+ "scenes": [
+  {
+   "id": "hook",
+   "text": "This photo has no GPS data. A cloud AI still named the castle, and put it within a kilometre of this family's home, and of their work. Turning location off doesn't hide where you are."
+  },
+  {
+   "id": "idea",
+   "text": "Strangers' Eyes shows you your photo the way a stalker's AI would, before you post it. It's built on Firebase AI Logic. Gemini, in the cloud, attacks a redacted copy. Your private vault, your home, your work, your child's name, stays on your device, and the device grades the attack."
+  },
+  {
+   "id": "judge",
+   "text": "To try it without your own data, Judge Mode loads openly licensed photos of public places, and a made-up vault."
+  },
+  {
+   "id": "prescreen",
+   "text": "First, the device checks the photo. Text recognition finds a name tag that matches the child's name, and masks it, solid, before anything can leave. This take ran without Gemini Nano, so built-in rules did it, and the badge says so."
+  },
+  {
+   "id": "gate",
+   "text": "Un-tick that mask and try to send it anyway. The Egress Gate, which every AI call goes through, re-reads the exact image, finds the name, and blocks it. Nothing reaches the attacker."
+  },
+  {
+   "id": "attack",
+   "text": "With the mask on, the redacted copy goes to the attacker. Here, the app replays Gemini's real answer, recorded on November twenty-third, and labels it. It named Ljubljana Castle. The device compares that guess with the vault: home within a kilometre, work within a kilometre. The cloud never learns whether it was right."
+  },
+  {
+   "id": "nofix",
+   "text": "Can a mask fix this one? No. A castle can't be masked, and the app says so: crop it, or don't post it."
+  },
+  {
+   "id": "crossing",
+   "text": "This one, it can. The attacker read a street sign and named the street, within five kilometres of home and work. The fix masks the sign and its number plate, on the device. Attacked again, it can only say Berlin. Risk reduced. Never safe, and the confidence is always shown."
+  },
+  {
+   "id": "station",
+   "text": "And sometimes a mask isn't enough. On this station photo, the attacker named the city from the building itself. Still exposed."
+  },
+  {
+   "id": "proof",
+   "text": "In a ten-photo test, the attacker placed five within five kilometres, and refused none. Masking the clues it named pushed three of the four re-attacked photos further out."
+  },
+  {
+   "id": "hybrid",
+   "text": "With Gemini Nano in Chrome, the private steps run on the device. Without it, they fall back to rules, never to the cloud. On iPhone, Apple Foundation Models grades the attack on the device; there, the attacker is a labelled stand-in."
+  },
+  {
+   "id": "close",
+   "text": "Stalkers already have this AI. Now you can see what it sees, before you post. Strangers' Eyes."
+  }
+ ]
+}

@@ -252,7 +252,7 @@ web/
 │   ├── models/blaze_face_full_range.tflite    committed (Apache-2.0; 1,083,786 B) — the model we use
 │   ├── models/blaze_face_short_range.tflite   committed (229,746 B) — fallback only
 │   ├── vendor/ (gi)                           mediapipe-1.2.3/wasm/ and tesseract-7.0.0/{worker.min.js,core/,lang/}, created by copy-assets.mjs (predev/prebuild)
-│   ├── samples/manifest.json      3 samples {id,title,placeholder,image,imageSha256,nano768,nano768Sha256,cachedAdvB,cachedAdvBFixed,recordedAt,model,expected} (D-150)
+│   ├── samples/manifest.json      3 samples {id,title,placeholder,image,imageSha256,nano768,nano768Sha256,cachedAdvB,cachedAdvBFixed,recordedAt,model,expected,fixMasked?,fakeVault?} (D-150, D-161, D-164)
 │   │                              + the fake vault (pins at PUBLIC buildings) [DECISION: USER approves coordinates before commit]
 │   ├── samples/judge-0{1,2,3}.jpg             people-free, prop-staged, EXIF-free (check-images.mjs)
 │   ├── samples/judge-0{1,2,3}.nano768.jpg     pre-rendered S4 Nano input (byte-stable hash across browsers)
@@ -566,14 +566,14 @@ The full red-to-green loop still works, and the original photo never leaves the 
 
 ### 5.4 Judge Mode
 
-1. `#/judge` loads `samples/manifest.json`, the user picks a sample (or "Run all"), and `JUDGE_VAULT` is created in memory. `vaultScan.useJudge(JUDGE_VAULT)` makes it the active vault for Tier-0, preflight, the gate and the tripwire; the real vault is never unsealed or loaded in Judge Mode (D-37, AC-241). Exit calls `vaultScan.useReal()`.
+1. `#/judge` loads `samples/manifest.json` and creates the fake vaults in memory: one for the screen (the manifest's pins) and one per sample (the sample's own `fakeVault` pins when given, else the manifest's; D-164), each a new frozen object. `vaultScan.useJudge(vault)` makes one the active vault for Tier-0, preflight, the gate and the tripwire: the screen's on load, and a sample's in the click handler before that sample's run mounts (`activateJudgeVault`, which does nothing once no Judge claim is held). The real vault is never unsealed or loaded in Judge Mode (D-37, AC-241). Exit (or any navigation) clears Run all's pending step and calls `vaultScan.useReal()`; an unmounted sample's pre-screen stops before its S4 step.
 2. preScreen, vaultTextMatch, referee, fixPlan and explain run as **S4** (`PREFER_ON_DEVICE`) with a `SyntheticProof`. The preScreen input is the pre-rendered `judge-0N.nano768.jpg`, whose hash is in the manifest.
 3. adversaryA and adversaryB run **live as S3** on the masked sample (consent auto-confirms after a visible 3 s countdown during autoplay).
 4. When the live adversary is unavailable (`KILL_SWITCH`, `DAILY_CAP`, `OFFLINE`, `CLOUD_QUOTA` after its retries, `CLOUD_AUTH`, `CLOUD_BAD_REQUEST`) and RC `judge_cached_fallback` is true, the recorded `judge-0N.advB.v1.json` is replayed with route `CACHED`, the badge `CACHED SAMPLE` (SPEC SCR-17, §8 badge styles) and `copy.judge.cached`. Pass A shows `copy.judge.notesNeedLive`. Judge Mode's live S3 runs count against the same daily-cap counter as real checks (`se.cap.<YYYY-MM-DD>`); there is no separate Judge counter (SPEC SCR-17, AC-246).
 5. If a live sample is refused, the state-(e) UI shows, with an offer of **"Use recorded result"**. This is not a model retry.
 6. Recorded pass-B boxes are normalised to the default-masked sample frame. They map onto the current frame only when the aspect ratio matches and there is no crop, so Judge autoplay never crops before the first attack.
 6a. A CACHED re-attack replays `judge-0N.advB.fixed.v1.json` only when the masks/crop sent hide (≥ 90 % each) the FIRST recording's clues listed in the manifest's `fixMasked` (the clues the live default fix masked before the recorded re-attack); absent = every removable clue. Otherwise the first recording is replayed (still exposed). Never matched by clue id across the two recordings: a live answer numbers its clues independently (D-161).
-7. Target: red → green in **≤ 90 s, goal 60 s**, on a judge laptop without Nano (AC-240). D-161: with the live recordings of Nov 23 no sample ends green (the attacker places them by landmarks a mask cannot hide); see PROGRESS D-161.
+7. Target: red → green in **≤ 90 s, goal 60 s**, on a judge laptop without Nano (AC-240). D-161/D-164: of the Nov 23 live recordings, judge-02 (the level crossing) ends green (amber → low); judge-01 and judge-03 do not (the attacker places them by buildings a mask cannot hide); see PROGRESS D-161, D-164.
 
 ### 5.5 Forced leak (demo beat 5, AC-041)
 

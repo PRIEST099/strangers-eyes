@@ -13,7 +13,7 @@
 // A DEV build differs from production only by DEV-only nodes (the Home "Run the Tier-0 selftest (DEV)" link); capture()
 // removes links into #/dev/ so the frame shows what production shows, and fails the shot if any "(DEV)" text remains.
 //
-//   node scripts/shoot-gallery.mjs [--out docs/img/gallery] [--thumb docs/img/thumbnail.png] [--only 01-home,03-verdict-red,...]
+//   node scripts/shoot-gallery.mjs [--out docs/img/gallery] [--thumb docs/img/thumbnail.png] [--only 01-home,03-verdict,...]
 //                                  [--origin https://strangers-eyes.web.app]
 //                                  [--probe]   (print the page text and controls after every step; no files written)
 //
@@ -31,12 +31,15 @@ const { values: a } = parseArgs({ options: {
   out: { type: 'string', default: 'docs/img/gallery' }, only: { type: 'string' },
   origin: { type: 'string', default: 'https://strangers-eyes.web.app' }, probe: { type: 'boolean', default: false },
   thumb: { type: 'string', default: 'docs/img/thumbnail.png' },
+  // D-164: --offline turns on the app's own "Simulate offline" (localStorage se.dev.simulateOffline), so Judge Mode
+  // replays the shipped recordings (CACHED SAMPLE) and no sample photo is sent to the live attacker again.
+  offline: { type: 'boolean', default: false },
 } });
 const ORIGIN = a.origin.replace(/\/$/, '');
 if (/[?&](fake|shot)/.test(ORIGIN)) { console.error('no seams on the gallery origin'); process.exit(2); }
 const VP = { width: 1440, height: 960 };
 
-const BIKE = 'Bike-share path with a work badge';
+const CROSSING = 'Level crossing by a street sign, no text of yours';
 const CASTLE = 'Castle view with a name-tag lunchbox';
 // Any verdict headline (copy.verdict.*): the live attacker may answer differently from the recordings.
 const VERDICTS = ['A stranger could find you', 'This photo narrows things down', 'Low exposure found', 'Partial result'];
@@ -65,16 +68,16 @@ const SHOTS = [
   { name: '01-home', hash: '#/', steps: [
     { waitText: 'Just a coffee' }, { waitShown: '3 / 6', timeout: 60000 }, { wait: 2200 }, { shot: true },
   ] },
-  // 02 -> 03 -> 04 are one Judge run on the bike-share sample (hash null = continue the page as it is). Autoplay is off
+  // 02 -> 03 -> 04 are one Judge run on the level-crossing sample (judge-02, D-164) (hash null = continue the page as it is). Autoplay is off
   // for the pre-screen shot, then on so the sample sends itself (the Send button needs a verified cloud; autoplay's
   // send also reaches the CACHED fallback), off again once the copy is sent so the run rests on the verdict, and on
   // again so it applies the planned fix and re-attacks.
   { name: '02-judge-run', hash: '#/judge', steps: [
-    { toggle: 'Autoplay', on: false }, { wait: 400 }, { click: BIKE },
+    { toggle: 'Autoplay', on: false }, { wait: 400 }, { click: CROSSING },
     { waitText: 'Masks and flags', timeout: 90000 }, { wait: 1500 }, { log: 'vault|match' },
     { scroll: 'Where each step ran', block: 'start', offset: -16 }, { wait: 800 }, { shot: true },
   ] },
-  { name: '03-verdict-red', hash: null, steps: [
+  { name: '03-verdict', hash: null, steps: [
     { toggle: 'Autoplay', on: true }, { waitText: 'Send (done)', timeout: 90000 }, { toggle: 'Autoplay', on: false },
     { waitText: VERDICTS, timeout: 150000 }, { wait: 2500 }, { log: 'CACHED|IN CLOUD|RULES-ONLY|ON-DEVICE|BLOCKED|stranger|narrows|exposure|Partial|guess' },
     { clickIfEnabled: 'Dismiss' }, { wait: 400 },
@@ -301,7 +304,7 @@ for (const s of shots) {
   if (s.hash !== null) {
     // A clean origin state per shot (fresh storage), then the 18+ acknowledgement.
     await navigate(`${ORIGIN}/#/about`);
-    await evaluate(`localStorage.clear(); sessionStorage.clear(); localStorage.setItem('se.ack18.v1','1'); true`);
+    await evaluate(`localStorage.clear(); sessionStorage.clear(); localStorage.setItem('se.ack18.v1','1'); ${a.offline ? "localStorage.setItem('se.dev.simulateOffline','1');" : ''} true`);
     await navigate(`${ORIGIN}/${s.hash}`);
     await evaluate('location.reload(), true');
     await sleep(3500);

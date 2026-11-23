@@ -4,6 +4,8 @@
 // gate and the tripwire then scan only it, and the real vault is never unsealed (a `#/judge` or `?judge=1` boot never
 // loads it either, boot.ts). Leaving the screen (Exit, or any navigation) discards the fake vault and every sample
 // session and restores the real index (vaultScan.useReal, on the next tick so StrictMode's remount does not unseal it).
+// D-164: each sample gets its own fake vault (samplePins: the sample's own pins, else the manifest's), made ACTIVE in
+// the click handler BEFORE the run's Check mounts, so every gate call of that run sees the vault object it carries.
 // A sample runs the normal Check flow (screens/Check with `judge`): S4 for the device-class jobs, live S3 for the
 // attacker, the CACHED recording when the live attacker is unavailable. Autoplay defaults to RC judge_autoplay_default;
 // "Run all" plays the samples one after another.
@@ -11,7 +13,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { vaultScan } from '../../ai/vaultScan';
 import { t } from '../../core/strings';
 import type { AppConfig } from '../../firebase/remoteConfig';
-import { activateJudgeVault, claimJudge, loadJudgeManifest, makeJudgeVault, type JudgeManifest } from '../../vault/judgeVault';
+import { activateJudgeVault, claimJudge, loadJudgeManifest, makeJudgeVault, samplePins, type JudgeManifest } from '../../vault/judgeVault';
 import { Button } from '../components/Button';
 import { Icon } from '../components/Icon';
 import { JudgeModeBanner } from '../components/JudgeModeBanner';
@@ -43,22 +45,46 @@ export function Judge() {
     return () => { live = false; };
   }, []);
   const manifest = load.kind === 'ready' ? load.manifest : null;
-  // One fake vault per visit (a new object: the gate's S4 proof is identity, and Exit discards it).
+  // One fake vault per visit, and one per sample (new objects: the gate's S4 proof is identity, and Exit discards them).
+  // `vault` is the screen's own (the manifest's pins) and is active until a sample starts; D-164.
   const vault = useMemo(() => (manifest ? makeJudgeVault(manifest) : null), [manifest]);
+  const sampleVaults = useMemo(
+    () => (manifest ? manifest.samples.map((s) => makeJudgeVault({ fakeVault: samplePins(manifest, s) })) : []),
+    [manifest],
+  );
   useEffect(() => { if (vault) activateJudgeVault(vaultScan, vault); }, [vault]);
 
   const [autoplayPick, setAutoplay] = useState<boolean | null>(null);
   const autoplay = autoplayPick ?? rc?.judgeAutoplayDefault ?? true;
   // The sample running now (null: the picker), a nonce so "run again" starts a fresh session, and the Run-all queue.
   const [run, setRun] = useState<{ index: number; nonce: number; all: boolean } | null>(null);
-  const start = useCallback((index: number, all: boolean) => setRun((r) => ({ index, nonce: (r?.nonce ?? 0) + 1, all })), []);
+  // Run all's next sample, after a beat. The timer dies with the screen (D-164 review): it switches the ACTIVE vault, so
+  // it must never fire after Exit or any navigation.
+  const advance = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (advance.current) clearTimeout(advance.current); advance.current = null; }, []);
+  const runNow = useRef(run);
+  runNow.current = run;
+  // Switch the active vault to the sample's own (synchronous: vaultScan.useJudge installs it at once), then mount its run.
+  const begin = useCallback((index: number, all: boolean) => {
+    const v = sampleVaults[index];
+    if (!v) return;
+    if (advance.current) { clearTimeout(advance.current); advance.current = null; } // a pick cancels Run all's next step
+    if (!activateJudgeVault(vaultScan, v)) return; // no Judge claim held: the screen is gone
+    setRun({ index, nonce: (runNow.current?.nonce ?? 0) + 1, all });
+  }, [sampleVaults]);
   const total = manifest?.samples.length ?? 0;
   const onFinished = useCallback(() => {
-    setTimeout(() => setRun((r) => (r && r.all && r.index + 1 < total ? { index: r.index + 1, nonce: r.nonce + 1, all: true } : r)), 2500);
-  }, [total]);
+    if (advance.current) clearTimeout(advance.current);
+    advance.current = setTimeout(() => {
+      advance.current = null;
+      const r = runNow.current;
+      if (r && r.all && r.index + 1 < total) begin(r.index + 1, true);
+    }, 2500);
+  }, [total, begin]);
   const exit = useCallback(() => { location.hash = '#/'; }, []);
   const sample = manifest && run ? manifest.samples[run.index] ?? null : null;
-  const judgeRun = useMemo(() => (sample && vault ? { sample, vault, autoplay, onFinished } : null), [sample, vault, autoplay, onFinished]);
+  const runVault = run ? sampleVaults[run.index] ?? null : null;
+  const judgeRun = useMemo(() => (sample && runVault ? { sample, vault: runVault, autoplay, onFinished } : null), [sample, runVault, autoplay, onFinished]);
 
   // Presentation only (docs/DESIGN.md §5.4): when a sample starts, the picker collapses to a strip and the run scrolls to
   // the top of the page (main is the scroll container at lg; scrollIntoView finds it). On the first run the scroll waits
@@ -103,9 +129,9 @@ export function Judge() {
         <>
           <section aria-labelledby="judge-pick" className="flex flex-col gap-3">
             <h2 id="judge-pick" className="text-title font-semibold">{t('ui.judge.pick')}</h2>
-            <SamplePicker samples={manifest.samples} selected={sample?.id ?? null} compact={run !== null} onPick={(i) => start(i, false)} />
+            <SamplePicker samples={manifest.samples} selected={sample?.id ?? null} compact={run !== null} onPick={(i) => begin(i, false)} />
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-              <Button variant={run ? 'secondary' : 'primary'} data-action="run-all" onClick={() => start(0, true)}>{t('ui.judge.runAll')}</Button>
+              <Button variant={run ? 'secondary' : 'primary'} data-action="run-all" onClick={() => begin(0, true)}>{t('ui.judge.runAll')}</Button>
               {run?.all && <span className="text-small text-muted tabular-nums">{t('ui.judge.runningAll', { n: run.index + 1, total })}</span>}
               <div className="min-w-0 basis-full sm:ml-auto sm:max-w-[26rem] sm:basis-auto">
                 <Toggle label={t('ui.judge.autoplay')} hint={t('ui.judge.autoplayHint')} checked={autoplay} onChange={setAutoplay} />

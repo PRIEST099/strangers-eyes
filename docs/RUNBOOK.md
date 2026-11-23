@@ -622,7 +622,7 @@ For the Browser pane tools, create `.claude/launch.json` (no secrets; may be com
    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --remote-debugging-port=9222 \
      --user-data-dir="/Users/mac/Documents/firebase buildathon/.scratch/chrome-test" http://localhost:5173/#/judge
    ```
-   Expected: the capability panel says rules-only/cloud, and Judge Mode reaches a final verdict (AC-240; the recorded samples do not end in "Risk reduced", D-161).
+   Expected: the capability panel says rules-only/cloud, and Judge Mode reaches a final verdict (AC-240; of the recordings only judge-02, the level crossing, ends in "Risk reduced", D-161/D-164).
 4. **E2E (Playwright).**
    - Prefer `channel: 'chrome'`, which uses the installed Chrome with no download [UNVERIFIED on this Mac]. Fallback: `npx playwright install chromium`.
    - Smoke and offline specs per ARCH §20.2. The fake transport only exists with `--mode e2e`.
@@ -936,7 +936,7 @@ $FB deploy --only hosting,auth,remoteconfig -m "Day 6: first full hosted build" 
    ```
 3. **Judges' path:** a browser **without Nano** (Chrome guest profile, headless Chrome or Safari).
    - The capability panel is honest.
-   - Judge Mode reaches a final verdict in **≤90 s** (AC-240; D-161: the recorded samples end "Still exposed" or red, not "Risk reduced") with IN CLOUD / RULES-ONLY badges.
+   - Judge Mode reaches a final verdict in **≤90 s** (AC-240; recordings: judge-02 "Risk reduced", judge-01 "Still exposed", judge-03 red with nothing to fix; D-161, D-164) with IN CLOUD / RULES-ONLY badges.
    - The Ledger and HUD fill in.
 4. **App Check:** in DevTools → Network, requests to `firebasevertexai.googleapis.com` carry `X-Firebase-AppCheck` and return 200 (not 401 or 403). In the App Check console APIs tab, verified requests rise and unverified stay near 0.
 5. **Grounded pass A:** the Search Suggestions chip is unmodified, the same width as the notes, and always visible with them; `webSearchQueries` and the source links are shown.
@@ -1146,13 +1146,13 @@ The repo ships three SYNTHETIC PLACEHOLDER samples (drawn scenes with a PLACEHOL
 6. **Checks:** `node scripts/check-images.mjs`, `npm --prefix web run check` (`ui/judge/judgeMode.test.ts` checks the hashes, clean JPEGs, valid pass B; its open-ocean coordinate assertion must be relaxed to the approved pins), then a browser run of each sample (live, then offline for the CACHED badge).
 
 ### 6.2b Judge Mode samples from openly licensed photos (D-153; replaces §6.2a's shoot)
-The shipped samples are three CC0 Wikimedia Commons photos of public places in Ljubljana (`web/public/samples/SOURCES.md`).
+The shipped samples are three CC0 Wikimedia Commons photos of public places: judge-01 and judge-03 in Ljubljana, judge-02 in Berlin-Lichtenrade (D-164; `web/public/samples/SOURCES.md`). A sample from another city carries its own `fakeVault` pins in the manifest (public places near it); the others use the manifest's.
 1. **Pick** CC0/public-domain photos of public places only (no homes, no schools), with no identifiable people, never from the PRIV spike/benchmark set. Download a 2048 px rendition into the scratchpad, never into the repo.
 2. **Compose:** write a spec (per sample: `masks` over people, adverts showing people and real plates; optional `badge` / `tag` props), then `swiftc -O -o compose scripts/compose-judge-photos.swift && ./compose spec.json <srcDir> <outDir>`. Check every mask at zoom (sample 3 needed two passes, F-229).
 3. **Strip and hash:** copy the outputs over `web/public/samples/judge-0N{,.nano768}.jpg`, run `node scripts/strip-jpeg.mjs web/public/samples/judge-0*.jpg` (ImageIO adds EXIF/APP13), then `node scripts/make-judge-samples.mjs --hash`.
 4. **Pass B:** until live recordings exist, the `*.advB*.v1.json` files are authored stand-ins (`model: "authored stand-in (live recording pending)"`, `placeholder: true`). Each first-pass street-level hypothesis cites every clue so the default fix masks all removable clues; the "after" file drops only removable clues (the coverage check in `judgeFlow.fixedRecordingApplies` otherwise replays the first answer, F-230).
 5. **Record for real — DONE Nov 23 on the free tier (D-161):** `VITE_SPIKE=1 npm --prefix web run dev -- --port 5175 --strictPort` (HMR off), then `node scripts/record-judge.mjs` (opens `#/judge?recordJudge=1`, no fake seams; raw answers land in PRIV/raw/judge-rec/; first run per sample only). Copy each `r1`/`r2` `raw` over the stand-ins, set the manifest's `fixMasked` to the first answer's clue ids the live fix masked (the Fix panel lists them), then continue as below. Original wording: run each sample live in `#/judge`, save the validated pass B (never pass A) over the stand-ins, set `model`, `recordedAt`, `placeholder: false`, re-run `--hash`, and drop the stand-in wording from `ui.judge.placeholderNote`.
-6. **Check:** `npm --prefix web run check`, then `#/judge?fakeAdv=network` (CACHED path): each sample red → "Risk reduced", the badge header and "LUCAS" masked on the device.
+6. **Check:** `npm --prefix web run check`, then the CACHED path (`#/judge?fakeAdv=network`, or Settings › Developer "Simulate offline"): judge-02 amber → "Risk reduced", judge-01 low → "Still exposed", judge-03 red with nothing removable to fix and "LUCAS" masked on the device.
 
 ### 6.3 Recording setup [USER, with Claude preparing app state]
 - **Capture:** 1920×1080 at 30 fps. Keep the Router HUD (bottom-left) and the Cloud Ledger (right) in frame.
@@ -1282,7 +1282,7 @@ Claude samples frames from `final.mp4` to check the numbers, captions, absence o
 - [ ] Clean-clone test passes (web build and check; iOS `xcodegen generate` + build) by following the README literally.
 
 ### 7.3 App checklist
-- [ ] Hosted URL works with no login (anonymous auth), at no cost to the judge, **in a browser without Nano**. Judge Mode reaches a final verdict in ≤90 s (AC-240; D-161: the recorded samples do not end in "Risk reduced").
+- [ ] Hosted URL works with no login (anonymous auth), at no cost to the judge, **in a browser without Nano**. Judge Mode reaches a final verdict in ≤90 s (AC-240; recordings: only judge-02 ends in "Risk reduced", D-161/D-164).
 - [ ] App Check is Enforced for AI Logic. The hosted site uses reCAPTCHA Enterprise.
 - [ ] Both inference sides are demonstrably used. `inferenceSource` badges and the Ledger are visible.
 - [ ] Grounded notes (pass A) are not shown: Search grounding is off on the free tier (T-070). Pass A is never cached anywhere.
@@ -1328,8 +1328,8 @@ Claude records the real fields and limits here after Nov 22.
 - **Gallery** (no third-party logos, no real home or school):
   1. `01-home.png`: Home, tagline and illustrated story;
   2. `02-judge-run.png`: a Judge Mode run, device lane and cloud lane, with HUD badges;
-  3. `03-verdict-red.png`: a red verdict as distance bands, with the Ledger reading "Faces sent: 0 · Vault items sent: 0";
-  4. `04-reattack.png`: fix and re-attack, before and after (no promise of a green "Risk reduced": the recorded samples end "Still exposed", D-161);
+  3. `03-verdict.png`: the first verdict as distance bands, with the Ledger reading "Faces sent: 0 · Vault items sent: 0";
+  4. `04-reattack.png`: fix and re-attack, before and after (the level-crossing recording ends "Risk reduced", D-164; the others "Still exposed" or nothing to fix);
   5. `05-blocked.png`: the Egress Gate blocking an unmasked vault match (drop it if the shot does not exist);
   6. `06-about-routing.png`: what leaves this device, S0–S4 routing;
   7. `07-capabilities.png`: what runs where on this browser.
@@ -1338,7 +1338,7 @@ Claude records the real fields and limits here after Nov 22.
 **Testing-instructions template:**
 ```
 1. Open HOSTED_URL in any browser (desktop or mobile). No login: an anonymous session is created automatically. Free.
-2. Click "Judge Mode": 3 CC0 photos of public places (people and plates solid-masked, drawn props; D-153) and a fictional vault load. Press Run. The full loop reaches a final verdict within 90 s (AC-240); the recorded samples end "Still exposed" or red, not "Risk reduced" (D-161).
+2. Click "Judge Mode": 3 CC0 photos of public places (people and plates solid-masked, a drawn name tag; D-153, D-164) and a fictional vault load. Press Run. The full loop reaches a final verdict within 90 s (AC-240); in the recordings the level crossing ends "Risk reduced", the station "Still exposed" and the castle red with nothing to fix (D-161, D-164).
 3. Watch the Router HUD (bottom-left): every step is labelled ON-DEVICE, IN CLOUD or RULES-ONLY, with latency.
    The Cloud Ledger (right) counts exactly what left the device.
 4. Optional on-device AI: Chrome desktop with on-device AI enabled (chrome://settings/ai and

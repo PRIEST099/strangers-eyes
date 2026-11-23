@@ -79,7 +79,10 @@ for (const s of samples) {
     if (fresh.some((f) => /\.r[2-9]\./.test(f))) { ended = 're-attack recorded'; await sleep(4000); break; }
     // A refusal ends the run; a final verdict without a re-attack recording means the live call failed and the
     // labelled recording replaced it (or the fix sent nothing new): give it 15 s to settle, then stop.
-    if (text.includes('on-device findings only')) { ended = 'refused (on-device findings only)'; break; }
+    // "on-device findings only" is BOTH the decline copy and the partial verdict after a failed call (F-278): tell
+    // them apart, so a server failure is never logged as a decline (and a decline is never mistaken for a failure).
+    if (text.includes('The attacker declined')) { ended = 'DECLINED by the attacker (never re-run this photo)'; break; }
+    if (text.includes('on-device findings only')) { ended = 'FAILED: no answer (call error, not a decline)'; break; }
     if ((text.includes('Risk reduced') || text.includes('Still exposed'))) {
       settled ??= Date.now();
       if (Date.now() - settled > 15000) { ended = 'final verdict without a re-attack recording'; break; }
@@ -89,6 +92,10 @@ for (const s of samples) {
   const text = (await evaluate('document.body.innerText')) ?? '';
   const verdicts = ENDINGS.filter((e) => text.includes(e));
   console.log(`${s.id}: ${ended ?? 'timed out'} after ${Math.round((Date.now() - t0) / 1000)} s; new files: ${fresh.join(', ') || 'none'}; page shows: ${verdicts.join(' | ') || '-'}`);
+  // Every call of this run as the Router HUD logged it (route, engine, latency, tags such as an error code): the
+  // evidence for what ended the run. HUD lines hold no vault string, prompt or coordinate.
+  const calls = (await evaluate(`[...document.querySelectorAll('[data-hud-line]')].map((e) => e.innerText.replace(/\\s+/g, ' ').trim())`)) ?? [];
+  for (const c of calls) console.log(`  call: ${c}`);
 }
 ws.close();
 process.exit(0);

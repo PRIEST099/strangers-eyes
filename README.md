@@ -31,26 +31,26 @@
 
 No on-device AI is needed. With desktop Chrome and Gemini Nano enabled, the on-device steps run on Nano instead.
 
-**What to expect: in our recorded runs, no sample ended in "Risk reduced".** We attacked the three samples live through the app on Nov 23 and kept the honest results (first run per sample, no reruns). A live run today may answer differently:
+**What to expect: one fix that works, one that isn't enough, one photo that can't be fixed.** We attacked the three samples live through the app on Nov 23 and kept the honest results (first answer per sample; no rerun for a nicer answer). A live run today may answer differently:
 
 | Sample | First attack | After the fix | Verdict |
 |---|---|---|---|
 | 1. Station forecourt | the **wrong** city (Maribor, about 100 km away), read from the station sign | the fix masked the sign; the re-attack named the right city (Ljubljana) from the building itself | Still exposed |
-| 2. Bike-share path + drawn staff badge | Ljubljana, within 1 km of the fake home and work pins | still Ljubljana, and it also inferred a workplace from the badge graphic | Still exposed |
+| 2. Level crossing by a street sign | the street itself (Horstwalder Straße, Berlin), read from the street sign and its house-number plate: within 5 km of the fake home and work pins | the fix masked both; the re-attack could only say "Berlin" | **Risk reduced** (amber → low, confidence shown) |
 | 3. Castle courtyard + drawn "LUCAS" lunchbox | Ljubljana Castle, 0.1 km from the fake work pin | only non-removable clues, so nothing to fix | Red: crop or don't post |
 
-A mask cannot hide a famous landmark, and the app says so instead of claiming a win. The "LUCAS" tag (and the badge's header text, when OCR reads it) is masked **on the device** before anything is sent.
+Masking the text clues worked on the level crossing. It cannot hide a famous landmark, and the app says so instead of claiming a win. The "LUCAS" tag is masked **on the device** before anything is sent.
 
-> **About the Judge Mode samples (please read).** The three sample photos are **CC0 photos of public places in Ljubljana** from Wikimedia Commons (credits in [`web/public/samples/SOURCES.md`](web/public/samples/SOURCES.md)). We solid-masked people, adverts showing people and real number plates, and **drew in the props**: a "City General Hospital" staff badge and a "LUCAS" name-tag lunchbox. The vault is made up, and its two pins sit in a park and a square. The **recorded attacker answers** that ship with the samples are the real answers from those Nov 23 live runs (`gemini-3.5-flash-lite`); they replay, labelled `CACHED SAMPLE`, only when the live attacker is unavailable (offline, quota or daily cap, kill switch, App Check failure, a timeout or a server error).
+> **About the Judge Mode samples (please read).** The three sample photos are **CC0 photos of public places**, two in Ljubljana and one in Berlin, from Wikimedia Commons (credits in [`web/public/samples/SOURCES.md`](web/public/samples/SOURCES.md)). We solid-masked people, adverts showing people and real number plates, and **drew in a prop**: a "LUCAS" name-tag lunchbox. The vault is made up; each sample's home and work pins sit in a park and a square near that photo. We tried six Berlin photos; Google's model was overloaded during most runs, and the level crossing is the one that got a complete answer, so we kept it. The **recorded attacker answers** that ship with the samples are the real answers from those Nov 23 live runs (`gemini-3.5-flash-lite`); they replay, labelled `CACHED SAMPLE`, only when the live attacker is unavailable (offline, quota or daily cap, kill switch, App Check failure, a timeout or a server error).
 
 ### Gallery
 
 | | |
 |---|---|
-| ![Judge Mode run: the device lane and the cloud lane](docs/img/gallery/02-judge-run.png) | ![A red verdict as distance bands to the made-up pins, with the Cloud Ledger](docs/img/gallery/03-verdict-red.png) |
-| A Judge Mode run: the device lane and the cloud lane, with every AI step badged in the Router HUD | A red verdict: the attacker's guess lands near the made-up home and work pins, shown as distance bands, never a map pin; the Cloud Ledger still reads "Faces sent: 0 · Vault items sent: 0". Shown with the recorded Nov 23 answer (CACHED SAMPLE): the free-tier attacker returned a server error during the screenshot run |
+| ![Judge Mode run: the device lane and the cloud lane](docs/img/gallery/02-judge-run.png) | ![A verdict as distance bands to the made-up pins, with the Cloud Ledger](docs/img/gallery/03-verdict.png) |
+| A Judge Mode run: the device lane and the cloud lane, with every AI step badged in the Router HUD | The first verdict on the level crossing: the attacker named the street, within 5 km of the made-up home and work pins, shown as distance bands, never a map pin. Shown with the recorded Nov 23 answer (CACHED SAMPLE; the screenshots replay the recordings, so no photo was sent again) |
 | ![Fix and re-attack, before and after](docs/img/gallery/04-reattack.png) | ![The Egress Gate blocks an unmasked vault match](docs/img/gallery/05-blocked.png) |
-| Fix and re-attack: the fix masks the clues the attacker named, the fixed copy is attacked again, and the before/after compare shows the new verdict with the attacker's confidence (here the recorded Nov 23 answer, CACHED SAMPLE: still exposed) | The Egress Gate stops a copy that still shows a vault match ("LUCAS") before it can leave the device: BLOCKED, 0 bytes sent |
+| Fix and re-attack: the fix masks the clues the attacker named, the fixed copy is attacked again, and the before/after compare shows the new verdict with the attacker's confidence (here the recorded Nov 23 answer, CACHED SAMPLE: with the street sign and its number plate masked it could only say "Berlin", so risk reduced, amber to low) | The Egress Gate stops a copy that still shows a vault match ("LUCAS") before it can leave the device: BLOCKED, 0 bytes sent |
 | ![About: what leaves this device, S0 to S4 routing](docs/img/gallery/06-about-routing.png) | ![Settings: what runs where on this browser](docs/img/gallery/07-capabilities.png) |
 | About: what leaves this device, and the S0–S4 routing | Settings: what runs where on this browser |
 
@@ -202,7 +202,7 @@ Full aggregate report: [`benchmark/spike/day1-adversary.md`](benchmark/spike/day
 
 ### Limitations (stated plainly)
 
-- **In our recorded runs, Judge Mode did not end in "Risk reduced".** The attacker still placed all three samples in the right city from things a mask cannot hide (buildings, a castle, a badge graphic) (§2). We kept the honest results rather than pick easier photos.
+- **One of three recorded Judge runs ends in "Risk reduced".** Masking the street sign worked on the level crossing; the station and the castle stayed placed in the right city from things a mask cannot hide (a station building, a castle) (§2). The level crossing replaced a bike-share photo after the fact: we tried six Berlin photos, Google's model was overloaded during most runs (HTTP 500/503, logged), and it was the one that got a full answer, so we kept it and say so here.
 - The attacker is `gemini-3.5-flash-lite` (D-159): free-tier `gemini-3.8-flash` was overloaded (500/503, and 80–143 s when it answered). Lite is nominally a weaker attacker, so the app may understate what a stronger model could infer. Pass B times out at 45 s and is not retried.
 - **iOS: the real Gemini cloud path has not been exercised.** In the Simulator the app went red to "Risk reduced" with Apple FM on the device and a clearly labelled DEBUG fake attacker. Auth and Remote Config on iOS (T-120), the FM pre-screen (T-125) and the `HybridModel` explainer (T-129) are open. The Apple FM referee sometimes over-grades a match; the verdict keeps the stronger of the FM and rules answers.
 - Grounded pass A (Search notes) and the S2 explainer are not in this build.

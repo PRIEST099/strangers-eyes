@@ -43,7 +43,7 @@ const SHOTS = [
   { name: 'about', hash: '#/about' },
   { name: 'judge', hash: '#/judge' },
   { name: 'judge-run', hash: '#/judge', steps: [
-    { click: 'Bike-share path with a work badge' },
+    { click: 'Level crossing by a street sign, no text of yours' },
     { waitText: 'exact redacted copy', timeout: 60000 }, { wait: 1500 }, { shot: 'send' },
     { waitText: 'A stranger could find you', timeout: 90000 }, { wait: 1500 }, { shot: 'verdict' },
     { waitText: 'Risk reduced', timeout: 120000 }, { wait: 1500 },

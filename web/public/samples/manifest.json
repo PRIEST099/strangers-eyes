@@ -1,7 +1,7 @@
 {
   "version": 1,
   "placeholder": false,
-  "about": "Judge Mode samples (D-153). CC0 photos of public places in Ljubljana from Wikimedia Commons (credits in SOURCES.md), with solid masks over people, adverts showing people and real number plates, and drawn props (a staff badge, a name-tag lunchbox). The pass-B answers are LIVE recordings of the cloud attacker (gemini-3.5-flash-lite, Nov 23 2026; D-161), the first run per sample, replayed only when the live attacker is unavailable. judge-03 had nothing removable to fix, so no re-attack was recorded and its 'fixed' file repeats the first answer. The fake-vault pins are in public places (a park and a square).",
+  "about": "Judge Mode samples (D-153, D-164). CC0 photos of public places from Wikimedia Commons (credits in SOURCES.md): two in Ljubljana (judge-01, judge-03) and one in Berlin-Lichtenrade (judge-02), with solid masks over people, adverts showing people and real number plates, and a drawn prop (a name-tag lunchbox on judge-03). The pass-B answers are LIVE recordings of the cloud attacker (gemini-3.5-flash-lite, Nov 23 2026; D-161, D-164), the first answer per sample, replayed only when the live attacker is unavailable. judge-03 had nothing removable to fix, so no re-attack was recorded and its 'fixed' file repeats the first answer. Each sample's fake-vault pins are public places near it (a park and a square): the manifest's pins for the Ljubljana samples, judge-02's own pins for Berlin (D-164).",
   "fakeVault": {
     "homePin": {
       "lat": 46.054,
@@ -32,20 +32,31 @@
     },
     {
       "id": "judge-02",
-      "title": "Bike-share path with a work badge",
+      "title": "Level crossing by a street sign, no text of yours",
       "placeholder": false,
       "image": "judge-02.jpg",
-      "imageSha256": "832e0787b9757963a74b9bd31288c9273468ae186ef3a7f28656ce9cbfca9dc7",
+      "imageSha256": "7f627f29cf694720b011bc27e559ffa5345981753ba2c3b985f9b30b8afbc9b0",
       "nano768": "judge-02.nano768.jpg",
-      "nano768Sha256": "069f6e776b5553bac3aa640d9b2246eb4ac29d23ea07f2612e2fbe43b7bb7338",
+      "nano768Sha256": "8c3a058d836f4623cf8bf86ffb359f0273064a08cb4ee0c9919de5ce8fe3fb84",
       "cachedAdvB": "judge-02.advB.v1.json",
       "cachedAdvBFixed": "judge-02.advB.fixed.v1.json",
       "recordedAt": "2026-11-23",
       "model": "gemini-3.5-flash-lite",
       "expected": null,
       "fixMasked": [
+        "c1",
         "c3"
-      ]
+      ],
+      "fakeVault": {
+        "homePin": {
+          "lat": 52.395,
+          "lng": 13.396
+        },
+        "workPin": {
+          "lat": 52.384,
+          "lng": 13.406
+        }
+      }
     },
     {
       "id": "judge-03",

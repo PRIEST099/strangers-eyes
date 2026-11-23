@@ -30,7 +30,7 @@ import { createMemoryLedger, type Ledger } from '../../core/ledger';
 import { DEFAULT_CONFIG } from '../../firebase/rcParse';
 import { checkCleanJpeg } from '../../tier0/exif';
 import type { AdversaryResult, VaultItem } from '../../core/types';
-import { activateJudgeVault, claimJudge, JUDGE_IDS, makeJudgeVault, parseJudgeManifest, round3, sampleUrl } from '../../vault/judgeVault';
+import { activateJudgeVault, samplePins, claimJudge, JUDGE_IDS, makeJudgeVault, parseJudgeManifest, round3, sampleUrl } from '../../vault/judgeVault';
 import {
   autoDelay, boxIntoCrop, coachFor, fixedRecordingApplies, liveUnavailable, nextAutoAction, recordedOutcome, type AutoView,
 } from './judgeFlow';
@@ -68,10 +68,12 @@ describe('the bundled samples (AC-244 pre-check; D-150, D-153, D-161 live record
       const first = parseAdvB(JSON.parse(file(s.cachedAdvB).toString('utf8')));
       const fixed = parseAdvB(JSON.parse(file(s.cachedAdvBFixed).toString('utf8')));
       expect(first.repairs).toEqual([]);
+      // D-153/D-164: public places around the sample's approved fake-vault pins (its own, else the manifest's: a park
+      // and a square in Ljubljana, or in Berlin-Lichtenrade for judge-02); never anywhere else
+      const home = (s.fakeVault ?? MANIFEST.fakeVault).homePin;
       for (const h of [...first.hypotheses, ...fixed.hypotheses]) {
-        // D-153: public places around the approved fake-vault pins (Ljubljana, a park and a square); never anywhere else
-        expect(Math.abs(h.lat - MANIFEST.fakeVault.homePin.lat)).toBeLessThan(1.5);
-        expect(Math.abs(h.lng - MANIFEST.fakeVault.homePin.lng)).toBeLessThan(1.5);
+        expect(Math.abs(h.lat - home.lat)).toBeLessThan(1.5);
+        expect(Math.abs(h.lng - home.lng)).toBeLessThan(1.5);
       }
       expect(fixed.repairs).toEqual([]);
       // Authored stand-ins (D-153) drop exactly the removable clues. Live answers (D-161) number their clues
@@ -94,6 +96,19 @@ describe('the bundled samples (AC-244 pre-check; D-150, D-153, D-161 live record
     expect(bad((m) => { m.samples[0].cachedAdvB = 'https://x.test/a.json'; })).toBeNull();
     expect(() => sampleUrl('../x.jpg')).toThrow();
     expect(sampleUrl('judge-01.jpg')).toBe('/samples/judge-01.jpg');
+  });
+  it('D-164: a sample may carry its own fake-vault pins; malformed ones reject the manifest; samplePins falls back to the manifest', () => {
+    const base = JSON.parse(JSON.stringify(MANIFEST_JSON)) as { samples: Record<string, unknown>[] };
+    const bad = (f: (m: typeof base) => void) => { const m = JSON.parse(JSON.stringify(base)) as typeof base; f(m); return parseJudgeManifest(m); };
+    const own = MANIFEST.samples.find((s) => s.fakeVault !== null);
+    expect(own?.id).toBe('judge-02');
+    expect(samplePins(MANIFEST, own!)).toEqual({ homePin: { lat: 52.395, lng: 13.396 }, workPin: { lat: 52.384, lng: 13.406 } });
+    expect(samplePins(MANIFEST, MANIFEST.samples[0])).toBe(MANIFEST.fakeVault);
+    expect(samplePins(MANIFEST, null)).toBe(MANIFEST.fakeVault);
+    expect(bad((m) => { m.samples[0].fakeVault = { homePin: { lat: 1, lng: 2 } }; })).toBeNull();
+    expect(bad((m) => { m.samples[0].fakeVault = { homePin: { lat: 91, lng: 2 }, workPin: { lat: 1, lng: 2 } }; })).toBeNull();
+    expect(bad((m) => { m.samples[0].fakeVault = 'Berlin'; })).toBeNull();
+    expect(bad((m) => { delete (m as Record<string, unknown>).fakeVault; })).toBeNull(); // the manifest's own pins stay required
   });
 });
 
@@ -125,12 +140,25 @@ describe('the fake vault (SCR-17; D-26, D-37)', () => {
     queue.splice(0).forEach((f) => f());
     expect(scan.useReal).toHaveBeenCalledTimes(1);
   });
-  it('activateJudgeVault switches once per vault object', () => {
+  it('activateJudgeVault switches once per vault object, and only while a Judge claim is held (D-164 review)', () => {
     let jv: readonly VaultItem[] | null = null;
     const scan = { judgeVault: () => jv, useJudge: vi.fn(async (v: readonly VaultItem[]) => { jv = v; }) };
     const v = makeJudgeVault(MANIFEST);
-    activateJudgeVault(scan, v); activateJudgeVault(scan, v);
+    // No claim (the Judge screen is gone, e.g. a late Run-all timer after Exit): Judge Mode is never put back on.
+    expect(activateJudgeVault(scan, v)).toBe(false);
+    expect(scan.useJudge).not.toHaveBeenCalled();
+    const queue: (() => void)[] = [];
+    const release = claimJudge({ mode: () => 'judge', useReal: vi.fn(async () => undefined) }, (fn) => { queue.push(fn); });
+    expect(activateJudgeVault(scan, v)).toBe(true); activateJudgeVault(scan, v);
     expect(scan.useJudge).toHaveBeenCalledTimes(1);
+    // D-164: each sample's own vault is a different object, so switching samples switches the active vault.
+    const own = makeJudgeVault({ fakeVault: samplePins(MANIFEST, MANIFEST.samples.find((s) => s.fakeVault)!) });
+    activateJudgeVault(scan, own);
+    expect(jv).toBe(own);
+    release();
+    expect(activateJudgeVault(scan, v)).toBe(false);
+    expect(jv).toBe(own);
+    queue.splice(0).forEach((f) => f());
   });
 });
 
