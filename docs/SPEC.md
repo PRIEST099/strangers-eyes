@@ -1167,7 +1167,7 @@ Each screen lists its purpose, layout, behaviour, states (a)–(e), copy IDs and
   - (d): S4 steps run ON-DEVICE or RULES-ONLY, and the adversary is CACHED.
   - (e): if a sample is refused live, show the (e) UI and offer **Use recorded result** (the cached pass B, labelled). This is not a retry of the model.
 - **ACs**
-  - **AC-240 (P0) [e2e]** On a fresh Chrome profile with no Nano, against the hosted URL: `?judge=1` → sample 1 → green "Risk reduced" in ≤90 s, with no manual input beyond starting it (autoplay).
+  - **AC-240 (P0) [e2e]** On a fresh Chrome profile with no Nano, against the hosted URL: `?judge=1` → sample 1 → the whole check (pre-screen, attack, verdict, fix and re-attack where a fix exists) reaches its final verdict in ≤90 s, with no manual input beyond starting it (autoplay). D-161 (user, Nov 23): the verdict is whatever the attacker really does; with the live recordings sample 1 ends "Still exposed", never a forced green.
   - **AC-241 (P0) [unit]** Entering Judge Mode never reads or unseals the real vault. Exiting leaves the real vault byte-identical. *(Narrowed by D-80:)* the one exception is boot, in either mode: it may read the `burn-pending` marker in `se-vault-keys` (only if that database exists; it never creates one) and, if a Burn vault the user started was interrupted, finish deleting it. It never reads the vault record or the key.
   - **AC-242 (P0) [unit]** An S4 call with a non-sample image, or with the real vault, is BLOCKED (AC-023).
   - **AC-243 (P0) [e2e]** With the network offline, Judge Mode completes using the CACHED pass B, and every cached step carries a badge.
