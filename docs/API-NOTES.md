@@ -439,6 +439,12 @@ try {
 
 **Always read the model name from Remote Config.** Key names are in ARCH §13. Differences between the Gemini 4 tiers are undocumented (U-48).
 
+- **Verified Nov 23 (T-031 diagnosis, D-158):**
+  - `@firebase/ai` 3.1.0 sends **no** server deadline: `getHeaders` adds only Content-Type, x-goog-api-client, x-goog-api-key, X-Firebase-Appid, X-Firebase-AppCheck and Authorization; `RequestOptions.timeout` (default 180 s) is a local AbortController cleared once headers arrive. So the HTTP **503 "Deadline expired before operation could complete"** seen at ~179–202 s is the **server's own fixed deadline**, independent of our timeout; a client timeout above ~200 s gains nothing.
+  - On the free tier, gemini-3.8-flash returned 500 "high demand" / 503 deadline on every call 07:30–08:30 UTC Nov 20–23, even for a text-only call with a one-field schema (180.5 s, 503). Successful flash calls (82–180 s) used only ~1,670 prompt + ~1,100 output + 500–3,100 thinking tokens: the latency is queueing, not work.
+  - gemini-3.5-flash-lite in the same project, same prompt (advB.v1), schema and images: valid JSON in **4.6 s** (LOW, 1024 px) and **10.2 s** (MEDIUM, 1536 px).
+  - promptTokenCount was ~1,670 at both 1024×576 and 1536×864: downscaling saves upload bytes, not model cost.
+
 ### 1.13 Grounding with Google Search (S3, pass A only)
 
 `[VERIFIED: tsc for the non-hybrid form; docs]` https://firebase.google.com/docs/ai-logic/grounding-google-search

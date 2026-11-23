@@ -44,6 +44,16 @@ export const CONFIG = {
   maxRetries: 1, // one identical resend, only for 429/5xx/network errors raised before any response (RUNBOOK §5.5, API-NOTES §6.6)
   stopAfterErrors: 3, // consecutive failed calls (quota, permissions…): stop instead of spending more
 } as const;
+/** The lighter cloud model (RC explain_cloud_model), for latency comparisons only (?models=lite). */
+export const LITE = 'gemini-3.5-flash-lite';
+const MODEL_IDS: Record<string, string> = { flash: FLASH, hydrogen: HYDROGEN, lite: LITE };
+export const SPIKE_THINKING = ['LOW', 'MEDIUM', 'HIGH'] as const;
+export type SpikeThinking = (typeof SPIKE_THINKING)[number];
+/** Latency experiment knobs (?thinking, ?px, ?runs, ?retries) override these four; everything else is CONFIG. */
+export type SpikeConfig = Omit<typeof CONFIG, 'thinkingLevel' | 'cloudMaxPx' | 'primaryRuns' | 'maxRetries'>
+  & { thinkingLevel: SpikeThinking; cloudMaxPx: number; primaryRuns: number; maxRetries: number };
+/** The effective config of the current run (set once by runSpike, recorded in the raw JSON). */
+let cfg: SpikeConfig = CONFIG;
 
 export type RunStatus = 'ok' | 'no_location_signal' | 'declined' | 'blocked' | 'truncated' | 'unreadable' | 'error';
 export interface RunRec {
@@ -106,7 +116,7 @@ export interface SpikeResult {
   startedAt: string;
   finishedAt?: string;
   mode: 'dry' | 'live' | 'schema';
-  config: typeof CONFIG;
+  config: SpikeConfig;
   /** The 3-run adversary model (D-73). */
   primary: string;
   /** D-74: skip a primary run that can no longer change the photo's G1 classification. */
@@ -203,7 +213,7 @@ async function passB(model: string, jpegB64: string, truth: Truth, kind: RunRec[
         responseMimeType: 'application/json',
         responseJsonSchema: ADV_B_SCHEMA,
         maxOutputTokens,
-        thinkingConfig: { thinkingLevel: ThinkingLevel[CONFIG.thinkingLevel] },
+        thinkingConfig: { thinkingLevel: ThinkingLevel[cfg.thinkingLevel] },
       },
     },
   }, { timeout: CONFIG.timeoutMs });
@@ -214,7 +224,7 @@ async function passB(model: string, jpegB64: string, truth: Truth, kind: RunRec[
   //    HTTP 429/5xx, or a network failure with no status. A timeout (AbortError) is never resent: the server may
   //    already have processed it (review sdk-1, runner-9).
   let res: Awaited<ReturnType<typeof m.generateContent>> | null = null;
-  for (let attempt = 1; attempt <= 1 + CONFIG.maxRetries && !res; attempt++) {
+  for (let attempt = 1; attempt <= 1 + cfg.maxRetries && !res; attempt++) {
     const wait = lastCallAt + CONFIG.minGapMs - performance.now();
     if (wait > 0) await sleep(wait);
     lastCallAt = performance.now();
@@ -250,7 +260,7 @@ async function passB(model: string, jpegB64: string, truth: Truth, kind: RunRec[
       // exact network message counts as transient.
       const retriable = name !== 'AbortError' && (status === 429 || (status !== undefined && status >= 500)
         || (status === undefined && e instanceof AIError && e.code === AIErrorCode.ERROR && /Failed to fetch/.test(e.message)));
-      if (!retriable || attempt > CONFIG.maxRetries) return rec;
+      if (!retriable || attempt > cfg.maxRetries) return rec;
       const backoff = status === 429 ? 35_000 : 10_000;
       log(`  ${model} ${kind}#${idx}: transient error (${status ?? 'network'}), one identical resend in ${backoff / 1000} s`);
       await sleep(backoff);
@@ -309,7 +319,7 @@ async function passB(model: string, jpegB64: string, truth: Truth, kind: RunRec[
 interface Frames { master: HTMLCanvasElement; faceMasked: HTMLCanvasElement; faceRects: PxRect[] }
 
 async function cloudJpegOf(canvas: HTMLCanvasElement): Promise<{ blob: Blob; w: number; h: number }> {
-  const c = downscaleTo(canvas, CONFIG.cloudMaxPx);
+  const c = downscaleTo(canvas, cfg.cloudMaxPx);
   const blob = await toJpeg(c, CONFIG.cloudJpegQuality);
   await assertCleanJpeg(blob); // throws on APP1/APP13/GPS: nothing unclean is ever sent
   return { blob, w: c.width, h: c.height };
@@ -419,7 +429,7 @@ async function probeSchema(model: string, name: string, schema: J | null, counte
       model,
       systemInstruction: systemText(CONFIG.promptId),
       generationConfig: { responseMimeType: 'application/json', ...(schema ? { responseJsonSchema: schema } : {}), maxOutputTokens: CONFIG.maxOutputTokens,
-        thinkingConfig: { thinkingLevel: ThinkingLevel[CONFIG.thinkingLevel] } },
+        thinkingConfig: { thinkingLevel: ThinkingLevel[cfg.thinkingLevel] } },
     },
   }, { timeout: CONFIG.timeoutMs });
   const wait = lastCallAt + CONFIG.minGapMs - performance.now();
@@ -446,7 +456,18 @@ async function probeSchema(model: string, name: string, schema: J | null, counte
 }
 
 // ---------------------------------------------------------------- the run
-export interface RunOptions { mode: 'dry' | 'live' | 'schema'; photos: string[]; models: string[]; primary: string; probeU12: boolean; adaptive: boolean; variants?: string[] }
+export interface RunOptions {
+  mode: 'dry' | 'live' | 'schema'; photos: string[]; models: string[]; primary: string; probeU12: boolean; adaptive: boolean; variants?: string[];
+  /** Latency experiment knobs (T-031 diagnosis); absent = CONFIG. */
+  thinking?: SpikeThinking; px?: number; runs?: number; retries?: number;
+}
+/** Integer query value in [lo, hi]; undefined when absent; NaN (→ parseOptions refuses) when present but invalid. */
+function intKnob(q: URLSearchParams, name: string, lo: number, hi: number): number | undefined {
+  const raw = q.get(name);
+  if (raw === null) return undefined;
+  const n = Number(raw);
+  return Number.isInteger(n) && n >= lo && n <= hi ? n : NaN;
+}
 
 export function parseOptions(search: string): RunOptions | null {
   const q = new URLSearchParams(search);
@@ -457,19 +478,34 @@ export function parseOptions(search: string): RunOptions | null {
     .filter((p) => (ALL_PHOTOS as readonly string[]).includes(p));
   const rawModels = q.get('models');
   const models = [...new Set((rawModels ? rawModels.split(',') : ['flash', 'hydrogen'])
-    .map((m) => (m.trim() === 'flash' ? FLASH : m.trim() === 'hydrogen' ? HYDROGEN : '')).filter(Boolean))];
+    .map((m) => MODEL_IDS[m.trim()] ?? '').filter(Boolean))];
   if (!photos.length || !models.length) return null;
   // D-73: ?primary=hydrogen makes gemini-4-hydrogen the 3-run adversary when gemini-3.8-flash is unavailable.
-  const primary = q.get('primary') === 'hydrogen' ? HYDROGEN : FLASH;
+  const primary = MODEL_IDS[q.get('primary') ?? 'flash'] ?? FLASH;
   if (!models.includes(primary)) return null;
   models.sort((x, y) => (x === primary ? -1 : y === primary ? 1 : 0));
   const variants = q.get('variants')?.split(',').map((v) => v.trim()).filter(Boolean);
-  return { mode: auto, photos, models, primary, probeU12: q.get('probe') === 'u12', adaptive: q.get('adaptive') === '1', ...(variants?.length ? { variants } : {}) };
+  // Experiment knobs: an invalid value refuses the whole run rather than silently using a default.
+  const rawThinking = q.get('thinking');
+  if (rawThinking !== null && !(SPIKE_THINKING as readonly string[]).includes(rawThinking)) return null;
+  const px = intKnob(q, 'px', 768, 1536);
+  const runs = intKnob(q, 'runs', 1, 3);
+  const retries = intKnob(q, 'retries', 0, 1);
+  if ([px, runs, retries].some((v) => Number.isNaN(v))) return null;
+  return { mode: auto, photos, models, primary, probeU12: q.get('probe') === 'u12', adaptive: q.get('adaptive') === '1', ...(variants?.length ? { variants } : {}),
+    ...(rawThinking !== null ? { thinking: rawThinking as SpikeThinking } : {}),
+    ...(px !== undefined ? { px } : {}), ...(runs !== undefined ? { runs } : {}), ...(retries !== undefined ? { retries } : {}) };
+}
+
+/** The effective config for a run: CONFIG with the experiment knobs applied. */
+export function effectiveConfig(o: RunOptions): SpikeConfig {
+  return { ...CONFIG, thinkingLevel: o.thinking ?? CONFIG.thinkingLevel, cloudMaxPx: o.px ?? CONFIG.cloudMaxPx,
+    primaryRuns: o.runs ?? CONFIG.primaryRuns, maxRetries: o.retries ?? CONFIG.maxRetries };
 }
 
 /** Planned cloud calls before resends and G1b reruns (the runner prints it before a live run). */
 export const plannedCalls = (o: RunOptions) =>
-  o.photos.length * o.models.reduce((n, m) => n + (m === o.primary ? CONFIG.primaryRuns : CONFIG.secondaryRuns), 0) + (o.probeU12 ? 1 : 0);
+  o.photos.length * o.models.reduce((n, m) => n + (m === o.primary ? effectiveConfig(o).primaryRuns : CONFIG.secondaryRuns), 0) + (o.probeU12 ? 1 : 0);
 
 const LIVE_FLAG = 'advSpike-live-started';
 /**
@@ -511,6 +547,7 @@ export async function runSpike(opts: RunOptions): Promise<void> {
     if (!globalThis.__advSpike) globalThis.__advSpike = { state: 'error', log: [refusal], result: null, error: refusal };
     return;
   }
+  cfg = effectiveConfig(opts);
   const st: SpikeState = { state: 'running', log: [], result: null };
   globalThis.__advSpike = st;
   const log = (s: string) => { st.log.push(`${new Date().toISOString().slice(11, 19)} ${s}`); };
@@ -521,7 +558,7 @@ export async function runSpike(opts: RunOptions): Promise<void> {
     const spec = MANIFEST.prompts[CONFIG.promptId];
     const files = [...(spec.system ?? []), ...(Array.isArray(spec.user) ? spec.user : [spec.user]), spec.schema ?? ''].filter(Boolean);
     const result: SpikeResult = {
-      spikeVersion: SPIKE_VERSION, startedAt: new Date().toISOString(), mode: opts.mode, config: CONFIG, models: opts.models, primary: opts.primary, adaptive: opts.adaptive,
+      spikeVersion: SPIKE_VERSION, startedAt: new Date().toISOString(), mode: opts.mode, config: cfg, models: opts.models, primary: opts.primary, adaptive: opts.adaptive,
       prompt: { id: CONFIG.promptId, released: spec.released, files: Object.fromEntries(files.map((f) => [f, MANIFEST.files[f]])) },
       authUid: Boolean(await authReady), photos: [], probes: [], callsSent: 0,
     };
@@ -532,7 +569,7 @@ export async function runSpike(opts: RunOptions): Promise<void> {
       consecutiveErrors = r.status === 'error' ? consecutiveErrors + 1 : 0;
       if (consecutiveErrors >= CONFIG.stopAfterErrors) throw new StopRun(`${consecutiveErrors} failed calls in a row (last: ${r.httpStatus ?? ''} ${r.error?.slice(0, 120) ?? ''})`);
     };
-    log(`mode=${opts.mode} primary=${opts.primary} photos=${opts.photos.join(',')} models=${opts.models.join(',')} planned≈${plannedCalls(opts)} calls (+ G1b reruns) auth=${result.authUid}`);
+    log(`mode=${opts.mode} primary=${opts.primary} photos=${opts.photos.join(',')} models=${opts.models.join(',')} planned≈${plannedCalls(opts)} calls (+ G1b reruns, ≤ ${cfg.maxRetries} resend each) thinking=${cfg.thinkingLevel} px=${cfg.cloudMaxPx} runs=${cfg.primaryRuns} auth=${result.authUid}`);
     if (opts.mode === 'schema') {
       // One text-only call per variant, least change first; stop at the first accepted one (a 400 costs nothing but time).
       result.schemaProbes = [];
@@ -569,7 +606,7 @@ export async function runSpike(opts: RunOptions): Promise<void> {
         const b64 = await blobToBase64(cloud.blob);
 
         for (const model of opts.models) {
-          const n = model === opts.primary ? CONFIG.primaryRuns : CONFIG.secondaryRuns;
+          const n = model === opts.primary ? cfg.primaryRuns : CONFIG.secondaryRuns;
           for (let i = 1; i <= n; i++) {
             if (opts.adaptive && model === opts.primary && g1Decided(rec.runs.filter((r) => r.model === model && r.kind === 'before'), n)) {
               log(`spike-${pid} ${model} #${i}: skipped (G1 classification already decided, D-74)`);

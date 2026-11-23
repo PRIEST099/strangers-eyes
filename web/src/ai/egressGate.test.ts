@@ -1190,11 +1190,11 @@ describe('deadlines (API-NOTES §1.9, F-125) and timeouts_ms (D-131)', () => {
     okOf(await call(h, req('advB', { sessionId: 'c', consent: consent(CLEAN, 'c'), timeoutMs: 1234 })));
     expect(world.timeouts).toEqual([h.config.timeoutsMs.advB, h.config.timeoutsMs.advB, 1234]);
   });
-  it('a fetch that never answers → aborted at the deadline, one retry, TIMEOUT, no "queued" banner', async () => {
+  it('a fetch that never answers → aborted at the deadline, NO retry (D-158), TIMEOUT, no "queued" banner', async () => {
     resetWorld({ replies: [{ stall: 'fetch' }] });
     const h = await harness();
     expect(errorOf(await call(h, req('advB', { timeoutMs: 30 }))).code).toBe('TIMEOUT');
-    expect(netCalls).toHaveLength(2);
+    expect(netCalls).toHaveLength(1);
     expect(netCalls[0].signal?.aborted).toBe(true);
     expect(h.status.report).not.toHaveBeenCalled();
   });

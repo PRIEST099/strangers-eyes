@@ -7,6 +7,9 @@
 //   VITE_SPIKE=1 npm --prefix web run dev -- --port 5174 --strictPort      (separate terminal / background)
 //   node benchmark/spike/run-spike.mjs --mode dry  [--photos 01,02] [--models flash,hydrogen]
 //   node benchmark/spike/run-spike.mjs --mode live [--photos …] [--probe u12]
+//   latency experiment knobs (recorded in the raw JSON config; absent = the spike's CONFIG defaults):
+//     [--thinking LOW|MEDIUM|HIGH] [--px 768..1536] [--runs 1..3 (primary-model runs per photo)] [--retries 0|1]
+//     --models may also name lite (gemini-3.5-flash-lite); --primary flash|hydrogen|lite
 //
 // Output goes to PRIV/raw only (it holds model coordinates and place names), under a timestamped stem that never
 // overwrites: <stem>.partial.json while running (rewritten on every new call), <stem>.json at the end, and contact
@@ -27,6 +30,7 @@ const { values: a } = parseArgs({
   options: {
     mode: { type: 'string' }, photos: { type: 'string' }, models: { type: 'string' }, probe: { type: 'string' }, variants: { type: 'string' }, primary: { type: 'string', default: 'flash' }, adaptive: { type: 'boolean', default: false },
     port: { type: 'string', default: '5174' }, 'max-minutes': { type: 'string', default: '150' },
+    thinking: { type: 'string' }, px: { type: 'string' }, runs: { type: 'string' }, retries: { type: 'string' },
   },
 });
 const fail = (msg) => { console.error(`[runner] ${msg}`); process.exit(2); };
@@ -41,9 +45,20 @@ const list = (v, name) => {
 const photos = list(a.photos, 'photos')?.map((p) => p.padStart(2, '0'));
 if (photos?.some((p) => !ALL.includes(p))) fail(`--photos must be among ${ALL.join(',')}`);
 const models = list(a.models, 'models');
-if (models?.some((m) => m !== 'flash' && m !== 'hydrogen')) fail('--models must be flash and/or hydrogen');
+const MODELS = ['flash', 'hydrogen', 'lite'];
+if (models?.some((m) => !MODELS.includes(m))) fail('--models must be among flash,hydrogen,lite');
 if (a.probe !== undefined && a.probe !== 'u12') fail('--probe only supports u12');
-if (a.primary !== 'flash' && a.primary !== 'hydrogen') fail('--primary must be flash or hydrogen');
+if (!MODELS.includes(a.primary)) fail('--primary must be flash, hydrogen or lite');
+if (a.thinking !== undefined && !['LOW', 'MEDIUM', 'HIGH'].includes(a.thinking)) fail('--thinking must be LOW, MEDIUM or HIGH');
+const intOpt = (name, lo, hi) => {
+  if (a[name] === undefined) return undefined;
+  const n = Number(a[name]);
+  if (!Number.isInteger(n) || n < lo || n > hi) fail(`--${name} must be an integer from ${lo} to ${hi}`);
+  return n;
+};
+const px = intOpt('px', 768, 1536);
+const runs = intOpt('runs', 1, 3);
+const retries = intOpt('retries', 0, 1);
 if (models && !models.includes(a.primary)) fail('--models must include the --primary model');
 const port = Number(a.port);
 const maxMinutes = Number(a['max-minutes']);
@@ -55,11 +70,15 @@ if (a.probe) q.set('probe', a.probe);
 if (a.variants) q.set('variants', a.variants);
 if (a.primary !== 'flash') q.set('primary', a.primary);
 if (a.adaptive) q.set('adaptive', '1');
+if (a.thinking) q.set('thinking', a.thinking);
+if (px !== undefined) q.set('px', String(px));
+if (runs !== undefined) q.set('runs', String(runs));
+if (retries !== undefined) q.set('retries', String(retries));
 const url = `http://localhost:${port}/?${q}#/dev/adversary`;
 const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
 const stem = `${PRIV_RAW}/spike-${ts}-${mode}${photos ? '-p' + photos.join('_') : ''}`;
 if (existsSync(`${stem}.json`) || existsSync(`${stem}.partial.json`)) fail(`${stem}.* already exists`);
-const planned = (photos ?? ALL).length * (models ?? ['flash', 'hydrogen']).reduce((n, m) => n + (m === a.primary ? 3 : 1), 0) + (a.probe ? 1 : 0);
+const planned = (photos ?? ALL).length * (models ?? ['flash', 'hydrogen']).reduce((n, m) => n + (m === a.primary ? (runs ?? 3) : 1), 0) + (a.probe ? 1 : 0);
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const head = await fetch(`http://localhost:${port}/`).catch(() => null);
@@ -131,7 +150,8 @@ try {
   await send('Inspector.enable').catch(() => {});
   console.log(`[runner] ${mode}: primary ${a.primary}; photos ${(photos ?? ALL).join(',')} × models ${(models ?? ['flash', 'hydrogen']).join(',')}${a.probe ? ' + probe ' + a.probe : ''}`);
   if (mode === 'schema') console.log('[runner] SCHEMA probe: text-only calls, at most 3 per model, no image');
-  if (mode === 'live') console.log(`[runner] LIVE: about ${planned} cloud calls planned, plus G1b reruns (≤ 1 per located photo) and at most 1 resend per call on 429/5xx/network`);
+  if (a.thinking || px !== undefined || runs !== undefined || retries !== undefined) console.log(`[runner] knobs: thinking=${a.thinking ?? 'default'} px=${px ?? 'default'} runs=${runs ?? 'default'} retries=${retries ?? 'default'}`);
+  if (mode === 'live') console.log(`[runner] LIVE: about ${planned} cloud calls planned, plus G1b reruns (≤ 1 per located photo) and at most ${retries ?? 1} resend per call on 429/5xx/network`);
   const nav = await send('Page.navigate', { url });
   if (nav.result?.errorText) throw new Error(`navigate failed: ${nav.result.errorText}`);
 

@@ -257,6 +257,8 @@ How a flaw was found:
 | F-237 | Nov 21 | T-124 | iOS agent (self) | minor | The HUD labelled the DEBUG fake attacker IN CLOUD | Shows CACHED SAMPLE |
 | F-238 | Nov 21 | T-124 | iOS agent (self) | minor | Open: schema propertyOrdering is a heuristic; HUD pill slot shows the class not the route; consent copy always shows the free-tier notice; Ledger 0 · 0 is asserted by the checks, not measured; a failed tokenCount skips the budget check (call stays on device) | Open, listed in ios/NOTES.md |
 | F-239 | Nov 21 | T-122 | iOS agent (deviation) | minor | The iOS vault is a file with complete file protection, not the Keychain the plan named | Accepted for the demo; noted in ios/NOTES.md |
+| F-240 | Nov 23 | T-034 | diagnosis agent | major | RC `timeouts_ms.advB` = 60 s while every flash success took 82–180 s: on flash, the app's pass B would time out even when Google eventually answered | Open: decided with the model choice (D-158); lite answers in 5–10 s |
+| F-241 | Nov 23 | T-062 | diagnosis agent | minor | The gate retried a cloud TIMEOUT once and the spike resent identically on 5xx: both doubled waits and free-tier calls; no resend 10 s after "high demand" ever succeeded | D-158: a cloud TIMEOUT is never retried; spike `--retries 0` |
 
 ---
 
@@ -407,6 +409,10 @@ How a flaw was found:
 - The HUD at the bottom left now lists every AI call as it happens: which job, its privacy class, where it ran (ON-DEVICE, IN CLOUD, RULES-ONLY, BLOCKED), the engine, how long it took, how many bytes left, and tags such as "fallback: no on-device model" or "Nano off". Collapsed, the pill shows the last call. Everything comes from the Ledger, which only holds ids, kinds, hashes and numbers.
 - The Cloud Ledger rail shows live counters and "What the cloud saw": the exact redacted JPEG of the last cloud send, kept in memory and shown only when the hash of its own bytes equals the hash the gate recorded, with the same 8-character prefix the consent sheet shows. The original photo is never registered. It all lives in memory for this page; nothing is stored or sent.
 - No real AI call was made. Browser check with the DEV fake Nano and fake adversary on a synthetic image: pre-screen and referee ON-DEVICE, pass B IN CLOUD, matching hashes. Found F-220..F-222.
+
+### Nov 23: why the attacker kept failing
+- The benchmark attacker failed again this morning, so a small experiment separated "Google is overloaded" from "our request is too heavy". Even the smallest possible request (text only, a one-field answer) timed out on the free-tier flash model, while a lighter Gemini model answered the full photo request in 5–10 seconds with valid output. The cause is overload on that one model, not the photo size or the prompt.
+- Two things were ours: the app gave the attacker only 60 s although flash needed 80–180 s when it answered, and it retried timed-out calls, doubling the wait. Timeouts are no longer retried; which model the attacker uses is the user's call.
 
 ### Nov 21 (late night): an iOS app, and a referee that no longer over-reads
 - A lean SwiftUI app now runs the same check on iOS: vault, on-device text and face reading with solid masks, one gate for every AI call, Apple's on-device model as the referee with the rules as its floor, a consent sheet, the fix and the re-attack. In the Simulator it went red → "Risk reduced" with Apple's model answering on the device; the cloud attacker was a labelled debug stand-in (no quota spent). The shared test files keep both platforms' rules identical, and they caught a Swift difference in how missing numbers behave.

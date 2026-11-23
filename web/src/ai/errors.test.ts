@@ -64,7 +64,7 @@ describe('retries (AC-303: a refusal or decline is never retried)', () => {
     expect(retriesAllowed('CLOUD_NETWORK', policy, { cloud: true })).toBe(1);
     expect(retriesAllowed('CLOUD_QUOTA', { ...policy, quota: 50 }, { cloud: true })).toBe(3);
     expect(retriesAllowed('CLOUD_QUOTA', { ...policy, quota: -1 }, { cloud: true })).toBe(0);
-    expect(retriesAllowed('TIMEOUT', { ...policy, network: 3 }, { cloud: true })).toBe(1);
+    expect(retriesAllowed('TIMEOUT', { ...policy, network: 3 }, { cloud: true })).toBe(0); // D-158
     expect(retriesAllowed('TIMEOUT', policy, { cloud: false })).toBe(0);
     expect(retryBucket('CLOUD_SERVER')).toBe('network');
     expect(retryBucket('CLOUD_REFUSED')).toBeNull();

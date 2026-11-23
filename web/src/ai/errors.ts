@@ -166,15 +166,17 @@ export function retryBucket(code: GateErrorCode): keyof RetryPolicy | null {
 
 /**
  * How many retries `code` gets under `policy` (at most 3 per family). `cloud`: the failed attempt went (or would have
- * gone) to the cloud; a device TIMEOUT is never retried (the AbortSignal does not reach the device; ARCH §17), a cloud
- * one at most once.
+ * gone) to the cloud. A TIMEOUT is never retried: a device one because the AbortSignal does not reach the device (ARCH
+ * §17), a cloud one because the server keeps working after our client gives up (the SDK sends it no deadline) and a
+ * resend only doubles the wait and spends another free-tier call (D-158; Nov 23 spike diagnosis).
  */
 export function retriesAllowed(code: GateErrorCode, policy: RetryPolicy, ctx: { cloud: boolean }): number {
   const bucket = retryBucket(code);
   if (bucket === null) return 0;
   const raw = policy[bucket];
   const n = Number.isInteger(raw) && raw > 0 ? Math.min(raw, 3) : 0;
-  if (code === 'TIMEOUT') return ctx.cloud ? Math.min(1, n) : 0;
+  if (code === 'TIMEOUT') return 0; // D-158 (ctx.cloud kept for the signature and future policy)
+  void ctx;
   return n;
 }
 
