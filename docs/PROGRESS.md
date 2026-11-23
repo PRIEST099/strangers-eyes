@@ -27,6 +27,7 @@
     - s05 one run none, one error;
     - s06 two timeouts at 240 s → circuit breaker.
     - About 12 of flash's 20 free requests used today.
+  - Nov 23 10:06 (flash, photos 05–10 + 01–03, `PRIV/raw/spike-2026-11-23T08-06-24-live-…json`): every call failed with 500 then 503 (15–181 s); circuit breaker after 3 failures in a row; 6 calls used, no new results. Free-tier flash is not usable for G1 in practice; T-031 now waits for paid quota (Sprint 2 not active, see STATE) or a quieter hour.
   - **Finding (open risk for the demo):** free-tier flash had frequent 503s and took 80–143 s when it answered, beyond RC `timeouts_ms.advB` = 60 s. Decide in T-034, after paid-tier latency is known (T-003 by Nov 26): raise advB (and the clamp) or keep it and show a slow-network state.
   - Resume (later today if quota is left, else Sun Nov 22 after 10:00 GMT+2): `VITE_SPIKE=1 npm --prefix web run dev -- --port 5174 --strictPort` (launch config "web-spike"), then `node benchmark/spike/run-spike.mjs --mode live --primary flash --models flash --adaptive --photos 05,06,07,08,09,10`. Sunday also: `--photos 01,02,03` on flash.
   - Then `node benchmark/spike/score-spike.mjs <all raw files>` (later file wins per photo) → `benchmark/spike/day1-adversary.md`, gate table per model, release advB.v1 (D-62), tick T-031, T-034.
