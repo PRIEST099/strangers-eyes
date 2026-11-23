@@ -22,12 +22,24 @@ const LABEL: Record<Route, StringId> = {
   CACHED: 'ui.route.CACHED',
 };
 
+/** The leading dot: solid for a route that ran, an outline for one that did not send (QUEUED) or replayed (CACHED). */
+const DOT: Record<Route, string> = {
+  ON_DEVICE: 'bg-current',
+  IN_CLOUD: 'bg-current',
+  RULES_ONLY: 'bg-current',
+  BLOCKED: 'bg-current',
+  QUEUED: 'border border-current',
+  CACHED: 'border border-current',
+};
+
+/** The label text is the badge's LAST child (tests read `>ON-DEVICE</span>`); the dot is decorative. */
 export function Badge({ route, className }: { route: Route; className?: string }) {
   return (
     <span
       data-route={route}
-      className={`inline-flex items-center rounded-md border px-1.5 py-0.5 font-mono text-xs leading-4 font-semibold tracking-wide whitespace-nowrap ${STYLE[route]}${className ? ` ${className}` : ''}`}
+      className={`inline-flex h-[22px] items-center gap-1.5 rounded-chip border px-2 font-mono text-caption font-bold tracking-[0.06em] whitespace-nowrap ${STYLE[route]}${className ? ` ${className}` : ''}`}
     >
+      <span aria-hidden="true" className={`size-1.5 shrink-0 rounded-full ${DOT[route]}`} />
       {t(LABEL[route])}
     </span>
   );

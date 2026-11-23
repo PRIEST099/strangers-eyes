@@ -18,6 +18,7 @@ import type { SendState } from '../checkState';
 import { kilobytes } from '../layout';
 import { Button } from './Button';
 import { Icon } from './Icon';
+import { EYEBROW } from './surface';
 
 export interface ConsentPanelProps {
   send: SendState;
@@ -39,19 +40,29 @@ function OutgoingImage({ dry }: { dry: DryRun }) {
   }, [dry.image.jpeg]);
   const { width, height } = dry.image.frame;
   return (
-    <figure className="flex flex-col gap-1">
-      {url && <img src={url} alt={t('ui.consent.imageAlt')} width={width} height={height} className="h-auto max-h-[60vh] w-auto max-w-full rounded-lg border border-line" />}
-      <figcaption className="font-mono text-xs text-muted" data-testid="consent-meta">
+    <figure className="flex flex-col gap-2">
+      {/* The exact outgoing bytes, as wide as the panel allows (up to 60vh tall), framed in the cloud's blue: this is
+          what crosses the Wall. The ring hugs the image (w-fit) with no letterbox, so nothing inside the frame is a
+          pixel that is not sent (a solid-black bar would read as an extra mask). */}
+      {url && (
+        <div className="mx-auto w-fit max-w-full overflow-hidden rounded-card ring-2 ring-route-cloud-fill">
+          <img src={url} alt={t('ui.consent.imageAlt')} width={width} height={height} className="block h-auto max-h-[60vh] w-auto max-w-full" />
+        </div>
+      )}
+      <figcaption className="font-mono text-small break-all text-muted tabular-nums" data-testid="consent-meta">
         {t('ui.consent.meta', { w: width, h: height, kb: kilobytes(dry.bytes), sha: dry.image.sha256.slice(0, 8) })}
       </figcaption>
     </figure>
   );
 }
 
+/** A tick row: teal check (these bytes carry nothing private: "never sent", the one tick allowed to be teal) or a red alert. */
 function Check({ ok, text }: { ok: boolean; text: string }) {
   return (
-    <li className="flex items-center gap-2">
-      <Icon name={ok ? 'check' : 'close'} className={`size-4 ${ok ? 'text-muted' : 'text-verdict-red'}`} />
+    <li className="flex items-start gap-2.5">
+      <span aria-hidden="true" className={`mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-full ${ok ? 'bg-verdict-teal-bg text-verdict-teal' : 'bg-verdict-red-bg text-verdict-red'}`}>
+        <Icon name={ok ? 'check' : 'alert'} className="size-3.5" />
+      </span>
       <span>{text}</span>
     </li>
   );
@@ -64,13 +75,13 @@ export function ConsentPanel({ send, candidate, tierCopy, model, sent, onSend, o
   if (blocked && !sent) {
     return (
       <div className="mt-3 flex flex-col items-start gap-3">
-        <p role="status" className="rounded-lg border border-line bg-surface-2 p-3 text-sm">{t(blocked)}</p>
+        <p role="status" className="flex items-start gap-2 rounded-card border border-line bg-surface-2 p-4 text-body"><Icon name="info" className="mt-0.5 size-5 text-muted" />{t(blocked)}</p>
         <Button onClick={onCancel}>{t('copy.consent.cancel')}</Button>
       </div>
     );
   }
   if (send.kind !== 'ready' || !candidate) {
-    return <p role="status" className="mt-3 text-sm text-muted">{t('ui.consent.checking')}</p>;
+    return <p role="status" className="mt-3 text-body text-muted">{t('ui.consent.checking')}</p>;
   }
   const dry = send.dry;
   const counts = consentCounts(candidate, dry);
@@ -78,36 +89,36 @@ export function ConsentPanel({ send, candidate, tierCopy, model, sent, onSend, o
   const canSend = dry.failed.length === 0 && candidate.blockedBy.length === 0;
   return (
     <div className="mt-3 flex flex-col gap-4" data-testid="consent-sheet">
-      <p className="text-base font-semibold">{t('copy.consent.title')}</p>
-      {sent && <p className="text-sm text-muted">{t('ui.consent.sent')}</p>}
+      <p className="text-title font-semibold">{t('copy.consent.title')}</p>
+      {sent && <p className="text-small text-muted">{t('ui.consent.sent')}</p>}
       <OutgoingImage dry={dry} />
-      <div>
-        <p className="text-sm font-medium">{t('ui.consent.checklist')}</p>
-        <ul className="mt-1 flex flex-col gap-1 text-sm">
+      <div className="rounded-card border border-line bg-surface-2 p-4">
+        <p className={EYEBROW}>{t('ui.consent.checklist')}</p>
+        <ul className="mt-3 flex flex-col gap-2 text-body">
           <Check ok={!dry.failed.includes('metadata')} text={t('ui.consent.checkMetadata')} />
           <Check ok={dry.facesVisible === 0} text={t('ui.consent.checkFaces', { n: dry.facesVisible })} />
           <Check ok={dry.vaultVisible === 0} text={t('ui.consent.checkVault', { n: dry.vaultVisible })} />
           <Check ok text={t('ui.consent.checkMasked', counts)} />
         </ul>
       </div>
-      {dry.autoMasked > 0 && <p className="text-sm">{t('copy.consent.autoMasked', { n: dry.autoMasked })}</p>}
+      {dry.autoMasked > 0 && <p className="text-body">{t('copy.consent.autoMasked', { n: dry.autoMasked })}</p>}
       {unmasked > 0 && (
-        <p role="alert" className="rounded-lg border border-verdict-red bg-verdict-red-bg p-3 text-sm">{t('copy.consent.unmasked', { n: unmasked })}</p>
+        <p role="alert" className="flex items-start gap-2 rounded-card border border-verdict-red bg-verdict-red-bg p-4 text-body"><Icon name="alert" className="mt-0.5 size-5 text-verdict-red" />{t('copy.consent.unmasked', { n: unmasked })}</p>
       )}
       {dry.failed.length > 0 && (
-        <div role="alert" className="flex flex-col items-start gap-2 rounded-lg border border-verdict-red bg-verdict-red-bg p-3 text-sm">
+        <div role="alert" className="flex flex-col items-start gap-2 rounded-card border border-verdict-red bg-verdict-red-bg p-4 text-body">
           {dry.failed.map((f) => <p key={f}>{t(FAILURE_COPY[f])}</p>)}
           {!sent && <Button onClick={onCancel}>{t('ui.consent.fixInEditor')}</Button>}
         </div>
       )}
-      <div className="flex flex-col gap-1 text-sm">
-        <p>{t('ui.consent.whatsSent', { prompt: 'advB.v1', model })}</p>
-        <p data-testid="consent-tier">{t(tierCopy)}</p>
-        <p className="text-muted">{t('copy.consent.never')}</p>
+      <div className="flex max-w-[68ch] flex-col gap-2 text-small">
+        <p className="flex items-start gap-2 break-words"><Icon name="cloud" className="mt-0.5 size-4 text-route-cloud" /><span className="min-w-0">{t('ui.consent.whatsSent', { prompt: 'advB.v1', model })}</span></p>
+        <p data-testid="consent-tier" className="pl-6 text-muted">{t(tierCopy)}</p>
+        <p className="flex items-start gap-2"><Icon name="lock" className="mt-0.5 size-4 text-verdict-teal" /><span>{t('copy.consent.never')}</span></p>
       </div>
       {!sent && (
-        <div className="flex flex-wrap gap-2 border-t border-line pt-3">
-          <Button variant="primary" disabled={!canSend} onClick={onSend} data-action="send">{t('copy.consent.send')}</Button>
+        <div className="flex flex-wrap items-center gap-2 border-t border-line pt-4">
+          <Button variant="primary" size="lg" disabled={!canSend} onClick={onSend} data-action="send">{t('copy.consent.send')}</Button>
           <Button onClick={onCancel} data-action="cancel">{t('copy.consent.cancel')}</Button>
         </div>
       )}

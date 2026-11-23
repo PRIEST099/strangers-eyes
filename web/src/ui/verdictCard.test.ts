@@ -13,6 +13,8 @@ import {
   compareView, LEVEL_ICON, LEVEL_TONE, lineConfidence, lineView, mutedLabel, verdictCardView, type VerdictIconName,
 } from './components/verdict/model';
 import { VerdictIcon } from './components/verdict/VerdictIcon';
+import { meterMarkers } from './components/verdict/RiskMeter';
+import { TONE_HERO } from './components/verdict/tones';
 import { SCRUBBED } from '../core/verdict';
 
 type VInput = Omit<VerdictInput, 'vault'> & { vault: string[] };
@@ -172,6 +174,13 @@ describe('the compare header over every verdict.json compare case (SPEC §10.6)'
         expect(markup).toContain('data-compare="still"');
         expect(markup).not.toContain('verdict-green');
         expect(body).toContain('Still exposed:');
+        // the drawn colour and icon are the after-level's, matching data-tone (AMBER after is never drawn red)
+        const still = /<div data-compare="still" data-tone="(\w+)" class="([^"]*)">\s*<span class="([^"]*)">\s*<svg[^>]*data-icon="(\w+)"/.exec(markup);
+        const tone = LEVEL_TONE[cmp.after.level];
+        expect(still?.[1]).toBe(tone);
+        expect(still?.[2]).toContain(TONE_HERO[tone]);
+        expect(still?.[3]).toContain(`text-verdict-${tone}`);
+        expect(still?.[4]).toBe(LEVEL_ICON[cmp.after.level]);
       } else {
         // a level headline (e.g. LOW with no risk line left) would repeat the card's own headline: no header
         expect(markup).not.toContain('data-compare');
@@ -318,5 +327,122 @@ describe('fix round (D-134): levels, labels, scrubbing, "Why?", icons, the level
     expect(markup).toMatch(/data-compare="reduced"[\s\S]*?<h3[^>]*>Risk reduced:/);
     const headline = S(`copy.verdict.${cmp.after.level.toLowerCase()}`);
     expect(text(markup).split(headline).length - 1).toBe(1);
+  });
+});
+
+describe('redesign (DESIGN.md §5.3): bands only, the meter, the hero, green only in the banner', () => {
+  const FORBIDDEN_KEY = /effectiveKm|^lat$|^lng$|^lon|coord|distance|metres|meters|km$/i;
+
+  it('a line view carries a band NAME at most: never effectiveKm, lat, lng or coordinates (SR-07, invariant 5)', () => {
+    for (const c of builds) {
+      const { verdict, vault } = run(c.input);
+      for (const line of verdict.lines) {
+        const view = lineView(line, vault, true, tr);
+        expect(Object.keys(view).filter((k) => FORBIDDEN_KEY.test(k))).toEqual([]);
+        expect(view.band).toBe(line.band ?? null);
+        if (view.band !== null) expect(typeof view.band).toBe('string');
+      }
+      const card = verdictCardView(verdict, vault, { showVaultLabels: true, tr });
+      expect(Object.keys(card).filter((k) => FORBIDDEN_KEY.test(k))).toEqual([]);
+      expect(Object.keys(card.meter).sort()).toEqual(['after', 'before']);
+    }
+  });
+
+  it('the meter: one level without a comparison or compare header, before and after under one', () => {
+    for (const c of builds) {
+      const { verdict, vault } = run(c.input);
+      expect(verdictCardView(verdict, vault, { showVaultLabels: true, tr }).meter).toEqual({ before: null, after: verdict.level });
+      const markup = html({ verdict, vault });
+      expect(markup).toContain(`role="img" aria-label="Level: ${verdict.level}."`);
+      expect(markup).not.toContain('data-marker');
+    }
+    for (const c of compares) {
+      const { cmp, vault } = cmpOf(c);
+      const view = verdictCardView(cmp.after, vault, { showVaultLabels: true, comparison: cmp, tr });
+      const markup = html({ verdict: cmp.after, vault, comparison: cmp });
+      if (view.compare === null) {
+        // PARTIAL after-verdict (or a level headline): no before marker, so no drawn drop without "Risk reduced".
+        expect(view.meter).toEqual({ before: null, after: cmp.after.level });
+        expect(markup).toContain(`role="img" aria-label="Level: ${cmp.after.level}."`);
+        expect(markup).not.toContain('data-marker');
+        continue;
+      }
+      expect(view.meter).toEqual({ before: cmp.before.level, after: cmp.after.level });
+      expect(markup).toContain(`aria-label="Before: ${cmp.before.level}. After: ${cmp.after.level}."`);
+      expect(markup).toContain('data-marker="before"');
+      expect(markup).toContain('data-marker="after"');
+    }
+    // A PARTIAL after-verdict never gets before/after, even over a RED before.
+    const { cmp: c0, vault: v0 } = cmpOf(compares[0] as CompareCase);
+    const partial = { ...c0, riskReduced: false, after: { ...c0.after, level: 'PARTIAL' as const } };
+    expect(verdictCardView(partial.after, v0, { showVaultLabels: true, comparison: partial, tr }).meter).toEqual({ before: null, after: 'PARTIAL' });
+    expect(html({ verdict: partial.after, vault: v0, comparison: partial })).not.toContain('data-marker');
+  });
+
+  it('every meter cell is labelled in text, and the meter has no green', () => {
+    const { verdict, vault } = run(byName('SCR-09 demo scene').input);
+    const svg = /<svg role="img"[\s\S]*?<\/svg>/.exec(html({ verdict, vault }))?.[0] ?? '';
+    for (const l of ['RED', 'AMBER', 'LOW', 'PARTIAL']) expect(svg).toContain(`>${l}</text>`);
+    expect(svg).not.toMatch(/green/);
+    const { cmp, vault: v2 } = cmpOf(compares.find((x) => x.expect.riskReduced) as CompareCase);
+    const svg2 = /<svg role="img"[\s\S]*?<\/svg>/.exec(html({ verdict: cmp.after, vault: v2, comparison: cmp }))?.[0] ?? '';
+    expect(svg2).not.toMatch(/green/);
+  });
+
+  it('marker labels never overlap and stay inside the meter, even when both are in one cell', () => {
+    const levels = ['RED', 'AMBER', 'LOW', 'PARTIAL'] as const;
+    const wB = 'Before'.length * 9.6;
+    const wA = 'After'.length * 9.6;
+    for (const b of levels) {
+      for (const a of levels) {
+        const m = meterMarkers(b, a, 'Before', 'After');
+        expect(Math.abs(m.al - m.bl)).toBeGreaterThanOrEqual((wA + wB) / 2);
+        for (const [x, w] of [[m.bl, wB], [m.al, wA]] as const) {
+          expect(x - w / 2).toBeGreaterThanOrEqual(0);
+          expect(x + w / 2).toBeLessThanOrEqual(360);
+        }
+        if (a === b) expect(m.ax).not.toBe(m.bx);
+      }
+    }
+  });
+
+  it('the hero keeps its level tone with a comparison (never green); green is only the reduced banner', () => {
+    expect(TONE_HERO.red).toBe('bg-verdict-red-hero');
+    for (const c of compares) {
+      const { cmp, vault } = cmpOf(c);
+      const markup = html({ verdict: cmp.after, vault, comparison: cmp });
+      const hero = /<div data-tone="(\w+)"[^>]*>/.exec(markup);
+      expect(hero?.[1]).toBe(LEVEL_TONE[cmp.after.level]);
+      expect(hero?.[0]).not.toContain('green');
+      const greens = markup.match(/[\w-]*green[\w-]*/g) ?? [];
+      if (greens.length) {
+        const banner = /<div data-compare="reduced"[^>]*>[\s\S]*?<\/div>/.exec(markup)?.[0] ?? '';
+        const rest = markup.replace(banner, '');
+        expect(rest).not.toMatch(/green/);
+      }
+    }
+  });
+
+  it('lines with a band get a ruler (aria-hidden cells), bands only; the footer is teal and always there', () => {
+    const { verdict, vault } = run(byName('SCR-09 demo scene').input);
+    const markup = html({ verdict, vault, showVaultLabels: false });
+    const banded = verdict.lines.filter((l) => l.band !== undefined);
+    expect(banded.length).toBeGreaterThan(0);
+    for (const l of banded) {
+      const li = (markup.match(/<li[\s\S]*?<\/li>/g) ?? []).find((x) => x.includes(`data-line-id="${l.id}"`)) ?? '';
+      expect(li).toContain(`data-band="${l.band}"`);
+      expect(li).toMatch(/<span aria-hidden="true" class="flex shrink-0 gap-0\.5">/);
+    }
+    expect(markup).toMatch(/<p data-never-learns="" class="[^"]*bg-verdict-teal-bg/);
+  });
+
+  it('the reduced banner keeps the exact compare text ("Risk reduced:" big, the before → after part under it)', () => {
+    for (const c of compares.filter((x) => x.expect.riskReduced)) {
+      const { cmp, vault } = cmpOf(c);
+      const view = compareView(cmp, tr);
+      const markup = html({ verdict: cmp.after, vault, comparison: cmp });
+      const banner = /<div data-compare="reduced"[^>]*>[\s\S]*?<\/div>/.exec(markup)?.[0] ?? '';
+      expect(text(banner).trim()).toBe(view?.text);
+    }
   });
 });

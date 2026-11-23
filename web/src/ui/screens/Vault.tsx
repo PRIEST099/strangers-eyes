@@ -17,6 +17,7 @@ import { BurnVaultDialog, type BurnOutcome } from '../components/BurnVaultDialog
 import { Button } from '../components/Button';
 import { Icon } from '../components/Icon';
 import { Sheet } from '../components/Sheet';
+import { CARD, EYEBROW, H1, LEAD } from '../components/surface';
 import { KIND_LABEL, vaultError, VaultItemForm, type VaultGroup } from '../components/VaultItemForm';
 
 type LoadState = { status: 'loading' } | { status: 'ready'; items: VaultItem[] } | { status: 'error'; copy: StringId };
@@ -69,17 +70,45 @@ const APP_DEPS: VaultDeps = { load: loadVault, remove: removeItem, watch: onVaul
 export const burnNotice = (outcome: BurnOutcome, shown: boolean): StringId | null =>
   shown ? null : outcome === 'done' ? 'copy.burn.done' : outcome === 'pending' ? 'ui.burn.pending' : 'ui.burn.failed';
 
+/** The kind tile's glyph (inline SVG, decorative): a house outline for a place, a tag for a name or detail. */
+function KindGlyph({ place }: { place: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="size-[18px]">
+      {place
+        ? <path d="M4 11 12 4l8 7 M6 9.5V20h12V9.5 M10 20v-5h4v5" />
+        : <path d="M3.5 12.5V4.5a1 1 0 0 1 1-1h8l8 8-9 9-8-8Z M8 8h.01" />}
+    </svg>
+  );
+}
+
+/** The empty vault's locked box (stroke line-strong, decorative). The copy stays inline in Vault (its tree is tested). */
+function LockedBox() {
+  return (
+    <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden="true" className="size-16 text-line-strong">
+      <path d="M10 26h44v30H10Z M10 26l6-10h32l6 10 M32 16v10" />
+      <path d="M26 40h12v10H26Z M28.5 40v-3a3.5 3.5 0 0 1 7 0v3" />
+    </svg>
+  );
+}
+
 function ItemRow({ item, onEdit, onDelete }: { item: VaultItem; onEdit: () => void; onDelete: () => void }) {
   const v = describeItem(item);
   return (
-    <li className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-line bg-surface p-3">
+    <li className={`${CARD} flex flex-wrap items-center gap-x-3 gap-y-2`}>
+      <span aria-hidden="true" className="grid size-8 shrink-0 place-items-center rounded-lg bg-surface-2 text-fg">
+        <KindGlyph place={isPinKind(item.kind)} />
+      </span>
       <div className="min-w-0 flex-1">
-        <p className="font-medium break-words">{v.name}</p>
-        <p className="text-sm text-muted">
-          {v.kind}
-          {v.detail && <> · {v.detail}</>}
-        </p>
-        {v.warning && <p className="text-sm text-verdict-amber">{v.warning}</p>}
+        {/* The kind as an eyebrow, unless the name already is the kind (an unnamed item). */}
+        {v.name !== v.kind && <p className={EYEBROW}>{v.kind}</p>}
+        <p className="text-title font-semibold break-words">{v.name}</p>
+        {v.detail && <p className="text-small text-muted break-words">{v.detail}</p>}
+        {v.warning && (
+          <p className="mt-1 flex items-start gap-1.5 text-small font-medium text-verdict-amber">
+            <Icon name="alert" className="mt-0.5 size-4 shrink-0" />
+            {v.warning}
+          </p>
+        )}
       </div>
       <div className="flex gap-1">
         <Button variant="ghost" size="compact" aria-label={t('ui.vault.editAria', { name: v.name })} onClick={onEdit}>
@@ -97,10 +126,10 @@ function Group({ titleId, items, onEdit, onDelete }: {
   titleId: StringId; items: VaultItem[]; onEdit: (x: VaultItem) => void; onDelete: (x: VaultItem) => void;
 }) {
   return (
-    <section className="flex flex-col gap-2">
-      <h2 className="text-lg font-semibold">{t(titleId)}</h2>
+    <section className="flex flex-col gap-3">
+      <h2 className="text-title font-semibold">{t(titleId)}</h2>
       {items.length === 0 ? (
-        <p className="text-sm text-muted">{t('ui.vault.groupEmpty')}</p>
+        <p className="text-small text-muted">{t('ui.vault.groupEmpty')}</p>
       ) : (
         <ul className="flex flex-col gap-2">
           {items.map((x) => <ItemRow key={x.id} item={x} onEdit={() => onEdit(x)} onDelete={() => onDelete(x)} />)}
@@ -196,37 +225,42 @@ export function Vault({ deps = APP_DEPS }: { deps?: VaultDeps } = {}) {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-3">
-        <h1 ref={headingRef} tabIndex={-1} className="text-2xl font-semibold tracking-tight">{t('ui.screen.vault')}</h1>
-        {/* AC-085: the badge's text is exactly copy.vault.lock (the icon is aria-hidden and has no text). */}
-        <p
-          data-vault-lock=""
-          className="inline-flex items-center gap-2 self-start rounded-full border border-verdict-teal bg-verdict-teal-bg px-3 py-1 text-sm font-medium text-verdict-teal"
-        >
-          <Icon name="lock" className="size-4" />
-          {t('copy.vault.lock')}
-        </p>
-        <p className="text-muted">{t('copy.vault.howUsed')}</p>
+      <div className="flex flex-col gap-4">
+        <h1 ref={headingRef} tabIndex={-1} className={H1}>{t('ui.screen.vault')}</h1>
+        {/* AC-085: the plaque's text is exactly copy.vault.lock (the icon is aria-hidden and has no text). Teal here
+            means "protected / never sent" (DESIGN §6.1). */}
+        <div className="rounded-card border-l-4 border-l-verdict-teal bg-verdict-teal-bg p-4">
+          <p data-vault-lock="" className="flex items-start gap-2.5 text-body font-semibold text-fg">
+            <Icon name="lock" className="mt-0.5 size-5 shrink-0 text-verdict-teal" />
+            {t('copy.vault.lock')}
+          </p>
+        </div>
+        <p className={LEAD}>{t('copy.vault.howUsed')}</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="primary" onClick={() => openAdd('place')}>{t('ui.vault.addPlace')}</Button>
         <Button onClick={() => openAdd('detail')}>{t('ui.vault.addDetail')}</Button>
         {state.status === 'ready' && (
-          <p className="ml-auto text-sm text-muted tabular-nums">
+          <p className="ml-auto inline-flex h-7 items-center rounded-chip border border-line-strong bg-surface-2 px-2.5 font-mono text-small font-semibold tabular-nums">
             <span aria-hidden="true">{t('ui.vault.counter', { n: count, max: VAULT_MAX_ITEMS })}</span>
             <span className="sr-only">{t('ui.vault.counterSr', { n: count, max: VAULT_MAX_ITEMS })}</span>
           </p>
         )}
       </div>
 
-      <p role="status" aria-live="polite" className={notice ? 'text-sm font-medium' : 'sr-only'}>
+      <p role="status" aria-live="polite" className={notice ? 'text-small font-medium' : 'sr-only'}>
         {notice ? t(notice) : ''}
       </p>
 
-      {state.status === 'loading' && <p className="text-muted">{t('ui.vault.loading')}</p>}
-      {state.status === 'error' && <p role="alert" className="font-medium text-verdict-red">{t(state.copy)}</p>}
-      {state.status === 'ready' && count === 0 && <p className="text-muted">{t('copy.vault.empty')}</p>}
+      {state.status === 'loading' && <p className="text-body text-muted">{t('ui.vault.loading')}</p>}
+      {state.status === 'error' && <p role="alert" className="text-body font-medium text-verdict-red">{t(state.copy)}</p>}
+      {state.status === 'ready' && count === 0 && (
+        <div className="flex flex-col items-center gap-3 rounded-card border border-dashed border-line-strong px-4 py-8 text-center">
+          <LockedBox />
+          <p className="max-w-[40ch] text-body text-muted">{t('copy.vault.empty')}</p>
+        </div>
+      )}
       {state.status === 'ready' && count > 0 && (
         <>
           <Group titleId="ui.vault.places" items={places} onEdit={openEdit} onDelete={askDelete} />
@@ -234,8 +268,9 @@ export function Vault({ deps = APP_DEPS }: { deps?: VaultDeps } = {}) {
         </>
       )}
 
-      <div className="border-t border-line pt-4">
-        <Button onClick={() => setBurnOpen(true)}>{t('ui.burn.action')}</Button>
+      <div className={`${CARD} mt-2 flex flex-wrap items-center justify-between gap-3`}>
+        <p className={EYEBROW}>{t('ui.vault.dangerZone')}</p>
+        <Button variant="quietDanger" onClick={() => setBurnOpen(true)}>{t('ui.burn.action')}</Button>
       </div>
 
       <Sheet open={form !== null} onClose={() => setForm(null)} title={t(formTitle)}>
@@ -254,8 +289,8 @@ export function Vault({ deps = APP_DEPS }: { deps?: VaultDeps } = {}) {
         {deleteView && (
           <div className="flex flex-col gap-4">
             <p>{t('ui.vault.deleteBody', { name: deleteView.name })}</p>
-            {deletingLinkedHome && <p className="text-sm text-muted">{t('ui.vault.deleteAreaStays')}</p>}
-            <p role="alert" className={deleteError ? 'text-sm font-medium text-verdict-red' : 'sr-only'}>
+            {deletingLinkedHome && <p className="text-small text-muted">{t('ui.vault.deleteAreaStays')}</p>}
+            <p role="alert" className={deleteError ? 'text-small font-medium text-verdict-red' : 'sr-only'}>
               {deleteError ? t(deleteError) : ''}
             </p>
             <div className="flex flex-wrap justify-end gap-2">

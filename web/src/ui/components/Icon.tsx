@@ -12,6 +12,11 @@ const PATHS = {
   offline: 'M2 8.5a15 15 0 0 1 4.5-2.8 M9.6 4.9A15 15 0 0 1 22 8.5 M5 12a10 10 0 0 1 3.4-2 M15.4 10.3A10 10 0 0 1 19 12 M8.5 15.5a5 5 0 0 1 7 0 M12 19.5h.01 M3 3l18 18',
   chip: 'M9 3v2 M15 3v2 M9 19v2 M15 19v2 M3 9h2 M3 15h2 M19 9h2 M19 15h2 M7 5h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z M9 9h6v6H9Z',
   lock: 'M6 11h12v10H6Z M8 11V7a4 4 0 1 1 8 0v4',
+  cloud: 'M7 18h10.5a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.4 9.1 4.5 4.5 0 0 0 7 18Z',
+  arrowRight: 'M4 12h15 M13 6l6 6-6 6',
+  alert: 'M12 3.5 2.5 20h19L12 3.5Z M12 10v4.5 M12 17.5h.01',
+  info: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z M12 11v5.5 M12 7.5h.01',
+  shield: 'M12 3 4.5 6v5.5c0 4.6 3.2 8.4 7.5 9.5 4.3-1.1 7.5-4.9 7.5-9.5V6L12 3Z',
 } as const;
 
 export type IconName = keyof typeof PATHS;
@@ -30,6 +35,25 @@ export function Icon({ name, className = 'size-5' }: { name: IconName; className
       className={`shrink-0 ${className}`}
     >
       <path d={PATHS[name]} />
+    </svg>
+  );
+}
+
+/**
+ * The brand mark (docs/DESIGN.md §1.5): an eye outline whose pupil is a solid black square, echoing the solid-mask
+ * rule. The pupil is #000 in both themes (like every mask) with a thin line-strong edge so it reads on dark canvas.
+ * Decorative: the wordmark or the page carries the name.
+ */
+export function BrandMark({ className = 'size-7' }: { className?: string }) {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 32 32" fill="none" className={`shrink-0 ${className}`}>
+      <path
+        d="M2.5 16S7.5 6.5 16 6.5 29.5 16 29.5 16 24.5 25.5 16 25.5 2.5 16 2.5 16Z"
+        stroke="currentColor"
+        strokeWidth={2.25}
+        strokeLinejoin="round"
+      />
+      <rect x={11} y={11} width={10} height={10} rx={1} fill="#000" stroke="var(--se-line-strong)" strokeWidth={1} />
     </svg>
   );
 }

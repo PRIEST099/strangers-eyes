@@ -18,6 +18,7 @@ import { t, type StringId } from '../../core/strings';
 import { BurnVaultDialog } from '../components/BurnVaultDialog';
 import { Button, ButtonLink } from '../components/Button';
 import { Sheet } from '../components/Sheet';
+import { CARD, EYEBROW, H1, H2 } from '../components/surface';
 import { Toggle } from '../components/Toggle';
 import { debugFlag } from '../gate';
 import { useCapUsed, useSettings, useSimulations } from '../hooks/usePrefs';
@@ -49,16 +50,28 @@ export const writeNotice = (stored: boolean): StringId | null => (stored ? null 
 export const showDeveloper = (debug: boolean, sims: { noNano: boolean; offline: boolean }): boolean =>
   debug || sims.noNano || sims.offline;
 
-function Section({ id, titleId, children }: { id: string; titleId: StringId; children: ReactNode }) {
+/** A settings card: an H2, then its rows separated by dividers (each child of `children` is one row). `dev` keeps the
+ *  dashed border and a mono "DEV" eyebrow, so the simulations never read as real settings. */
+function Section({ id, titleId, dev, children }: { id: string; titleId: StringId; dev?: boolean; children: ReactNode }) {
   return (
-    <section aria-labelledby={id} className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-4">
-      <h2 id={id} className="text-lg font-semibold">
+    <section aria-labelledby={id} className={`${dev ? DEV_CARD : CARD} flex flex-col`}>
+      {dev && <p aria-hidden="true" className={EYEBROW}>DEV</p>}
+      <h2 id={id} className={H2}>
         {t(titleId)}
       </h2>
-      {children}
+      <div className="mt-2 flex flex-col divide-y divide-line">{children}</div>
     </section>
   );
 }
+
+/** CARD with a dashed line-strong border instead (no shadow): written out, never a CARD override (surface.ts). */
+const DEV_CARD = 'rounded-card border border-dashed border-line-strong bg-surface p-4 lg:p-5';
+/** One row of a settings card: stacked, or one wrapping line (a label left, actions right). Separate strings, so no
+ *  two classes ever set one property (Tailwind orders utilities by its own rules, not by className order). */
+const ROW = 'flex flex-col items-start gap-2 py-3 last:pb-0';
+const ROW_TIGHT = 'flex flex-col items-start gap-1 py-3 last:pb-0';
+const ROW_LINE = 'flex flex-wrap items-center justify-between gap-2 py-3 last:pb-0';
+const ROW_ACTIONS = 'flex flex-wrap items-center gap-2 py-3 last:pb-0';
 
 export interface SettingsProps {
   deps?: SettingsDeps;
@@ -112,30 +125,33 @@ export function Settings({ deps = APP_DEPS, debug = debugFlag() }: SettingsProps
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-semibold tracking-tight">{t('ui.screen.settings')}</h1>
+    <div className="flex w-full max-w-[42rem] flex-col gap-6">
+      <h1 className={H1}>{t('ui.screen.settings')}</h1>
 
-      <p role="status" aria-live="polite" className={notice ? 'text-sm font-medium' : 'sr-only'}>
+      <p role="status" aria-live="polite" className={notice ? 'text-small font-medium' : 'sr-only'}>
         {notice ? t(notice) : ''}
       </p>
 
       <Section id="settings-device" titleId="ui.settings.device">
-        {chip && <p className="text-sm text-muted">{t('ui.settings.device.now', { state: t(chip.id, chip.params) })}</p>}
-        {showDownload && caps && (
-          <Button
-            variant="primary"
-            className="self-start"
-            aria-disabled={download?.kind === 'running' ? true : undefined}
-            onClick={download?.kind === 'running' ? undefined : caps.startDownload}
-          >
-            {t('ui.cap.download')}
-          </Button>
-        )}
-        {shell && (
-          <Button className="self-start" aria-haspopup="dialog" onClick={shell.openCapability}>
-            {t('ui.settings.device.details')}
-          </Button>
-        )}
+        <div className={ROW}>
+          {chip && <p className="text-body text-muted">{t('ui.settings.device.now', { state: t(chip.id, chip.params) })}</p>}
+          <div className="flex flex-wrap gap-2">
+            {showDownload && caps && (
+              <Button
+                variant="primary"
+                aria-disabled={download?.kind === 'running' ? true : undefined}
+                onClick={download?.kind === 'running' ? undefined : caps.startDownload}
+              >
+                {t('ui.cap.download')}
+              </Button>
+            )}
+            {shell && (
+              <Button aria-haspopup="dialog" onClick={shell.openCapability}>
+                {t('ui.settings.device.details')}
+              </Button>
+            )}
+          </div>
+        </div>
         <Toggle
           label={t('ui.settings.useNano')}
           hint={t('ui.settings.useNanoHint')}
@@ -145,27 +161,34 @@ export function Settings({ deps = APP_DEPS, debug = debugFlag() }: SettingsProps
       </Section>
 
       <Section id="settings-usage" titleId="ui.settings.usage">
-        <p className="tabular-nums">{t('ui.settings.usage.today', { used: capUsed, cap: dailyCap })}</p>
-        <p className="text-sm text-muted">{t('copy.settings.capNote')}</p>
-        <p className="text-sm tabular-nums">
-          {t('ui.ledger.traffic', { unique: lc.uniqueImages, n: lc.cloudRequests, kb: t('ui.unit.kb', { n: kilobytes(lc.bytesSent) }) })}
-        </p>
-        <p className="text-sm tabular-nums">{t('ui.ledger.local', { k: lc.onDeviceCalls, r: lc.rulesChecks, b: lc.blocked })}</p>
+        <div className={ROW}>
+          <p className="text-title font-semibold tabular-nums">{t('ui.settings.usage.today', { used: capUsed, cap: dailyCap })}</p>
+          <p className="text-small text-muted">{t('copy.settings.capNote')}</p>
+        </div>
+        <div className={ROW_TIGHT}>
+          <p className="text-small tabular-nums">
+            {t('ui.ledger.traffic', { unique: lc.uniqueImages, n: lc.cloudRequests, kb: t('ui.unit.kb', { n: kilobytes(lc.bytesSent) }) })}
+          </p>
+          <p className="text-small tabular-nums">{t('ui.ledger.local', { k: lc.onDeviceCalls, r: lc.rulesChecks, b: lc.blocked })}</p>
+        </div>
       </Section>
 
       <Section id="settings-data" titleId="ui.settings.data">
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={() => { setNotice(null); setBurnOpen(true); }}>{t('ui.burn.action')}</Button>
+        <div className={ROW_ACTIONS}>
+          {receipt && <Button onClick={() => { void copyReceipt(); }}>{t('ui.settings.receipt')}</Button>}
           {clearHistory && (
             <Button onClick={() => { setNotice(null); setClearOpen(true); }}>{t('ui.settings.clearHistory')}</Button>
           )}
-          {receipt && <Button onClick={() => { void copyReceipt(); }}>{t('ui.settings.receipt')}</Button>}
+        </div>
+        <div className={ROW_LINE}>
+          <p className={EYEBROW}>{t('ui.vault.dangerZone')}</p>
+          <Button variant="quietDanger" onClick={() => { setNotice(null); setBurnOpen(true); }}>{t('ui.burn.action')}</Button>
         </div>
       </Section>
 
       {showDeveloper(debug, sims) && (
-        <Section id="settings-dev" titleId="ui.settings.dev">
-          <p className="text-sm text-muted">{t('ui.settings.dev.note')}</p>
+        <Section id="settings-dev" titleId="ui.settings.dev" dev>
+          <p className="py-3 text-small text-muted">{t('ui.settings.dev.note')}</p>
           <Toggle
             label={t('ui.settings.dev.noNano')}
             checked={sims.noNano}
@@ -195,7 +218,7 @@ export function Settings({ deps = APP_DEPS, debug = debugFlag() }: SettingsProps
       {clearHistory && (
         <Sheet open={clearOpen} onClose={() => setClearOpen(false)} title={t('ui.settings.clearHistory')}>
           <div className="flex flex-col gap-4">
-            <p>{t('ui.settings.clearHistory.confirm')}</p>
+            <p className="text-body">{t('ui.settings.clearHistory.confirm')}</p>
             <div className="flex flex-wrap justify-end gap-2">
               <Button variant="ghost" onClick={() => setClearOpen(false)}>
                 {t('ui.vault.cancel')}

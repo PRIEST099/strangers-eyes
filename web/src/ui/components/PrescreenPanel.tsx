@@ -33,7 +33,7 @@ export interface PrescreenPanelProps {
 }
 
 function LineMark({ line }: { line: ProgressLine }) {
-  if (line.status === 'done') return <Icon name="check" className="size-4 text-muted" />;
+  if (line.status === 'done') return <Icon name="check" className="size-4 text-fg" />;
   if (line.status === 'failed') return <Icon name="close" className="size-4 text-verdict-red" />;
   return <span aria-hidden="true" className={`inline-block size-2 rounded-full bg-muted ${line.status === 'running' ? 'motion-safe:animate-pulse' : 'opacity-40'}`} />;
 }
@@ -43,7 +43,7 @@ export function PrescreenPanel({ master, state, onOp, onRetry, canSend = false, 
   const online = useOnline();
   const progressRef = useRef<HTMLUListElement>(null);
   const addRef = useRef<HTMLButtonElement>(null);
-  if (!master) return <p className="mt-2 text-sm text-muted">{t('ui.placeholder')}</p>;
+  if (!master) return <p className="mt-2 text-body text-muted">{t('ui.placeholder')}</p>;
   // idle (just opened, or after Try again) shows the same list, all pending, so the focus target stays mounted
   const lines = state.kind === 'idle' ? PENDING_LINES : state.lines;
   const running = state.kind !== 'done';
@@ -62,29 +62,29 @@ export function PrescreenPanel({ master, state, onOp, onRetry, canSend = false, 
         aria-label={t('ui.prescreen.progress')}
         aria-live="polite"
         aria-busy={running}
-        className="flex flex-col gap-1.5 rounded-md text-sm"
+        className="flex flex-col divide-y divide-line rounded-card border border-line bg-surface-2 px-3 text-small"
       >
         {TIER0_STEPS.map((step) => {
           const line = lines[step];
           const c = lineCopy(step, line);
           const text = c.name ? t(c.id, { name: t(c.name) }) : t(c.id, c.params);
           return (
-            <li key={step} data-step={step} data-status={line.status} className="flex flex-wrap items-center gap-2">
+            <li key={step} data-step={step} data-status={line.status} className="flex min-h-10 flex-wrap items-center gap-2 py-1.5">
               <span className="inline-flex size-4 items-center justify-center"><LineMark line={line} /></span>
               <span className={line.status === 'failed' ? 'text-verdict-red' : undefined}>{text}</span>{' '}
               {/* real spaces between the parts, so the line reads "Finding faces (1) RULES-ONLY 38 ms" (F-177) */}
               <span className="inline-flex items-center gap-2 whitespace-nowrap">
                 {line.status !== 'pending' && <Badge route="RULES_ONLY" />}{' '}
-                {line.ms !== undefined && <span className="font-mono text-xs text-muted">{t('ui.prescreen.ms', { ms: line.ms })}</span>}
+                {line.ms !== undefined && <span className="font-mono text-small tabular-nums text-muted">{t('ui.prescreen.ms', { ms: line.ms })}</span>}
               </span>
             </li>
           );
         })}
-        <li data-step="nano" data-route={nanoLine.route} className="flex items-start gap-2">
+        <li data-step="nano" data-route={nanoLine.route} className="flex items-start gap-2 py-2">
           <span className="inline-flex h-5 w-4 shrink-0 items-center justify-center"><Icon name="chip" className="size-4 text-muted" /></span>
           <span className="min-w-0">
             {t(nanoLine.id, nanoLine.params)} <Badge route={nanoLine.route} className="align-middle" />{' '}
-            {nanoLine.ms !== undefined && <span className="font-mono text-xs text-muted">{t('ui.prescreen.ms', { ms: nanoLine.ms })}</span>}
+            {nanoLine.ms !== undefined && <span className="font-mono text-small tabular-nums text-muted">{t('ui.prescreen.ms', { ms: nanoLine.ms })}</span>}
           </span>
         </li>
       </ul>
@@ -92,24 +92,25 @@ export function PrescreenPanel({ master, state, onOp, onRetry, canSend = false, 
       {state.kind === 'done' && (
         <>
           {state.failed.length > 0 && (
-            <div role="alert" className="flex flex-col items-start gap-2 rounded-lg border border-verdict-red bg-verdict-red-bg p-3 text-sm">
-              <p>{t('ui.prescreen.failed')}</p>
+            <div role="alert" className="flex flex-col items-start gap-3 rounded-card border border-verdict-red bg-verdict-red-bg p-4 text-body">
+              <p className="flex items-start gap-2"><Icon name="alert" className="mt-0.5 size-5 text-verdict-red" />{t('ui.prescreen.failed')}</p>
               <Button onClick={retry}>{t('ui.prescreen.retry')}</Button>
             </div>
           )}
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
             <PhotoStage master={master} editor={state.editor} onOp={onOp} addButtonRef={addRef} />
             <ClueList editor={state.editor} onOp={onOp} failed={state.failed} afterRemove={() => addRef.current?.focus()} />
           </div>
-          <div className="flex flex-col gap-2 border-t border-line pt-3">
-            <div className="flex flex-wrap gap-2">
+          <div className="flex flex-col gap-2 border-t border-line pt-4">
+            <div className="flex flex-wrap items-center gap-2">
               {/* Offline: "Queue cloud check" (SCR-18) stays disabled until the offline queue exists (T-084). */}
-              <Button variant="primary" disabled={!online || !canSend || !onCloud} onClick={onCloud} data-action="cloud">
+              <Button variant="primary" size="lg" disabled={!online || !canSend || !onCloud} onClick={onCloud} data-action="cloud">
+                <Icon name="cloud" className="size-5" />
                 {t(online ? 'ui.prescreen.cloud' : 'ui.prescreen.queue')}
               </Button>
               <Button disabled aria-describedby="prescreen-next">{t('ui.prescreen.export')}</Button>
             </div>
-            <p id="prescreen-next" className="text-sm text-muted">{t('ui.prescreen.exportSoon')}</p>
+            <p id="prescreen-next" className="text-small text-muted">{t('ui.prescreen.exportSoon')}</p>
           </div>
         </>
       )}

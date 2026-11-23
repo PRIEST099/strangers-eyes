@@ -12,10 +12,12 @@
 import { useEffect, useRef, type ReactNode, type Ref } from 'react';
 import { PAYLOAD_CLASSES, expectedRoutes } from '../../ai/capabilities';
 import { t, type StringId } from '../../core/strings';
+import type { Route } from '../../core/types';
 import type { CapabilitiesView } from '../hooks/useCapabilities';
 import { Badge } from './Badge';
 import { Button, ButtonLink } from './Button';
 import { Icon, type IconName } from './Icon';
+import { CARD } from './surface';
 
 /** Row 3 when online (offline, the (d) flag, always wins). */
 export type CloudRowState = 'ready' | 'paused' | 'cap' | 'appCheckFail';
@@ -29,8 +31,9 @@ export interface CapabilityPanelProps {
 }
 
 type Tone = 'ok' | 'neutral' | 'busy';
+// Ready is fg, not teal: teal means "protected / never sent" (DESIGN §6.1), and a ready row is neither.
 const TONE: Record<Tone, string> = {
-  ok: 'text-verdict-teal',
+  ok: 'text-fg',
   neutral: 'text-muted',
   busy: 'text-route-device',
 };
@@ -129,19 +132,26 @@ function Row({ headingRef, ...p }: {
   /** The heading takes focus when the Download button goes away. */
   headingRef?: Ref<HTMLHeadingElement>;
   focusable?: boolean;
+  /** The route this row's work takes on this browser (the same expectedRoutes value as the policy table). */
+  route?: Route;
   children?: ReactNode;
 }) {
   return (
-    <li className="flex gap-3 py-3 first:pt-0">
-      <Icon name={p.icon} className={`mt-0.5 size-5 ${TONE[p.tone]}`} />
+    <li className={`${CARD} flex gap-3`}>
+      <span aria-hidden="true" className={`grid size-8 shrink-0 place-items-center rounded-lg bg-surface-2 ${TONE[p.tone]}`}>
+        <Icon name={p.icon} className="size-[18px]" />
+      </span>
       <div className="min-w-0 flex-1">
-        <h3 ref={headingRef} tabIndex={p.focusable ? -1 : undefined} className="font-medium outline-offset-2">
-          {p.title}
-        </h3>
+        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+          <h3 ref={headingRef} tabIndex={p.focusable ? -1 : undefined} className="font-medium outline-offset-2">
+            {p.title}
+          </h3>
+          {p.route && <Badge route={p.route} />}
+        </div>
         <p className="mt-0.5 text-muted">{p.status}</p>
         {p.children}
         <details className="mt-1">
-          <summary className="inline-flex min-h-11 cursor-pointer items-center rounded-md underline-offset-4 hover:underline">
+          <summary className="inline-flex min-h-11 cursor-pointer items-center rounded-md font-medium underline-offset-4 hover:underline">
             {t('ui.cap.means')}
             <span className="sr-only">: {p.title}</span>
           </summary>
@@ -183,7 +193,7 @@ export function CapabilityPanel({ caps, cloud = 'ready', tier0 = { kind: 'ready'
     <div ref={rootRef} className="flex flex-col gap-5 text-sm">
       <p className="font-medium text-fg">{t('copy.cap.invariant')}</p>
 
-      <ul className="flex flex-col divide-y divide-line">
+      <ul className="flex flex-col gap-2">
         <Row
           icon={nano.icon}
           tone={nano.tone}
@@ -191,6 +201,7 @@ export function CapabilityPanel({ caps, cloud = 'ready', tier0 = { kind: 'ready'
           status={nano.text}
           headingRef={headingRef}
           focusable
+          route={caps.checked ? routes.S0 : undefined}
           means={t('ui.cap.row.nano.means')}
         >
           {d.kind === 'failed' && c.state !== 'c' && <p className="mt-1 text-muted">{t('ui.cap.downloadFailed')}</p>}
@@ -218,7 +229,7 @@ export function CapabilityPanel({ caps, cloud = 'ready', tier0 = { kind: 'ready'
             </Button>
           )}
           {showHowTo && (
-            <details className="mt-2 rounded-lg border border-line bg-surface-2 px-3">
+            <details className="mt-2 rounded-lg border border-line-strong bg-surface-2 px-3">
               <summary className="flex min-h-11 cursor-pointer items-center font-medium">{t('ui.cap.howto.title')}</summary>
               <ol className="list-decimal space-y-1 pb-2 pl-5">
                 <li className="break-words">{t('ui.cap.howto.step1')}</li>
@@ -245,6 +256,7 @@ export function CapabilityPanel({ caps, cloud = 'ready', tier0 = { kind: 'ready'
           icon={c.offline || cloud !== 'ready' ? 'offline' : 'check'}
           tone={c.offline || cloud !== 'ready' ? 'neutral' : 'ok'}
           title={t('ui.cap.row.cloud')}
+          route={caps.checked ? routes.S3 : undefined}
           status={t(c.offline ? 'copy.cap.offline' : CLOUD_COPY[cloud])}
           means={t('ui.cap.row.cloud.means')}
         />
@@ -258,8 +270,9 @@ export function CapabilityPanel({ caps, cloud = 'ready', tier0 = { kind: 'ready'
         />
       </ul>
 
+      <div className={CARD}>
       <table className="w-full border-collapse text-left">
-        <caption className="mb-1 text-left font-medium">{t('ui.cap.policy.caption')}</caption>
+        <caption className="mb-2 text-left font-semibold">{t('ui.cap.policy.caption')}</caption>
         <thead className="sr-only">
           <tr>
             <th scope="col">{t('ui.cap.policy.colData')}</th>
@@ -268,18 +281,19 @@ export function CapabilityPanel({ caps, cloud = 'ready', tier0 = { kind: 'ready'
         </thead>
         <tbody>
           {PAYLOAD_CLASSES.map((k) => (
-            <tr key={k} className="border-t border-line">
-              <th scope="row" className="py-2 pr-3 align-top font-normal">
-                <span className="mr-1.5 font-mono text-xs text-muted">{k}</span>
+            <tr key={k} className="border-t border-line first:border-t-0">
+              <th scope="row" className="py-2.5 pr-3 align-middle font-normal">
+                <span className="mr-1.5 font-mono text-caption font-bold text-muted">{k}</span>
                 {t(`ui.cap.policy.${k}`)}
               </th>
-              <td className="py-2 text-right align-top">
+              <td className="py-2.5 text-right align-middle">
                 <Badge route={routes[k]} />
               </td>
             </tr>
           ))}
         </tbody>
       </table>
+      </div>
 
       <div className="flex flex-wrap gap-2">
         <ButtonLink href="#/vault">{t('ui.cap.cta.vault')}</ButtonLink>

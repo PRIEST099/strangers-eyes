@@ -7,6 +7,7 @@ import { buildVerdict, compareVerdicts, type VerdictInput } from '../../core/ver
 import { t } from '../../core/strings';
 import type { VaultItem, Verdict, VerdictComparison } from '../../core/types';
 import { Button } from '../../ui/components/Button';
+import { EYEBROW, H1 } from '../../ui/components/surface';
 import { VerdictCard } from '../../ui/components/VerdictCard';
 
 type VInput = Omit<VerdictInput, 'vault'> & { vault: string[] };
@@ -38,16 +39,25 @@ function compare(prefix: string, title: string): Sample {
   return { title, verdict: cmp.after, vault: av, comparison: cmp };
 }
 
+// Every level, every line kind (pin, match, pin_match, caught, echo, found-on-device), every band on the ruler, the
+// empty-vault prompt and every compare header (reduced in level terms and in band words, still exposed, none).
 const SAMPLES: Sample[] = [
   build('SCR-09 demo scene', 'RED: SCR-09 demo scene (pin, pin_match, caught, not linked)', true),
   build('pin_match: one combined line', 'RED: pin_match with a separate band confidence'),
+  build('band street', 'RED: street band (ruler cell 1)'),
   build('echo next to a match', 'RED: exact match + echo'),
   build('strength possible', 'AMBER: possible match'),
+  build('band district', 'AMBER: district band (ruler cell 3)'),
+  build('pin_match with a city band', 'AMBER: pin_match, city band'),
   build('band city', 'LOW: city band only'),
+  build('band country', 'LOW: country band, the pin is Not linked'),
   build('refused (declined)', 'PARTIAL: refused, on-device findings only'),
+  build('no pass B at all', 'PARTIAL: caught line only'),
   build('empty vault: neighbourhood', 'Empty vault: best guess + Add places'),
-  compare('level drop RED to AMBER', 'Compare: Risk reduced (green header)'),
-  compare('no improvement', 'Compare: Still exposed'),
+  compare('level drop RED to AMBER', 'Compare: Risk reduced, level terms (green banner is the heading)'),
+  compare('same level, coarser worst band AND fewer', 'Compare: Risk reduced, band words'),
+  compare('no improvement', 'Compare: Still exposed (same level)'),
+  compare('level up AMBER to RED', 'Compare: Still exposed (level up)'),
   compare('PARTIAL after', 'Compare: PARTIAL after (no compare header)'),
 ];
 
@@ -56,9 +66,9 @@ export default function VerdictGallery() {
   // Only the selected card announces (its live region); the others stay quiet, so ten cards never speak at once.
   const [selected, setSelected] = useState(0);
   return (
-    <main className="mx-auto flex max-w-3xl flex-col gap-6 bg-canvas p-4 text-fg sm:p-6" data-dev-only="__SE_DEV_ONLY__">
+    <main className="mx-auto flex max-w-3xl flex-col gap-8 bg-canvas p-4 text-fg sm:p-6" data-dev-only="__SE_DEV_ONLY__">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold">Verdict card gallery (DEV)</h1>
+        <h1 className={H1}>Verdict card gallery (DEV)</h1>
         <Button aria-pressed={labels} onClick={() => setLabels((x) => !x)}>
           Vault labels: {labels ? 'on' : 'off'}
         </Button>
@@ -72,7 +82,7 @@ export default function VerdictGallery() {
           onFocusCapture={() => setSelected(i)}
           onPointerDown={() => setSelected(i)}
         >
-          <h2 className="font-mono text-xs text-muted">{s.title}</h2>
+          <h2 className={EYEBROW}>{s.title}</h2>
           <VerdictCard
             announce={i === selected}
             verdict={s.verdict}
@@ -83,7 +93,7 @@ export default function VerdictGallery() {
             defaultOpenLineId={s.openFirst ? (s.verdict.lines.find((l) => l.kind !== 'caught')?.id ?? null) : null}
             actions={
               <>
-                <Button variant="primary">{t('copy.fix.button')}</Button>
+                <Button variant="primary" data-action="fix">{t('copy.fix.button')}</Button>
                 <Button>Export as is</Button>
               </>
             }

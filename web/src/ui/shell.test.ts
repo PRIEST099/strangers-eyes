@@ -8,6 +8,7 @@ import { t } from '../core/strings';
 import { Badge } from './components/Badge';
 import { AppShell } from './components/AppShell';
 import { StepperNav } from './components/StepperNav';
+import { H1 } from './components/surface';
 import { SCREEN_TITLE } from './layout';
 import { PRODUCT_ROUTES, hrefFor, parseHash } from './router';
 import { Home } from './screens/Home';
@@ -70,7 +71,7 @@ describe("every product route renders App's screen for it, with one <h1> (AC-065
   it('maps #/check/<sessionId> to the Check screen', () => {
     const route = parseHash('#/check/abc_123', { dev: false });
     expect(hrefFor(route)).toBe('#/check/abc_123');
-    expect(html(Screen, { route })).toContain(`<h1 class="text-2xl font-semibold tracking-tight">${t('ui.screen.check')}</h1>`);
+    expect(html(Screen, { route })).toContain(`<h1 class="${H1}">${t('ui.screen.check')}</h1>`);
   });
 
   it('Home shows only real content (SCR-03)', () => {

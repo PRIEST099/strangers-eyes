@@ -88,6 +88,9 @@ export function AppShell({ route, capabilityOnStart = false, focusMainOnStart = 
   const banners = selectBanners(status, capUsed);
   const connectivity = connectivityOf({ online, ...chipInputsOf(cloudOff) });
   const routeKey = hrefFor(route);
+  // Judge Mode and the Check flow lay the cloud copy beside the step at lg (docs/DESIGN.md §5.2), so they get room.
+  // Home gets room too: at xl its lanes explainer and the two cards sit side by side, so both CTAs clear the fold (§5.1).
+  const wide = route.name === 'judge' || route.name === 'check' || route.name === 'home';
   const titleId = route.name === 'dev' ? SCREEN_TITLE.home : SCREEN_TITLE[route.name];
   const ledgerSheetOpen = ledgerOpenOn === routeKey && !rail;
   const capOpen = capOpenOn === routeKey;
@@ -164,7 +167,7 @@ export function AppShell({ route, capabilityOnStart = false, focusMainOnStart = 
       <button
         type="button"
         onClick={() => mainRef.current?.focus()}
-        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-lg focus:bg-accent focus:px-4 focus:py-3 focus:text-accent-fg"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-card focus:bg-accent focus:px-4 focus:py-3 focus:text-accent-fg"
       >
         {t('ui.skip')}
       </button>
@@ -190,16 +193,16 @@ export function AppShell({ route, capabilityOnStart = false, focusMainOnStart = 
       />
 
       <div className="flex min-h-0 min-w-0 flex-1">
-        {/* pb-24 keeps the last content scrollable above the HUD pill (AC-222). */}
-        <main id="main" ref={mainRef} tabIndex={-1} className="min-w-0 flex-1 px-4 pt-5 pb-24 sm:px-6 lg:overflow-y-auto">
-          <div className="mx-auto w-full max-w-3xl">
+        {/* pb-28 keeps the last content scrollable above the 48 px HUD pill (AC-222). */}
+        <main id="main" ref={mainRef} tabIndex={-1} className="min-w-0 flex-1 px-4 pt-6 pb-28 sm:px-6 lg:overflow-y-auto lg:px-8">
+          <div className={`mx-auto w-full ${wide ? 'max-w-6xl' : 'max-w-3xl'}`}>
             <ShellContext.Provider value={{ caps, openCapability: () => setCapOpenOn(routeKey) }}>{children}</ShellContext.Provider>
           </div>
         </main>
         <aside
           id={LEDGER_RAIL_ID}
           aria-labelledby={RAIL_TITLE_ID}
-          className="hidden w-80 shrink-0 overflow-y-auto border-l border-line bg-surface p-4 lg:block xl:w-96"
+          className="hidden w-72 shrink-0 overflow-y-auto border-l border-line bg-canvas p-4 lg:block xl:w-80"
         >
           <LedgerPanel counters={counters} entries={ledgerEntries} images={images} headingId={RAIL_TITLE_ID} headingRef={railHeadingRef} />
         </aside>

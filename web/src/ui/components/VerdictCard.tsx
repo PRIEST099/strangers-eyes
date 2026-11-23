@@ -11,6 +11,8 @@
 //   The cloud never learns whether it was right.                 (always visible, whatever the level; AC-163)
 // A polite live region announces the headline when the card appears or the verdict changes.
 // Never: the word "safe", a measured distance, a map pin or an address for the attacker's guess (SR-07, invariant 5).
+// DESIGN.md §5.3 look: [banner] → tinted hero band (level tone, never green) → RiskMeter → lines → rows → referee →
+// actions → the teal never-learns footer. Green appears only in the "Risk reduced" banner.
 import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
 import { t } from '../../core/strings';
 import type { Route, VaultItem, Verdict, VerdictComparison } from '../../core/types';
@@ -20,8 +22,34 @@ import { Badge } from './Badge';
 import { ButtonLink } from './Button';
 import { secondsText, verdictCardView } from './verdict/model';
 import { VerdictIcon } from './verdict/VerdictIcon';
-import { TONE_BG, TONE_BORDER, TONE_TEXT } from './verdict/tones';
+import { RiskMeter } from './verdict/RiskMeter';
+import { TONE_BORDER, TONE_HERO, TONE_TEXT } from './verdict/tones';
 import { VerdictLineItem } from './verdict/VerdictLineItem';
+
+/** The "Risk reduced" banner's words: the verdict scale, the one green moment on screen (DESIGN.md §5.3). */
+const BANNER_TEXT = 'min-w-0 text-verdict-sm font-extrabold tracking-[-0.03em] text-balance break-words text-fg sm:text-verdict';
+/** The "{before} → {after}" part under it, at title scale, so the banner stays short on a phone. */
+const BANNER_REST = 'mt-1 block text-title font-semibold tracking-normal sm:text-h2-sm';
+const SENTINEL = '\u0000';
+
+/**
+ * Splits "Risk reduced: {before} → {after}" into its lead ("Risk reduced:") and the rest, reading the lead off the
+ * copy template itself (en.json), so the words are never re-typed here. The text is unchanged: lead + ' ' + rest.
+ */
+function bannerParts(text: string): { lead: string; rest: string | null } {
+  const tpl = t('copy.verdict.reduced', { before: SENTINEL, after: SENTINEL });
+  const lead = tpl.slice(0, Math.max(0, tpl.indexOf(SENTINEL))).trim();
+  if (!lead || !text.startsWith(lead)) return { lead: text, rest: null };
+  const rest = text.slice(lead.length).trim();
+  return rest ? { lead, rest } : { lead: text, rest: null };
+}
+/**
+ * The actions row. The Check screen passes its Fix button (`data-action="fix"`) at the default size; the card draws it
+ * at the `lg` size (DESIGN.md §5.3, Button SIZE.lg) with child selectors, which outrank the button's own utilities.
+ */
+const ACTIONS =
+  'flex flex-wrap items-center gap-2 [&>[data-action=fix]]:min-h-12 [&>[data-action=fix]]:px-6 ' +
+  '[&>[data-action=fix]]:text-body [&>[data-action=fix]]:font-semibold';
 
 export interface VerdictCardProps {
   /** The verdict to show. With `comparison`, `comparison.after` is shown instead, under its compare header. */
@@ -87,101 +115,159 @@ export function VerdictCard({
   }, [openKey, onFocusClues]);
 
   const Heading = headingLevel === 2 ? 'h2' : 'h3';
+  const banner = bannerParts(view.compare?.text ?? '');
 
   return (
     <section
       aria-labelledby={headingId}
       data-level={view.level}
-      className="flex flex-col gap-4 rounded-xl border border-line bg-surface p-4"
+      className="flex flex-col overflow-hidden rounded-stage border border-line bg-surface shadow-e1"
     >
       <p role="status" aria-live="polite" aria-atomic="true" className="sr-only">
         {announced}
       </p>
 
       {view.compare && (
-        <div
-          data-compare={view.compare.reduced ? 'reduced' : 'still'}
-          data-tone={view.compare.tone}
-          className={`flex items-start gap-2 rounded-lg border p-3 font-semibold ${TONE_BORDER[view.compare.tone]} ${TONE_BG[view.compare.tone]} ${TONE_TEXT[view.compare.tone]}`}
-        >
-          <VerdictIcon name={view.compare.icon} />
-          {view.compare.isHeadline ? (
-            <Heading id={headingId} className="text-lg leading-snug font-semibold">
-              {view.compare.text}
-            </Heading>
+        // Inset by the card's own padding so the green glow shows around the banner and never under text.
+        <div className="p-3 pb-0 sm:p-4 sm:pb-0">
+          {view.compare.reduced ? (
+            <div
+              data-compare="reduced"
+              data-tone={view.compare.tone}
+              className="flex animate-pop items-center gap-3 rounded-card bg-verdict-green-hero px-5 py-5 shadow-glow-green"
+            >
+              <span className="shrink-0 text-verdict-green">
+                <VerdictIcon name="check" className="size-8" />
+              </span>
+              {view.compare.isHeadline ? (
+                <Heading id={headingId} className={BANNER_TEXT}>
+                  {banner.lead}
+                  {banner.rest !== null && <>{' '}<span className={BANNER_REST}>{banner.rest}</span></>}
+                </Heading>
+              ) : (
+                <p className={BANNER_TEXT}>
+                  {banner.lead}
+                  {banner.rest !== null && <>{' '}<span className={BANNER_REST}>{banner.rest}</span></>}
+                </p>
+              )}
+            </div>
           ) : (
-            <span>{view.compare.text}</span>
+            <div
+              data-compare="still"
+              data-tone={view.compare.tone}
+              className={`flex items-start gap-3 rounded-card border-l-4 px-5 py-4 ${TONE_HERO[view.compare.tone]} ${TONE_BORDER[view.compare.tone]}`}
+            >
+              {/* The after-level's tone and icon, so the drawn colour matches data-tone (RED red, AMBER amber). */}
+              <span className={`mt-0.5 shrink-0 ${TONE_TEXT[view.compare.tone]}`}>
+                <VerdictIcon name={view.compare.icon} className="size-6" />
+              </span>
+              {view.compare.isHeadline ? (
+                <Heading id={headingId} className="text-title font-semibold break-words text-fg">
+                  {view.compare.text}
+                </Heading>
+              ) : (
+                <span className="text-title font-semibold break-words text-fg">{view.compare.text}</span>
+              )}
+            </div>
           )}
         </div>
       )}
 
-      <div data-tone={view.tone} className={`flex items-start gap-3 rounded-lg p-3 ${TONE_BG[view.tone]}`}>
-        <span className={`mt-0.5 ${TONE_TEXT[view.tone]}`}>
-          <VerdictIcon name={view.icon} className="size-6" />
+      {/* The hero keeps its LEVEL tone, compare or not: it never turns green (DESIGN.md §6.4). */}
+      <div
+        data-tone={view.tone}
+        className={`flex animate-wipe items-start gap-3 border-l-[6px] px-5 py-5 ${view.compare ? 'mt-3 sm:mt-4' : ''} ${TONE_HERO[view.tone]} ${TONE_BORDER[view.tone]}`}
+      >
+        <span className={`mt-0.5 shrink-0 ${TONE_TEXT[view.tone]}`}>
+          <VerdictIcon name={view.icon} className="size-8" />
         </span>
         <div className="flex min-w-0 flex-col gap-1">
-          <span className={`font-mono text-xs font-bold tracking-wider ${TONE_TEXT[view.tone]}`} aria-hidden="true">
+          <span
+            className={`font-mono text-caption font-bold tracking-[0.12em] ${TONE_TEXT[view.tone]} ${view.compare?.isHeadline ? 'mt-2' : ''}`}
+            aria-hidden="true"
+          >
             {view.levelLabel}
           </span>
           {!view.compare?.isHeadline && (
-            <Heading id={headingId} className="text-lg leading-snug font-semibold text-fg">
+            <Heading
+              id={headingId}
+              className="text-verdict-sm font-extrabold tracking-[-0.03em] text-balance break-words text-fg sm:text-verdict"
+            >
               {view.headline}
             </Heading>
           )}
         </div>
       </div>
 
-      {view.lines.length > 0 && (
-        <ul aria-labelledby={headingId} className="flex flex-col gap-2">
-          {view.lines.map((line, i) => (
-            <VerdictLineItem
-              key={line.id}
-              line={line}
-              idBase={`${uid}-l${i}`}
-              open={openLine?.id === line.id}
-              onToggle={() => setOpenId((cur) => (cur === line.id ? null : line.id))}
-              onExplain={onExplain}
-            />
-          ))}
-        </ul>
-      )}
+      <div className="px-4 pt-4 sm:px-5">
+        <RiskMeter meter={view.meter} />
+      </div>
 
-      {(view.notLinked || view.bestGuess || view.noVault) && (
-        <div className="flex flex-col gap-1 text-sm">
-          {view.notLinked && <p className="text-verdict-grey">{view.notLinked}</p>}
-          {view.bestGuess && <p className="text-fg">{view.bestGuess}</p>}
-          {view.noVault && (
-            <div className="mt-1 flex flex-wrap items-center gap-3">
-              <p className="text-fg">{view.noVault}</p>
-              <ButtonLink href={hrefFor({ name: 'vault' })} size="compact">
-                {t('ui.verdict.addPlaces')}
-              </ButtonLink>
-            </div>
-          )}
-        </div>
-      )}
+      <div className="flex flex-col gap-4 px-4 py-4 sm:px-5 sm:py-5">
+        {view.lines.length > 0 && (
+          <ul aria-labelledby={headingId} className="flex flex-col gap-2">
+            {view.lines.map((line, i) => (
+              <VerdictLineItem
+                key={line.id}
+                line={line}
+                idBase={`${uid}-l${i}`}
+                open={openLine?.id === line.id}
+                onToggle={() => setOpenId((cur) => (cur === line.id ? null : line.id))}
+                onExplain={onExplain}
+              />
+            ))}
+          </ul>
+        )}
 
-      <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
-        {referee && (
-          <>
-            <span>{t('ui.verdict.referee')}</span>{' '}
-            <Badge route={referee.route} />{' '}
-            {referee.latencyMs !== null && (
+        {(view.notLinked || view.bestGuess || view.noVault) && (
+          <div className="flex flex-col gap-2 text-body">
+            {view.notLinked && (
+              <p className="flex items-start gap-3 px-3 text-fg">
+                <span className="mt-0.5 text-verdict-grey"><VerdictIcon name="info" /></span>
+                <span className="min-w-0 break-words">{view.notLinked}</span>
+              </p>
+            )}
+            {view.bestGuess && (
+              <p className="flex items-start gap-3 px-3 text-fg">
+                <span className="mt-0.5 text-verdict-grey"><VerdictIcon name="eye" /></span>
+                <span className="min-w-0 break-words">{view.bestGuess}</span>
+              </p>
+            )}
+            {view.noVault && (
+              <div className="mt-1 flex flex-wrap items-center gap-3 rounded-lg bg-surface-2 p-3">
+                <p className="min-w-0 flex-1 text-fg">{view.noVault}</p>
+                <ButtonLink href={hrefFor({ name: 'vault' })} size="compact">
+                  {t('ui.verdict.addPlaces')}
+                </ButtonLink>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="flex flex-col gap-1 border-t border-line pt-3">
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-small text-muted">
+            {referee && (
               <>
-                <span className="font-mono tabular-nums">{secondsText(referee.latencyMs)}</span>{' '}
+                <span>{t('ui.verdict.referee')}</span>{' '}
+                <Badge route={referee.route} />{' '}
+                {referee.latencyMs !== null && (
+                  <>
+                    <span className="font-mono tabular-nums">{secondsText(referee.latencyMs)}</span>{' '}
+                  </>
+                )}
+                <span aria-hidden="true">·</span>{' '}
               </>
             )}
-            <span aria-hidden="true">·</span>{' '}
-          </>
-        )}
-        <span>{t('ui.verdict.distances')}</span>
-      </p>
-      {referee?.note && <p className="text-xs text-muted" data-testid="referee-note">{referee.note}</p>}
+            <span>{t('ui.verdict.distances')}</span>
+          </p>
+          {referee?.note && <p className="text-small text-muted" data-testid="referee-note">{referee.note}</p>}
+        </div>
 
-      {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+        {actions && <div className={ACTIONS}>{actions}</div>}
+      </div>
 
-      <p data-never-learns="" className="flex items-center gap-2 border-t border-line pt-3 text-sm font-medium text-fg">
-        <VerdictIcon name="lock" className="size-4 text-verdict-teal" />
+      <p data-never-learns="" className="flex items-center gap-3 bg-verdict-teal-bg px-5 py-3 text-body font-medium text-fg">
+        <VerdictIcon name="lock" className="size-5 text-verdict-teal" />
         {view.neverLearns}
       </p>
     </section>

@@ -13,6 +13,7 @@ import type { Tier0StepId } from '../../tier0/tier0';
 import { needsConfirm, warningOf, type EditorItem, type EditorOp, type EditorState } from '../check/editor';
 import { clueLabelId, readerLabelId, rowDetail, severityLabelId } from '../check/prescreenView';
 import { Button } from './Button';
+import { Icon } from './Icon';
 
 /** What each failed Tier-0 step leaves unchecked (D-132). */
 export const NOT_CHECKED: Readonly<Record<Tier0StepId, StringId>> = {
@@ -47,13 +48,13 @@ export function ClueList({ editor, onOp, failed = [], afterRemove }: ClueListPro
 
   return (
     <section aria-labelledby={`${uid}-title`} className="flex flex-col gap-3">
-      <h3 id={`${uid}-title`} className="text-base font-semibold">{t('ui.editor.title')}</h3>
+      <h3 id={`${uid}-title`} className="text-title font-semibold">{t('ui.editor.title')}</h3>
       {failed.map((st) => (
-        <p key={st} data-not-checked={st} className="text-sm font-medium text-verdict-red">{t(NOT_CHECKED[st])}</p>
+        <p key={st} data-not-checked={st} className="flex items-start gap-2 text-small font-medium text-verdict-red"><Icon name="alert" className="mt-0.5 size-4" />{t(NOT_CHECKED[st])}</p>
       ))}
-      {faces.length > 0 && faces.every((it) => it.clue.masked) && <p className="text-sm text-muted">{t('copy.prescreen.people')}</p>}
+      {faces.length > 0 && faces.every((it) => it.clue.masked) && <p className="text-small text-muted">{t('copy.prescreen.people')}</p>}
       {failed.length === 0 && editor.items.length === 0 && editor.userMasks.length === 0 && (
-        <p className="text-sm text-muted">{t('ui.editor.none')}</p>
+        <p className="text-small text-muted">{t('ui.editor.none')}</p>
       )}
       <p role="status" aria-live="polite" className="sr-only">{warnings.map((w) => t(w)).join(' ')}</p>
       <ul className="flex flex-col gap-2">
@@ -64,9 +65,11 @@ export function ClueList({ editor, onOp, failed = [], afterRemove }: ClueListPro
           const warning = warningOf(it, editor);
           const warnId = `${uid}-warn-${it.clue.id}`;
           const promptId = `${uid}-confirm-${it.clue.id}`;
-          const tone = it.clue.masked ? 'border-line' : it.flag === 'possible' && !warning ? 'border-verdict-amber' : 'border-verdict-red';
+          const tone = it.clue.masked ? 'border-l-line-strong' : it.flag === 'possible' && !warning ? 'border-l-verdict-amber' : 'border-l-verdict-red';
+          // Teal only for a caught private item (a masked face or vault hit): protected, never sent (DESIGN §6.1).
+          const caught = it.clue.masked && (it.clue.type === 'face' || it.clue.vaultHits.length > 0);
           return (
-            <li key={it.clue.id} data-clue={it.clue.id} className={`rounded-lg border bg-surface-2 p-2 ${tone}`}>
+            <li key={it.clue.id} data-clue={it.clue.id} className={`rounded-lg border-l-4 bg-surface-2 py-1 pr-2 pl-2 ${tone}`}>
               <div className="flex items-start gap-2">
                 <label className="inline-flex min-h-11 min-w-11 shrink-0 cursor-pointer items-center gap-2">
                   <input
@@ -79,18 +82,29 @@ export function ClueList({ editor, onOp, failed = [], afterRemove }: ClueListPro
                   />
                   <span className="text-sm">{t('ui.editor.mask')}</span>
                 </label>
-                <div className="flex min-w-0 flex-col gap-1 pt-2.5">
-                  <p className="text-sm">
+                <div className="flex min-w-0 flex-1 flex-col gap-1 pt-2.5">
+                  <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-small">
+                    {caught ? (
+                      <span aria-hidden="true" className="inline-flex size-5 items-center justify-center rounded-chip bg-verdict-teal-bg text-verdict-teal">
+                        <Icon name="lock" className="size-3.5" />
+                      </span>
+                    ) : (
+                      <Icon
+                        name={it.clue.masked ? 'check' : 'alert'}
+                        className={`size-4 ${it.clue.masked ? 'text-muted' : it.flag === 'possible' && !warning ? 'text-verdict-amber' : 'text-verdict-red'}`}
+                      />
+                    )}
                     <span className="font-medium">{label}</span>
                     {reader && <span className="text-muted"> · {t(reader)}</span>}
-                    <span className="text-muted"> · {t(severityLabelId(it.clue.severity))}</span>
+                    <span className="text-muted"> · </span>
+                    <span className="rounded-full border border-line px-2 text-small text-fg">{t(severityLabelId(it.clue.severity))}</span>
                   </p>
                   {/* the read text of a regex flag; a vault hit's text shows only in copy.prescreen.vaultHit, while masked */}
                   {it.clue.localText && it.clue.vaultHits.length === 0 && (
-                    <p className="font-mono text-xs break-all text-muted">{it.clue.localText}</p>
+                    <p className="font-mono text-small break-all text-muted">{it.clue.localText}</p>
                   )}
-                  {detail && <p className="text-sm text-muted">{t(detail.id, detail.params)}</p>}
-                  {warning && <p id={warnId} className="text-sm font-medium text-verdict-red">{t(warning)}</p>}
+                  {detail && <p className="text-small text-muted">{t(detail.id, detail.params)}</p>}
+                  {warning && <p id={warnId} className="text-small font-medium text-verdict-red">{t(warning)}</p>}
                   {confirming === it.clue.id && (
                     <div role="group" aria-labelledby={promptId} className="flex flex-col gap-2">
                       <p id={promptId} className="text-sm">{t('copy.editor.confirmRemoveCell', { TEXT: it.clue.localText ?? label })}</p>
@@ -108,8 +122,9 @@ export function ClueList({ editor, onOp, failed = [], afterRemove }: ClueListPro
           );
         })}
         {editor.userMasks.map((m) => (
-          <li key={m.id} data-user-mask={m.id} className="flex items-center justify-between gap-2 rounded-lg border border-line bg-surface-2 p-2">
-            <p className="text-sm">
+          <li key={m.id} data-user-mask={m.id} className="flex items-center justify-between gap-2 rounded-lg border-l-4 border-l-line-strong bg-surface-2 py-1 pr-1 pl-3">
+            <p className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-small">
+              <span aria-hidden="true" className="inline-block size-3 shrink-0 rounded-[2px] bg-mask ring-1 ring-line-strong" />
               <span className="font-medium">{t('ui.editor.userMask', { n: m.n })}</span>
               <span className="text-muted"> · {t('ui.editor.size', { w: m.rect.w, h: m.rect.h })}</span>
             </p>

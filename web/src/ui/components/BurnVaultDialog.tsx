@@ -20,6 +20,7 @@ import { BurnPendingError } from '../../vault/crypto';
 import { onVaultChange } from '../../vault/sync';
 import { loadVault } from '../../vault/vaultStore';
 import { Button } from './Button';
+import { Icon } from './Icon';
 import { Sheet } from './Sheet';
 
 // ---------- hold to confirm (pure) ----------
@@ -287,13 +288,19 @@ export function BurnVaultDialog({ open, onClose, onOutcome, deps = APP_DEPS }: B
   return (
     <Sheet open={open} onClose={handleClose} title={t('ui.burn.action')}>
       <div className="flex flex-col gap-4">
-        {holdStage && <p>{t('copy.burn.confirm')}</p>}
+        {holdStage && (
+          <p className="flex items-start gap-2.5 rounded-card border-l-4 border-l-verdict-red bg-verdict-red-hero p-4 text-body text-fg">
+            <Icon name="alert" className="mt-0.5 size-5 shrink-0 text-verdict-red" />
+            <span>{t('copy.burn.confirm')}</span>
+          </p>
+        )}
         {holdStage && !atConfirm && (
           <>
             <Button
               ref={holdRef}
               variant="danger"
-              className="relative touch-none overflow-hidden"
+              size="lg"
+              className="relative w-full touch-none overflow-hidden"
               aria-describedby={hintId}
               aria-disabled={burning || undefined}
               {...hold.handlers}
@@ -301,19 +308,19 @@ export function BurnVaultDialog({ open, onClose, onOutcome, deps = APP_DEPS }: B
               <span aria-hidden="true" className="absolute inset-y-0 left-0 bg-black/35" style={{ width: `${hold.progress * 100}%` }} />
               <span className="relative">{t(burning ? 'ui.burn.burning' : 'ui.burn.action')}</span>
             </Button>
-            <p id={hintId} className="text-sm text-muted">{t('ui.burn.holdHint')}</p>
+            <p id={hintId} className="text-small text-muted">{t('ui.burn.holdHint')}</p>
           </>
         )}
         {phase === 'confirm' && atConfirm && (
           <div className="flex flex-col gap-3">
-            <p ref={atRef} tabIndex={-1} className="font-medium">{t('ui.burn.atConfirm')}</p>
+            <p ref={atRef} tabIndex={-1} className="text-body font-semibold">{t('ui.burn.atConfirm')}</p>
             <div className="flex flex-wrap justify-end gap-2">
               <Button variant="ghost" onClick={() => setAtConfirm(false)}>{t('ui.vault.cancel')}</Button>
               <Button variant="danger" onClick={runBurn}>{t('ui.burn.atYes')}</Button>
             </div>
           </div>
         )}
-        <p ref={statusRef} tabIndex={-1} role="status" aria-live="polite" className={holdStage ? 'sr-only' : 'font-medium'}>
+        <p ref={statusRef} tabIndex={-1} role="status" aria-live="polite" className={holdStage ? 'sr-only' : 'text-body font-medium'}>
           {status}
         </p>
         {phase === 'done' && (

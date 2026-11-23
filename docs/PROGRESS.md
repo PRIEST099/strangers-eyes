@@ -6,14 +6,15 @@
 
 ## STATE (overwrite in place; never append here)
 - Today: Mon Nov 23 2026 (Day 5). Internal deadline Mon Nov 30 12:00 GMT+2.
-- Now: web demo path complete and live (hosting redeployed late Nov 21: CC0 Judge samples D-153, D-156, D-157). Real Nano verified (D-154). Lean iOS app built and tested (D-155; 20/20 XCTest; Simulator run with Apple FM referee + DEBUG fake attacker). README / DEVPOST / VIDEO drafted with [TBD]s. Nov 23 10:06: T-031 resumed on free-tier flash (photos 05–10, 01–03).
+- Now: web demo path complete and live (hosting redeployed late Nov 21). Nov 23: attacker switched to gemini-3.5-flash-lite (D-159, RC published); G1 + G1b PASS; **web redesign (D-160, docs/DESIGN.md) implemented and committed locally, NOT yet deployed to hosting (needs the user's OK).** Real Nano verified (D-154). Lean iOS app (D-155; 20/20 XCTest). README / DEVPOST / VIDEO drafted with [TBD]s.
 - Next:
-  - T-031 and T-034 done Nov 23 (G1/G1b PASS on flash-lite; advB.v1 released). Next: live recordings for the 3 Judge samples on lite (after the redesign lands; needs a DEV capture seam).
+  - Hosting redeploy of the redesign (ask the user first).
+  - Live pass-B recordings for the 3 Judge samples on lite (needs a DEV capture seam), then manifest placeholder → false.
   - Real pass B through the app (T-086 evidence) and live recordings for the 3 Judge samples (RUNBOOK §6.2b step 5) — needs paid quota (Sprint 2 window today if the user has it, else Blaze T-003 / Sprint 3).
   - iOS gaps: real Gemini path once, FM pre-screen (T-125), HybridModel explainer (T-129), Auth/RC on iOS (T-120).
   - Fill [TBD]s; gallery screenshots (T-166); filming (T-180..T-187).
 - Blocked: paid-tier work waits on the user (Sprint 2 quota status / Blaze T-003 by Nov 26 / Sprint 3 request by Wed Nov 25 10:00 PT).
-- Last green commit: b01d416. `npm --prefix web run check` green: 3197 tests; iOS `xcodebuild test` 20/20.
+- Last green: the D-160 redesign commit (Nov 23). `npm --prefix web run check` green: 3361 tests; build + check-dist ok; iOS `xcodebuild test` 20/20.
 - Checkpoints: **G1 PASS + G1b PASS Nov 23 on flash-lite (5/10 located ≤ 5 km, 0 refusals; fix moved 3/4)** | slice done | loop done (fake AI) | hosted done Nov 21 (hosting only; RC template redeploy after T-003)
 - Adversary model: flash for T-031 from photo 04 (D-136) | iOS path: A (firebase-ios-sdk 12.19.3)
 - Cuts applied: D-141 demo path only, partly reversed by D-155 (iOS lean). Still deferred: T-081 beyond plain export, T-083, T-084, T-096, T-104 (Firestore), T-106, T-151/T-152, T-160, T-200–T-203.
@@ -105,7 +106,7 @@ Test image: a white "LUCAS" tag with dark letters, tilted 4°, composited in mem
 Canonical IDs:
 - **D-01..D-39** are in SPEC §0.4 (read them there).
 - **AD-xx** are in ARCH §2. Where an AD duplicates a D, the D wins.
-- **The next free number is D-160.** (Nov 21 evening, main session: D-153..D-157; Nov 23: D-158..D-159; DEVLOG F-227..F-241; next free DEVLOG row F-242.) (Nov 21, Judge Mode builder: D-150..D-152, DEVLOG F-223..F-226; next free DEVLOG row F-227.) (Nov 21, ledger/HUD builder: D-148..D-149, DEVLOG F-220..F-222; next free DEVLOG row F-223.) (Nov 21, Nano jobs builder: D-145..D-147, DEVLOG F-216..F-219; next free DEVLOG row F-220.) (Nov 21, fix + re-attack builder: D-142..D-144; DEVLOG F-211..F-214 used, F-215 unused.) (Batch 3, Nov 21: gate D-111..114 + D-129..131, verdict D-115..116 + D-127..128, UI fixes D-117, boot D-118, scanner D-119..120 + D-135, pre-screen D-121..123 + D-132..133, verdict card D-124..125 + D-134, RC/Auth deploy D-126, spike model D-136, slice builder D-137..140, demo-path cut D-141. Next free DEVLOG row: F-211; F-202..F-206 used by the slice builder, F-207..F-209 left unused.)
+- **The next free number is D-161.** (Nov 23 redesign: D-160; DEVLOG F-242..F-250; next free DEVLOG row F-251.) (Nov 21 evening, main session: D-153..D-157; Nov 23: D-158..D-159; DEVLOG F-227..F-241.) (Nov 21, Judge Mode builder: D-150..D-152, DEVLOG F-223..F-226; next free DEVLOG row F-227.) (Nov 21, ledger/HUD builder: D-148..D-149, DEVLOG F-220..F-222; next free DEVLOG row F-223.) (Nov 21, Nano jobs builder: D-145..D-147, DEVLOG F-216..F-219; next free DEVLOG row F-220.) (Nov 21, fix + re-attack builder: D-142..D-144; DEVLOG F-211..F-214 used, F-215 unused.) (Batch 3, Nov 21: gate D-111..114 + D-129..131, verdict D-115..116 + D-127..128, UI fixes D-117, boot D-118, scanner D-119..120 + D-135, pre-screen D-121..123 + D-132..133, verdict card D-124..125 + D-134, RC/Auth deploy D-126, spike model D-136, slice builder D-137..140, demo-path cut D-141. Next free DEVLOG row: F-211; F-202..F-206 used by the slice builder, F-207..F-209 left unused.)
 
 - D-00 (Nov 19) Idea: **Strangers' Eyes**, chosen by a 29-agent tournament (score 8.18) and approved by the user. **Blindfill** is the Day-1 fallback, *only* with the user's OK if G1 fails (TASKS T-034). Health/Rwanda "Muganga" was rejected (the user wants a global idea).
 - D-00a (Nov 19) Platforms: Web PWA (primary) + iOS. **Android cut**: no physical device, and the emulator has no Nano.
@@ -759,6 +760,13 @@ Canonical IDs:
   - The user chose "Flash-lite now" after the D-158 diagnosis. `remoteconfig.template.json`: `adversary_model` = gemini-3.5-flash-lite, `timeouts_ms` advA 60000 / advB 45000 (ARCH §13.2/§13.3 and §9.2 table, rc.json vectors, rcParse tests, iOS AppModel fallback updated). Thinking stays MEDIUM; cloud_image_max_px stays 1536.
   - Live RC needs a publish (with the D-70 free-tier override kept; RUNBOOK §4.4); asked separately. Benchmark G1 reruns on lite with `--models lite --primary lite --retries 0`. README/DEVPOST say lite and why; the trade-off (nominally weaker attacker) is stated in README limitations.
 
+- D-160 (main session, Nov 23) **docs/DESIGN.md ("Two Lanes, One Wall") is the web UI's visual contract; implemented presentation-only.**
+  - The user asked for a better design for the presentation (ultracode on). A design workflow wrote 3 concepts, a judge panel picked "Two Lanes, One Wall" (C1 22 / C2 20.5 / C3 19.5), and an implementation workflow built it: foundation tokens + type scale + motion (index.css, tokens.test.ts asserts every contrast pair and no blur), then 6 packages (home, check, verdict, judge, vault, hud), each implemented, adversarially reviewed and fixed, then integrated.
+  - New pieces: HybridLanes (device lane / the Wall / cloud lane, chips placed by `laneOf(hudRoute)`, route-honest), CloudCopy (the exact redacted copy, **scoped to its own session**), RiskMeter + BandRuler on the verdict card, SamplePicker (cards collapse to a strip when a run starts), Zero Tiles in the Ledger rail, BrandMark.
+  - No logic, gate, prompt or routing change. Test hooks kept (DESIGN §6.2). Green appears only on the "Risk reduced" banner; masks stay solid #000; still no blur.
+  - Deviations from DESIGN.md, accepted: Home at xl puts the explainer left and the cards stacked right (AppShell `wide` includes home) so both CTAs sit above 900 px (DESIGN §5.1 edited); Button sizes carry their own height/type; the Judge banner is not line-clamped.
+  - Deferred: the "Your view" toggle; the Judge verdict hero starts near y 780 at 1440×900 (the coach callout comes first; the video scrolls); the StepperNav current bar is marked only by the device glow; open minors in DEVLOG F-250.
+
 ### Reconciliation items (T-022, done Nov 19)
 How T-022 ran:
 - Workflow wf_a7c14f46-79f: 6 analysts, 5 per-doc editors, 2 verification rounds and 1 fix round.
@@ -1170,3 +1178,7 @@ How T-022 ran:
 ### 2026-11-23: G1 / G1b on flash-lite: PASS (T-031, T-034 ticked)
 - `run-spike.mjs --mode live --models lite --primary lite --retries 0 --adaptive --photos 01..10` with the live RC on lite: 20 primary calls + 4 fix reruns, all ok, 5.1–10.9 s each (vs 80–180 s and 500/503 on flash). Raw `PRIV/raw/spike-2026-11-23T08-33-46-live-p01_…_10.json`; scored to `benchmark/spike/day1-adversary.md` (aggregates only).
 - **G1 PASS:** 0 refusals; located ≤ 5 km on 5/10 (s02 street, s03 neighbourhood, s04 district, s08 city 3.4 km, s09 street); s01/s06/s10 country, s05/s07 none. **G1b PASS:** the fix moved 3 of 4 (s02 street → country, s03 neighbourhood → country, s08 city → none); s09 stayed street (fix masked 1 clue). advB.v1 released (D-62).
+
+### 2026-11-23: web redesign (D-160)
+- Design-direction workflow → docs/DESIGN.md; implement workflow (18 agents: foundation, 6 packages × implement/review/fix, integration). Reviewers found 4 majors, all fixed before integration: stage CloudCopy showed an earlier session's photo; the consent frame letterboxed in mask black; the risk meter showed before/after on a PARTIAL; the HUD thumbs were unscoped (F-242..F-245).
+- Verified by the main session: `npm --prefix web run check` green (72 files, 3361 tests), build + check-dist ok; 44 after-shots (11 screens × desktop/mobile × dark/light) reviewed against the before set; Check/Consent diffs scanned for logic changes (none). Not deployed.

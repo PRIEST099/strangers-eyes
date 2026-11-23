@@ -4,12 +4,21 @@
 //   the box is ticked (AC-070).
 // App stores the acknowledgement (core/localPrefs, inside try/catch) and never shows this screen again on this device;
 // when storage is unavailable it still continues, for this session only. No network, so it works offline (state d).
+// Layout (docs/DESIGN.md §5.1): two columns at lg (the pitch on the left, the lanes explainer on the right), stacked
+// below. Test hooks: the checkbox is its label's first child, and Continue holds text only.
 import { useEffect, useState, type FormEvent } from 'react';
 import { t, type StringId } from '../../core/strings';
 import { Button } from '../components/Button';
-import { Icon } from '../components/Icon';
+import { HybridLanes } from '../components/HybridLanes';
+import { BrandMark, Icon, type IconName } from '../components/Icon';
+import { CARD, EYEBROW } from '../components/surface';
 
-const BULLETS: readonly StringId[] = ['copy.welcome.b1', 'copy.welcome.b2', 'copy.welcome.b3'];
+/** Each bullet with its icon: b1 is context (info), b2 is the cloud attack (blue), b3 is what stays here (teal lock). */
+const BULLETS: readonly { id: StringId; icon: IconName; tone: string }[] = [
+  { id: 'copy.welcome.b1', icon: 'info', tone: 'text-muted' },
+  { id: 'copy.welcome.b2', icon: 'cloud', tone: 'text-route-cloud' },
+  { id: 'copy.welcome.b3', icon: 'lock', tone: 'text-verdict-teal' },
+];
 
 export interface WelcomeProps {
   /** Called once the box is ticked and Continue is pressed. */
@@ -29,36 +38,46 @@ export function Welcome({ onContinue }: WelcomeProps) {
   };
 
   return (
-    <main id="main" className="flex min-h-dvh items-center justify-center px-4 py-10 sm:px-6">
-      <div className="flex w-full max-w-lg flex-col gap-6">
-        <p className="inline-flex items-center gap-2 font-semibold tracking-tight">
-          <Icon name="eye" className="size-6" />
-          {t('ui.app.name')}
-        </p>
-        <h1 className="text-2xl font-semibold tracking-tight text-balance sm:text-3xl">{t('copy.app.tagline')}</h1>
-        <ul className="flex flex-col gap-3">
-          {BULLETS.map((id) => (
-            <li key={id} className="flex gap-3">
-              <Icon name="check" className="mt-0.5 size-5 text-verdict-teal" />
-              <span>{t(id)}</span>
-            </li>
-          ))}
-        </ul>
-        <form onSubmit={submit} className="flex flex-col gap-4 rounded-xl border border-line bg-surface p-4">
-          <label className="flex min-h-11 cursor-pointer items-start gap-3">
-            <input
-              type="checkbox"
-              name="age"
-              checked={agreed}
-              onChange={(e) => setAgreed(e.target.checked)}
-              className="mt-0.5 size-5 shrink-0 cursor-pointer accent-verdict-teal"
-            />
-            <span>{t('copy.welcome.age')}</span>
-          </label>
-          <Button type="submit" variant="primary" disabled={!agreed} className="self-start">
-            {t('ui.welcome.continue')}
-          </Button>
-        </form>
+    <main id="main" className="flex min-h-dvh items-center justify-center px-4 py-10 sm:px-6 lg:px-8">
+      <div className="grid w-full max-w-6xl items-center gap-10 lg:min-h-[80dvh] lg:grid-cols-[1.1fr_1fr] lg:gap-12">
+        <div className="flex min-w-0 flex-col gap-6">
+          <p className="inline-flex items-center gap-3">
+            <BrandMark className="size-16" />
+            <span className="text-[17px] font-bold tracking-[-0.02em]">{t('ui.app.name')}</span>
+          </p>
+          <div className="flex flex-col gap-3">
+            <p className={EYEBROW}>{t('ui.welcome.eyebrow')}</p>
+            <h1 className="text-display-sm font-extrabold tracking-[-0.035em] text-balance sm:text-display">
+              {t('copy.app.tagline')}
+            </h1>
+          </div>
+          <ul className="flex max-w-[68ch] flex-col gap-4">
+            {BULLETS.map(({ id, icon, tone }) => (
+              <li key={id} className="flex items-start gap-3 text-body">
+                <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-surface-2">
+                  <Icon name={icon} className={`size-5 ${tone}`} />
+                </span>
+                <span className="min-w-0 pt-1.5">{t(id)}</span>
+              </li>
+            ))}
+          </ul>
+          <form onSubmit={submit} className={`${CARD} flex flex-col gap-4`}>
+            <label className="flex min-h-11 cursor-pointer items-start gap-3 text-body">
+              <input
+                type="checkbox"
+                name="age"
+                checked={agreed}
+                onChange={(e) => setAgreed(e.target.checked)}
+                className="mt-0.5 size-5 shrink-0 cursor-pointer accent-fg"
+              />
+              <span>{t('copy.welcome.age')}</span>
+            </label>
+            <Button type="submit" variant="primary" size="lg" disabled={!agreed} className="w-full sm:w-auto sm:self-start">
+              {t('ui.welcome.continue')}
+            </Button>
+          </form>
+        </div>
+        <HybridLanes mode="explainer" className="min-w-0" />
       </div>
     </main>
   );

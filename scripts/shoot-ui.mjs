@@ -4,9 +4,10 @@
 // to app URLs, so no AI request ever reaches the cloud. A fresh Chrome profile per run: no vault, nothing of the user's.
 //
 //   npm --prefix web run dev                      (port 5173)
-//   node scripts/shoot-ui.mjs --out <dir> [--only home,judge-run] [--viewports desktop,mobile] [--port 5173]
+//   node scripts/shoot-ui.mjs --out <dir> [--only home,judge-run] [--viewports desktop,mobile] [--scheme dark,light] [--port 5173]
 //
-// Writes <out>/<shot>.<viewport>.png (full page) and prints one line per file plus any console errors.
+// Writes <out>/<shot>.<viewport>.png (full page), or <out>/<shot>.<viewport>.<scheme>.png with --scheme (prefers-color-scheme
+// emulated over CDP; a comma list shoots each scheme in turn), and prints one line per file plus any console errors.
 import { spawn } from 'node:child_process';
 import { mkdirSync, readFileSync, rmSync, writeFileSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -16,8 +17,13 @@ import { parseArgs } from 'node:util';
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const { values: a } = parseArgs({ options: {
   out: { type: 'string' }, only: { type: 'string' }, viewports: { type: 'string', default: 'desktop,mobile' }, port: { type: 'string', default: '5173' },
+  scheme: { type: 'string' },
 } });
-if (!a.out) { console.error('usage: --out <dir> [--only a,b] [--viewports desktop,mobile] [--port 5173]'); process.exit(2); }
+const USAGE = 'usage: --out <dir> [--only a,b] [--viewports desktop,mobile] [--scheme dark|light|dark,light] [--port 5173]';
+if (!a.out) { console.error(USAGE); process.exit(2); }
+/** [null] = no emulation (the browser default) and the old file names; otherwise each scheme in turn. */
+const schemes = a.scheme ? a.scheme.split(',') : [null];
+if (schemes.some((s) => s !== null && s !== 'dark' && s !== 'light')) { console.error(USAGE); process.exit(2); }
 const port = Number(a.port);
 const ORIGIN = `http://localhost:${port}`;
 const VIEWPORTS = { desktop: { width: 1440, height: 900, mobile: false }, mobile: { width: 390, height: 844, mobile: true } };
@@ -86,10 +92,19 @@ const evaluate = async (expr) => (await send('Runtime.evaluate', { expression: e
 const bodyText = () => evaluate('document.body.innerText');
 
 async function capture(file) {
+  // Headless capture beyond the viewport can paint compositor (opacity/transform) animations at their FIRST frame even
+  // after they finished, so chips read as faded and the packet as stuck at the gate. Bake each finite animation's end
+  // state into inline style and drop the animation, so the shot shows the state a real browser rests in.
+  await evaluate(`document.getAnimations().forEach((x) => {
+    if (x.effect?.getComputedTiming().iterations === Infinity) return;
+    x.finish(); try { x.commitStyles(); } catch { /* not rendered */ } x.cancel();
+  }), true`);
   const m = await send('Page.getLayoutMetrics');
   const w = Math.ceil(m.cssContentSize?.width ?? m.contentSize.width);
   const h = Math.min(Math.ceil(m.cssContentSize?.height ?? m.contentSize.height), 12000);
-  const shot = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true, clip: { x: 0, y: 0, width: w, height: h, scale: 1 } });
+  // Beyond-viewport capture only when the page is taller than the viewport: that path can paint stale compositor layers.
+  const beyond = h > (m.cssLayoutViewport?.clientHeight ?? 0);
+  const shot = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: beyond, clip: { x: 0, y: 0, width: w, height: h, scale: 1 } });
   writeFileSync(file, Buffer.from(shot.data, 'base64'));
   console.log(`wrote ${file} (${w}x${h})`);
 }
@@ -102,6 +117,9 @@ async function navigate(url) {
 
 await send('Runtime.enable');
 await send('Page.enable');
+for (const scheme of schemes) {
+if (scheme) await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: scheme }] });
+const sfx = scheme ? `.${scheme}` : '';
 for (const [vpName, vp] of vps) {
   await send('Emulation.setDeviceMetricsOverride', { width: vp.width, height: vp.height, deviceScaleFactor: 1, mobile: vp.mobile });
   for (const s of shots) {
@@ -124,15 +142,16 @@ for (const [vpName, vp] of vps) {
           while (!(await bodyText()).includes(st.waitText)) { if (Date.now() > until) throw new Error(`timed out waiting for "${st.waitText}"`); await sleep(500); }
         }
         if (st.eval) await evaluate(st.eval);
-        if (st.shot) await capture(join(a.out, `${s.name}-${st.shot}.${vpName}.png`));
+        if (st.shot) await capture(join(a.out, `${s.name}-${st.shot}.${vpName}${sfx}.png`));
       }
-      await capture(join(a.out, `${s.name}.${vpName}.png`));
+      await capture(join(a.out, `${s.name}.${vpName}${sfx}.png`));
     } catch (e) {
-      console.log(`FAILED ${s.name}.${vpName}: ${e.message}`);
-      await capture(join(a.out, `${s.name}.${vpName}.FAILED.png`)).catch(() => undefined);
+      console.log(`FAILED ${s.name}.${vpName}${sfx}: ${e.message}`);
+      await capture(join(a.out, `${s.name}.${vpName}${sfx}.FAILED.png`)).catch(() => undefined);
     }
-    for (const e of errors.slice(before)) console.log(`  console error (${s.name}.${vpName}): ${e}`);
+    for (const e of errors.slice(before)) console.log(`  console error (${s.name}.${vpName}${sfx}): ${e}`);
   }
+}
 }
 ws.close();
 process.exit(0);

@@ -14,6 +14,7 @@ import { importPhoto, type ImportedPhoto } from '../../tier0/importPhoto';
 import {
   importAndSettle, pickFromTransfer, pickStep, refuseDragOutsideZone, statusLines, type ImportStatus, type TransferPick,
 } from '../importTransfer';
+import { Icon } from './Icon';
 
 export interface ImportDropzoneProps {
   /**
@@ -142,11 +143,14 @@ export function ImportDropzone({ getPins, status, onStatus, onPhoto }: ImportDro
         onDragLeave={onDragLeave}
         onDrop={onDrop}
         className={
-          'flex min-h-40 w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-6 ' +
-          'text-center text-sm transition-colors ' +
+          'flex min-h-48 w-full flex-col items-center justify-center gap-3 rounded-stage border-2 border-dashed p-8 ' +
+          'text-center text-body transition-colors duration-150 ' +
           (dragging ? 'border-accent bg-surface-2' : 'border-line-strong bg-surface hover:bg-surface-2')
         }
       >
+        <span aria-hidden="true" className="inline-flex size-12 items-center justify-center rounded-card bg-surface-3 text-fg">
+          <Icon name="arrowRight" className="size-6 rotate-90" />
+        </span>
         <span className="max-w-sm font-medium text-fg">{t('copy.import.drop')}</span>
       </button>
       <div
@@ -155,9 +159,9 @@ export function ImportDropzone({ getPins, status, onStatus, onPhoto }: ImportDro
         aria-live="polite"
         data-state={status.kind}
         className={
-          status.kind === 'error' ? 'min-h-5 text-sm text-danger'
-            : status.kind === 'ready' ? 'flex flex-col gap-2 rounded-lg border border-line bg-surface-2 p-3 text-sm'
-              : 'min-h-5 text-sm text-muted'
+          status.kind === 'error' ? 'min-h-5 text-small font-medium text-danger-line'
+            : status.kind === 'ready' ? 'flex flex-col gap-2 rounded-card border border-line bg-surface-2 p-4 text-small'
+              : 'min-h-5 text-small text-muted'
         }
       >
         {lines.map((m, i) => (

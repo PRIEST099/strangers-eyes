@@ -67,7 +67,7 @@ export function PinButton({ onPin, onFailure, locate = currentPin, describedBy }
       >
         {t(locating ? 'ui.vault.pin.locating' : 'ui.vault.pin.button')}
       </Button>
-      <p aria-live="polite" className={state.phase === 'failed' ? 'text-sm font-medium text-verdict-amber' : 'sr-only'}>
+      <p aria-live="polite" className={state.phase === 'failed' ? 'text-small font-medium text-verdict-amber' : 'sr-only'}>
         {state.phase === 'failed' ? t(GEO_FAILURE_COPY[state.reason]) : ''}
       </p>
     </div>

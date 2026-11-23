@@ -33,7 +33,7 @@
 // judge_cached_fallback is on) the recorded pass B is replayed, badged CACHED. Autoplay (RC judge_autoplay_default)
 // advances each step after a beat (consent after a visible 3 s countdown) with coach marks; it stops at the re-attack's
 // verdict, at any failure, or when there is nothing to fix.
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react';
 import type { AdvBCache, AttackOutcome } from '../../ai/jobs/adversaryB';
 import type { RefereeOutcome } from '../../ai/jobs/referee';
 import { vaultScan } from '../../ai/vaultScan';
@@ -54,13 +54,19 @@ import { compareVerdicts } from '../../core/verdict';
 import type { PxRect } from '../../core/types';
 import { AttackPanel } from '../components/AttackPanel';
 import { Button } from '../components/Button';
+import { CloudCopy } from '../components/CloudCopy';
 import { ConsentPanel } from '../components/ConsentPanel';
+import { HybridLanes } from '../components/HybridLanes';
+import { Icon } from '../components/Icon';
+import { EYEBROW, H1, H2, PANEL } from '../components/surface';
 import { VerdictCard } from '../components/VerdictCard';
 import { ImportDropzone } from '../components/ImportDropzone';
 import { PrescreenPanel } from '../components/PrescreenPanel';
 import { StepperNav } from '../components/StepperNav';
 import { BUILT_STEPS, CHECK_START, checkReducer, fixBlocked, latestResult, maskedCandidate, settledReattack } from '../checkState';
 import { useOcrWarm } from '../hooks/useOcrWarm';
+import { useLedgerEntries } from '../hud/useLedger';
+import { lastCloudImageSend } from '../../core/ledgerView';
 import { systemStatus } from '../systemStatus';
 import { caps, prefs } from '../../core/localPrefs';
 import { autoDelay, coachFor, liveUnavailable, nextAutoAction, type AutoAction } from '../judge/judgeFlow';
@@ -68,7 +74,7 @@ import { judgeNanoStep, loadSamplePhoto, recordedAttack } from '../judge/judgeRu
 import { JudgeCoach } from '../judge/JudgeCoach';
 import type { JudgeSample } from '../../vault/judgeVault';
 import type { ImportStatus } from '../importTransfer';
-import { stepLabelId } from '../layout';
+import { stepLabelId, type CheckStep } from '../layout';
 
 /**
  * The active vault's pins (Judge Mode: JUDGE_VAULT's) once its index is built, so a photo dropped while the vault is
@@ -91,6 +97,60 @@ function useRc() {
     return () => { live = false; };
   }, []);
   return rc;
+}
+
+/** Steps whose stage is two columns at lg: the exact cloud copy (left, sticky) beside the step (DESIGN §5.2). Import and
+ *  the pre-screen need the full width for the editor; Send (and the re-attack's own consent) already show the image. */
+const STAGED: ReadonlySet<CheckStep> = new Set<CheckStep>(['attack', 'verdict', 'fix', 'reattack']);
+
+/**
+ * The stage (DESIGN §5.2): on the staged steps, at lg, the exact cloud copy sits left (sticky) beside the step section.
+ * The copy is scoped to THIS photo's session and shown only once this session has a finished IN_CLOUD image send:
+ * while the attack is still pending, after a gate block, or on a CACHED/recorded replay there is no copy of this photo
+ * to show, so the stage stays one column instead of showing an earlier photo under "What the cloud saw" (AC-230). The
+ * children keep the same slot either way, so the step panel never remounts when the copy appears.
+ */
+function Stage({ staged, sessionId, copyOnPhone, children }: { staged: boolean; sessionId: string; copyOnPhone: boolean; children: ReactNode }) {
+  const entries = useLedgerEntries();
+  const mine = useMemo(() => entries.filter((e) => e.sessionId === sessionId), [entries, sessionId]);
+  const show = staged && lastCloudImageSend(mine) !== null;
+  return (
+    <div className={show ? 'grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]' : 'flex flex-col'}>
+      {show && (
+        // Below lg the cloud copy shows only on the Attack step, so the verdict and the fix stay near the top on a phone.
+        <div className={`min-w-0 lg:sticky lg:top-4${copyOnPhone ? '' : ' max-lg:hidden'}`}>
+          <CloudCopy variant="stage" entries={mine} />
+        </div>
+      )}
+      {children}
+    </div>
+  );
+}
+
+/** One receipt tile (aria-hidden: the receipt sentence below says the same in words). */
+function ReceiptTile({ value, label, tone }: { value: number; label: string; tone: 'cloud' | 'kept' | 'device' }) {
+  const box = tone === 'kept' ? 'bg-verdict-teal-bg text-verdict-teal' : `bg-surface-2 border-l-4 ${tone === 'cloud' ? 'border-l-route-cloud-fill' : 'border-l-route-device-fill'}`;
+  return (
+    <div className={`flex min-w-0 flex-col gap-1 rounded-card border border-line p-3 ${box}`}>
+      <span className="flex items-center gap-1.5 font-mono text-stat-sm font-bold tabular-nums sm:text-stat">
+        {tone === 'kept' && <Icon name="lock" className="size-5" />}
+        {value}
+      </span>
+      <span className={`text-small ${tone === 'kept' ? 'text-fg' : 'text-muted'}`}>{label}</span>
+    </div>
+  );
+}
+
+function ReceiptTiles({ images, k }: { images: number; k: number }) {
+  return (
+    <div aria-hidden="true" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <ReceiptTile value={images} label={t('ui.tile.images')} tone="cloud" />
+      {/* faces and vault items are the literal 0 that copy.receipt.line asserts */}
+      <ReceiptTile value={0} label={t('ui.tile.faces')} tone="kept" />
+      <ReceiptTile value={0} label={t('ui.tile.vault')} tone="kept" />
+      <ReceiptTile value={k} label={t('ui.tile.onDevice')} tone="device" />
+    </div>
+  );
 }
 
 const NO_MASKS: readonly PxRect[] = Object.freeze([]) as readonly PxRect[];
@@ -430,18 +490,20 @@ export function Check({ judge = null }: { judge?: JudgeCheck | null } = {}) {
   }, [current, prescreenKind, epoch, judge]);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 lg:gap-5">
       {judge
-        ? <h2 className="text-xl font-semibold tracking-tight">{judge.sample.title}</h2>
-        : <h1 className="text-2xl font-semibold tracking-tight">{t('ui.screen.check')}</h1>}
+        ? <h2 className={H2}>{judge.sample.title}</h2>
+        : <h1 className={H1}>{t('ui.screen.check')}</h1>}
+      <HybridLanes mode="live" sessionId={session.current.id} />
       <StepperNav
         current={current}
         reached={state.pos.reached}
         available={BUILT_STEPS}
         onSelect={(step) => dispatch({ type: 'selectStep', step })}
       />
-      <section aria-labelledby="check-step-title" className="rounded-xl border border-line bg-surface p-4">
-        <h2 id="check-step-title" className="text-lg font-semibold">
+      <Stage staged={STAGED.has(current) && !(current === 'reattack' && reAttackKind === 'idle')} sessionId={session.current.id} copyOnPhone={current === 'attack'}>
+      <section aria-labelledby="check-step-title" className={`min-w-0 ${PANEL}`}>
+        <h2 id="check-step-title" className={H2}>
           {t(stepLabelId(current))}
         </h2>
         {judge && (
@@ -451,13 +513,13 @@ export function Check({ judge = null }: { judge?: JudgeCheck | null } = {}) {
           />
         )}
         {current === 'import' && judge && (
-          <p className="mt-3 text-sm text-muted">{state.importStatus.kind === 'error' ? t('ui.judge.sampleFailed') : t('ui.judge.sampleLoading')}</p>
+          <p className="mt-3 text-body text-muted">{state.importStatus.kind === 'error' ? t('ui.judge.sampleFailed') : t('ui.judge.sampleLoading')}</p>
         )}
         {current === 'import' && !judge && (
-          <div className="mt-3 flex flex-col gap-3">
+          <div className="mt-4 flex flex-col gap-4">
             <ImportDropzone getPins={activePins} status={state.importStatus} onStatus={onImportStatus} onPhoto={onPhoto} />
             {state.importStatus.kind === 'ready' && (
-              <Button variant="primary" className="self-start" data-action="continue" onClick={onContinue}>
+              <Button variant="primary" size="lg" className="self-start max-sm:w-full" data-action="continue" onClick={onContinue}>
                 {t('ui.check.continue')}
               </Button>
             )}
@@ -470,10 +532,10 @@ export function Check({ judge = null }: { judge?: JudgeCheck | null } = {}) {
           />
         )}
         {devFake && (current === 'send' || current === 'attack' || current === 'reattack') && (
-          <p className="mt-2 rounded-md border border-dashed border-line px-2 py-1 font-mono text-xs text-muted">{t('ui.dev.fakeAdversary', { mode: devFake })}</p>
+          <p className="mt-2 rounded-md border border-dashed border-line-strong px-2 py-1 font-mono text-small text-muted">{t('ui.dev.fakeAdversary', { mode: devFake })}</p>
         )}
         {devNano && (current === 'prescreen' || current === 'verdict' || current === 'fix' || current === 'reattack') && (
-          <p className="mt-2 rounded-md border border-dashed border-line px-2 py-1 font-mono text-xs text-muted">{t('ui.dev.fakeNano', { mode: devNano })}</p>
+          <p className="mt-2 rounded-md border border-dashed border-line-strong px-2 py-1 font-mono text-small text-muted">{t('ui.dev.fakeNano', { mode: devNano })}</p>
         )}
         {current === 'send' && (
           <ConsentPanel
@@ -486,15 +548,15 @@ export function Check({ judge = null }: { judge?: JudgeCheck | null } = {}) {
         )}
         {current === 'verdict' && (
           verdict && vault ? (
-            <div className="mt-3 flex flex-col gap-3">
+            <div className="mt-4 flex flex-col gap-3">
               <VerdictCard
                 verdict={verdict.v} vault={vault} referee={refereeRow(verdict.ref, verdict.ms)} headingLevel={3}
-                actions={fixAction ?? (blockedCopy ? <p className="text-sm text-muted">{blockedCopy}</p> : null)}
+                actions={fixAction ?? (blockedCopy ? <p className="text-small text-muted">{blockedCopy}</p> : null)}
               />
-              <p className="text-sm text-muted">{t('ui.verdict.nextSoon')}</p>
+              <p className="text-small text-muted">{t('ui.verdict.nextSoon')}</p>
             </div>
           ) : (
-            <p className="mt-3 text-sm text-muted">{outcome?.kind === 'result' && vault ? t('copy.ref.running') : t('ui.verdict.loading')}</p>
+            <p className="mt-3 text-body text-muted">{outcome?.kind === 'result' && vault ? t('copy.ref.running') : t('ui.verdict.loading')}</p>
           )
         )}
         {current === 'fix' && (
@@ -510,7 +572,7 @@ export function Check({ judge = null }: { judge?: JudgeCheck | null } = {}) {
         )}
         {current === 'reattack' && reAttackKind === 'idle' && (
           <div className="mt-3 flex flex-col gap-2">
-            {re.send.kind === 'ready' && <p className="text-sm font-medium" data-testid="consent-diff">{t('ui.consent.diff', { n: Math.max(0, re.send.dry.masks.length - prevSentMasks) })}</p>}
+            {re.send.kind === 'ready' && <p className="self-start rounded-chip border border-line bg-surface-2 px-3 py-1.5 text-small font-medium" data-testid="consent-diff">{t('ui.consent.diff', { n: Math.max(0, re.send.dry.masks.length - prevSentMasks) })}</p>}
             <ConsentPanel
               send={re.send} candidate={candidate} tierCopy={consentTierCopy(rc?.dataTier ?? 'free')}
               model={rc?.adversaryModel ?? ''} sent={false} onSend={onResend} onCancel={() => dispatch({ type: 'cancelResend' })}
@@ -522,29 +584,31 @@ export function Check({ judge = null }: { judge?: JudgeCheck | null } = {}) {
         )}
         {current === 'reattack' && afterOutcome && (
           compare && vault ? (
-            <div className="mt-3 flex flex-col gap-3" data-testid="compare">
-              <p className="text-xs text-muted">{t('ui.fix.round', { n: rounds, max: maxRounds })}</p>
+            <div className="mt-4 flex flex-col gap-4" data-testid="compare">
+              <p className={`${EYEBROW} self-start rounded-chip border border-line px-2 py-1`}>{t('ui.fix.round', { n: rounds, max: maxRounds })}</p>
               <VerdictCard
                 verdict={compare.cmp.after} comparison={compare.cmp} vault={vault} referee={refereeRow(compare.ref, compare.ms)} headingLevel={3}
-                actions={fixAction ?? (blockedCopy ? <p className="text-sm text-muted">{blockedCopy}</p> : null)}
+                actions={fixAction ?? (blockedCopy ? <p className="text-small text-muted">{blockedCopy}</p> : null)}
               />
               {compareRows(compare.cmp.before, compare.cmp.after, vault).length > 0 && (
                 <div>
-                  <p className="text-sm font-medium">{t('ui.compare.title')}</p>
-                  <ul className="mt-1 flex flex-col gap-1 text-sm" data-testid="compare-rows">
+                  <p className="text-title font-semibold">{t('ui.compare.title')}</p>
+                  <ul className="mt-2 flex flex-col gap-1.5 text-body [&>li]:rounded-lg [&>li]:bg-surface-2 [&>li]:px-3 [&>li]:py-2" data-testid="compare-rows">
                     {compareRows(compare.cmp.before, compare.cmp.after, vault).map((row, i) => <li key={i}>{row}</li>)}
                   </ul>
                 </div>
               )}
-              <p className="font-mono text-xs text-muted" data-testid="receipt">{t('copy.receipt.line', receiptParams(allOutcomes, onDeviceCalls))}</p>
-              <p className="text-sm text-muted">{t('ui.verdict.nextSoon')}</p>
+              <ReceiptTiles {...receiptParams(allOutcomes, onDeviceCalls)} />
+              <p className="border-t border-dashed border-line-strong pt-3 font-mono text-small text-muted" data-testid="receipt">{t('copy.receipt.line', receiptParams(allOutcomes, onDeviceCalls))}</p>
+              <p className="text-small text-muted">{t('ui.verdict.nextSoon')}</p>
             </div>
           ) : (
-            <p className="mt-3 text-sm text-muted">{t('ui.verdict.loading')}</p>
+            <p className="mt-3 text-body text-muted">{t('ui.verdict.loading')}</p>
           )
         )}
-        {current === 'export' && <p className="mt-2 text-sm text-muted">{t('ui.placeholder')}</p>}
+        {current === 'export' && <p className="mt-2 text-body text-muted">{t('ui.placeholder')}</p>}
       </section>
+      </Stage>
     </div>
   );
 }

@@ -212,10 +212,11 @@ export interface VaultItemFormProps {
 type PinSource = 'none' | 'existing' | 'geolocation' | 'manual';
 
 const INPUT =
-  'min-h-11 w-full rounded-lg border border-line-strong bg-canvas px-3 text-base text-fg placeholder:text-muted ' +
+  'min-h-11 w-full rounded-lg border border-line-strong bg-surface px-3 text-body text-fg placeholder:text-muted ' +
   'aria-invalid:border-verdict-red';
-const HINT = 'text-sm text-muted';
-const ERR = 'text-sm font-medium text-verdict-red';
+const HINT = 'text-small text-muted';
+const ERR = 'text-small font-medium text-verdict-red';
+const LABEL = 'text-small font-semibold';
 
 function FieldError({ id, copy }: { id: string; copy: StringId | null }) {
   // Always mounted, so a message that appears is announced (the field also points at it via aria-describedby).
@@ -368,20 +369,20 @@ export function VaultItemForm({ group: addGroup, editing, onSaved, onCancel }: V
     <form noValidate onSubmit={onSubmit} className="flex flex-col gap-5" aria-describedby={formError ? ids.formErr : undefined}>
       {/* Kind (SPEC §17.2). Fixed while editing: delete and add again to change it. */}
       {editing ? (
-        <p className="text-sm">
+        <p className="text-small">
           <span className="text-muted">{t('ui.vault.form.kind')}: </span>
           <span className="font-medium">{t(KIND_LABEL[editing.kind])}</span>
         </p>
       ) : place ? (
-        <fieldset className="flex flex-col gap-2">
-          <legend className="mb-2 text-sm font-medium">{t('ui.vault.form.placeKind')}</legend>
-          <div className="grid grid-cols-2 gap-2">
+        <fieldset className="flex min-w-0 flex-col gap-2">
+          <legend className={`mb-2 ${LABEL}`}>{t('ui.vault.form.placeKind')}</legend>
+          <div className="grid grid-cols-[repeat(2,minmax(0,1fr))] gap-2">
             {PLACE_KINDS.map((k) => (
               <label
                 key={k}
-                className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-line px-3 text-sm has-checked:border-fg has-checked:bg-surface-2"
+                className="flex min-h-11 min-w-0 cursor-pointer items-center gap-2 rounded-lg border border-line-strong px-3 text-small font-medium transition-colors duration-150 hover:bg-surface-2 has-checked:border-fg has-checked:bg-surface-2"
               >
-                <input type="radio" name={ids.kind} value={k} checked={kind === k} onChange={() => setKind(k)} className="size-4" />
+                <input type="radio" name={ids.kind} value={k} checked={kind === k} onChange={() => setKind(k)} className="size-4 shrink-0 accent-fg" />
                 {t(KIND_LABEL[k])}
               </label>
             ))}
@@ -389,7 +390,7 @@ export function VaultItemForm({ group: addGroup, editing, onSaved, onCancel }: V
         </fieldset>
       ) : (
         <div className="flex flex-col gap-2">
-          <label htmlFor={ids.kind} className="text-sm font-medium">{t('ui.vault.form.detailKind')}</label>
+          <label htmlFor={ids.kind} className={LABEL}>{t('ui.vault.form.detailKind')}</label>
           <select id={ids.kind} value={kind} onChange={(e) => setKind(e.target.value as VaultKind)} className={INPUT}>
             {DETAIL_KINDS.map((k) => (
               <option key={k} value={k}>{t(KIND_LABEL[k])}</option>
@@ -400,7 +401,7 @@ export function VaultItemForm({ group: addGroup, editing, onSaved, onCancel }: V
 
       {/* Label: optional for a place, the value itself for a detail. ≤ 40 characters (D-23). */}
       <div className="flex flex-col gap-2">
-        <label htmlFor={ids.label} className="text-sm font-medium">
+        <label htmlFor={ids.label} className={LABEL}>
           {t(place ? 'ui.vault.form.placeLabel' : 'ui.vault.form.value')}
         </label>
         <input
@@ -423,7 +424,7 @@ export function VaultItemForm({ group: addGroup, editing, onSaved, onCancel }: V
 
       {showArea && (
         <div className="flex flex-col gap-2">
-          <label htmlFor={ids.area} className="text-sm font-medium">{t('ui.vault.form.area')}</label>
+          <label htmlFor={ids.area} className={LABEL}>{t('ui.vault.form.area')}</label>
           <input
             ref={areaRef}
             id={ids.area}
@@ -444,7 +445,7 @@ export function VaultItemForm({ group: addGroup, editing, onSaved, onCancel }: V
 
       {!place && (
         <div className="flex flex-col gap-2">
-          <label htmlFor={ids.aliases} className="text-sm font-medium">{t('ui.vault.form.aliases')}</label>
+          <label htmlFor={ids.aliases} className={LABEL}>{t('ui.vault.form.aliases')}</label>
           <input
             ref={aliasesRef}
             id={ids.aliases}
@@ -463,8 +464,8 @@ export function VaultItemForm({ group: addGroup, editing, onSaved, onCancel }: V
       )}
 
       {place && (
-        <fieldset className="flex flex-col gap-3 rounded-lg border border-line p-3">
-          <legend className="px-1 text-sm font-medium">{t('ui.vault.form.location')}</legend>
+        <fieldset className="flex min-w-0 flex-col gap-3 rounded-card border border-line-strong p-4">
+          <legend className={`px-1 ${LABEL}`}>{t('ui.vault.form.location')}</legend>
           <p id={ids.pinHelp} className={HINT}>{t('copy.vault.pinHelp')}</p>
           <div ref={pinRef}>
             <PinButton
@@ -473,7 +474,7 @@ export function VaultItemForm({ group: addGroup, editing, onSaved, onCancel }: V
               describedBy={describedBy(ids.pinHelp, ids.pinErr)}
             />
           </div>
-          <p id={ids.pinStatus} aria-live="polite" className="text-sm">{pinStatus}</p>
+          <p id={ids.pinStatus} aria-live="polite" className="text-small font-medium">{pinStatus}</p>
           <FieldError id={ids.pinErr} copy={pinError} />
           {!manualOpen ? (
             <Button variant="ghost" className="self-start underline" onClick={() => openManual(true)}>
@@ -481,7 +482,7 @@ export function VaultItemForm({ group: addGroup, editing, onSaved, onCancel }: V
             </Button>
           ) : (
             <div className="flex flex-col gap-2">
-              <label htmlFor={ids.manual} className="text-sm font-medium">{t('ui.vault.manual.label')}</label>
+              <label htmlFor={ids.manual} className={LABEL}>{t('ui.vault.manual.label')}</label>
               <p id={ids.manualHint} className={HINT}>{t('copy.vault.manualCoords')}</p>
               <div className="flex flex-wrap gap-2">
                 <input

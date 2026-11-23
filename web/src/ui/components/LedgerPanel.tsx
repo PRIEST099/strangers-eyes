@@ -1,81 +1,57 @@
 // web/src/ui/components/LedgerPanel.tsx: the Cloud Ledger body (SCR-13), shown in the ≥1024 px rail or in the
-// bottom sheet. T-063 (minimal, D-148): live counters from the in-memory Ledger, "What the cloud saw" (SCR-15: the
-// exact JPEG of the most recent cloud send, its sha256 prefix as on the consent sheet, AC-130/AC-230, the prompt id,
-// model and size), and the entries newest first. Entries hold IDs, kinds, hashes and numbers only (AC-045); the
-// thumbnail is drawn from a blob whose OWN hash equals the entry's hash (core/ledgerImages.ts), never re-rendered from
-// masks and never the original photo. Not built yet: the receipt download, the session filter, per-entry gate checks.
-import { useEffect, useId, useState, type Ref } from 'react';
+// bottom sheet. T-063 (minimal, D-148), redesigned per docs/DESIGN.md §5.6:
+// 1. Zero Tiles (aria-hidden; they repeat the counters sentence below): faces and vault items sent, teal with a lock
+//    at 0, red with an alert above 0.
+// 2. The unchanged counters sentence, checked note and the `data-counter` lines.
+// 3. "What the cloud saw" (SCR-15, <CloudCopy variant="rail">): the exact JPEG of the most recent cloud send, its
+//    sha256 prefix as on the consent sheet (AC-130/AC-230), prompt id, model and size.
+// 4. The entries newest first, each with a lane dot (laneOf(hudRoute(e))) and its route badge.
+// Entries hold IDs, kinds, hashes and numbers only (AC-045). Not built yet: the receipt download, the session filter,
+// per-entry gate checks.
+import type { Ref } from 'react';
 import type { SentImageStore } from '../../core/ledgerImages';
-import { bytesText, engineName, hudRoute, jobName, lastCloudImageSend } from '../../core/ledgerView';
+import { bytesText, engineName, hudRoute, jobName } from '../../core/ledgerView';
 import type { LedgerCounters, LedgerEntry } from '../../core/types';
-import { t } from '../../core/strings';
+import { t, type StringId } from '../../core/strings';
+import { laneOf } from '../hud/lanes';
 import { kilobytes } from '../layout';
 import { Badge } from './Badge';
+import { CloudCopy } from './CloudCopy';
+import { Icon } from './Icon';
 
 export interface LedgerPanelProps {
   counters: LedgerCounters;
   /** Newest last (as the Ledger keeps them). */
   entries?: readonly LedgerEntry[];
+  /** The sent-image store; omitted → the app's live store. */
   images?: SentImageStore | null;
   /** Rail only: its own heading (focus target of the header's Ledger button). In the sheet, the sheet title is the heading. */
   headingId?: string;
   headingRef?: Ref<HTMLHeadingElement>;
 }
 
-/** An object URL for the blob while mounted (revoked on change and unmount). */
-function useBlobUrl(blob: Blob | null): string | null {
-  const [url, setUrl] = useState<string | null>(null);
-  useEffect(() => {
-    if (!blob) { setUrl(null); return; }
-    const u = URL.createObjectURL(blob);
-    setUrl(u);
-    return () => URL.revokeObjectURL(u);
-  }, [blob]);
-  return url;
-}
-
-function CloudSaw({ entries, images }: { entries: readonly LedgerEntry[]; images: SentImageStore | null }) {
-  const sent = lastCloudImageSend(entries);
-  const sha = sent?.imageSha256[0] ?? null;
-  const blob = sha && images ? images.get(sha) : null;
-  const url = useBlobUrl(blob);
-  const titleId = useId();
+/** One Zero Tile. Decorative copy of the counters sentence (the real <p> follows), so the grid is aria-hidden. */
+function ZeroTile({ value, label }: { value: number; label: StringId }) {
+  const sent = value > 0;
   return (
-    <section aria-labelledby={titleId} data-cloud-saw={sha ?? 'none'} className="flex flex-col gap-2">
-      <h3 id={titleId} className="font-semibold">{t('ui.cloudSaw.title')}</h3>
-      {!sent || !sha ? (
-        <p className="text-muted">{t('copy.cloudSaw.empty')}</p>
-      ) : (
-        <>
-          {url ? (
-            <img
-              src={url}
-              alt={t('ui.cloudSaw.alt')}
-              className="max-h-48 w-full rounded-md border border-line bg-surface-2 object-contain"
-            />
-          ) : (
-            <p className="text-muted">{t('ui.cloudSaw.notKept')}</p>
-          )}
-          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 font-mono text-xs">
-            <dt className="text-muted">{t('ui.cloudSaw.sha')}</dt>
-            <dd data-sha-prefix={sha.slice(0, 8)}>{sha.slice(0, 8)}</dd>
-            <dt className="text-muted">{t('ui.cloudSaw.prompt')}</dt>
-            <dd>{sent.promptVersion ?? '—'}</dd>
-            <dt className="text-muted">{t('ui.cloudSaw.model')}</dt>
-            <dd className="break-all">{sent.model}</dd>
-            <dt className="text-muted">{t('ui.cloudSaw.size')}</dt>
-            <dd>{bytesText(blob?.size ?? sent.bytesOut)}</dd>
-          </dl>
-        </>
-      )}
-    </section>
+    <div
+      className={`flex min-w-0 flex-col gap-1 rounded-card p-3 ${
+        sent ? 'bg-verdict-red-bg text-verdict-red' : 'bg-verdict-teal-bg text-verdict-teal'
+      }`}
+    >
+      <span className="flex items-center justify-between gap-2">
+        <span className="font-mono text-stat-sm font-bold tabular-nums">{value}</span>
+        <Icon name={sent ? 'alert' : 'lock'} className="size-5" />
+      </span>
+      <span className="text-small font-medium">{t(label)}</span>
+    </div>
   );
 }
 
-export function LedgerPanel({ counters: c, entries = [], images = null, headingId, headingRef }: LedgerPanelProps) {
+export function LedgerPanel({ counters: c, entries = [], images, headingId, headingRef }: LedgerPanelProps) {
   const newestFirst = [...entries].reverse();
   return (
-    <div className="flex flex-col gap-4 text-sm">
+    <div className="flex flex-col gap-4 text-small">
       {headingId && (
         // `focus:` rather than `focus-visible:`: the header's Ledger button moves focus here even after a mouse click,
         // and the ring is the only sign that anything happened.
@@ -83,48 +59,67 @@ export function LedgerPanel({ counters: c, entries = [], images = null, headingI
           id={headingId}
           ref={headingRef}
           tabIndex={-1}
-          className="rounded-md text-base font-semibold outline-offset-4 focus:outline-2 focus:outline-focus"
+          className="rounded-md text-title font-semibold outline-offset-4 focus:outline-2 focus:outline-focus"
         >
           {t('ui.ledger.title')}
         </h2>
       )}
-      <div className="rounded-lg border border-line bg-surface-2 p-3">
-        <p className="font-semibold">{t('copy.ledger.counters', { f: c.facesSent, v: c.vaultItemsSent })}</p>
-        <p className="text-xs text-muted">{t('ui.ledger.checkedNote')}</p>
-        <p className="mt-1 text-muted" data-counter="traffic">
+      <div aria-hidden="true" className="grid grid-cols-2 gap-2">
+        <ZeroTile value={c.facesSent} label="ui.tile.faces" />
+        <ZeroTile value={c.vaultItemsSent} label="ui.tile.vault" />
+      </div>
+      <div className="flex flex-col gap-1">
+        <p className="text-small font-semibold">{t('copy.ledger.counters', { f: c.facesSent, v: c.vaultItemsSent })}</p>
+        <p className="text-small text-muted">{t('ui.ledger.checkedNote')}</p>
+        <p className="text-small text-muted tabular-nums" data-counter="traffic">
           {t('ui.ledger.traffic', {
             unique: c.uniqueImages,
             n: c.cloudRequests,
             kb: t('ui.unit.kb', { n: kilobytes(c.bytesSent) }),
           })}
         </p>
-        <p className="mt-1 text-muted" data-counter="local">
+        <p className="text-small text-muted tabular-nums" data-counter="local">
           {t('ui.ledger.local', { k: c.onDeviceCalls, r: c.rulesChecks, b: c.blocked })}
         </p>
       </div>
-      <CloudSaw entries={entries} images={images} />
+      <CloudCopy variant="rail" entries={entries} images={images} />
       {newestFirst.length === 0 ? (
         <p className="text-muted">{t('ui.ledger.empty')}</p>
       ) : (
         <ol aria-label={t('ui.ledger.entries')} className="flex flex-col divide-y divide-line">
-          {newestFirst.map((e) => (
-            <li key={e.id} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 py-1.5 text-xs">
-              <span className="font-semibold">{jobName(e.job)}</span>
-              <span className="text-muted">[{e.payloadClass}]</span>
-              {e.status === 'done' ? <Badge route={hudRoute(e)} /> : <span className="text-muted">{t('ui.hud.running')}</span>}
-              {e.status === 'done' && (
-                <span className="text-muted">
-                  {engineName(e.model)} · {bytesText(e.bytesOut)}
-                  {e.promptVersion ? ` · ${e.promptVersion}` : ''}
-                  {e.imageSha256.length > 0 && e.imagesOut > 0 ? ` · ${t('ui.cloudSaw.sha')} ${e.imageSha256[0].slice(0, 8)}` : ''}
-                  {e.blocked ? ` · ${e.blocked.reason}` : ''}
-                </span>
-              )}
-            </li>
-          ))}
+          {newestFirst.map((e) => {
+            const route = e.status === 'done' ? hudRoute(e) : null;
+            const lane = route ? laneOf(route) : null;
+            return (
+              <li
+                key={e.id}
+                className={`flex flex-wrap items-center gap-x-2 gap-y-1 py-2 ${
+                  route === 'IN_CLOUD' ? 'border-l-2 border-l-route-cloud-fill pl-2' : ''
+                }`}
+              >
+                <span
+                  aria-hidden="true"
+                  className={`size-1.5 shrink-0 rounded-full ${
+                    lane === 'cloud' ? 'bg-route-cloud-fill' : lane === 'device' ? 'bg-route-device-fill' : 'border border-line-strong'
+                  }`}
+                />
+                <span className="font-semibold">{jobName(e.job)}</span>
+                <span className="font-mono text-hud text-muted">[{e.payloadClass}]</span>
+                {route ? <Badge route={route} /> : <span className="text-muted">{t('ui.hud.running')}</span>}
+                {route && (
+                  <span className="w-full min-w-0 break-words text-muted tabular-nums">
+                    {engineName(e.model)} · {bytesText(e.bytesOut)}
+                    {e.promptVersion ? ` · ${e.promptVersion}` : ''}
+                    {e.imageSha256.length > 0 && e.imagesOut > 0 ? ` · ${t('ui.cloudSaw.sha')} ${e.imageSha256[0].slice(0, 8)}` : ''}
+                    {e.blocked ? ` · ${e.blocked.reason}` : ''}
+                  </span>
+                )}
+              </li>
+            );
+          })}
         </ol>
       )}
-      <p className="border-t border-line pt-3 text-xs text-muted">{t('copy.ledger.otherTraffic')}</p>
+      <p className="border-t border-line pt-3 text-small text-muted">{t('copy.ledger.otherTraffic')}</p>
     </div>
   );
 }

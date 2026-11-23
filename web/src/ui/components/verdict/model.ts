@@ -15,7 +15,7 @@ import {
 } from '../../../core/verdict';
 import { t as appLookup, type StringId, type Translate } from '../../../core/strings';
 import type {
-  Route, VaultItem, Verdict, VerdictComparison, VerdictLevel, VerdictLine,
+  DistanceBand, Route, VaultItem, Verdict, VerdictComparison, VerdictLevel, VerdictLine,
 } from '../../../core/types';
 
 export type Tone = 'red' | 'amber' | 'grey' | 'teal' | 'green';
@@ -47,6 +47,16 @@ export interface LineView {
   confidence: string | null;
   /** Whether the line has a "Why?" expansion (a referee reason or supporting clues). */
   why: { reason: string | null; clues: string | null; clueIds: readonly string[]; route: Route } | null;
+  /**
+   * The code-computed distance band (pin, pin_match), for the BandRuler; null otherwise. Presentation only: a band
+   * name, NEVER a distance, effectiveKm or coordinates (SR-07, invariant 5; verdictCard.test pins the keys).
+   */
+  band: DistanceBand | null;
+}
+/** The RiskMeter's markers: `before` only with a comparison (the before verdict's level), `after` the shown level. */
+export interface MeterView {
+  before: VerdictLevel | null;
+  after: VerdictLevel;
 }
 export interface CompareView {
   text: string;
@@ -73,6 +83,8 @@ export interface CardView {
   neverLearns: string;
   /** What the live region announces (compare header first, then the headline unless the header already ends with it). */
   announcement: string;
+  /** The RiskMeter (DESIGN.md §5.3): levels only, never green. */
+  meter: MeterView;
 }
 export interface CardOptions {
   showVaultLabels: boolean;
@@ -169,6 +181,7 @@ export function lineView(line: VerdictLine, vault: readonly VaultItem[], show: b
           route: line.route,
         }
       : null,
+    band: line.band ?? null,
   };
 }
 
@@ -217,6 +230,9 @@ export function verdictCardView(verdict: Verdict, vault: readonly VaultItem[], o
     noVault: v.noVault || hasNoPins(v) ? tr('copy.verdict.noVault') : null,
     neverLearns: tr('copy.verdict.neverLearns'),
     announcement: compare ? (compare.isHeadline ? compare.text : `${compare.text} ${headline}`) : headline,
+    // Before/after markers only under a compare header: a PARTIAL after-verdict (or a level headline) gets none, so the
+    // meter never draws a drop where the card claims no improvement (invariant 7, D-125).
+    meter: { before: cmp && compare ? cmp.before.level : null, after: v.level },
   };
 }
 

@@ -12,6 +12,8 @@ import type { RulesFix, Residual } from '../../core/fixPlan';
 import type { PxRect } from '../../core/types';
 import { Badge } from '../components/Badge';
 import { Button } from '../components/Button';
+import { Icon } from '../components/Icon';
+import { EYEBROW } from '../components/surface';
 
 /** The photo as the fix leaves it: master + solid masks + crop, never the master itself (a failure is solid black). */
 function FixPreview({ master, masks, crop, planned }: { master: HTMLCanvasElement; masks: readonly PxRect[]; crop: PxRect | null; planned: readonly PxRect[] }) {
@@ -41,7 +43,7 @@ function FixPreview({ master, masks, crop, planned }: { master: HTMLCanvasElemen
   });
   return (
     <div className="relative self-start" style={{ maxWidth: '100%' }}>
-      <canvas ref={ref} role="img" aria-label={t('ui.fix.previewAlt')} className="block h-auto max-h-[60vh] w-auto max-w-full rounded-lg border border-line" data-testid="fix-preview" />
+      <canvas ref={ref} role="img" aria-label={t('ui.fix.previewAlt')} className="block h-auto max-h-[60vh] w-auto max-w-full rounded-card bg-mask ring-1 ring-line" data-testid="fix-preview" />
       {planned.map((r, i) => (
         <div key={i} aria-hidden className="pointer-events-none absolute border-2 border-dashed border-verdict-amber" style={pct(r)} />
       ))}
@@ -72,19 +74,19 @@ export interface FixPanelProps {
 
 export function FixPanel(p: FixPanelProps) {
   const { master, fix, applied } = p;
-  if (!master) return <p className="mt-3 text-sm text-muted">{t('ui.verdict.loading')}</p>;
-  const roundLine = <p className="text-xs text-muted">{t('ui.fix.round', { n: p.round.n, max: p.round.max })}</p>;
+  if (!master) return <p className="mt-3 text-body text-muted">{t('ui.verdict.loading')}</p>;
+  const roundLine = <p className={`${EYEBROW} self-start rounded-chip border border-line px-2 py-1`}>{t('ui.fix.round', { n: p.round.n, max: p.round.max })}</p>;
 
   if (applied) {
     return (
       <div className="mt-3 flex flex-col gap-3" data-testid="fix-applied">
         {roundLine}
         <FixPreview master={master} masks={p.baseMasks} crop={p.baseCrop} planned={[]} />
-        <p role="status" className="text-sm">{t('ui.fix.applied', { n: applied.added })}</p>
+        <p role="status" className="flex items-start gap-2 text-body"><Icon name="lock" className="mt-0.5 size-5 text-verdict-teal" />{t('ui.fix.applied', { n: applied.added })}</p>
         {p.blockedCopy ? (
-          <p className="rounded-lg border border-line bg-surface-2 p-3 text-sm">{p.blockedCopy}</p>
+          <p className="rounded-card border border-line bg-surface-2 p-4 text-body">{p.blockedCopy}</p>
         ) : (
-          <Button variant="primary" className="self-start" data-action="reattack" onClick={p.onReattack}>{t('copy.fix.reattack')}</Button>
+          <Button variant="primary" size="lg" className="self-start" data-action="reattack" onClick={p.onReattack}>{t('copy.fix.reattack')}</Button>
         )}
       </div>
     );
@@ -92,7 +94,7 @@ export function FixPanel(p: FixPanelProps) {
   if (p.blockedCopy || !fix) {
     return (
       <div className="mt-3 flex flex-col items-start gap-3">
-        <p className="rounded-lg border border-line bg-surface-2 p-3 text-sm">{p.blockedCopy ?? t('ui.verdict.loading')}</p>
+        <p className="rounded-card border border-line bg-surface-2 p-4 text-body">{p.blockedCopy ?? t('ui.verdict.loading')}</p>
         <Button onClick={p.onCancel}>{t('ui.fix.cancel')}</Button>
       </div>
     );
@@ -105,37 +107,39 @@ export function FixPanel(p: FixPanelProps) {
     <div className="mt-3 flex flex-col gap-3" data-testid="fix-plan">
       {roundLine}
       <div className="flex flex-wrap items-center gap-2">
-        <p className="text-base font-semibold">{t('copy.fix.title')}</p>
+        <p className="text-title font-semibold">{t('copy.fix.title')}</p>
         <Badge route={fix.plan.route} />
       </div>
-      <p className="text-sm text-muted">{t('copy.fix.rules')}</p>
+      <p className="text-small text-muted">{t('copy.fix.rules')}</p>
       <FixPreview master={master} masks={p.baseMasks} crop={p.baseCrop} planned={planned} />
       {(fix.masks.length > 0 || fix.crop) && (
-        <ul className="flex flex-col gap-1 text-sm" aria-label={t('copy.fix.title')}>
+        <ul className="flex flex-col gap-1.5 text-body" aria-label={t('copy.fix.title')}>
           {fix.masks.map((m) => (
             <li key={m.clueId}>
-              <label className="flex items-center gap-2">
-                <input type="checkbox" checked={!off.has(m.clueId)} onChange={() => p.onToggle(m.clueId)} data-clue={m.clueId} />
-                <span>{t('ui.fix.maskItem', { type: m.type.replace(/_/g, ' '), id: m.clueId })}</span>
+              <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg bg-surface-2 px-3 py-2">
+                <input type="checkbox" className="size-5 shrink-0 accent-fg" checked={!off.has(m.clueId)} onChange={() => p.onToggle(m.clueId)} data-clue={m.clueId} />
+                <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-route-device-fill" />
+                <span className="min-w-0 break-words">{t('ui.fix.maskItem', { type: m.type.replace(/_/g, ' '), id: m.clueId })}</span>
               </label>
             </li>
           ))}
           {fix.crop && (
             <li>
-              <label className="flex items-center gap-2">
-                <input type="checkbox" checked={!p.cropOff} onChange={p.onToggleCrop} data-crop={fix.plan.crop} />
-                <span>{t('ui.fix.cropItem', { side: fix.plan.crop })}</span>
+              <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg bg-surface-2 px-3 py-2">
+                <input type="checkbox" className="size-5 shrink-0 accent-fg" checked={!p.cropOff} onChange={p.onToggleCrop} data-crop={fix.plan.crop} />
+                <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-route-device-fill" />
+                <span className="min-w-0">{t('ui.fix.cropItem', { side: fix.plan.crop })}</span>
               </label>
             </li>
           )}
         </ul>
       )}
-      <p className="text-sm">{fix.plan.explanation}</p>
-      {p.residual && <p className="text-sm font-medium" data-testid="fix-expected">{t('ui.fix.expected', { level: p.residual })}</p>}
-      {fix.unremovable && <p className="text-sm text-muted">{t('copy.fix.unremovable')}</p>}
-      {fix.cropTooMuch && <p className="text-sm text-muted">{t('copy.fix.cropTooMuch')}</p>}
-      <div className="flex flex-wrap gap-2 border-t border-line pt-3">
-        <Button variant="primary" disabled={nothing} onClick={p.onApply} data-action="apply-fix">{t('ui.fix.apply')}</Button>
+      <p className="max-w-[68ch] text-body">{fix.plan.explanation}</p>
+      {p.residual && <p className="text-body font-semibold" data-testid="fix-expected">{t('ui.fix.expected', { level: p.residual })}</p>}
+      {fix.unremovable && <p className="max-w-[68ch] text-small text-muted">{t('copy.fix.unremovable')}</p>}
+      {fix.cropTooMuch && <p className="max-w-[68ch] text-small text-muted">{t('copy.fix.cropTooMuch')}</p>}
+      <div className="flex flex-wrap items-center gap-2 border-t border-line pt-4">
+        <Button variant="primary" size="lg" disabled={nothing} onClick={p.onApply} data-action="apply-fix">{t('ui.fix.apply')}</Button>
         <Button onClick={p.onCancel} data-action="cancel-fix">{t('ui.fix.cancel')}</Button>
       </div>
     </div>

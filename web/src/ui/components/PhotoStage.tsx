@@ -17,6 +17,8 @@ import {
   dragRect, keyToOp, masksOf, moveRect, resizeRect, toImagePoint, warningOf, type EditorOp, type EditorState, type UserMask,
 } from '../check/editor';
 import { Button } from './Button';
+import { Icon } from './Icon';
+import { EYEBROW } from './surface';
 
 export interface PhotoStageProps {
   master: HTMLCanvasElement;
@@ -146,13 +148,13 @@ export function PhotoStage({ master, editor, onOp, addButtonRef }: PhotoStagePro
       <div className="flex flex-wrap items-center gap-2">
         <Button ref={addRef} onClick={() => onOp({ op: 'addDefault' })}>{t('ui.editor.addMask')}</Button>
       </div>
-      <p id="stage-hint" className="text-sm text-muted">{t('ui.editor.hint')}</p>
-      <div className="relative w-fit max-w-full self-start">
+      <p id="stage-hint" className="max-w-[68ch] text-small text-muted">{t('ui.editor.hint')}</p>
+      <div className="relative w-fit max-w-full self-start rounded-card bg-mask ring-1 ring-line">
         <canvas
           ref={canvasRef}
           role="img"
           aria-label={t('ui.editor.stage')}
-          className="block h-auto max-h-[70vh] w-auto max-w-full rounded-md bg-mask"
+          className="block h-auto max-h-[70vh] w-auto max-w-full rounded-card bg-mask"
         />
         <div
           ref={overlayRef}
@@ -172,7 +174,9 @@ export function PhotoStage({ master, editor, onOp, addButtonRef }: PhotoStagePro
                 data-flag={it.clue.id}
                 className={`pointer-events-none absolute border-2 ${it.approximate ? 'border-dashed' : 'border-solid'} ${red ? 'border-verdict-red' : 'border-verdict-amber'}`}
                 style={pct(it.clue.box)}
-              />
+              >
+                <span className="absolute top-0 left-0 max-w-full truncate rounded-chip bg-surface-3 px-1 font-mono text-caption text-fg">{it.clue.id}</span>
+              </div>
             );
           })}
           {editor.userMasks.map((m) => {
@@ -186,7 +190,7 @@ export function PhotoStage({ master, editor, onOp, addButtonRef }: PhotoStagePro
                 aria-label={t('ui.editor.userMaskAria', { n: m.n, w: r.w, h: r.h })}
                 aria-describedby="stage-hint"
                 aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight Shift+ArrowUp Shift+ArrowDown Shift+ArrowLeft Shift+ArrowRight Delete"
-                className={`absolute cursor-move bg-mask ${selected ? 'outline-2 outline-offset-2 outline-focus' : 'outline-1 outline-line-strong'} outline`}
+                className={`absolute origin-left animate-mask-in cursor-move bg-mask ${selected ? 'outline-2 outline-offset-2 outline-focus' : 'outline-1 outline-line-strong'} outline`}
                 style={pct(r)}
                 onFocus={() => onOp({ op: 'select', id: m.id })}
                 onKeyDown={(e) => onMaskKey(e, m)}
@@ -205,6 +209,15 @@ export function PhotoStage({ master, editor, onOp, addButtonRef }: PhotoStagePro
             <div aria-hidden="true" className="pointer-events-none absolute bg-mask outline-1 outline-focus outline" style={pct(drag.rect)} />
           )}
         </div>
+      </div>
+      {/* Honest before the send: this is the redacted copy the cloud WOULD see (ui.stage.caption, "the cloud got", is
+          for the stage after a send, so it is not used here). */}
+      <div className="flex flex-wrap items-center gap-2">
+        <p className={EYEBROW}>{t('ui.lanes.out')}</p>
+        <p className="inline-flex items-center gap-1.5 rounded-chip border border-route-cloud-fill/40 bg-lane-cloud-bg px-2 py-0.5 text-small text-route-cloud">
+          <Icon name="cloud" className="size-4" />
+          {t('ui.lanes.cloud')} · {t('ui.lanes.cloudTile')}
+        </p>
       </div>
     </div>
   );

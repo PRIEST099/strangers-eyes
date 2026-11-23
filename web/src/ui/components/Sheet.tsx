@@ -54,13 +54,15 @@ export function Sheet({ open, onClose, title, children }: SheetProps) {
         downOnBackdrop.current = false;
       }}
       className={
-        'mx-0 mt-auto mb-0 max-h-[85dvh] w-full max-w-none overflow-hidden rounded-t-2xl border border-line bg-surface p-0 text-fg shadow-2xl ' +
-        'motion-safe:open:animate-sheet-in sm:m-auto sm:max-w-lg sm:rounded-2xl'
+        'mx-0 mt-auto mb-0 max-h-[85dvh] w-full max-w-none overflow-hidden rounded-t-stage border border-line bg-surface p-0 text-fg shadow-pop ' +
+        'motion-safe:open:animate-sheet-in sm:m-auto sm:max-w-lg sm:rounded-stage'
       }
     >
       <div className="flex max-h-[85dvh] flex-col">
+        {/* The grab bar: a bottom-sheet cue only (closing is Escape, the button or the backdrop). */}
+        <div aria-hidden="true" className="mx-auto mt-2 h-1 w-9 shrink-0 rounded-full bg-line-strong sm:hidden" />
         <div className="flex items-center justify-between gap-2 border-b border-line py-1 pr-1 pl-4">
-          <h2 id={titleId} className="text-base font-semibold">
+          <h2 id={titleId} className="text-h2-sm font-bold tracking-[-0.015em]">
             {title}
           </h2>
           <Button variant="ghost" size="icon" aria-label={t('ui.close')} onClick={() => ref.current?.close()}>

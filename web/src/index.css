@@ -1,13 +1,16 @@
 @import "tailwindcss";
 
 /*
- * Design tokens (SPEC §8.3; ARCH §3.1). Dark is the default (#0b0b0f); light follows prefers-color-scheme.
- * Use them through Tailwind: bg-canvas, bg-surface, text-fg, text-muted, border-line, text-route-device, …
+ * Design tokens (SPEC §8.3; ARCH §3.1; docs/DESIGN.md §2 "Two Lanes, One Wall"). Dark is the default (#0b0b0f);
+ * light follows prefers-color-scheme. Use them through Tailwind: bg-canvas, bg-surface, text-fg, text-muted,
+ * border-line, text-route-device, bg-lane-device-bg, shadow-e1, …
  *
- * Contrast (WCAG AA, checked for T-050): every text token is ≥ 4.5:1 on canvas, surface and surface-2 in both
- * themes, and each verdict colour is ≥ 4.5:1 on its own tint. Outline-only borders (line-strong, the QUEUED and
- * CACHED badge outlines) and the focus ring are ≥ 3:1 against canvas and surface.
- * Masks are solid #000 in both themes, never blur (CLAUDE.md invariant 6).
+ * Contrast (WCAG AA): every text token is ≥ 4.5:1 on canvas, surface and surface-2 in both themes, and each verdict
+ * colour is ≥ 4.5:1 on its own tint and hero. Meaningful borders (line-strong, the Wall/boundary, the QUEUED and
+ * CACHED badge outlines), the route fills and the focus ring are ≥ 3:1. `line` is decorative only.
+ * ui/tokens.test.ts parses this file and asserts every pair in DESIGN.md §2, so a regression fails `check`.
+ * Masks are solid #000 in both themes, never blur, never translucent (CLAUDE.md invariant 6). No backdrop blur.
+ * Traps: light teal text never sits on surface-3 (4.25:1); text never sits on a glow or gradient.
  */
 :root {
   color-scheme: dark;
@@ -15,8 +18,9 @@
   --se-canvas: #0b0b0f;
   --se-surface: #14141b;
   --se-surface-2: #1c1c25;
-  --se-line: #2c2c38;
-  --se-line-strong: #6b6b7e;
+  --se-surface-3: #252530; /* raised chips, hover fills */
+  --se-line: #2c2c38; /* decorative dividers only */
+  --se-line-strong: #6b6b7e; /* meaningful borders, ≥ 3:1 */
   --se-fg: #ececf1;
   --se-muted: #a3a3b2;
   --se-focus: #93c5fd;
@@ -24,6 +28,7 @@
   --se-accent-fg: #0b0b0f;
   --se-danger: #b91c1c;
   --se-danger-fg: #ffffff;
+  --se-danger-line: #f87171; /* quiet-danger outline + text (Burn vault) */
 
   /* Verdict (SPEC §8.3): RED high, AMBER medium, GREY info, GREEN only for "Risk reduced", TEAL protected here. */
   --se-verdict-red: #f87171;
@@ -36,6 +41,11 @@
   --se-verdict-green-bg: #0d2416;
   --se-verdict-teal: #2dd4bf;
   --se-verdict-teal-bg: #0a2422;
+  --se-verdict-red-hero: #3a1218;
+  --se-verdict-amber-hero: #33260a;
+  --se-verdict-grey-hero: #24242c;
+  --se-verdict-green-hero: #0f2e1b;
+  --se-verdict-teal-hero: #0b2b28;
 
   /* Route badges (SPEC §8.3): ON-DEVICE violet, IN CLOUD blue, RULES-ONLY grey, BLOCKED red,
      QUEUED amber outline, CACHED SAMPLE dashed outline. */
@@ -52,7 +62,21 @@
   --se-route-cached: #e4e4e7;
   --se-route-cached-line: #a1a1aa;
 
+  /* Two lanes, one Wall (DESIGN.md §1): dots, lane rules and the packet; lane panels; the Wall and its gate. */
+  --se-route-device-fill: #a78bfa;
+  --se-route-cloud-fill: #60a5fa;
+  --se-lane-device-bg: #17112b;
+  --se-lane-cloud-bg: #0c1a2e;
+  --se-boundary: #6b6b7e; /* the Wall: not decorative, ≥ 3:1 */
+  --se-gate-open: #93c5fd;
+
   --se-mask: #000000;
+  --se-overlay: rgb(0 0 0 / 0.6);
+
+  --se-shadow-1: inset 0 1px 0 rgb(255 255 255 / 0.04), 0 8px 24px rgb(0 0 0 / 0.45);
+  --se-shadow-pop: 0 16px 48px rgb(0 0 0 / 0.55), 0 0 0 1px var(--se-line-strong);
+  --se-glow-device: 0 0 0 1px rgb(167 139 250 / 0.35), 0 0 24px rgb(124 58 237 / 0.22);
+  --se-glow-green: 0 0 0 1px rgb(74 222 128 / 0.45), 0 0 40px rgb(34 197 94 / 0.25);
 
   background-color: var(--se-canvas);
   color: var(--se-fg);
@@ -65,8 +89,9 @@
     --se-canvas: #f6f6f8;
     --se-surface: #ffffff;
     --se-surface-2: #ececf1;
+    --se-surface-3: #e2e2ea;
     --se-line: #d4d4dc;
-    --se-line-strong: #8a8a99;
+    --se-line-strong: #7a7a8c; /* was #8a8a99: 2.89:1 on surface-2 */
     --se-fg: #15151c;
     --se-muted: #52525e;
     --se-focus: #1d4ed8;
@@ -74,6 +99,7 @@
     --se-accent-fg: #ffffff;
     --se-danger: #b91c1c;
     --se-danger-fg: #ffffff;
+    --se-danger-line: #b91c1c;
 
     --se-verdict-red: #b91c1c;
     --se-verdict-red-bg: #fef2f2;
@@ -85,6 +111,11 @@
     --se-verdict-green-bg: #f0fdf4;
     --se-verdict-teal: #0f766e;
     --se-verdict-teal-bg: #f0fdfa;
+    --se-verdict-red-hero: #fee2e2;
+    --se-verdict-amber-hero: #fef3c7;
+    --se-verdict-grey-hero: #f4f4f5;
+    --se-verdict-green-hero: #dcfce7;
+    --se-verdict-teal-hero: #ccfbf1;
 
     --se-route-device: #5b21b6;
     --se-route-device-bg: #ede9fe;
@@ -98,6 +129,18 @@
     --se-route-queued-line: #b45309;
     --se-route-cached: #3f3f46;
     --se-route-cached-line: #71717a;
+
+    --se-route-device-fill: #6d28d9;
+    --se-route-cloud-fill: #1d4ed8;
+    --se-lane-device-bg: #f5f3ff;
+    --se-lane-cloud-bg: #eff6ff;
+    --se-boundary: #7a7a8c;
+    --se-gate-open: #1d4ed8;
+
+    --se-shadow-1: 0 1px 2px rgb(16 16 24 / 0.06), 0 8px 24px rgb(16 16 24 / 0.08);
+    --se-shadow-pop: 0 16px 40px rgb(16 16 24 / 0.16), 0 0 0 1px var(--se-line);
+    --se-glow-device: 0 0 0 1px rgb(109 40 217 / 0.25), 0 0 24px rgb(109 40 217 / 0.12);
+    --se-glow-green: 0 0 0 1px rgb(22 101 52 / 0.25), 0 0 32px rgb(22 163 74 / 0.12);
   }
 }
 
@@ -105,6 +148,7 @@
   --color-canvas: var(--se-canvas);
   --color-surface: var(--se-surface);
   --color-surface-2: var(--se-surface-2);
+  --color-surface-3: var(--se-surface-3);
   --color-line: var(--se-line);
   --color-line-strong: var(--se-line-strong);
   --color-fg: var(--se-fg);
@@ -114,6 +158,7 @@
   --color-accent-fg: var(--se-accent-fg);
   --color-danger: var(--se-danger);
   --color-danger-fg: var(--se-danger-fg);
+  --color-danger-line: var(--se-danger-line);
 
   --color-verdict-red: var(--se-verdict-red);
   --color-verdict-red-bg: var(--se-verdict-red-bg);
@@ -125,6 +170,11 @@
   --color-verdict-green-bg: var(--se-verdict-green-bg);
   --color-verdict-teal: var(--se-verdict-teal);
   --color-verdict-teal-bg: var(--se-verdict-teal-bg);
+  --color-verdict-red-hero: var(--se-verdict-red-hero);
+  --color-verdict-amber-hero: var(--se-verdict-amber-hero);
+  --color-verdict-grey-hero: var(--se-verdict-grey-hero);
+  --color-verdict-green-hero: var(--se-verdict-green-hero);
+  --color-verdict-teal-hero: var(--se-verdict-teal-hero);
 
   --color-route-device: var(--se-route-device);
   --color-route-device-bg: var(--se-route-device-bg);
@@ -139,17 +189,155 @@
   --color-route-cached: var(--se-route-cached);
   --color-route-cached-line: var(--se-route-cached-line);
 
+  --color-route-device-fill: var(--se-route-device-fill);
+  --color-route-cloud-fill: var(--se-route-cloud-fill);
+  --color-lane-device-bg: var(--se-lane-device-bg);
+  --color-lane-cloud-bg: var(--se-lane-cloud-bg);
+  --color-boundary: var(--se-boundary);
+  --color-gate-open: var(--se-gate-open);
+
   --color-mask: var(--se-mask);
+
+  --shadow-e1: var(--se-shadow-1);
+  --shadow-pop: var(--se-shadow-pop);
+  --shadow-glow-device: var(--se-glow-device);
+  --shadow-glow-green: var(--se-glow-green);
 }
 
 @theme {
-  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  /* System fonts only: zero network (DESIGN.md §3). */
+  --font-sans: system-ui, -apple-system, 'Segoe UI Variable Text', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+
+  /* Type scale (size + line-height only; weight and tracking come from components/surface.ts). New names only:
+     Tailwind's own --text-xs..2xl are untouched so files outside the redesign do not shift. */
+  --text-display: 3.5rem;
+  --text-display--line-height: 3.75rem;
+  --text-display-sm: 2.25rem;
+  --text-display-sm--line-height: 2.5rem;
+  --text-verdict: 2.5rem;
+  --text-verdict--line-height: 2.75rem;
+  --text-verdict-sm: 1.75rem;
+  --text-verdict-sm--line-height: 2rem;
+  --text-h1: 2rem;
+  --text-h1--line-height: 2.375rem;
+  --text-h1-sm: 1.625rem;
+  --text-h1-sm--line-height: 2rem;
+  --text-h2: 1.375rem;
+  --text-h2--line-height: 1.75rem;
+  --text-h2-sm: 1.25rem;
+  --text-h2-sm--line-height: 1.625rem;
+  --text-title: calc(17rem / 16);
+  --text-title--line-height: 1.5rem;
+  --text-lead: 1.125rem;
+  --text-lead--line-height: 1.75rem;
+  --text-body: 1rem;
+  --text-body--line-height: 1.5rem;
+  --text-small: 0.875rem;
+  --text-small--line-height: 1.25rem;
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1rem;
+  --text-stat: 2.25rem;
+  --text-stat--line-height: 2.5rem;
+  --text-stat-sm: 1.75rem;
+  --text-stat-sm--line-height: 2rem;
+  --text-hud: calc(13rem / 16);
+  --text-hud--line-height: 1.125rem;
+
+  /* Radii: new names only (Tailwind's --radius-sm..xl are untouched). */
+  --radius-chip: 6px;
+  --radius-card: 14px;
+  --radius-stage: 20px;
+
+  /* Motion: every animation is one-shot, transform/opacity (or clip-path) only, and zeroed by the reduced-motion
+     block below. Never animate a mask's opacity: masks are opaque from their first frame (mask-in is scaleX). */
   --animate-sheet-in: se-sheet-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-chip-in: se-chip-in 200ms ease-out both;
+  --animate-cross: se-cross 700ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-pulse-ring: se-pulse-ring 600ms ease-out 1;
+  --animate-mask-in: se-mask-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-wipe: se-wipe 350ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-pop: se-pop 250ms ease-out both;
+  --animate-rise: se-rise 200ms ease-out both;
 
   @keyframes se-sheet-in {
     from {
       opacity: 0;
       transform: translateY(1.5rem);
+    }
+  }
+  @keyframes se-chip-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes se-cross {
+    0% {
+      opacity: 0;
+      transform: translateX(-48px);
+    }
+    15% {
+      opacity: 1;
+    }
+    85% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+      transform: translateX(48px);
+    }
+  }
+  @keyframes se-pulse-ring {
+    from {
+      opacity: 0.9;
+      transform: scale(1);
+    }
+    to {
+      opacity: 0;
+      transform: scale(1.25);
+    }
+  }
+  @keyframes se-mask-in {
+    from {
+      transform: scaleX(0);
+      transform-origin: left;
+    }
+    to {
+      transform: scaleX(1);
+      transform-origin: left;
+    }
+  }
+  @keyframes se-wipe {
+    from {
+      clip-path: inset(0 100% 0 0);
+    }
+    to {
+      clip-path: inset(0);
+    }
+  }
+  @keyframes se-pop {
+    from {
+      opacity: 0;
+      transform: scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  @keyframes se-rise {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
     }
   }
 }
@@ -164,15 +352,18 @@
     -webkit-text-size-adjust: 100%;
   }
 
-  /* Visible focus for every keyboard-focusable control (AC-061). Only <main> opts out: it is the skip-control and
-     route-change focus target, and a ring around the whole page area helps no one. Other tabindex=-1 targets
-     (the Ledger rail heading, future roving-tabindex widgets) keep a visible focus. */
+  /* Visible focus for every keyboard-focusable control (AC-061). The canvas-coloured halo keeps the ring visible on
+     tints and photos. Only <main> opts out: it is the skip-control and route-change focus target, and a ring around
+     the whole page area helps no one. Other tabindex=-1 targets (the Ledger rail heading, future roving-tabindex
+     widgets) keep a visible focus. */
   :focus-visible {
     outline: 2px solid var(--se-focus);
     outline-offset: 2px;
+    box-shadow: 0 0 0 4px var(--se-canvas);
   }
   #main:focus {
     outline: none;
+    box-shadow: none;
   }
 
   /* No page scroll behind an open modal sheet. */
@@ -181,12 +372,12 @@
   }
 
   dialog::backdrop {
-    background: rgb(0 0 0 / 0.6);
+    background: var(--se-overlay);
   }
 }
 
-/* AC-063: with prefers-reduced-motion, animations (sheet slide, later the mask fill and the streaming shimmer)
-   and transitions are off. */
+/* AC-063: with prefers-reduced-motion, animations (sheet slide, chip-in, the packet crossing, the mask fill, the
+   verdict wipe and the streaming shimmer) and transitions are off. One-shot animations jump to their end state. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
