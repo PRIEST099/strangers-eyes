@@ -42,7 +42,7 @@
 | `SIM` | iPhone 18 Pro, iOS 27.0 runtime, UDID `E950C8A0-185D-40BF-8A62-C113655C0557` |
 | `.scratch/` | Project-local, gitignored temp folder for screenshots, Remote Config dumps and headless Chrome profiles |
 
-Shell variables do **not** persist between Claude's Bash calls. Begin each command with its definitions, for example `FB="npx -y firebase-tools@15.37.0"; $FB projects:list`, or write the command out in full.
+In zsh (the default macOS shell) `$FB` does **not** word-split, so `$FB deploy` fails with "command not found"; write `npx -y firebase-tools@15.37.0 …` out in full. Shell variables do **not** persist between Claude's Bash calls. Begin each command with its definitions, for example `FB="npx -y firebase-tools@15.37.0"; $FB projects:list`, or write the command out in full.
 
 ### Which doc wins
 1. `CLAUDE.md` invariants.

@@ -268,6 +268,7 @@ How a flaw was found:
 | F-248 | Nov 23 | D-160 | integration agent | minor | Home's CTAs fell below 900 px at 1440 once the lanes explainer rendered; a cloud error card used amber (reserved for MEDIUM risk) | Home two-column at xl; error card grey `info` |
 | F-249 | Nov 23 | D-160 | integration agent | minor | Headless full-page captures painted finished animations at their first frame (faded chips, packet stuck at the gate), making screenshots look broken | shoot-ui.mjs bakes each finite animation's end state before capture |
 | F-250 | Nov 23 | D-160 | reviewers (open) | minor | Open: Judge verdict hero starts near y 780 at 1440×900; StepperNav current bar marked only by the device glow; PhotoStage ID chip not echoed in ClueList; RiskMeter settles only on first mount; the Wall packet stays mounted after a send; CloudCopy stage empty state still shows an IN CLOUD badge; CapabilityPanel's S3 badge reflects only offline/kill-switch | Open; none affects privacy or routing |
+| F-251 | Nov 23 | T-107 | main session (self) | minor | The hosting redeploy used RUNBOOK's `$FB` variable, which zsh does not word-split; the command never ran, and an output filter hid the error, so it looked like a quiet success until the live bundle hash was checked | Re-ran with the full npx command; RUNBOOK notes the zsh trap; always verify the live bundle hash after a deploy |
 
 ---
 
@@ -423,6 +424,7 @@ How a flaw was found:
 - The app worked but looked like a developer tool. A design workflow compared three directions and picked "Two Lanes, One Wall": every screen shows what runs on this device (violet), what runs in the cloud (blue), and the wall between them where the gate counts faces and vault items sent (always 0). Verdicts got a big headline, a red/amber/low meter and distance bands; Judge Mode got photo cards that fold into a strip when a run starts.
 - Eighteen agents built it in parallel packages, each checked by an adversarial reviewer. The reviewers caught four real problems, all fixed: the "what the cloud saw" panel could show the previous photo while a new attack was still running; black letterbox bars around the consent image looked like extra masks; the risk meter implied a before/after comparison on a partial result; and a thumbnail read the wrong check's history.
 - No privacy logic changed. All 3361 tests pass, and a new test checks every colour pair for contrast and that nothing anywhere uses blur.
+- The same day it went live on the hosted site. The first deploy attempt silently did nothing (a shell quirk); comparing the live file hashes with the local build caught it.
 
 ### Nov 23: why the attacker kept failing
 - The benchmark attacker failed again this morning, so a small experiment separated "Google is overloaded" from "our request is too heavy". Even the smallest possible request (text only, a one-field answer) timed out on the free-tier flash model, while a lighter Gemini model answered the full photo request in 5–10 seconds with valid output. The cause is overload on that one model, not the photo size or the prompt.
