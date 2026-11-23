@@ -8,13 +8,13 @@
 - Today: Mon Nov 23 2026 (Day 5). Internal deadline Mon Nov 30 12:00 GMT+2.
 - Now: web demo path complete and live (hosting redeployed late Nov 21: CC0 Judge samples D-153, D-156, D-157). Real Nano verified (D-154). Lean iOS app built and tested (D-155; 20/20 XCTest; Simulator run with Apple FM referee + DEBUG fake attacker). README / DEVPOST / VIDEO drafted with [TBD]s. Nov 23 10:06: T-031 resumed on free-tier flash (photos 05–10, 01–03).
 - Next:
-  - T-031 score → gate table, advB.v1 release, T-034 (timeout decision; D-156 notes the 2 × 60 s judge wait).
+  - T-031 and T-034 done Nov 23 (G1/G1b PASS on flash-lite; advB.v1 released). Next: live recordings for the 3 Judge samples on lite (after the redesign lands; needs a DEV capture seam).
   - Real pass B through the app (T-086 evidence) and live recordings for the 3 Judge samples (RUNBOOK §6.2b step 5) — needs paid quota (Sprint 2 window today if the user has it, else Blaze T-003 / Sprint 3).
   - iOS gaps: real Gemini path once, FM pre-screen (T-125), HybridModel explainer (T-129), Auth/RC on iOS (T-120).
   - Fill [TBD]s; gallery screenshots (T-166); filming (T-180..T-187).
 - Blocked: paid-tier work waits on the user (Sprint 2 quota status / Blaze T-003 by Nov 26 / Sprint 3 request by Wed Nov 25 10:00 PT).
 - Last green commit: b01d416. `npm --prefix web run check` green: 3197 tests; iOS `xcodebuild test` 20/20.
-- Checkpoints: G1 in progress (resumed Nov 23) | slice done | loop done (fake AI) | hosted done Nov 21 (hosting only; RC template redeploy after T-003)
+- Checkpoints: **G1 PASS + G1b PASS Nov 23 on flash-lite (5/10 located ≤ 5 km, 0 refusals; fix moved 3/4)** | slice done | loop done (fake AI) | hosted done Nov 21 (hosting only; RC template redeploy after T-003)
 - Adversary model: flash for T-031 from photo 04 (D-136) | iOS path: A (firebase-ios-sdk 12.19.3)
 - Cuts applied: D-141 demo path only, partly reversed by D-155 (iOS lean). Still deferred: T-081 beyond plain export, T-083, T-084, T-096, T-104 (Firestore), T-106, T-151/T-152, T-160, T-200–T-203.
 - **Hackathon quota (Devpost email, Nov 20):** a requested Sprint 2 "Google Account Quota" is billing-enabled Fri Nov 20 → Mon Nov 23 midnight PT (= Tue Nov 24 10:00 GMT+2); Sprint 3 (final) must be requested by Wed Nov 25 10:00 AM PT. RUNBOOK's "we don't need it" assumed Blaze by Nov 26; with Blaze not yet active, Sprint 3 is a cheap backup for the benchmark, recordings and filming (USER decision). **Checked Nov 23 10:30 (read-only):** gcloud shows strangers-eyes `billingEnabled: False`; the 3 billing accounts this login sees are all closed; AI Studio Billing shows "$0 eligible GCP credits", prepay required, 0 projects; every AI Studio project is Free tier and strangers-eyes is not imported. So no Sprint 2 quota is active on this account; paid-tier work stays blocked until the user redeems/links it (or Blaze). Firebase console (same check): plan **Spark (no-cost)**; AI Logic → Gemini Developer API enabled (no-cost tier), Agent Platform API not enabled; AI Logic 'Authenticated-users mode' and 'Template mode' both unenforced (the app always signs in anonymously, so enforcing authenticated-users mode is a possible USER hardening step).
@@ -1166,3 +1166,7 @@ How T-022 ran:
 - **RC published (user approved "Yes, publish it"):** scratch template with only `data_tier=free`, `grounding_enabled=false` changed (RUNBOOK §4.4); live config verified to differ from the repo template in exactly those two keys; live `adversary_model` = gemini-3.5-flash-lite, `timeouts_ms` advA 60000 / advB 45000.
 - Sprint 2 hackathon quota checked read-only: not active on this account (Spark, billing off, $0 credits). Repo visibility checked: already PRIVATE.
 - Running: G1 benchmark on lite (`--models lite --primary lite --retries 0 --adaptive`, photos 01–10); design-direction workflow (3 concepts → judge panel → docs/DESIGN.md).
+
+### 2026-11-23: G1 / G1b on flash-lite: PASS (T-031, T-034 ticked)
+- `run-spike.mjs --mode live --models lite --primary lite --retries 0 --adaptive --photos 01..10` with the live RC on lite: 20 primary calls + 4 fix reruns, all ok, 5.1–10.9 s each (vs 80–180 s and 500/503 on flash). Raw `PRIV/raw/spike-2026-11-23T08-33-46-live-p01_…_10.json`; scored to `benchmark/spike/day1-adversary.md` (aggregates only).
+- **G1 PASS:** 0 refusals; located ≤ 5 km on 5/10 (s02 street, s03 neighbourhood, s04 district, s08 city 3.4 km, s09 street); s01/s06/s10 country, s05/s07 none. **G1b PASS:** the fix moved 3 of 4 (s02 street → country, s03 neighbourhood → country, s08 city → none); s09 stayed street (fix masked 1 clue). advB.v1 released (D-62).

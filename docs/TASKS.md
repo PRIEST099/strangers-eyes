@@ -697,7 +697,7 @@ AC IDs are SPEC's `AC-xxx` only. **SPEC §18** holds the index and traceability 
   - FAIL is not a pivot. Debug the init order, the token registration and the 15-minute enforcement delay.
   - Verify: network evidence (DevTools or the rescued CDP harness) recorded in PROGRESS.
 
-- [ ] T-031 [CLAUDE] Spike B: adversary pass-B go/no-go and fix test (G1, G1b). **Pivot gate.** Due: Fri Nov 20 · Deps: T-008, T-024, T-030, and (T-003 or T-018b = yes) · **Photos ready (T-008, D-71):** `PRIV/spike/` holds 10 photos with `truth.csv`. Some still carry EXIF GPS and author names, so the harness must send only `reencodeClean` output and assert it clean. Record the memorisation caveat next to the G1 result.
+- [x] T-031 [CLAUDE] Spike B: adversary pass-B go/no-go and fix test (G1, G1b). **Pivot gate.** Due: Fri Nov 20 · Deps: T-008, T-024, T-030, and (T-003 or T-018b = yes) · **Photos ready (T-008, D-71):** `PRIV/spike/` holds 10 photos with `truth.csv`. Some still carry EXIF GPS and author names, so the harness must send only `reencodeClean` output and assert it clean. Record the memorisation caveat next to the G1 result. **Ticked Nov 23 (D-159):** G1 PASS and G1b PASS on gemini-3.5-flash-lite (free tier): 10 photos × 2 runs, 0 refusals, 5/10 located ≤ 5 km (s02 street 0.24 km, s03 0.36 km, s04 0.95 km, s08 3.4 km, s09 0.20 km), 5–11 s per call; fix moved 3/4 (s02, s03, s08), s09 stayed street. `benchmark/spike/day1-adversary.md`; advB.v1 released.
   - **Release (D-62):** once this run is recorded in PROGRESS, set `"released": true` for advB.v1 in `shared/prompts/manifest.json` and run `node scripts/check-prompts.mjs`. From then on those files are frozen; any change needs a `*.v2.*` file.
   - Read: SPEC §0.3 (G1); API-NOTES §1.7, §1.10, §1.11, §6.1–6.5, §6.8–6.9; RUNBOOK §5.1
   - Files:
@@ -765,7 +765,7 @@ AC IDs are SPEC's `AC-xxx` only. **SPEC §18** holds the index and traceability 
   - FAIL: switch to Path B (13.2.0, Apple `LanguageModelSession`, fallback in app code). Log a D-entry and update the README plan.
   - Verify: screenshot and console log in PROGRESS; `xcrun simctl shutdown all`.
 
-- [ ] T-034 [CLAUDE] Day-1 decision gate. Due: Fri Nov 20 evening (Sat Nov 21 10:00 at the latest) · Deps: T-030, T-031, T-032 (G3 appended when T-033 is done)
+- [x] T-034 [CLAUDE] Day-1 decision gate. Due: Fri Nov 20 evening (Sat Nov 21 10:00 at the latest) · Deps: T-030, T-031, T-032 (G3 appended when T-033 is done) **Ticked Nov 23 (D-158, D-159):** attacker = gemini-3.5-flash-lite (flash overloaded on the free tier), advB 45 s, advA 60 s, cloud TIMEOUT never retried; RC published.
   - Read: PROGRESS gate table; SPEC §0.3
   - Do: record the results and decision in the PROGRESS Decisions log, using this matrix:
 

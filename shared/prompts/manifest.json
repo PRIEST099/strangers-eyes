@@ -47,7 +47,7 @@
       ],
       "user": "advB.v1.user.md",
       "schema": "advB.v1.schema.json",
-      "released": false
+      "released": true
     },
     "nanoPre.v1": {
       "user": "nanoPre.v1.user.md",
