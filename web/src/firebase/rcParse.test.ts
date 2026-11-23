@@ -40,7 +40,7 @@ function inputOf(key: SpecKey, i: Input): unknown {
 
 // ARCH §13.2, typed by hand: what the template defaults must parse to (AC-295).
 const EXPECTED: Omit<AppConfig, 'routingPolicy'> = {
-  killSwitch: false, policyWarning: null, adversaryModel: 'gemini-3.8-flash', adversaryThinking: 'MEDIUM',
+  killSwitch: false, policyWarning: null, adversaryModel: 'gemini-3.5-flash-lite', adversaryThinking: 'MEDIUM',
   explainCloudModel: 'gemini-3.5-flash-lite', explainThinking: 'LOW',
   promptVersions: { advA: 'advA.v1', advB: 'advB.v1', nanoPre: 'nanoPre.v1', nanoVaultText: 'nanoVaultText.v1', nanoRef: 'nanoRef.v1',
     nanoFix: 'nanoFix.v1', explain: 'explain.v1', fmPre: 'fmPre.v1' },
@@ -48,7 +48,7 @@ const EXPECTED: Omit<AppConfig, 'routingPolicy'> = {
   bandsM: { street: 250, neighbourhood: 1000, district: 5000, city: 30000, country: 500000 },
   autoMaskTypes: ['name_text', 'house_number', 'plate', 'mail_or_document', 'screen'], strictModeDefault: false,
   fuzzyThreshold: 0.8, faceMinConfidence: 0.3, maskPadRatio: 0.15, cloudImageMaxPx: 1536, nanoImageMaxPx: 768, ocrMaxPx: 1600,
-  timeoutsMs: { advA: 90000, advB: 60000, explain: 20000, deviceImage: 60000, deviceText: 30000 },
+  timeoutsMs: { advA: 60000, advB: 45000, explain: 20000, deviceImage: 60000, deviceText: 30000 },
   judgeModeEnabled: true, judgeCachedFallback: true, judgeAutoplayDefault: true, atlasEnabled: true, extensionEnabled: false,
   adversarySeed: 0, source: 'default', warnings: [],
 };
@@ -76,7 +76,7 @@ describe('defaults (AC-295)', () => {
   });
   it('fits ai/models.ts ModelConfig as is (field names and types, ARCH §13.4)', () => {
     const m: ModelConfig = DEFAULT_CONFIG; // a compile-time check
-    expect(m.timeoutsMs.advB).toBe(60000);
+    expect(m.timeoutsMs.advB).toBe(45000);
   });
   it('refuses at import a template whose default breaks its own rule', async () => {
     vi.resetModules();

@@ -57,8 +57,8 @@ Status words: **built** = in the hosted app; **verified** = seen working with th
 | W6 Masks and crop | local | solid fills, 15% padding | none | [`web/src/core/mask.ts`](web/src/core/mask.ts), [`web/src/core/boxes.ts`](web/src/core/boxes.ts) | built |
 | W7 Egress Gate, tripwire, Ledger | all | code | n/a | [`web/src/ai/egressGate.ts`](web/src/ai/egressGate.ts), [`web/src/ai/tripwire.ts`](web/src/ai/tripwire.ts), [`web/src/core/ledger.ts`](web/src/core/ledger.ts) | built |
 | W8 Clue explainer | S2 | `PREFER_ON_DEVICE` | Nano, else `gemini-3.5-flash-lite` | model factory `explainModel` in [`web/src/ai/models.ts`](web/src/ai/models.ts) | factory and gate path only; no screen yet (T-083, deferred) |
-| C1 Pass A (grounded notes) | S3 | `ONLY_IN_CLOUD` + Google Search, display only | `gemini-3.8-flash` | factory `adversaryAModel` in [`web/src/ai/models.ts`](web/src/ai/models.ts) | not wired; grounding needs the paid tier (T-070) |
-| C2 Pass B (structured attack) | S3 | `ONLY_IN_CLOUD`, `responseJsonSchema` | `gemini-3.8-flash` (Remote Config `adversary_model`) | [`web/src/ai/jobs/adversaryB.ts`](web/src/ai/jobs/adversaryB.ts), schema [`shared/prompts/advB.v1.schema.json`](shared/prompts/advB.v1.schema.json) | built; tested with a fake model only [TBD: first real run through the app] |
+| C1 Pass A (grounded notes) | S3 | `ONLY_IN_CLOUD` + Google Search, display only | `gemini-3.5-flash-lite` (Remote Config `adversary_model`) | factory `adversaryAModel` in [`web/src/ai/models.ts`](web/src/ai/models.ts) | not wired; grounding needs the paid tier (T-070) |
+| C2 Pass B (structured attack) | S3 | `ONLY_IN_CLOUD`, `responseJsonSchema` | `gemini-3.5-flash-lite` (Remote Config `adversary_model`; was `gemini-3.8-flash`, D-159) | [`web/src/ai/jobs/adversaryB.ts`](web/src/ai/jobs/adversaryB.ts), schema [`shared/prompts/advB.v1.schema.json`](shared/prompts/advB.v1.schema.json) | built; tested with a fake model only [TBD: first real run through the app] |
 | C3 Re-attack and compare | S3 | as C2, on the fixed copy | as C2 | [`web/src/ui/check/fixFlow.ts`](web/src/ui/check/fixFlow.ts), [`web/src/ui/check/runSend.ts`](web/src/ui/check/runSend.ts) | built; fake model only |
 | Judge Mode (S4) | S4 | `PREFER_ON_DEVICE` | Nano, else `gemini-3.5-flash-lite` | [`web/src/ui/judge/judgeFlow.ts`](web/src/ui/judge/judgeFlow.ts), [`web/src/ui/judge/judgeRun.ts`](web/src/ui/judge/judgeRun.ts) | built |
 | I1 Vault (iOS) | local | Keychain, this device only | none | [`ios/StrangersEyes/Vault/VaultStore.swift`](ios/StrangersEyes/Vault/VaultStore.swift) | in progress [TBD: iOS status] |
@@ -140,11 +140,12 @@ The Router HUD and the Cloud Ledger ("Faces sent: 0 · Vault items sent: 0", and
 | Referee (S0) on real Gemini Nano, through the Egress Gate | `ON_DEVICE`, ~6.1 s warm, 15.6 s cold | Chrome 157 on an Apple-silicon Mac, Nov 21 (D-154) |
 | Pre-screen (S1) on real Gemini Nano, through the Egress Gate | `ON_DEVICE`, 2 clues, ~9.5 s warm, 13.0 s cold | same |
 | Tier-0 OCR on a "LUCAS" tag prop, 30 placements | 14/30 with default binarisation; 30/30 with the union of four binarisation passes | Chrome 156, Nov 20 (T-037) |
-| Free-tier `gemini-3.8-flash` latency in the adversary spike | 80–143 s when it answered, frequent 503s | Nov 21 (T-031) |
+| Free-tier `gemini-3.8-flash` latency in the adversary spike | 80–143 s when it answered, frequent 500/503 (server overload; 180 s server deadline) | Nov 21–23 (T-031) |
+| Free-tier `gemini-3.5-flash-lite`, same attack prompt, schema and images | valid JSON in 4.6 s (LOW, 1024 px) and 10.2 s (MEDIUM, 1536 px) | Nov 23 (T-031 diagnosis) |
 
 **Limitations (stated plainly):**
 - The cloud attacker (pass B) has **not yet run end to end through the app with real quota**; it has been tested with a fake model behind the real gate. [TBD: first real run]
-- Free-tier flash answered in 80–143 s, beyond the 60 s pass-B timeout. The paid-tier decision and the timeout setting are pending (T-034). Until then a live attack on the hosted site may time out.
+- The attacker is `gemini-3.5-flash-lite` (D-159): free-tier `gemini-3.8-flash` was overloaded (500/503 on every call Nov 20–23). Lite is nominally a weaker attacker, so the app may understate what a stronger model could infer; the benchmark is measured on lite. Pass B times out at 45 s.
 - Judge Mode's recorded answers are team-written stand-ins (see §2).
 - Grounded pass A (Search notes) and the S2 explainer are not in this build.
 - Without Nano, S0/S1 run as deterministic RULES-ONLY code. Nano needs capable desktop hardware; Nano on the hosted origin is not yet verified (T-109).

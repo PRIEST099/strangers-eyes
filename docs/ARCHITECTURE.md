@@ -1543,8 +1543,8 @@ The referee result is **unioned** with `rulesReferee`, keeping the stronger stre
 | referee | S0 / S4 | ONLY_ON_DEVICE / PREFER_ON_DEVICE | on-device session | nanoRef.v1 | runtime `refereeSchema(claimIds, vaultIds)` | S4 only | `rulesReferee` | `deviceText` 30 s | busy 2, parse 1 |
 | fixPlan | S0 / S4 | ONLY_ON_DEVICE / PREFER_ON_DEVICE | on-device session | nanoFix.v1 | runtime `fixSchema(removableIds)` | S4 only | `deterministicFix` | `deviceText` 30 s | busy 2, parse 1 |
 | explain | S2 / S4 | PREFER_ON_DEVICE (ONLY_IN_CLOUD when Nano is off) | HybridModel | explain.v1 | plain text (≤ 2 sentences, ≤ 45 words) | `explain_cloud_model` | `explain-fallback.v1.json` | `explain` 20 s | network 1 |
-| adversaryA | S3 | ONLY_IN_CLOUD + `googleSearch`, streamed | `generativeModel(tools:[.googleSearch()])` | advA.v1 | Markdown (display only) | `adversary_model` | none ("on-device findings only") | `advA` 90 s | quota 2, network 1, **refusal 0** |
-| adversaryB | S3 | ONLY_IN_CLOUD, `responseJsonSchema` | `generativeModel` + JSON config | advB.v1 | advB.v1.schema.json | `adversary_model` | Judge Mode: CACHED; otherwise none | `advB` 60 s | quota 2, network 1, truncated/parse 1 (identical request), **refusal 0** |
+| adversaryA | S3 | ONLY_IN_CLOUD + `googleSearch`, streamed | `generativeModel(tools:[.googleSearch()])` | advA.v1 | Markdown (display only) | `adversary_model` | none ("on-device findings only") | `advA` 60 s | quota 2, network 1, **refusal 0** |
+| adversaryB | S3 | ONLY_IN_CLOUD, `responseJsonSchema` | `generativeModel` + JSON config | advB.v1 | advB.v1.schema.json | `adversary_model` | Judge Mode: CACHED; otherwise none | `advB` 45 s | quota 2, network 1, truncated/parse 1 (identical request), **refusal 0** |
 
 Empty enums are invalid JSON Schema. If `removableIds`, `claimIds` or `vaultIds` is empty, skip the device call and run the deterministic path.
 
@@ -2549,7 +2549,7 @@ All values are strings: booleans are `"true"`/`"false"` and JSON is stringified.
 |---|---|---|---|
 | `kill_switch` | BOOLEAN | `false` | Blocks every cloud-capable call. S2/S4 fall back to device or template; Judge Mode uses CACHED. Applied in real time via `onConfigUpdate`. A refused value reads as `true` (fail closed, D-108) |
 | `routing_policy` | JSON | §7 | Nested `{version, classes, jobs}`, merged with the hard floor |
-| `adversary_model` | STRING | `gemini-3.8-flash` | Exact ID, never `-latest` |
+| `adversary_model` | STRING | `gemini-3.5-flash-lite` | Exact ID, never `-latest` (flash-lite since D-159) |
 | `adversary_thinking_level` | STRING | `MEDIUM` | LOW, MEDIUM or HIGH (MINIMAL rejected) |
 | `explain_cloud_model` | STRING | `gemini-3.5-flash-lite` | Cloud side of S2 and S4 |
 | `explain_thinking_level` | STRING | `LOW` | MINIMAL, LOW, MEDIUM or HIGH |
@@ -2567,7 +2567,7 @@ All values are strings: booleans are `"true"`/`"false"` and JSON is stringified.
 | `cloud_image_max_px` | NUMBER | `1536` | Clamped 768–2048 |
 | `nano_image_max_px` | NUMBER | `768` | Clamped 256–768 in code (floored first; D-98): never above the size Nano was verified with |
 | `ocr_max_px` | NUMBER | `1600` | Longest side of the Tier-0 OCR canvas: a downscale of the ≤ 2048 master, never upscaled (SPEC D-20, SCR-06). Clamped 800–2048 (D-83). The gate and the consent dry run OCR the outgoing JPEG at its own size instead |
-| `timeouts_ms` | JSON | `{"advA":90000,"advB":60000,"explain":20000,"deviceImage":60000,"deviceText":30000}` | Per-job timeouts. Each entry is rounded and kept within 1,000–600,000 ms (the model factories' limits); a missing or non-number entry takes its default (D-108) |
+| `timeouts_ms` | JSON | `{"advA":60000,"advB":45000,"explain":20000,"deviceImage":60000,"deviceText":30000}` | Per-job timeouts. Each entry is rounded and kept within 1,000–600,000 ms (the model factories' limits); a missing or non-number entry takes its default (D-108) |
 | `judge_mode_enabled` | BOOLEAN | `true` | |
 | `judge_cached_fallback` | BOOLEAN | `true` | AD-09 |
 | `judge_autoplay_default` | BOOLEAN | `true` | |
@@ -2603,7 +2603,7 @@ The generated copy `research/day1-artifacts/arch/remoteconfig.template.json` pre
   "parameters": {
     "kill_switch": {"defaultValue":{"value":"false"},"valueType":"BOOLEAN","description":"true = block every cloud-capable AI call (S3; S2/S4 cloud side). Device and rules paths keep working; Judge Mode uses CACHED samples."},
     "routing_policy": {"defaultValue":{"value":"{\"version\":1,\"classes\":{\"S0\":{\"web\":\"ONLY_ON_DEVICE\",\"ios\":\"ON_DEVICE_SESSION\",\"noModel\":\"DETERMINISTIC\",\"cloud\":false},\"S1\":{\"web\":\"ONLY_ON_DEVICE\",\"ios\":\"ON_DEVICE_SESSION\",\"noModel\":\"TIER0\",\"cloud\":false},\"S2\":{\"web\":\"PREFER_ON_DEVICE\",\"ios\":\"HYBRID_MODEL\",\"noModel\":\"CLOUD\",\"cloud\":true},\"S3\":{\"web\":\"ONLY_IN_CLOUD\",\"ios\":\"CLOUD\",\"noModel\":\"CLOUD\",\"cloud\":true},\"S4\":{\"web\":\"PREFER_ON_DEVICE\",\"ios\":\"HYBRID_MODEL\",\"noModel\":\"CLOUD\",\"cloud\":true}},\"jobs\":{\"preScreen\":\"S1\",\"vaultTextMatch\":\"S0\",\"referee\":\"S0\",\"fixPlan\":\"S0\",\"explain\":\"S2\",\"adversaryA\":\"S3\",\"adversaryB\":\"S3\"}}"},"valueType":"JSON","description":"Routing by payload class. The client merges it with a hard floor: S0/S1 can never be loosened."},
-    "adversary_model": {"defaultValue":{"value":"gemini-3.8-flash"},"valueType":"STRING","description":"Pass A/B/re-attack model. Exact id, never -latest."},
+    "adversary_model": {"defaultValue":{"value":"gemini-3.5-flash-lite"},"valueType":"STRING","description":"Pass A/B/re-attack model. Exact id, never -latest. flash-lite since D-159 (gemini-3.8-flash overloaded on the free tier)."},
     "adversary_thinking_level": {"defaultValue":{"value":"MEDIUM"},"valueType":"STRING","description":"LOW|MEDIUM|HIGH. MINIMAL is a 400 on gemini-3.8-flash and gemini-4-*."},
     "explain_cloud_model": {"defaultValue":{"value":"gemini-3.5-flash-lite"},"valueType":"STRING","description":"Cloud side of S2 (explainer) and S4 (Judge Mode device jobs)."},
     "explain_thinking_level": {"defaultValue":{"value":"LOW"},"valueType":"STRING","description":"Flash-Lite accepts MINIMAL|LOW|MEDIUM|HIGH."},
@@ -2621,7 +2621,7 @@ The generated copy `research/day1-artifacts/arch/remoteconfig.template.json` pre
     "cloud_image_max_px": {"defaultValue":{"value":"1536"},"valueType":"NUMBER","description":"Longest side of the redacted JPEG sent to the cloud (clamped 768-2048)."},
     "nano_image_max_px": {"defaultValue":{"value":"768"},"valueType":"NUMBER","description":"Longest side of the JPEG given to Gemini Nano. Clamped 256-768 in code (floored first; D-98)."},
     "ocr_max_px": {"defaultValue":{"value":"1600"},"valueType":"NUMBER","description":"Longest side of the Tier-0 Tesseract canvas: a downscale of the <= 2048 px master, never upscaled (SPEC D-20). Clamped 800-2048 (D-83)."},
-    "timeouts_ms": {"defaultValue":{"value":"{\"advA\":90000,\"advB\":60000,\"explain\":20000,\"deviceImage\":60000,\"deviceText\":30000}"},"valueType":"JSON","description":"Per-job timeouts."},
+    "timeouts_ms": {"defaultValue":{"value":"{\"advA\":60000,\"advB\":45000,\"explain\":20000,\"deviceImage\":60000,\"deviceText\":30000}"},"valueType":"JSON","description":"Per-job timeouts."},
     "judge_mode_enabled": {"defaultValue":{"value":"true"},"valueType":"BOOLEAN","description":"Show Judge Mode."},
     "judge_cached_fallback": {"defaultValue":{"value":"true"},"valueType":"BOOLEAN","description":"When the live adversary is unavailable in Judge Mode, replay the recorded pass-B JSON for the synthetic sample (badge CACHED)."},
     "judge_autoplay_default": {"defaultValue":{"value":"true"},"valueType":"BOOLEAN","description":"Judge Mode autoplay default."},

@@ -2,7 +2,7 @@
   "parameters": {
     "kill_switch": {"defaultValue":{"value":"false"},"valueType":"BOOLEAN","description":"true = block every cloud-capable AI call (S3; S2/S4 cloud side). Device and rules paths keep working; Judge Mode uses CACHED samples."},
     "routing_policy": {"defaultValue":{"value":"{\"version\":1,\"classes\":{\"S0\":{\"web\":\"ONLY_ON_DEVICE\",\"ios\":\"ON_DEVICE_SESSION\",\"noModel\":\"DETERMINISTIC\",\"cloud\":false},\"S1\":{\"web\":\"ONLY_ON_DEVICE\",\"ios\":\"ON_DEVICE_SESSION\",\"noModel\":\"TIER0\",\"cloud\":false},\"S2\":{\"web\":\"PREFER_ON_DEVICE\",\"ios\":\"HYBRID_MODEL\",\"noModel\":\"CLOUD\",\"cloud\":true},\"S3\":{\"web\":\"ONLY_IN_CLOUD\",\"ios\":\"CLOUD\",\"noModel\":\"CLOUD\",\"cloud\":true},\"S4\":{\"web\":\"PREFER_ON_DEVICE\",\"ios\":\"HYBRID_MODEL\",\"noModel\":\"CLOUD\",\"cloud\":true}},\"jobs\":{\"preScreen\":\"S1\",\"vaultTextMatch\":\"S0\",\"referee\":\"S0\",\"fixPlan\":\"S0\",\"explain\":\"S2\",\"adversaryA\":\"S3\",\"adversaryB\":\"S3\"}}"},"valueType":"JSON","description":"Routing by payload class. The client merges it with a hard floor: S0/S1 can never be loosened."},
-    "adversary_model": {"defaultValue":{"value":"gemini-3.8-flash"},"valueType":"STRING","description":"Pass A/B/re-attack model. Exact id, never -latest."},
+    "adversary_model": {"defaultValue":{"value":"gemini-3.5-flash-lite"},"valueType":"STRING","description":"Pass A/B/re-attack model. Exact id, never -latest. flash-lite since D-159 (gemini-3.8-flash overloaded on the free tier)."},
     "adversary_thinking_level": {"defaultValue":{"value":"MEDIUM"},"valueType":"STRING","description":"LOW|MEDIUM|HIGH. MINIMAL is a 400 on gemini-3.8-flash and gemini-4-*."},
     "explain_cloud_model": {"defaultValue":{"value":"gemini-3.5-flash-lite"},"valueType":"STRING","description":"Cloud side of S2 (explainer) and S4 (Judge Mode device jobs)."},
     "explain_thinking_level": {"defaultValue":{"value":"LOW"},"valueType":"STRING","description":"Flash-Lite accepts MINIMAL|LOW|MEDIUM|HIGH."},
@@ -20,7 +20,7 @@
     "cloud_image_max_px": {"defaultValue":{"value":"1536"},"valueType":"NUMBER","description":"Longest side of the redacted JPEG sent to the cloud (clamped 768-2048)."},
     "nano_image_max_px": {"defaultValue":{"value":"768"},"valueType":"NUMBER","description":"Longest side of the JPEG given to Gemini Nano. Clamped 256-768 in code (floored first; D-98)."},
     "ocr_max_px": {"defaultValue":{"value":"1600"},"valueType":"NUMBER","description":"Longest side of the Tier-0 Tesseract canvas: a downscale of the <= 2048 px master, never upscaled (SPEC D-20). Clamped 800-2048 (D-83)."},
-    "timeouts_ms": {"defaultValue":{"value":"{\"advA\":90000,\"advB\":60000,\"explain\":20000,\"deviceImage\":60000,\"deviceText\":30000}"},"valueType":"JSON","description":"Per-job timeouts."},
+    "timeouts_ms": {"defaultValue":{"value":"{\"advA\":60000,\"advB\":45000,\"explain\":20000,\"deviceImage\":60000,\"deviceText\":30000}"},"valueType":"JSON","description":"Per-job timeouts."},
     "judge_mode_enabled": {"defaultValue":{"value":"true"},"valueType":"BOOLEAN","description":"Show Judge Mode."},
     "judge_cached_fallback": {"defaultValue":{"value":"true"},"valueType":"BOOLEAN","description":"When the live adversary is unavailable in Judge Mode, replay the recorded pass-B JSON for the synthetic sample (badge CACHED)."},
     "judge_autoplay_default": {"defaultValue":{"value":"true"},"valueType":"BOOLEAN","description":"Judge Mode autoplay default."},

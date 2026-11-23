@@ -3811,6 +3811,16 @@
       {
         "name": "the default",
         "input": {
+          "raw": "gemini-3.5-flash-lite"
+        },
+        "expect": {
+          "value": "gemini-3.5-flash-lite",
+          "warning": null
+        }
+      },
+      {
+        "name": "flash (a valid exact id)",
+        "input": {
           "raw": "gemini-3.8-flash"
         },
         "expect": {
@@ -3844,7 +3854,7 @@
           "raw": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         },
         "expect": {
-          "value": "gemini-3.8-flash",
+          "value": "gemini-3.5-flash-lite",
           "warning": "invalid"
         }
       },
@@ -3854,7 +3864,7 @@
           "raw": "gemini-3.8-flash-latest"
         },
         "expect": {
-          "value": "gemini-3.8-flash",
+          "value": "gemini-3.5-flash-lite",
           "warning": "invalid"
         }
       },
@@ -3864,7 +3874,7 @@
           "raw": "Gemini-3.8-Flash"
         },
         "expect": {
-          "value": "gemini-3.8-flash",
+          "value": "gemini-3.5-flash-lite",
           "warning": "invalid"
         }
       },
@@ -3874,7 +3884,7 @@
           "raw": " gemini-3.8-flash"
         },
         "expect": {
-          "value": "gemini-3.8-flash",
+          "value": "gemini-3.5-flash-lite",
           "warning": "invalid"
         }
       },
@@ -3884,7 +3894,7 @@
           "raw": "gemini-3.8-flash\n"
         },
         "expect": {
-          "value": "gemini-3.8-flash",
+          "value": "gemini-3.5-flash-lite",
           "warning": "invalid"
         }
       },
@@ -3894,7 +3904,7 @@
           "raw": "gemini 3.8 flash"
         },
         "expect": {
-          "value": "gemini-3.8-flash",
+          "value": "gemini-3.5-flash-lite",
           "warning": "invalid"
         }
       },
@@ -3904,7 +3914,7 @@
           "raw": "models/gemini-3.8-flash"
         },
         "expect": {
-          "value": "gemini-3.8-flash",
+          "value": "gemini-3.5-flash-lite",
           "warning": "invalid"
         }
       },
@@ -3914,7 +3924,7 @@
           "raw": "gemini-3.8-flash?key=x"
         },
         "expect": {
-          "value": "gemini-3.8-flash",
+          "value": "gemini-3.5-flash-lite",
           "warning": "invalid"
         }
       },
@@ -3924,7 +3934,7 @@
           "raw": "-gemini"
         },
         "expect": {
-          "value": "gemini-3.8-flash",
+          "value": "gemini-3.5-flash-lite",
           "warning": "invalid"
         }
       },
@@ -3934,7 +3944,7 @@
           "raw": "gemini‐3.8‐flash"
         },
         "expect": {
-          "value": "gemini-3.8-flash",
+          "value": "gemini-3.5-flash-lite",
           "warning": "invalid"
         }
       },
@@ -3944,7 +3954,7 @@
           "raw": ""
         },
         "expect": {
-          "value": "gemini-3.8-flash",
+          "value": "gemini-3.5-flash-lite",
           "warning": "invalid"
         }
       },
@@ -3954,7 +3964,7 @@
           "notString": 3.8
         },
         "expect": {
-          "value": "gemini-3.8-flash",
+          "value": "gemini-3.5-flash-lite",
           "warning": "invalid"
         }
       }
@@ -8060,7 +8070,23 @@
     "rule": "JSON object; each of advA, advB, explain, deviceImage, deviceText takes a finite JSON number, rounded and clamped 1000-600000 ms (ai/models.ts); a missing or non-number entry takes its default; unknown keys are ignored. Any of that is partial. Not an object → invalid",
     "cases": [
       {
-        "name": "the default",
+        "name": "the default (D-159)",
+        "input": {
+          "raw": "{\"advA\":60000,\"advB\":45000,\"explain\":20000,\"deviceImage\":60000,\"deviceText\":30000}"
+        },
+        "expect": {
+          "value": {
+            "advA": 60000,
+            "advB": 45000,
+            "explain": 20000,
+            "deviceImage": 60000,
+            "deviceText": 30000
+          },
+          "warning": null
+        }
+      },
+      {
+        "name": "the previous default (still valid)",
         "input": {
           "raw": "{\"advA\":90000,\"advB\":60000,\"explain\":20000,\"deviceImage\":60000,\"deviceText\":30000}"
         },
@@ -8178,7 +8204,7 @@
         },
         "expect": {
           "value": {
-            "advA": 90000,
+            "advA": 60000,
             "advB": 60000,
             "explain": 20000,
             "deviceImage": 60000,
@@ -8210,8 +8236,8 @@
         },
         "expect": {
           "value": {
-            "advA": 90000,
-            "advB": 60000,
+            "advA": 60000,
+            "advB": 45000,
             "explain": 20000,
             "deviceImage": 60000,
             "deviceText": 30000
@@ -8258,8 +8284,8 @@
         },
         "expect": {
           "value": {
-            "advA": 90000,
-            "advB": 60000,
+            "advA": 60000,
+            "advB": 45000,
             "explain": 20000,
             "deviceImage": 60000,
             "deviceText": 30000
@@ -8274,8 +8300,8 @@
         },
         "expect": {
           "value": {
-            "advA": 90000,
-            "advB": 60000,
+            "advA": 60000,
+            "advB": 45000,
             "explain": 20000,
             "deviceImage": 60000,
             "deviceText": 30000
@@ -8290,8 +8316,8 @@
         },
         "expect": {
           "value": {
-            "advA": 90000,
-            "advB": 60000,
+            "advA": 60000,
+            "advB": 45000,
             "explain": 20000,
             "deviceImage": 60000,
             "deviceText": 30000
@@ -8306,8 +8332,8 @@
         },
         "expect": {
           "value": {
-            "advA": 90000,
-            "advB": 60000,
+            "advA": 60000,
+            "advB": 45000,
             "explain": 20000,
             "deviceImage": 60000,
             "deviceText": 30000
@@ -8322,8 +8348,8 @@
         },
         "expect": {
           "value": {
-            "advA": 90000,
-            "advB": 60000,
+            "advA": 60000,
+            "advB": 45000,
             "explain": 20000,
             "deviceImage": 60000,
             "deviceText": 30000
@@ -8338,8 +8364,8 @@
         },
         "expect": {
           "value": {
-            "advA": 90000,
-            "advB": 60000,
+            "advA": 60000,
+            "advB": 45000,
             "explain": 20000,
             "deviceImage": 60000,
             "deviceText": 30000
@@ -8354,8 +8380,8 @@
         },
         "expect": {
           "value": {
-            "advA": 90000,
-            "advB": 60000,
+            "advA": 60000,
+            "advB": 45000,
             "explain": 20000,
             "deviceImage": 60000,
             "deviceText": 30000
@@ -8372,8 +8398,8 @@
         },
         "expect": {
           "value": {
-            "advA": 90000,
-            "advB": 60000,
+            "advA": 60000,
+            "advB": 45000,
             "explain": 20000,
             "deviceImage": 60000,
             "deviceText": 30000

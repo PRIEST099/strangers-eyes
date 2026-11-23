@@ -70,7 +70,7 @@ final class AppModel {
     guard let url = Bundle.main.url(forResource: "remoteconfig.template", withExtension: "json"),
           let d = try? Data(contentsOf: url), let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
           let params = o["parameters"] as? [String: Any], let p = params["adversary_model"] as? [String: Any],
-          let dv = p["defaultValue"] as? [String: Any], let v = dv["value"] as? String else { return "gemini-3.8-flash" }
+          let dv = p["defaultValue"] as? [String: Any], let v = dv["value"] as? String else { return "gemini-3.5-flash-lite" }
     return v
   }
 
