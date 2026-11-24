@@ -3,7 +3,7 @@
 > Drafted for T-165; the user pastes each field into the Devpost draft (T-171) and submits (T-190). Claude never submits.
 > **Field limits are [UNVERIFIED]** until the real draft form is read (T-167, RUNBOOK §7.5). Counts are Unicode code points between the `<!-- field -->` markers, measured by script.
 > Three USER markers remain: the YouTube URL, the public repo URL, and the platform and category choice.
-> **[USER] Paste only after redeploy #7.** The Misuse paragraph, the Ledger wording and the failover sentence describe the uncommitted working tree. The hosted build (b44a55c) still shows the attacker's guessed place name in the verdict and has no failover code. Commit, redeploy Hosting (T-107) and check the live verdict line before pasting.
+> Redeploy #7 (Nov 24, commit 7b39171) is live: the hosted verdict shows the precision level and confidence only, never the guessed place; failover code is deployed but off until RC lists backup models.
 
 ## Character counts
 
