@@ -6,11 +6,14 @@
 //   image appears, a packet holding the real sent thumbnail crosses the gate once (CACHED never animates: nothing was
 //   sent). The gate counter is the Ledger's own faces/vault counters. Below md it collapses to one 72 px row.
 // - `explainer` (Home, Welcome, About): the same picture with static ghost chips and NO route badges.
+// Job names are plain ("Attacker", "Guess check") unless Settings › Technical details is on; route badges and latency
+// show on every chip either way.
 // Not a live region (the HUD already is). It reads no vault values and imports nothing from vault/.
 import { useEffect, useId, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { hudRoute, jobName, latencyText, ledgerCounters } from '../../core/ledgerView';
 import { t, type StringId } from '../../core/strings';
 import type { LedgerCounters, LedgerEntry } from '../../core/types';
+import { useTechDetails } from '../hooks/usePrefs';
 import { laneOf, type Lane } from '../hud/lanes';
 import { useLedgerCounters, useLedgerEntries } from '../hud/useLedger';
 import { Badge } from './Badge';
@@ -24,6 +27,8 @@ export interface HybridLanesProps {
   className?: string;
   /** Tests only: use these entries (newest last) instead of the app's live Ledger. */
   entries?: readonly LedgerEntry[];
+  /** Tests only: override Settings › Technical details. */
+  tech?: boolean;
 }
 
 /** Chips shown per lane in live mode (older ones collapse into "+n earlier"). */
@@ -196,7 +201,7 @@ function Legend({ className = '' }: { className?: string }) {
 
 // ---------- live ----------
 
-function Chip({ e }: { e: LedgerEntry }) {
+function Chip({ e, tech }: { e: LedgerEntry; tech: boolean }) {
   const r = hudRoute(e);
   return (
     <li
@@ -204,14 +209,14 @@ function Chip({ e }: { e: LedgerEntry }) {
         r === 'CACHED' ? 'border-dashed border-route-cached-line' : 'border-transparent'
       }`}
     >
-      <span className="min-w-0 truncate font-semibold">{jobName(e.job)}</span>
+      <span className="min-w-0 truncate font-semibold">{jobName(e.job, tech)}</span>
       <Badge route={r} />
       <span className="ml-auto text-muted tabular-nums">{latencyText(e.latencyMs)}</span>
     </li>
   );
 }
 
-function ChipList({ lane, list }: { lane: Lane; list: readonly LedgerEntry[] }) {
+function ChipList({ lane, list, tech }: { lane: Lane; list: readonly LedgerEntry[]; tech: boolean }) {
   const shown = list.slice(-LANE_MAX);
   const more = list.length - shown.length;
   return (
@@ -220,7 +225,7 @@ function ChipList({ lane, list }: { lane: Lane; list: readonly LedgerEntry[] }) 
       {shown.length > 0 && (
         <ol aria-label={t(LANE_NAME[lane])} className="flex min-w-0 flex-col gap-1.5">
           {shown.map((e) => (
-            <Chip key={e.id} e={e} />
+            <Chip key={e.id} e={e} tech={tech} />
           ))}
         </ol>
       )}
@@ -240,7 +245,9 @@ function MiniLane({ lane, list }: { lane: Lane; list: readonly LedgerEntry[] }) 
   );
 }
 
-function LiveLanes({ sessionId, className = '', entries: given }: HybridLanesProps) {
+function LiveLanes({ sessionId, className = '', entries: given, tech: givenTech }: HybridLanesProps) {
+  const prefTech = useTechDetails();
+  const tech = givenTech ?? prefTech;
   const liveEntries = useLedgerEntries();
   const liveCounters = useLedgerCounters();
   const all = given ?? liveEntries;
@@ -287,7 +294,7 @@ function LiveLanes({ sessionId, className = '', entries: given }: HybridLanesPro
         <div data-lane="device" className={`flex min-w-0 flex-col gap-2.5 p-3 lg:p-4 ${LANE_BG.device}`}>
           <LaneHead lane="device" count={lanes.device.length} />
           <VaultTile />
-          <ChipList lane="device" list={lanes.device} />
+          <ChipList lane="device" list={lanes.device} tech={tech} />
         </div>
         <WallColumn open={crossing}>
           {packet && (
@@ -306,7 +313,7 @@ function LiveLanes({ sessionId, className = '', entries: given }: HybridLanesPro
         <div data-lane="cloud" className={`flex min-w-0 flex-col gap-2.5 p-3 lg:p-4 ${LANE_BG.cloud}`}>
           <LaneHead lane="cloud" count={lanes.cloud.length} />
           <CloudTile live sessionId={sessionId} entries={given} />
-          <ChipList lane="cloud" list={lanes.cloud} />
+          <ChipList lane="cloud" list={lanes.cloud} tech={tech} />
         </div>
         <GateRow counters={counters} className="col-span-3" />
       </div>
@@ -338,11 +345,15 @@ const GHOST: Record<Lane, StringId[]> = {
   device: ['ui.job.preScreen', 'ui.job.referee', 'ui.job.fixPlan'],
   cloud: ['ui.job.adversaryB'],
 };
+const GHOST_PLAIN: Record<Lane, StringId[]> = {
+  device: ['ui.jobPlain.preScreen', 'ui.jobPlain.referee', 'ui.jobPlain.fixPlan'],
+  cloud: ['ui.jobPlain.adversaryB'],
+};
 
-function GhostChips({ lane }: { lane: Lane }) {
+function GhostChips({ lane, tech }: { lane: Lane; tech: boolean }) {
   return (
     <ul aria-label={t(LANE_NAME[lane])} className="flex min-w-0 flex-col gap-1.5">
-      {GHOST[lane].map((id) => (
+      {(tech ? GHOST : GHOST_PLAIN)[lane].map((id) => (
         <li key={id} className="min-w-0 rounded-chip border border-dashed border-line-strong px-2 py-1 font-mono text-hud text-fg">
           {t(id)}
         </li>
@@ -351,7 +362,9 @@ function GhostChips({ lane }: { lane: Lane }) {
   );
 }
 
-function ExplainerLanes({ className = '' }: { className?: string }) {
+function ExplainerLanes({ className = '', tech: givenTech }: { className?: string; tech?: boolean }) {
+  const prefTech = useTechDetails();
+  const tech = givenTech ?? prefTech;
   const counters = useLedgerCounters();
   const titleId = useId();
   return (
@@ -363,14 +376,14 @@ function ExplainerLanes({ className = '' }: { className?: string }) {
         <div className={`flex min-w-0 flex-col gap-2.5 p-3 lg:p-4 ${LANE_BG.device}`}>
           <LaneHead lane="device" />
           <VaultTile />
-          <GhostChips lane="device" />
+          <GhostChips lane="device" tech={tech} />
         </div>
         <WallColumn open={false} className="hidden md:block" />
         <WallRow />
         <div className={`flex min-w-0 flex-col gap-2.5 p-3 lg:p-4 ${LANE_BG.cloud}`}>
           <LaneHead lane="cloud" />
           <CloudTile live={false} />
-          <GhostChips lane="cloud" />
+          <GhostChips lane="cloud" tech={tech} />
         </div>
         <GateRow counters={counters} className="md:col-span-3" />
       </div>
@@ -381,5 +394,5 @@ function ExplainerLanes({ className = '' }: { className?: string }) {
 }
 
 export function HybridLanes(p: HybridLanesProps) {
-  return p.mode === 'live' ? <LiveLanes {...p} /> : <ExplainerLanes className={p.className} />;
+  return p.mode === 'live' ? <LiveLanes {...p} /> : <ExplainerLanes className={p.className} tech={p.tech} />;
 }

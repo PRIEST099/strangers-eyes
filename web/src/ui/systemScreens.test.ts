@@ -240,9 +240,11 @@ describe('SCR-20 Settings (static)', () => {
   it('P0: the Nano toggle (on), usage with the cap, capNote, Burn vault, the About link; one <h1>', () => {
     const out = html(Settings, { deps: NONE, debug: false });
     const sw = inputs(out, 'role="switch"');
-    expect(sw).toHaveLength(1);
+    expect(sw).toHaveLength(2); // Use Gemini Nano (on) and Technical details (off by default)
     expect(sw[0]).toContain('checked=""');
+    expect(sw[1]).not.toContain('checked');
     expect(has(out, 'ui.settings.useNano')).toBe(true);
+    expect(has(out, 'ui.settings.techDetails')).toBe(true);
     expect(has(out, 'ui.settings.usage.today', { used: 0, cap: INITIAL_STATUS.dailyCap })).toBe(true);
     expect(has(out, 'copy.settings.capNote')).toBe(true);
     expect(has(out, 'ui.burn.action')).toBe(true);
@@ -266,7 +268,7 @@ describe('SCR-20 Settings (static)', () => {
     expect(has(out, 'ui.settings.dev.noNano')).toBe(true);
     expect(has(out, 'ui.settings.dev.offline')).toBe(true);
     const sw = inputs(out, 'role="switch"');
-    expect(sw).toHaveLength(3);
+    expect(sw).toHaveLength(4);
     expect(sw.filter((x) => x.includes('checked=""'))).toHaveLength(1); // only "Use Gemini Nano"
   });
 

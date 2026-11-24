@@ -19,7 +19,7 @@ import {
 
 // ---------- keys and defaults (straight from the template) ----------
 export type RcKey = keyof typeof template.parameters;
-/** The 27 keys, in template order. */
+/** The 28 keys, in template order. */
 export const RC_KEYS: readonly RcKey[] = Object.freeze(Object.keys(template.parameters) as RcKey[]);
 /** `rc.defaultConfig`: every template default string, unchanged (AC-295). */
 export const RC_DEFAULTS: Readonly<Record<RcKey, string>> = Object.freeze(
@@ -48,6 +48,8 @@ export interface AppConfig {
   /** routing.ts effectivePolicy's warning (the HUD logs copy.hud.policyRejected); not repeated in `warnings`. */
   readonly policyWarning: string | null;
   readonly adversaryModel: string;
+  /** `adversary_fallback_models`: pass B's failover order after a 5xx/429 (D-165). Empty = no failover. */
+  readonly adversaryFallbackModels: readonly string[];
   readonly adversaryThinking: AdversaryThinking;
   readonly explainCloudModel: string;
   readonly explainThinking: ExplainThinking;
@@ -116,6 +118,23 @@ function oneOf<T extends string>(allowed: readonly T[], fold: 'upper' | 'lower')
 /** Exact model ID (ai/models.ts isExactModelId: lowercase, no spaces, never "-latest"); no trimming. */
 function parseModelId(raw: string): Parse<string> {
   return raw.length <= MAX_CHARS.string && isExactModelId(raw) ? yes(raw) : NO;
+}
+
+/** At most this many `adversary_fallback_models` entries (each one is a whole extra gate call, D-165). */
+export const MAX_FALLBACK_MODELS = 3;
+/**
+ * `adversary_fallback_models`: a JSON array of at most MAX_FALLBACK_MODELS distinct exact model IDs (isExactModelId; an
+ * empty array = no failover). Anything else is refused whole, never partly used.
+ */
+function parseModelList(raw: string): Parse<string[]> {
+  const p = parseJson(raw);
+  if (!p.ok || !Array.isArray(p.json) || p.json.length > MAX_FALLBACK_MODELS) return NO;
+  const out: string[] = [];
+  for (const v of p.json as unknown[]) {
+    if (!isExactModelId(v) || out.includes(v)) return NO;
+    out.push(v);
+  }
+  return yes(out);
 }
 
 function toNumber(raw: string): number | null {
@@ -237,6 +256,7 @@ const INT32_MAX = 2_147_483_647;
 export const RC_SPECS = {
   kill_switch: { parse: parseBoolean, failSafe: true },
   adversary_model: { parse: parseModelId },
+  adversary_fallback_models: { parse: parseModelList },
   adversary_thinking_level: { parse: oneOf(ADVERSARY_THINKING_LEVELS, 'upper') },
   explain_cloud_model: { parse: parseModelId },
   explain_thinking_level: { parse: oneOf(EXPLAIN_THINKING_LEVELS, 'upper') },
@@ -304,6 +324,7 @@ export function parseConfig(raw: Readonly<Partial<Record<string, unknown>>>, sou
     routingPolicy: policy.policy,
     policyWarning: policy.warning,
     adversaryModel: val('adversary_model'),
+    adversaryFallbackModels: val('adversary_fallback_models'),
     adversaryThinking: val('adversary_thinking_level'),
     explainCloudModel: val('explain_cloud_model'),
     explainThinking: val('explain_thinking_level'),

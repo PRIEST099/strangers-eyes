@@ -40,11 +40,11 @@ function inputOf(key: SpecKey, i: Input): unknown {
 
 // ARCH §13.2, typed by hand: what the template defaults must parse to (AC-295).
 const EXPECTED: Omit<AppConfig, 'routingPolicy'> = {
-  killSwitch: false, policyWarning: null, adversaryModel: 'gemini-3.5-flash-lite', adversaryThinking: 'MEDIUM',
+  killSwitch: false, policyWarning: null, adversaryModel: 'gemini-3.5-flash-lite', adversaryFallbackModels: [], adversaryThinking: 'MEDIUM',
   explainCloudModel: 'gemini-3.5-flash-lite', explainThinking: 'LOW',
   promptVersions: { advA: 'advA.v1', advB: 'advB.v1', nanoPre: 'nanoPre.v1', nanoVaultText: 'nanoVaultText.v1', nanoRef: 'nanoRef.v1',
     nanoFix: 'nanoFix.v1', explain: 'explain.v1', fmPre: 'fmPre.v1' },
-  groundingEnabled: true, dataTier: 'paid', dailyAdversaryCap: 20, maxFixRounds: 3,
+  groundingEnabled: false, dataTier: 'free', dailyAdversaryCap: 20, maxFixRounds: 3, // D-165: tier and grounding = the live free-tier values
   bandsM: { street: 250, neighbourhood: 1000, district: 5000, city: 30000, country: 500000 },
   autoMaskTypes: ['name_text', 'house_number', 'plate', 'mail_or_document', 'screen'], strictModeDefault: false,
   fuzzyThreshold: 0.8, faceMinConfidence: 0.3, maskPadRatio: 0.15, cloudImageMaxPx: 1536, nanoImageMaxPx: 768, ocrMaxPx: 1600,
@@ -57,7 +57,7 @@ describe('defaults (AC-295)', () => {
   it('RC_DEFAULTS is every template default string, unchanged, in template order', () => {
     const params = template.parameters as Record<string, { defaultValue: { value: string } }>;
     expect(RC_KEYS).toEqual(Object.keys(params));
-    expect(RC_KEYS).toHaveLength(27);
+    expect(RC_KEYS).toHaveLength(28);
     expect(RC_DEFAULTS).toEqual(Object.fromEntries(Object.entries(params).map(([k, p]) => [k, p.defaultValue.value])));
     expect(Object.isFrozen(RC_DEFAULTS) && Object.isFrozen(RC_KEYS)).toBe(true);
   });
@@ -203,7 +203,7 @@ describe('parseConfig', () => {
   it('hands out frozen fallback values from parseKey, so no caller can change a default', async () => {
     vi.resetModules(); // a fresh module: no earlier parseConfig() has frozen the shared defaults as a side effect
     const fresh = await import('./rcParse');
-    for (const k of ['prompt_versions', 'bands_m', 'auto_mask_types', 'timeouts_ms'] as const) {
+    for (const k of ['prompt_versions', 'bands_m', 'auto_mask_types', 'timeouts_ms', 'adversary_fallback_models'] as const) {
       const r = fresh.parseKey(k, 'junk');
       expect(r.warning, k).toBe('invalid');
       expect(Object.isFrozen(r.value), k).toBe(true);

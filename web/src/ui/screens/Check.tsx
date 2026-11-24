@@ -220,7 +220,7 @@ export function Check({ judge = null }: { judge?: JudgeCheck | null } = {}) {
   const withRecorded = useCallback(async (o: AttackOutcome, sent: SentImage, runId: string, fix: { masks: readonly PxRect[]; crop: PxRect | null } | null): Promise<AttackOutcome> => {
     const m = master.current;
     if (!judge || !m || !(rcNow.current?.judgeCachedFallback ?? true) || !liveUnavailable(o)) return o;
-    return (await recordedAttack({ sample: judge.sample, image: sent.image, runId, fix, master: { width: m.canvas.width, height: m.canvas.height } })) ?? o;
+    return (await recordedAttack({ sample: judge.sample, image: sent.image, runId, fix, master: { width: m.canvas.width, height: m.canvas.height }, sessionId: session.current.id })) ?? o;
   }, [judge]);
   // The sample is the photo: imported once (the ref survives StrictMode's second effect run), then straight to the pre-screen.
   const sampleStarted = useRef(false);
@@ -417,7 +417,7 @@ export function Check({ judge = null }: { judge?: JudgeCheck | null } = {}) {
     const m = master.current;
     if (!judge || s.kind !== 'ready' || s.dry.failed.length > 0 || attackKind !== 'idle' || !m) return;
     const run = s.run;
-    void recordedAttack({ sample: judge.sample, image: s.dry.image, runId: 'r1', fix: null, master: { width: m.canvas.width, height: m.canvas.height } }).then((rec) => {
+    void recordedAttack({ sample: judge.sample, image: s.dry.image, runId: 'r1', fix: null, master: { width: m.canvas.width, height: m.canvas.height }, sessionId: session.current.id }).then((rec) => {
       if (!rec || flowNow.current !== run) return;
       markSent(run);
       attackDone(run, rec);
@@ -429,7 +429,7 @@ export function Check({ judge = null }: { judge?: JudgeCheck | null } = {}) {
     if (!judge || s.kind !== 'ready' || s.dry.failed.length > 0 || reAttackKind !== 'idle' || !m) return;
     const run = s.run;
     const runId = `r${rounds + 2}`;
-    void recordedAttack({ sample: judge.sample, image: s.dry.image, runId, fix: { masks: s.dry.masks, crop: applied?.crop ?? null }, master: { width: m.canvas.width, height: m.canvas.height } }).then((rec) => {
+    void recordedAttack({ sample: judge.sample, image: s.dry.image, runId, fix: { masks: s.dry.masks, crop: applied?.crop ?? null }, master: { width: m.canvas.width, height: m.canvas.height }, sessionId: session.current.id }).then((rec) => {
       if (!rec || reNow.current !== run) return;
       markResent(run);
       reattackDone(run, rec);

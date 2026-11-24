@@ -6,6 +6,8 @@
 // 3. "What the cloud saw" (SCR-15, <CloudCopy variant="rail">): the exact JPEG of the most recent cloud send, its
 //    sha256 prefix as on the consent sheet (AC-130/AC-230), prompt id, model and size.
 // 4. The entries newest first, each with a lane dot (laneOf(hudRoute(e))) and its route badge.
+// Settings › Technical details (off by default) adds each entry's payload class, prompt version, sha256 prefix and raw
+// model id and gate code; off, an entry reads `Attacker  IN CLOUD  Gemini · 48 KB`. The route badge always shows.
 // Entries hold IDs, kinds, hashes and numbers only (AC-045). Not built yet: the receipt download, the session filter,
 // per-entry gate checks.
 import type { Ref } from 'react';
@@ -13,6 +15,7 @@ import type { SentImageStore } from '../../core/ledgerImages';
 import { bytesText, engineName, hudRoute, jobName } from '../../core/ledgerView';
 import type { LedgerCounters, LedgerEntry } from '../../core/types';
 import { t, type StringId } from '../../core/strings';
+import { useTechDetails } from '../hooks/usePrefs';
 import { laneOf } from '../hud/lanes';
 import { kilobytes } from '../layout';
 import { Badge } from './Badge';
@@ -28,6 +31,8 @@ export interface LedgerPanelProps {
   /** Rail only: its own heading (focus target of the header's Ledger button). In the sheet, the sheet title is the heading. */
   headingId?: string;
   headingRef?: Ref<HTMLHeadingElement>;
+  /** Tests only: override Settings › Technical details. */
+  tech?: boolean;
 }
 
 /** One Zero Tile. Decorative copy of the counters sentence (the real <p> follows), so the grid is aria-hidden. */
@@ -48,7 +53,9 @@ function ZeroTile({ value, label }: { value: number; label: StringId }) {
   );
 }
 
-export function LedgerPanel({ counters: c, entries = [], images, headingId, headingRef }: LedgerPanelProps) {
+export function LedgerPanel({ counters: c, entries = [], images, headingId, headingRef, tech: givenTech }: LedgerPanelProps) {
+  const prefTech = useTechDetails();
+  const tech = givenTech ?? prefTech;
   const newestFirst = [...entries].reverse();
   return (
     <div className="flex flex-col gap-4 text-small">
@@ -82,7 +89,7 @@ export function LedgerPanel({ counters: c, entries = [], images, headingId, head
           {t('ui.ledger.local', { k: c.onDeviceCalls, r: c.rulesChecks, b: c.blocked })}
         </p>
       </div>
-      <CloudCopy variant="rail" entries={entries} images={images} />
+      <CloudCopy variant="rail" entries={entries} images={images} tech={tech} />
       {newestFirst.length === 0 ? (
         <p className="text-muted">{t('ui.ledger.empty')}</p>
       ) : (
@@ -103,15 +110,16 @@ export function LedgerPanel({ counters: c, entries = [], images, headingId, head
                     lane === 'cloud' ? 'bg-route-cloud-fill' : lane === 'device' ? 'bg-route-device-fill' : 'border border-line-strong'
                   }`}
                 />
-                <span className="font-semibold">{jobName(e.job)}</span>
-                <span className="font-mono text-hud text-muted">[{e.payloadClass}]</span>
+                <span className="font-semibold">{jobName(e.job, tech)}</span>
+                {tech && <span className="font-mono text-hud text-muted">[{e.payloadClass}]</span>}
                 {route ? <Badge route={route} /> : <span className="text-muted">{t('ui.hud.running')}</span>}
                 {route && (
                   <span className="w-full min-w-0 break-words text-muted tabular-nums">
-                    {engineName(e.model)} · {bytesText(e.bytesOut)}
-                    {e.promptVersion ? ` · ${e.promptVersion}` : ''}
-                    {e.imageSha256.length > 0 && e.imagesOut > 0 ? ` · ${t('ui.cloudSaw.sha')} ${e.imageSha256[0].slice(0, 8)}` : ''}
-                    {e.blocked ? ` · ${e.blocked.reason}` : ''}
+                    {engineName(e.model, tech)} · {bytesText(e.bytesOut)}
+                    {tech && e.promptVersion ? ` · ${e.promptVersion}` : ''}
+                    {tech && e.imageSha256.length > 0 && e.imagesOut > 0 ? ` · ${t('ui.cloudSaw.sha')} ${e.imageSha256[0].slice(0, 8)}` : ''}
+                    {e.blocked ? ` · ${tech ? e.blocked.reason : t('ui.hud.tagPlain.blocked')}` : ''}
+                    {e.error ? ` · ${tech ? e.error : t('ui.hud.tagPlain.error')}` : ''}
                   </span>
                 )}
               </li>

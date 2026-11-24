@@ -29,3 +29,8 @@ export function useSimulations(): Simulations {
 export function useCapUsed(): number {
   return useSyncExternalStore(subscribe, localPrefs.capUsedToday, serverCap);
 }
+
+/** Settings › "Technical details": privacy classes, prompt ids, hashes and model ids. Off by default. */
+export function useTechDetails(): boolean {
+  return useSettings().techDetails;
+}

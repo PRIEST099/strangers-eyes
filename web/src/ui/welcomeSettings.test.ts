@@ -473,10 +473,19 @@ describe('Settings behaviour (SCR-20)', () => {
     expect(toggles(rt.render(Settings, { deps: NONE, debug: false }))[0].checked).toBe(false);
   });
 
+  it('Technical details: off by default, and the switch stores the setting', () => {
+    const upd = vi.spyOn(localPrefs, 'updateSettings').mockReturnValue(true);
+    const tree = rt.render(Settings, { deps: NONE, debug: false });
+    const tech = toggles(tree).find((x) => x.label === t('ui.settings.techDetails'));
+    expect(tech?.checked).toBe(false);
+    tech?.onChange(true);
+    expect(upd.mock.calls).toEqual([[{ techDetails: true }]]);
+  });
+
   it('Developer switches set the simulations', () => {
     const sim = vi.spyOn(localPrefs, 'setSimulation').mockReturnValue(true);
     const tree = rt.render(Settings, { deps: NONE, debug: true });
-    const [, noNano, offline] = toggles(tree);
+    const [, , noNano, offline] = toggles(tree); // Use Gemini Nano, Technical details, then the two simulations
     expect(noNano.label).toBe(t('ui.settings.dev.noNano'));
     noNano.onChange(true);
     offline.onChange(true);

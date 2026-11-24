@@ -8,11 +8,16 @@
 //   something has been sent.
 // `sessionId` scopes the stage and thumb to one check (the rail stays global: it is the whole Ledger).
 // The object URL lives only while the component is mounted (revoked on change and unmount).
+// When the newest attacker result is a CACHED replay (ledgerView.lastAttackReplayed), the stage and the rail say so in
+// words (ui.cloudSaw.cached) instead of "Nothing has left this device" beside a result, or an earlier photo's copy.
+// Settings › Technical details adds the sha256 prefix, the prompt version and the exact model id; off, the meta is
+// "sent to Gemini" and the size.
 import { useEffect, useId, useState } from 'react';
 import type { SentImageStore } from '../../core/ledgerImages';
-import { bytesText, lastCloudImageSend } from '../../core/ledgerView';
+import { bytesText, engineName, lastAttackReplayed, lastCloudImageSend } from '../../core/ledgerView';
 import { t } from '../../core/strings';
 import type { LedgerEntry } from '../../core/types';
+import { useTechDetails } from '../hooks/usePrefs';
 import { useLedgerEntries, useSentImages } from '../hud/useLedger';
 import { Badge } from './Badge';
 
@@ -26,6 +31,8 @@ export interface CloudCopyProps {
   /** Scope to one check: only that session's IN_CLOUD send counts (stage and thumb). The rail (global Ledger) omits it.
    *  A blocked or CACHED send in this session then shows the empty state, never an earlier photo's copy. */
   sessionId?: string;
+  /** Tests only: override Settings › Technical details. */
+  tech?: boolean;
 }
 
 /** An object URL for the blob while mounted (revoked on change and unmount). */
@@ -54,7 +61,18 @@ export function RedactedGlyph({ className = 'h-10 w-16' }: { className?: string 
   );
 }
 
-function Meta({ sha, entry, size, withPrompt }: { sha: string; entry: LedgerEntry; size: number; withPrompt: boolean }) {
+function Meta({ sha, entry, size, withPrompt, tech }: { sha: string; entry: LedgerEntry; size: number; withPrompt: boolean; tech: boolean }) {
+  if (!tech) {
+    return (
+      // data-sha-prefix is a test hook only (not shown): the copy is still the hashed image (AC-230).
+      <dl data-sha-prefix={sha.slice(0, 8)} className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-0.5 text-small">
+        <dt className="text-muted">{t('ui.cloudSaw.sentTo')}</dt>
+        <dd>{engineName(entry.model, false)}</dd>
+        <dt className="text-muted">{t('ui.cloudSaw.size')}</dt>
+        <dd className="tabular-nums">{bytesText(size)}</dd>
+      </dl>
+    );
+  }
   return (
     <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-0.5 font-mono text-hud">
       <dt className="text-muted">{t('ui.cloudSaw.sha')}</dt>
@@ -77,12 +95,16 @@ function Meta({ sha, entry, size, withPrompt }: { sha: string; entry: LedgerEntr
   );
 }
 
-export function CloudCopy({ variant, className, entries: givenEntries, images: givenImages, sessionId }: CloudCopyProps) {
+export function CloudCopy({ variant, className, entries: givenEntries, images: givenImages, sessionId, tech: givenTech }: CloudCopyProps) {
   const liveEntries = useLedgerEntries();
   const liveImages = useSentImages();
+  const prefTech = useTechDetails();
+  const tech = givenTech ?? prefTech;
   const entries = givenEntries ?? liveEntries;
   const images = givenImages === undefined ? liveImages : givenImages;
-  const sent = lastCloudImageSend(entries, sessionId);
+  const replayed = lastAttackReplayed(entries, sessionId);
+  // A recording on screen: no copy of THIS result was sent, so no image is shown for it (not even an earlier photo's).
+  const sent = replayed ? null : lastCloudImageSend(entries, sessionId);
   const sha = sent?.imageSha256[0] ?? null;
   const blob = sha && images ? images.get(sha) : null;
   const url = useBlobUrl(blob);
@@ -103,7 +125,7 @@ export function CloudCopy({ variant, className, entries: givenEntries, images: g
         {!sent || !sha ? (
           <div className="flex min-h-40 flex-col items-center justify-center gap-3 rounded-card border-2 border-dashed border-line-strong bg-surface p-6 text-center">
             <RedactedGlyph className="h-12 w-20" />
-            <p className="text-body text-muted">{t('copy.cloudSaw.empty')}</p>
+            <p className="text-body text-muted" data-cloud-saw-replayed={replayed ? '' : undefined}>{t(replayed ? 'ui.cloudSaw.cached' : 'copy.cloudSaw.empty')}</p>
           </div>
         ) : url ? (
           <div className="overflow-hidden rounded-card bg-mask ring-2 ring-route-cloud-fill">
@@ -118,7 +140,7 @@ export function CloudCopy({ variant, className, entries: givenEntries, images: g
             <span id={titleId} className="text-title font-semibold">{t('ui.cloudSaw.title')}</span>
           </span>
           <span className="text-small text-muted">{t('ui.stage.caption')}</span>
-          {sent && sha && <Meta sha={sha} entry={sent} size={blob?.size ?? sent.bytesOut} withPrompt={false} />}
+          {sent && sha && <Meta sha={sha} entry={sent} size={blob?.size ?? sent.bytesOut} withPrompt={false} tech={tech} />}
         </figcaption>
       </figure>
     );
@@ -129,9 +151,9 @@ export function CloudCopy({ variant, className, entries: givenEntries, images: g
     <section aria-labelledby={titleId} data-cloud-saw={sha ?? 'none'} className="flex flex-col gap-2">
       <h3 id={titleId} className="text-title font-semibold">{t('ui.cloudSaw.title')}</h3>
       {!sent || !sha ? (
-        <p className="flex items-center gap-3 text-small text-muted">
+        <p className="flex items-center gap-3 text-small text-muted" data-cloud-saw-replayed={replayed ? '' : undefined}>
           <RedactedGlyph />
-          {t('copy.cloudSaw.empty')}
+          {t(replayed ? 'ui.cloudSaw.cached' : 'copy.cloudSaw.empty')}
         </p>
       ) : (
         <>
@@ -142,7 +164,7 @@ export function CloudCopy({ variant, className, entries: givenEntries, images: g
           ) : (
             <p className="text-small text-muted">{t('ui.cloudSaw.notKept')}</p>
           )}
-          <Meta sha={sha} entry={sent} size={blob?.size ?? sent.bytesOut} withPrompt />
+          <Meta sha={sha} entry={sent} size={blob?.size ?? sent.bytesOut} withPrompt tech={tech} />
         </>
       )}
     </section>

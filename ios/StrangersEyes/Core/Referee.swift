@@ -169,7 +169,19 @@ enum Referee {
   /// the pair; notes ["+rules"] when a valid rules match entered the union.
   static let deviceCapNote = "device-only: capped at possible"
 
-  static func mergeMatches(_ device: [RefereeMatch], _ rules: [RefereeMatch]) -> (matches: [RefereeMatch], notes: [String]) {
+  /// D-168: the note when a device-only place-guess × pin link was dropped (the distance bands decide geography).
+  static let deviceGeoNote = "device-only place × pin: dropped (bands decide)"
+
+  /// D-168: which claims are place guesses (kind "area") and which vault items are pins, by id.
+  struct GeoPairs { var areaClaimIds: Set<String>; var pinVaultIds: Set<String> }
+  static func geoPairs(_ claims: [RefereeClaim], _ items: [RefereeVaultItem]) -> GeoPairs {
+    // An id that also names a non-area claim is left out: a pass-B id collision fails toward the D-157 cap, never a drop.
+    let other = Set(claims.filter { $0.kind != "area" }.map(\.id))
+    return GeoPairs(areaClaimIds: Set(claims.filter { $0.kind == "area" && !other.contains($0.id) }.map(\.id)),
+                    pinVaultIds: Set(items.filter { isPinKind($0.kind) }.map(\.id)))
+  }
+
+  static func mergeMatches(_ device: [RefereeMatch], _ rules: [RefereeMatch], geo: GeoPairs? = nil) -> (matches: [RefereeMatch], notes: [String]) {
     var order: [String] = []
     var out: [String: RefereeMatch] = [:]
     func take(_ m: RefereeMatch, _ route: String) {
@@ -192,12 +204,18 @@ enum Referee {
     }
     // D-157: a device match for a pair that NO rules match links is capped at "possible" (after the union): FM and Nano
     // grade generic-word overlaps ("A coastal city" vs "City General Hospital") as exact.
+    // D-168: a device-only link between a place guess (kind "area") and a pin is dropped, not capped: nearness to a pin is
+    // geometry, and geometry is code (invariant 5; the distance bands show it). Rules evidence for the pair keeps it.
     var capped = false
+    var dropped = false
     for k in order where !ruled.contains(k) {
-      if var m = out[k], rank[m.strength]! > rank["possible"]! { m.strength = "possible"; out[k] = m; capped = true }
+      guard var m = out[k] else { continue }
+      if let g = geo, g.areaClaimIds.contains(m.claimId), g.pinVaultIds.contains(m.vaultId) { out[k] = nil; dropped = true; continue }
+      if rank[m.strength]! > rank["possible"]! { m.strength = "possible"; out[k] = m; capped = true }
     }
     var notes: [String] = used ? [rulesNote] : []
     if capped { notes.append(deviceCapNote) }
+    if dropped { notes.append(deviceGeoNote) }
     return (order.compactMap { out[$0] }, notes)
   }
 }

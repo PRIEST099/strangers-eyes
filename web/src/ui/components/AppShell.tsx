@@ -192,9 +192,11 @@ export function AppShell({ route, capabilityOnStart = false, focusMainOnStart = 
         }}
       />
 
-      <div className="flex min-h-0 min-w-0 flex-1">
-        {/* pb-28 keeps the last content scrollable above the 48 px HUD pill (AC-222). */}
-        <main id="main" ref={mainRef} tabIndex={-1} className="min-w-0 flex-1 px-4 pt-6 pb-28 sm:px-6 lg:overflow-y-auto lg:px-8">
+      {/* At lg the row stops 72 px above the bottom (lg:pb-[4.5rem]): the HUD pill floats in that reserved band, so it never
+          covers main or the Ledger rail at any scroll position. Below lg the HUD is a 72 px solid dock (RouterHUD) and
+          main's pb-28 keeps the end of every page scrollable clear of it (AC-222). */}
+      <div className="flex min-h-0 min-w-0 flex-1 lg:pb-[4.5rem]">
+        <main id="main" ref={mainRef} tabIndex={-1} className="min-w-0 flex-1 px-4 pt-6 pb-28 sm:px-6 lg:overflow-y-auto lg:border-b lg:border-line lg:px-8 lg:pb-10">
           <div className={`mx-auto w-full ${wide ? 'max-w-6xl' : 'max-w-3xl'}`}>
             <ShellContext.Provider value={{ caps, openCapability: () => setCapOpenOn(routeKey) }}>{children}</ShellContext.Provider>
           </div>
@@ -202,7 +204,7 @@ export function AppShell({ route, capabilityOnStart = false, focusMainOnStart = 
         <aside
           id={LEDGER_RAIL_ID}
           aria-labelledby={RAIL_TITLE_ID}
-          className="hidden w-72 shrink-0 overflow-y-auto border-l border-line bg-canvas p-4 lg:block xl:w-80"
+          className="hidden w-72 shrink-0 overflow-y-auto border-b border-l border-line bg-canvas p-4 lg:block xl:w-80"
         >
           <LedgerPanel counters={counters} entries={ledgerEntries} images={images} headingId={RAIL_TITLE_ID} headingRef={railHeadingRef} />
         </aside>

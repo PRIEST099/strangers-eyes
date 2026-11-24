@@ -345,3 +345,23 @@ describe('buildVerdict over rulesReferee (the rules-only path end to end)', () =
     for (const l of all) expect(['RED', 'AMBER', 'LOW', 'PARTIAL']).toContain(l);
   });
 });
+
+describe('bestGuessCopy: level and confidence, never the guessed place (misuse hardening, Nov 24)', () => {
+  it('has no label parameter and its text never contains the hypothesis label', () => {
+    const tr = createT(STRINGS, { strict: true });
+    const v = buildVerdict({
+      adv: {
+        status: 'ok', inferences: [],
+        hypotheses: [{ id: 'h1', label: 'Zanzibar Quay Plaza', level: 'street', lat: 1.5, lng: 2.5, radiusKm: 0.2, confidence: 'high', clueIds: [] }],
+      },
+      matches: [], vault: [],
+    });
+    expect(v.bestGuess?.label).toBe('Zanzibar Quay Plaza'); // kept for on-device code only
+    const bg = bestGuessCopy(v);
+    expect(bg).toEqual({ copyId: 'copy.verdict.bestGuess', params: { level: 'street', confidence: 'high' } });
+    const text = bg ? tr(bg.copyId, bg.params) : '';
+    expect(text).toBe("Attacker's best guess: street level · attacker confidence high");
+    expect(text).not.toContain('Zanzibar');
+    expect(STRINGS['copy.verdict.bestGuess']).not.toContain('{label}');
+  });
+});

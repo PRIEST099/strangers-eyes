@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import vectors from '@vectors/referee.json';
 import enums from '@prompts/enums.v1.json';
 import {
-  acronym, claimReadings, isGenericLabel, KIND_COMPAT, mergeMatches, refereeClaims, refereeVaultItems, RULES_NOTE,
-  RULES_REFEREE_COPY_ID, rulesReferee, rulesStrength, type RefereeClaim, type RefereeRule, type RefereeVaultItem,
+  acronym, claimReadings, geoPairs, isGenericLabel, KIND_COMPAT, mergeMatches, refereeClaims, refereeVaultItems, RULES_NOTE,
+  RULES_REFEREE_COPY_ID, rulesReferee, rulesStrength, type GeoPairs, type RefereeClaim, type RefereeRule, type RefereeVaultItem,
 } from './referee';
 import { isGenericVaultString } from '../vault/vaultStore';
 import { STRINGS } from './strings';
@@ -19,7 +19,7 @@ type VCase =
       expect: { strength: MatchStrength | null; rule?: RefereeRule } }
   | { fn: 'vaultItems'; name: string; ac?: string; items: VaultItem[]; expect: RefereeVaultItem[] }
   | { fn: 'referee'; name: string; ac?: string; claims: RefereeClaim[]; vault: string[]; expect: { matches: RefereeMatch[] } }
-  | { fn: 'merge'; name: string; device: RefereeMatch[]; rules: RefereeMatch[]; expect: { matches: RefereeMatch[]; notes: string[] } };
+  | { fn: 'merge'; name: string; device: RefereeMatch[]; rules: RefereeMatch[]; geo?: GeoPairs; expect: { matches: RefereeMatch[]; notes: string[] } };
 type Fn = VCase['fn'];
 
 const V = vectors as unknown as {
@@ -96,7 +96,7 @@ describe('refereeVaultItems (referee.json)', () => {
 describe('mergeMatches (referee.json)', () => {
   for (const c of casesOf('merge')) {
     it(c.name, () => {
-      expect(mergeMatches(c.device, c.rules)).toEqual(c.expect);
+      expect(mergeMatches(c.device, c.rules, c.geo)).toEqual(c.expect);
     });
   }
 });
@@ -261,5 +261,28 @@ describe('labels and notes', () => {
     expect(JSON.stringify([device, rules])).toBe(before);
     matches[0].clueIds.push('zz');
     expect(rules[0].clueIds).toEqual(['c1']);
+  });
+});
+
+describe('geoPairs (D-168)', () => {
+  it('names the area claims and the pin items by id, nothing else', () => {
+    const claims: RefereeClaim[] = [
+      { id: 'i1', kind: 'workplace', value: 'a hospital', confidence: 'high', clueIds: [] },
+      { id: 'h1', kind: 'area', value: 'Berlin, Germany', confidence: 'medium', clueIds: [] },
+    ];
+    const items: RefereeVaultItem[] = [
+      { id: 'w', kind: 'work_pin', label: 'City General Hospital', aliases: [] },
+      { id: 'e', kind: 'employer', label: 'City General Hospital', aliases: [] },
+      { id: 'h', kind: 'home_pin', label: 'Home', aliases: [] },
+    ];
+    expect(geoPairs(claims, items)).toEqual({ areaClaimIds: ['h1'], pinVaultIds: ['w', 'h'] });
+  });
+  it('leaves out an area id that also names a non-area claim (a collision caps, never drops)', () => {
+    const claims: RefereeClaim[] = [
+      { id: 'h1', kind: 'home_area', value: 'Elm Park area', confidence: 'high', clueIds: [] },
+      { id: 'h1', kind: 'area', value: 'Berlin, Germany', confidence: 'medium', clueIds: [] },
+      { id: 'h2', kind: 'area', value: 'Potsdam', confidence: 'low', clueIds: [] },
+    ];
+    expect(geoPairs(claims, []).areaClaimIds).toEqual(['h2']);
   });
 });

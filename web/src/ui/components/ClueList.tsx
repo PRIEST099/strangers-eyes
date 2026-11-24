@@ -12,6 +12,7 @@ import { t, type StringId } from '../../core/strings';
 import type { Tier0StepId } from '../../tier0/tier0';
 import { needsConfirm, warningOf, type EditorItem, type EditorOp, type EditorState } from '../check/editor';
 import { clueLabelId, readerLabelId, rowDetail, severityLabelId } from '../check/prescreenView';
+import { useTechDetails } from '../hooks/usePrefs';
 import { Button } from './Button';
 import { Icon } from './Icon';
 
@@ -36,6 +37,7 @@ export function ClueList({ editor, onOp, failed = [], afterRemove }: ClueListPro
   const [confirming, setConfirming] = useState<string | null>(null);
   const confirmRef = useRef<HTMLButtonElement>(null);
   const uid = useId();
+  const tech = useTechDetails();
   const faces = editor.items.filter((it) => it.clue.type === 'face');
   const warnings = editor.items.map((it) => warningOf(it, editor)).filter((w): w is NonNullable<typeof w> => w !== null);
   const toggle = (it: EditorItem) => {
@@ -60,7 +62,7 @@ export function ClueList({ editor, onOp, failed = [], afterRemove }: ClueListPro
       <ul className="flex flex-col gap-2">
         {editor.items.map((it) => {
           const label = t(clueLabelId(it));
-          const reader = readerLabelId(it.clue.readers);
+          const reader = readerLabelId(it.clue.readers, tech);
           const detail = rowDetail(it, label);
           const warning = warningOf(it, editor);
           const warnId = `${uid}-warn-${it.clue.id}`;

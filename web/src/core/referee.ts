@@ -13,7 +13,7 @@ import {
   isDistinctive, isGeneric, makeTerm, normalize, prepare, termInWords, tokenSim, tokens, wordsOfText,
 } from '../tier0/fuzzy';
 import {
-  STRENGTHS, type AdversaryResult, type ClaimKind, type Confidence, type MatchStrength, type RefereeMatch,
+  PIN_KINDS, STRENGTHS, type AdversaryResult, type ClaimKind, type Confidence, type MatchStrength, type RefereeMatch,
   type VaultItem, type VaultKind,
 } from './types';
 import type { StringId } from './strings';
@@ -241,7 +241,7 @@ export interface MergedMatches { matches: RefereeMatch[]; /** [RULES_NOTE] when 
  * (AC-161: device output should already be validated). notes carries '+rules' when at least one valid rules match
  * entered the union (D-90). For the rules-only path (no device result), use rulesReferee's output directly.
  */
-export function mergeMatches(device: readonly RefereeMatch[], rules: readonly RefereeMatch[]): MergedMatches {
+export function mergeMatches(device: readonly RefereeMatch[], rules: readonly RefereeMatch[], geo?: GeoPairs): MergedMatches {
   const key = (m: RefereeMatch) => `${m.claimId}\u0000${m.vaultId}`;
   const out = new Map<string, RefereeMatch>();
   const take = (m: RefereeMatch, route: RefereeMatch['route']) => {
@@ -261,12 +261,38 @@ export function mergeMatches(device: readonly RefereeMatch[], rules: readonly Re
   // D-157: a device match for a pair that NO rules match links is capped at 'possible' (after the union). Nano and Apple
   // FM grade generic-word overlaps ("A coastal city" vs "City General Hospital") as exact; any rules evidence (a shared
   // distinctive token, an acronym, a synonym class) lets the device upgrade as before (D-90).
+  // D-168: a device-only link between a place guess (claim kind 'area') and a PIN is dropped, not capped. Whether a guessed
+  // place is near a pin is geometry, and geometry is code (invariant 5: the distance bands already show it); Apple FM linked
+  // "Berlin, Germany" to the work pin "City General Hospital" on the word "city". Any rules evidence for the pair keeps it.
+  const areaClaims = new Set(geo?.areaClaimIds ?? []);
+  const pins = new Set(geo?.pinVaultIds ?? []);
   let capped = false;
+  let dropped = false;
   for (const [k, m] of out) {
-    if (!ruled.has(k) && RANK[m.strength] > RANK.possible) { out.set(k, { ...m, strength: 'possible' }); capped = true; }
+    if (ruled.has(k)) continue;
+    if (areaClaims.has(m.claimId) && pins.has(m.vaultId)) { out.delete(k); dropped = true; continue; }
+    if (RANK[m.strength] > RANK.possible) { out.set(k, { ...m, strength: 'possible' }); capped = true; }
   }
-  return { matches: [...out.values()], notes: [...(rulesUsed ? [RULES_NOTE] : []), ...(capped ? [DEVICE_CAP_NOTE] : [])] };
+  return {
+    matches: [...out.values()],
+    notes: [...(rulesUsed ? [RULES_NOTE] : []), ...(capped ? [DEVICE_CAP_NOTE] : []), ...(dropped ? [DEVICE_GEO_NOTE] : [])],
+  };
 }
+
+/** D-168: which claims are place guesses (kind 'area') and which vault items are pins (PIN_KINDS), by id. */
+export interface GeoPairs { areaClaimIds: readonly string[]; pinVaultIds: readonly string[] }
+/** The GeoPairs of a referee run's claims and vault items. */
+export const geoPairs = (claims: readonly RefereeClaim[], items: readonly RefereeVaultItem[]): GeoPairs => {
+  // Pass-B ids are unique within inferences and within hypotheses, not across them: an id that also names a non-area
+  // claim is left out, so a collision fails toward the D-157 cap, never toward a drop.
+  const other = new Set(claims.filter((c) => c.kind !== 'area').map((c) => c.id));
+  return {
+    areaClaimIds: claims.filter((c) => c.kind === 'area' && !other.has(c.id)).map((c) => c.id),
+    pinVaultIds: items.filter((v) => PIN_KINDS.includes(v.kind)).map((v) => v.id),
+  };
+};
 
 /** The HUD note when D-157 capped a device-only match. */
 export const DEVICE_CAP_NOTE = 'device-only: capped at possible';
+/** The HUD note when D-168 dropped a device-only place-guess × pin link (the distance bands decide). */
+export const DEVICE_GEO_NOTE = 'device-only place × pin: dropped (bands decide)';

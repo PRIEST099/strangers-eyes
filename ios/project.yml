@@ -29,6 +29,9 @@ targets:
         buildPhase: resources
       - path: ../remoteconfig.template.json # RC keys + client defaults (ARCH §13.4, AD-28) → Bundle.main root
         buildPhase: resources
+      - path: ../web/public/samples # Judge Mode: the SAME CC0 samples, manifest, recorded pass-B answers and SOURCES.md as the web (folder reference → Bundle.main/samples; never copied into ios/)
+        type: folder
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.strangerseyes.app # T-019, D-69
@@ -62,7 +65,7 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
     dependencies:
       - target: StrangersEyes
-  StrangersEyesUITests: # DEBUG demo run: real taps through the full flow with the fake attacker (ios/NOTES.md)
+  StrangersEyesUITests: # demo run: real taps through Judge Mode on the level-crossing sample (recorded attacker, live Apple FM; ios/NOTES.md)
     type: bundle.ui-testing
     platform: iOS
     sources:

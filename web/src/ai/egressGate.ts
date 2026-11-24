@@ -75,7 +75,8 @@ export type ModelSpec =
   | { kind: 'judgeJson'; io: NanoIo; schema: object }       // S4 (cloud model + thinking from RC)
   | { kind: 'explain' }                                     // S2 or S4 (instructions in the user turn)
   | { kind: 'adversaryA'; system: string }                  // S3 (model + thinking from RC)
-  | { kind: 'adversaryB'; system: string; schema: object }; // S3
+  // S3. `model`: pass-B failover only (D-165): must be RC adversary_model or listed in adversary_fallback_models.
+  | { kind: 'adversaryB'; system: string; schema: object; model?: string };
 export interface GroundingCapture { html?: string; queries: string[]; sources: { uri: string; title: string }[] }
 export interface ParseMeta { finishReason?: string; grounding?: GroundingCapture; inferenceSource: 'on_device' | 'in_cloud' }
 export interface GateRequest<T> {
@@ -110,6 +111,11 @@ export interface GateRequest<T> {
   isDeclined?: (value: T) => boolean;
   /** Cancels the call while it waits (interlock, device queue) or runs: GateError ABORTED. */
   signal?: AbortSignal;
+  /**
+   * Pass-B failover (D-165): the caller will try another model if this call fails, so a final cloud failure raises no
+   * SCR-22 per-call banner (the caller's last attempt reports normally). Never changes a check, a retry or the Ledger.
+   */
+  deferFailureBanner?: boolean;
 }
 export interface GateResult<T> {
   value: T;
@@ -467,6 +473,7 @@ function snapshot<T>(req: GateRequest<T>): { r: GateRequest<T>; consentMinted: b
   if (retry) r.retry = retry;
   const isDeclined = req.isDeclined; if (isDeclined !== undefined) r.isDeclined = isDeclined;
   const signal = req.signal; if (signal !== undefined) r.signal = signal;
+  if (req.deferFailureBanner === true) r.deferFailureBanner = true;
   return { r: Object.freeze(r), consentMinted: !!consentIn && mintedConsents.has(consentIn) };
 }
 
@@ -1041,7 +1048,7 @@ function createGate(deps: GateDeps): EgressGate {
       if (code === 'CLOUD_AUTH') deps.status.set({ appCheckFailed: true });
       // SCR-22 per-call banners only when nothing took the call's place (S3): S2/S4 fell back and queued nothing.
       const ev = statusEventFor(code);
-      if (ev && !hasRules(c)) deps.status.report(ev);
+      if (ev && !hasRules(c) && c.req.deferFailureBanner !== true) deps.status.report(ev);
     }
     if (c.cls === 'S3' && code === 'CLOUD_REFUSED') {
       markRefused(c);
@@ -1140,6 +1147,18 @@ function createGate(deps: GateDeps): EgressGate {
     if (!spec || typeof spec !== 'object' || !specFitsClass(spec, c.cls) || !specFitsJob(spec, req.job)) block(c, 'CLASS_MISMATCH');
     if (!Array.isArray(req.images) || req.images.length !== imagesFor(spec)) block(c, 'CLASS_MISMATCH');
     if (!promptFits(req)) block(c, 'CLASS_MISMATCH');
+    // D-165 pass-B failover: a named model must be one RC pins (adversary_model or adversary_fallback_models); this
+    // call then runs on it with every check below, its own retries and its own Ledger entry.
+    if (spec.kind === 'adversaryB' && spec.model !== undefined) {
+      const m: unknown = spec.model;
+      if (typeof m !== 'string' || !(m === C.adversaryModel || C.adversaryFallbackModels.includes(m))) {
+        block(c, 'CLASS_MISMATCH', undefined, { note: 'model not pinned in RC' });
+      }
+      if (m !== C.adversaryModel) {
+        c.config = Object.freeze({ ...C, adversaryModel: m as string });
+        c.notes.push('failover model (RC adversary_fallback_models)');
+      }
+    }
     c.tpl = templateCheck(req.promptId, req.text);
     if (!c.tpl.ok && c.cls !== 'S3') block(c, 'CLASS_MISMATCH'); // S3: after the prompt scan, so a vault hit keeps its reason
     if (c.cls !== 'S3' && !hasRules(c)) block(c, 'CLASS_MISMATCH');

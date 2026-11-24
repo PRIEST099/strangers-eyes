@@ -11,7 +11,8 @@
     "Synonym-class words and artefact terms are compared as whole tokens after normalisation (no similarity), so 'badges' is not 'badge'. Label tokens are compared with the matcher's token similarity (>= threshold; tokens of <= 3 characters must be equal).",
     "fn referee: rulesReferee(claims, [vault keys]) -> expect.matches, in claim order then vault order, one per (claim, vault item) pair. reason is the ARCH §12.1 template of the winning rule (local only); route is RULES_ONLY; clueIds are the claim's.",
     "fn merge: mergeMatches(device, rules) -> expect {matches, notes}. Union per (claim, vault) pair, keeping the stronger strength (device wins a tie). When the device found the pair, route is the device match's own route (ON_DEVICE, or IN_CLOUD for an S4 Judge Mode run), even if the rules strength is kept; else RULES_ONLY; reason and clueIds come from the side whose strength is kept. notes is ['+rules'] when at least one valid rules match entered the union, else []. A match whose strength is not exact | likely | possible is dropped. Output order: device pairs first (first occurrence), then rules-only pairs. D-157: a device match for a pair that NO valid rules match links is capped at 'possible' AFTER the union (generic-word false positives from Nano/FM); notes then end with 'device-only: capped at possible'.",
-    "All values are synthetic: no real people, homes, schools or plates (CLAUDE.md invariant 9)."
+    "All values are synthetic: no real people, homes, schools or plates (CLAUDE.md invariant 9).",
+    "fn merge: an optional `geo` {areaClaimIds, pinVaultIds} names the claims of kind 'area' and the vault items of a PIN kind. A device match with no rules match for its pair, whose claim is in areaClaimIds and whose item is in pinVaultIds, is dropped (D-168: the distance bands decide geography), with the note 'device-only place × pin: dropped (bands decide)' after any cap note. Without geo nothing is dropped."
   ],
   "threshold": 0.8,
   "vault": {
@@ -315,6 +316,22 @@
       "rules": [ { "claimId": "i1", "vaultId": "v-work", "strength": "likely", "reason": "lanyard + same category: hospital", "clueIds": ["c2"], "route": "RULES_ONLY" } ],
       "expect": { "matches": [
         { "claimId": "i1", "vaultId": "v-work", "strength": "exact", "reason": "hospital lanyard", "clueIds": ["c2"], "route": "ON_DEVICE" }
-      ], "notes": ["+rules"] } }
+      ], "notes": ["+rules"] } },
+    { "fn": "merge", "name": "D-168: a device-only place guess x pin link is dropped (bands decide), and noted", "geo": { "areaClaimIds": ["h1"], "pinVaultIds": ["v-work", "v-home"] },
+      "device": [ { "claimId": "h1", "vaultId": "v-work", "strength": "exact", "reason": "city", "clueIds": ["c1"], "route": "ON_DEVICE" } ],
+      "rules": [],
+      "expect": { "matches": [], "notes": ["device-only place × pin: dropped (bands decide)"] } },
+    { "fn": "merge", "name": "D-168: with rules evidence for the pair, a place guess x pin link is kept (the device upgrades)", "geo": { "areaClaimIds": ["h1"], "pinVaultIds": ["v-work", "v-home"] },
+      "device": [ { "claimId": "h1", "vaultId": "v-work", "strength": "exact", "reason": "named the hospital", "clueIds": ["c1"], "route": "ON_DEVICE" } ],
+      "rules": [ { "claimId": "h1", "vaultId": "v-work", "strength": "likely", "reason": "distinctive token", "clueIds": ["c1"], "route": "RULES_ONLY" } ],
+      "expect": { "matches": [ { "claimId": "h1", "vaultId": "v-work", "strength": "exact", "reason": "named the hospital", "clueIds": ["c1"], "route": "ON_DEVICE" } ], "notes": ["+rules"] } },
+    { "fn": "merge", "name": "D-168: only area x pin pairs are dropped; inference x pin and area x non-pin stay, capped at possible", "geo": { "areaClaimIds": ["h1"], "pinVaultIds": ["v-work"] },
+      "device": [ { "claimId": "i1", "vaultId": "v-work", "strength": "exact", "reason": "lanyard", "clueIds": ["c1"], "route": "ON_DEVICE" }, { "claimId": "h1", "vaultId": "v-elm", "strength": "likely", "reason": "street", "clueIds": ["c1"], "route": "ON_DEVICE" }, { "claimId": "h1", "vaultId": "v-work", "strength": "likely", "reason": "city", "clueIds": ["c1"], "route": "ON_DEVICE" } ],
+      "rules": [],
+      "expect": { "matches": [ { "claimId": "i1", "vaultId": "v-work", "strength": "possible", "reason": "lanyard", "clueIds": ["c1"], "route": "ON_DEVICE" }, { "claimId": "h1", "vaultId": "v-elm", "strength": "possible", "reason": "street", "clueIds": ["c1"], "route": "ON_DEVICE" } ], "notes": ["device-only: capped at possible", "device-only place × pin: dropped (bands decide)"] } },
+    { "fn": "merge", "name": "D-168: without geo nothing is dropped; D-157 caps as before",
+      "device": [ { "claimId": "h1", "vaultId": "v-work", "strength": "exact", "reason": "city", "clueIds": ["c1"], "route": "ON_DEVICE" } ],
+      "rules": [],
+      "expect": { "matches": [ { "claimId": "h1", "vaultId": "v-work", "strength": "possible", "reason": "city", "clueIds": ["c1"], "route": "ON_DEVICE" } ], "notes": ["device-only: capped at possible"] } }
   ]
 }

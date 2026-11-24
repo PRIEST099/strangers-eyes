@@ -125,7 +125,7 @@ async function record(name, clip) {
     const m = JSON.parse(ev.data);
     if (m.id && pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); }
     // Every request to a Google AI host (the log proves which clips made none).
-    if (m.method === 'Network.requestWillBeSent' && /generativelanguage|firebasevertexai|aiplatform/.test(m.params.request.url)) cloud.push(new URL(m.params.request.url).host);
+    if (m.method === 'Network.requestWillBeSent' && /generativelanguage|firebasevertexai|aiplatform/.test(m.params.request.url)) cloud.push(`${m.params.request.method} ${new URL(m.params.request.url).host}${new URL(m.params.request.url).pathname.replace(/^.*\/models\//, ' …/models/')}`);
   });
   const send = (method, params = {}) => new Promise((res, rej) => {
     const i = ++id;
@@ -237,7 +237,7 @@ async function record(name, clip) {
   execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', join(dir, 'list.ffconcat'),
     '-vf', 'scale=1920:1080:flags=lanczos', '-r', '30', '-pix_fmt', 'yuv420p', '-c:v', 'libx264', '-crf', '18', resolve(`public/clips/${name}.mp4`)], { stdio: 'inherit' });
   const secs = frames.at(-1).t - frames[0].t;
-  console.log(`${name}: ${frames.length} frames in ${secs.toFixed(1)} s (${(frames.length / secs).toFixed(1)} fps) · marks ${JSON.stringify(marks)} · AI-host requests: ${cloud.length}${cloud.length ? ` (${[...new Set(cloud)].join(', ')})` : ''}`);
+  console.log(`${name}: ${frames.length} frames in ${secs.toFixed(1)} s (${(frames.length / secs).toFixed(1)} fps) · marks ${JSON.stringify(marks)} · AI-host requests: ${cloud.length}${cloud.length ? ` (${cloud.join(', ')})` : ''}`);
   return { seconds: Math.round(secs * 100) / 100, marks, aiRequests: cloud.length };
 }
 

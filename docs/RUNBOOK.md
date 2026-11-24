@@ -312,7 +312,7 @@ Alternative: auto tokens. With `FIREBASE_APPCHECK_DEBUG_TOKEN = true`, DevTools 
 CLI alternative: `$FB firestore:databases:create "(default)" --location europe-west1 --project PROJECT_ID` [UNVERIFIED ID syntax, U-18].
 
 ### 1.10 Remote Config first publish [CLAUDE, USER fallback]
-- Claude publishes `remoteconfig.template.json` with `$FB deploy --only remoteconfig` (§4.4) (VERIFIED Nov 21, U-17). Until T-003 the live config carries the D-70 free-tier override (§4.4, D-126).
+- Claude publishes `remoteconfig.template.json` with `$FB deploy --only remoteconfig` (§4.4) (VERIFIED Nov 21, U-17). Until T-003 the live config carries the D-70 free-tier values (§4.4, D-126); since D-165 the repo template carries the same values, so no override copy is needed.
 - **Fallback [USER]:** **DevOps & Engagement > Remote Config** → create the first configuration → use the ⋮ menu's publish-from-file option [UNVERIFIED label], or enter the parameters by hand from the template.
 
 ### 1.11 AI Logic hardening (Day 6, Nov 25, when Claude asks) [USER]
@@ -869,7 +869,7 @@ Check with `$FB projects:list`; the active project is marked.
 - Judge Mode sample metadata and recorded **pass-B** outputs ship as static files in `web/public/samples/`, not in Firestore. **Pass A is never cached anywhere.**
 
 ### 4.4 Remote Config [CLAUDE]
-- **Key names, types and defaults are canonical in ARCH §13** and then in the repo file `remoteconfig.template.json` (27 keys, D-40). T-060 created that file on Nov 21 by copying ARCH §13.3 verbatim (D-85); it is now the canonical copy. Don't seed anything from `research/day1-artifacts/arch-ref/` (old keys and values; history only, and it has no `json/` folder). `research/day1-artifacts/arch/remoteconfig.template.json` is the generated copy (from `arch/gen.mjs`). It differs from the repo template in the `ocr_max_px` and `auto_mask_types` defaults and in four descriptions: those two keys, `bands_m` (the D-77 lock note) and `daily_adversary_cap` (its clamp). The repo file wins; never seed anything from either research copy.
+- **Key names, types and defaults are canonical in ARCH §13** and then in the repo file `remoteconfig.template.json` (28 keys since D-165, D-40). T-060 created that file on Nov 21 by copying ARCH §13.3 verbatim (D-85); it is now the canonical copy. Don't seed anything from `research/day1-artifacts/arch-ref/` (old keys and values; history only, and it has no `json/` folder). `research/day1-artifacts/arch/remoteconfig.template.json` is the generated copy (from `arch/gen.mjs`). It differs from the repo template in the `ocr_max_px` and `auto_mask_types` defaults and in four descriptions: those two keys, `bands_m` (the D-77 lock note) and `daily_adversary_cap` (its clamp). The repo file wins; never seed anything from either research copy.
 - Client defaults are read from the template itself: the web imports it and iOS bundles it (ARCH AD-28, §13.4). A Vitest test (AC-295) checks they deep-equal the template.
 - If a key below is named differently in the template, the template wins; fix this list.
 - Rules:
@@ -884,8 +884,9 @@ Check with `$FB projects:list`; the active project is marked.
 | `kill_switch` | `true` blocks every cloud-capable AI call. Device and rules paths keep working; Judge Mode falls back to CACHED pass B. Applies in real time via `onConfigUpdate` |
 | `daily_adversary_cap` | Attack runs per installation per **local** day, client-side. An A+B pair (or B alone) counts as 1 run, and re-attacks count. Default 20 (ARCH §13.2). Keep project-wide grounded queries well under 1,500/day |
 | `grounding_enabled` | `false` = pass B only (cut-order step for pass A; free-tier mode) |
-| `data_tier` | `paid` (default) or `free`. Drives the consent copy; `free` forces grounding off |
+| `data_tier` | `free` (default, matches live) or `paid`. Drives the consent copy; `free` forces grounding off; the paid line shows only when a fetched value says `paid` (D-163) |
 | `adversary_model`, `explain_cloud_model`, `adversary_thinking_level` | Exact model IDs (never `-latest`). Thinking LOW, MEDIUM or HIGH (MINIMAL is a 400 on 3.8/4.x) |
+| `adversary_fallback_models` | Pass-B failover after a 5xx/429 (D-165): a JSON array of up to 3 exact model IDs, e.g. `["<exact-id>"]`. Default `[]` = no failover; the live config has no list, so failover is **off** until you publish one. **[USER]** publishing a non-empty list (Console → Remote Config, or a deploy of an edited template) is your step; any listed id becomes a model the gate will accept for pass B |
 | `judge_mode_enabled`, `judge_cached_fallback`, `atlas_enabled` | Feature switches |
 
 **Commands** (`rollback` flags [UNVERIFIED]; check `--help`):
@@ -896,7 +897,7 @@ $FB remoteconfig:get -v <VERSION> -o .scratch/rc-live.json   # without -v, 15.37
 $FB remoteconfig:versions:list
 $FB remoteconfig:rollback -v <VERSION>
 ```
-**Free-tier override until T-003 (D-70, D-126):** the live config must have `data_tier=free` and `grounding_enabled=false`, while the repo template keeps the paid defaults. So until Blaze, never deploy the repo template as it is. Write a scratch copy with those two values changed plus a scratch `firebase.json` (`{"remoteconfig":{"template":"remoteconfig.template.json"}}`), and run `$FB deploy --only remoteconfig --project strangers-eyes --config <scratch>/firebase.json`. Then check that the live config differs from the template in those two keys only. After T-003, deploy the repo template as it is.
+**Free-tier values (D-70, D-126; repo aligned by D-165, Nov 24):** the live config has `data_tier=free` and `grounding_enabled=false`, and since D-165 the repo template has the same values (checked against a read-only `remoteconfig:get`; no other key differed). So deploying the repo template as it is is now safe: its only change to live would be the new key `adversary_fallback_models` with `[]` (failover stays off). The scratch-copy override is no longer needed. After T-003 (Blaze), switching to `paid` / grounding on is a template edit plus a deploy. Nothing was published on Nov 24.
 **Kill switch (only for real abuse; judges must keep access until Dec 16, 14:00 PT):**
 1. Console → Remote Config → `kill_switch` = `true` → **Publish changes**.
 2. Check in the app that no S3 calls are made.

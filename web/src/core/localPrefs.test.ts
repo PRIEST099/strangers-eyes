@@ -73,10 +73,17 @@ describe('parseSettings: every field validated, unknown keys dropped', () => {
     for (const raw of [null, '', '{', 'null', '[]', '[true]', '42', '"x"', 'true']) expect(parseSettings(raw)).toEqual(DEFAULT_SETTINGS);
   });
 
-  it('defaults: Nano on, every P1 display toggle on, Atlas opt-in OFF, pre-mask follows RC', () => {
+  it('defaults: Nano on, every P1 display toggle on, Atlas opt-in OFF, Technical details OFF, pre-mask follows RC', () => {
     expect(DEFAULT_SETTINGS).toEqual({
       useNano: true, premask: null, showVaultLabels: true, liveNotes: true, notesOnReattack: true, hud: true, ledgerRail: true, atlasOptIn: false,
+      techDetails: false,
     });
+  });
+
+  it('Technical details: a stored boolean is kept, anything else falls back to OFF', () => {
+    expect(parseSettings(JSON.stringify({ techDetails: true })).techDetails).toBe(true);
+    expect(parseSettings(JSON.stringify({ techDetails: 'yes' })).techDetails).toBe(false);
+    expect(sanitizePatch({ techDetails: true })).toEqual({ techDetails: true });
   });
 
   it('keeps valid fields, replaces each invalid one with its own default, drops unknown keys', () => {

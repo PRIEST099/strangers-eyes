@@ -129,7 +129,8 @@ final class CoreParityTests: XCTestCase {
       XCTAssertTrue(jsonEqual(got, (c["expect"] as! [String: Any])["matches"]), "\(c["name"]!): \(jsonString(got))"); n += 1
     }
     for c in Vectors.cases(v, "merge") {
-      let r = Referee.mergeMatches((c["device"] as! [[String: Any]]).map(match), (c["rules"] as! [[String: Any]]).map(match))
+      let geo = (c["geo"] as? [String: Any]).map { Referee.GeoPairs(areaClaimIds: Set(strs($0["areaClaimIds"])), pinVaultIds: Set(strs($0["pinVaultIds"]))) }
+      let r = Referee.mergeMatches((c["device"] as! [[String: Any]]).map(match), (c["rules"] as! [[String: Any]]).map(match), geo: geo)
       let e = c["expect"] as! [String: Any]
       XCTAssertTrue(jsonEqual(r.matches.map(matchJSON), e["matches"]), "\(c["name"]!): \(jsonString(r.matches.map(matchJSON)))")
       XCTAssertEqual(r.notes, e["notes"] as? [String], c["name"] as! String); n += 1
@@ -189,7 +190,9 @@ final class CoreParityTests: XCTestCase {
       let pbs = vd.pinBands.map { ["vaultId": $0.vaultId, "band": $0.band, "hypothesisId": $0.hypothesisId ?? NSNull(), "confidence": $0.confidence ?? NSNull(), "effectiveKm": NSNull()] as [String: Any] }
       XCTAssertTrue(jsonEqual(pbs, e["pinBands"]), "\(name) pinBands: \(jsonString(pbs))")
       XCTAssertEqual(vd.notLinkedVaultIds, e["notLinkedVaultIds"] as? [String], name)
-      let bg: Any = vd.bestGuess.map { ["level": $0.level, "label": $0.label, "confidence": $0.confidence] } ?? NSNull()
+      // The vector may or may not carry the attacker's label (misuse hardening drops it from the copy); compare what it has.
+      let wantsLabel = (e["bestGuess"] as? [String: Any])?["label"] != nil
+      let bg: Any = vd.bestGuess.map { wantsLabel ? ["level": $0.level, "label": $0.label, "confidence": $0.confidence] : ["level": $0.level, "confidence": $0.confidence] } ?? NSNull()
       XCTAssertTrue(jsonEqual(bg, e["bestGuess"]), "\(name) bestGuess: \(jsonString(bg))")
       XCTAssertTrue(jsonEqual(VerdictEngine.bestGuessText(vd) ?? NSNull(), e["bestGuessText"]), name)
       XCTAssertTrue(jsonEqual(VerdictEngine.notLinkedText(vd, input.vault) ?? NSNull(), e["notLinkedText"]), "\(name): \(VerdictEngine.notLinkedText(vd, input.vault) ?? "nil")")

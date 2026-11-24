@@ -14,6 +14,7 @@ import { PAYLOAD_CLASSES, expectedRoutes } from '../../ai/capabilities';
 import { t, type StringId } from '../../core/strings';
 import type { Route } from '../../core/types';
 import type { CapabilitiesView } from '../hooks/useCapabilities';
+import { useTechDetails } from '../hooks/usePrefs';
 import { Badge } from './Badge';
 import { Button, ButtonLink } from './Button';
 import { Icon, type IconName } from './Icon';
@@ -28,6 +29,8 @@ export interface CapabilityPanelProps {
   caps: CapabilitiesView;
   cloud?: CloudRowState;
   tier0?: Tier0RowState;
+  /** Tests only: override Settings › Technical details. */
+  tech?: boolean;
 }
 
 type Tone = 'ok' | 'neutral' | 'busy';
@@ -162,7 +165,10 @@ function Row({ headingRef, ...p }: {
   );
 }
 
-export function CapabilityPanel({ caps, cloud = 'ready', tier0 = { kind: 'ready' } }: CapabilityPanelProps) {
+export function CapabilityPanel({ caps, cloud = 'ready', tier0 = { kind: 'ready' }, tech: givenTech }: CapabilityPanelProps) {
+  const prefTech = useTechDetails();
+  // Settings › Technical details: the S0–S4 codes and "Tier-0". Off, the same rows in plain words; badges always show.
+  const tech = givenTech ?? prefTech;
   const c = caps.capability;
   const d = caps.download;
   const nano = nanoStatus(caps);
@@ -247,7 +253,7 @@ export function CapabilityPanel({ caps, cloud = 'ready', tier0 = { kind: 'ready'
         <Row
           icon={tier0.kind === 'ready' ? 'check' : 'chevronDown'}
           tone={tier0.kind === 'ready' ? 'ok' : 'busy'}
-          title={t('ui.cap.row.tier0')}
+          title={t(tech ? 'ui.cap.row.tier0' : 'ui.cap.row.tier0Plain')}
           status={tier0.kind === 'ready' ? t('ui.cap.row.tier0.ready') : t('copy.cap.assetsLoading', { pct: clampPct(tier0.pct) })}
           means={t('ui.cap.row.tier0.means')}
         />
@@ -281,9 +287,9 @@ export function CapabilityPanel({ caps, cloud = 'ready', tier0 = { kind: 'ready'
         </thead>
         <tbody>
           {PAYLOAD_CLASSES.map((k) => (
-            <tr key={k} className="border-t border-line first:border-t-0">
+            <tr key={k} data-class={k} className="border-t border-line first:border-t-0">
               <th scope="row" className="py-2.5 pr-3 align-middle font-normal">
-                <span className="mr-1.5 font-mono text-caption font-bold text-muted">{k}</span>
+                {tech && <span className="mr-1.5 font-mono text-caption font-bold text-muted">{k}</span>}
                 {t(`ui.cap.policy.${k}`)}
               </th>
               <td className="py-2.5 text-right align-middle">

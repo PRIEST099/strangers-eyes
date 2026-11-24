@@ -53,6 +53,11 @@ export interface Settings {
   readonly ledgerRail: boolean;
   /** P1: Leak Atlas opt-in (SCR-21), default OFF. */
   readonly atlasOptIn: boolean;
+  /**
+   * "Technical details" (Nov 24 plain-language pass), default OFF: privacy-class codes, prompt ids, image hashes and model ids in the HUD, the
+   * Ledger and the panels. Off, the UI uses plain words; route badges and latency show either way (CLAUDE.md, SPEC §8.3).
+   */
+  readonly techDetails: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = Object.freeze({
@@ -64,9 +69,10 @@ export const DEFAULT_SETTINGS: Settings = Object.freeze({
   hud: true,
   ledgerRail: true,
   atlasOptIn: false,
+  techDetails: false,
 });
 
-const BOOLEAN_FIELDS = ['useNano', 'showVaultLabels', 'liveNotes', 'notesOnReattack', 'hud', 'ledgerRail', 'atlasOptIn'] as const;
+const BOOLEAN_FIELDS = ['useNano', 'showVaultLabels', 'liveNotes', 'notesOnReattack', 'hud', 'ledgerRail', 'atlasOptIn', 'techDetails'] as const;
 
 const isPlainObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v) && Object.getPrototypeOf(v) === Object.prototype;

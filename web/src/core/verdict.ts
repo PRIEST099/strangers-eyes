@@ -279,10 +279,14 @@ export function lineText(line: VerdictLine, tr: Translate = appT): string {
   return line.kind === 'pin_match' && bw ? `${text}${PIN_MATCH_SEPARATOR}${bw}` : text;
 }
 
-/** "Attacker's best guess: {level} level · {label} · {confidence}", or null when there is none. */
+/**
+ * "Attacker's best guess: {level} level · attacker confidence {confidence}", or null when there is none. Misuse hardening
+ * (Nov 24, user-approved): the guessed place name (`bestGuess.label`) is NEVER a parameter, so no copy built from the
+ * verdict can show where the attacker thinks the photo was taken. The label stays in the Verdict for on-device code only.
+ */
 export function bestGuessCopy(v: Verdict): { copyId: StringId; params: Record<string, string> } | null {
   return v.bestGuess
-    ? { copyId: 'copy.verdict.bestGuess', params: { level: v.bestGuess.level, label: v.bestGuess.label, confidence: v.bestGuess.confidence } }
+    ? { copyId: 'copy.verdict.bestGuess', params: { level: v.bestGuess.level, confidence: v.bestGuess.confidence } }
     : null;
 }
 

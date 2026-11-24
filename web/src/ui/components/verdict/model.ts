@@ -10,6 +10,9 @@
 //   - Muted vault labels (SCR-09): the item's own label after the KIND, when the setting is on, the label is not empty,
 //     and it adds something (not a place pin, whose KIND is already the label; not the KIND itself, e.g. "Home").
 //   - Every icon is paired with text (AC-062): the line text is never empty and each tone has its own icon.
+//   - Misuse hardening (Nov 24, user-approved): the referee's free-text reason is never in the view (a device answer can
+//     restate the attacker's guessed place); "Why?" shows the supporting clues (ids with Technical details, else a count)
+//     and who graded it. The best guess is level and confidence only (core/verdict.bestGuessCopy).
 import {
   bestGuessCopy, comparisonHeadline, headlineCopyId, lineText, notLinkedCopy, scrubNumbers,
 } from '../../../core/verdict';
@@ -45,8 +48,11 @@ export interface LineView {
    * already starts "Found on this device: …" (the label would repeat it).
    */
   confidence: string | null;
-  /** Whether the line has a "Why?" expansion (a referee reason or supporting clues). */
-  why: { reason: string | null; clues: string | null; clueIds: readonly string[]; route: Route } | null;
+  /**
+   * Whether the line has a "Why?" expansion (it had a referee reason or supporting clues). `clues`: "Clues: r1:c4" with
+   * Technical details, else "Based on 2 clues the attacker found". The reason text itself is never shown.
+   */
+  why: { clues: string | null; clueIds: readonly string[]; route: Route } | null;
   /**
    * The code-computed distance band (pin, pin_match), for the BandRuler; null otherwise. Presentation only: a band
    * name, NEVER a distance, effectiveKm or coordinates (SR-07, invariant 5; verdictCard.test pins the keys).
@@ -91,6 +97,8 @@ export interface CardOptions {
   /** When present, the card shows the "Risk reduced" / "Still exposed" header over `comparison.after`. */
   comparison?: VerdictComparison | null;
   tr?: Translate;
+  /** Settings › Technical details: clue ids in "Why?" (default true here; the card passes the setting). */
+  tech?: boolean;
 }
 
 const appT: Translate = (id, params) => appLookup(id as StringId, params);
@@ -160,9 +168,10 @@ export function lineSegments(line: VerdictLine, label: string | null, tr: Transl
   return seg.before + seg.kind + seg.after === full ? seg : { before: full, kind: '', label: null, after: '' };
 }
 
-export function lineView(line: VerdictLine, vault: readonly VaultItem[], show: boolean, tr: Translate = appT): LineView {
-  const reason = line.reason?.trim() ? line.reason.trim() : null;
-  const hasWhy = (line.kind === 'match' || line.kind === 'pin_match' || line.kind === 'pin') && (reason !== null || line.clueIds.length > 0);
+export function lineView(line: VerdictLine, vault: readonly VaultItem[], show: boolean, tr: Translate = appT, tech = true): LineView {
+  const hasReason = !!line.reason?.trim();
+  const hasWhy = (line.kind === 'match' || line.kind === 'pin_match' || line.kind === 'pin') && (hasReason || line.clueIds.length > 0);
+  const n = line.clueIds.length;
   return {
     id: line.id,
     kind: line.kind,
@@ -175,8 +184,7 @@ export function lineView(line: VerdictLine, vault: readonly VaultItem[], show: b
     confidence: line.kind === 'found_on_device' ? null : lineConfidence(line, tr),
     why: hasWhy
       ? {
-          reason,
-          clues: line.clueIds.length ? tr('ui.verdict.clues', { ids: line.clueIds.join(', ') }) : null,
+          clues: n === 0 ? null : tech ? tr('ui.verdict.clues', { ids: line.clueIds.join(', ') }) : tr('ui.verdict.cluesCount', { n }),
           clueIds: line.clueIds,
           route: line.route,
         }
@@ -224,7 +232,7 @@ export function verdictCardView(verdict: Verdict, vault: readonly VaultItem[], o
     tone: LEVEL_TONE[v.level],
     icon: LEVEL_ICON[v.level],
     compare,
-    lines: v.lines.map((l) => lineView(l, vault, opts.showVaultLabels, tr)),
+    lines: v.lines.map((l) => lineView(l, vault, opts.showVaultLabels, tr, opts.tech ?? true)),
     notLinked: nl ? tr(nl.copyId, nl.params) : null,
     bestGuess: bg ? tr(bg.copyId, bg.params) : null,
     noVault: v.noVault || hasNoPins(v) ? tr('copy.verdict.noVault') : null,

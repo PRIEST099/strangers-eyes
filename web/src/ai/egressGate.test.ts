@@ -245,7 +245,8 @@ async function harness(o: HOpts = {}): Promise<Harness> {
   const prefs = { nano: true, sim: false };
   const caps = { used: 0 };
   const online = { value: true };
-  const config: AppConfig = { ...DEFAULT_CONFIG, ...(o.policy ? { routingPolicy: policyFrom(o.policy) } : {}), ...o.config };
+  // Pass A is exercised as on a paid project: the template defaults are the free tier (grounding off) since D-165.
+  const config: AppConfig = { ...DEFAULT_CONFIG, groundingEnabled: true, dataTier: 'paid', ...(o.policy ? { routingPolicy: policyFrom(o.policy) } : {}), ...o.config };
   const h = { vs, ledger, il, status, notices, prefs, caps, online, config, loadReal, samples: SAMPLES } as unknown as Harness;
   h.buildModel = vi.fn((spec: ModelSpec, mode: GateMode) => fakeModel(h, spec, mode));
   h.availability = vi.fn(async (): Promise<NanoState> => world.nano);

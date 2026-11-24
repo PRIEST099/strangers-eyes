@@ -66,7 +66,7 @@ enum Tier0 {
   }
 
   static func sceneLabels(_ cg: CGImage) async -> [String] {
-    (try? await ClassifyImageRequest().perform(on: cg))?.filter { $0.confidence > 0.1 }.prefix(10).map(\.identifier) ?? []
+    (try? await ClassifyImageRequest().perform(on: cg))?.filter { $0.confidence >= 0.3 }.prefix(10).map(\.identifier) ?? []
   }
 
   /// Vault terms in the OCR words → the union of each hit's word boxes, per span.

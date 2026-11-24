@@ -56,9 +56,9 @@ function refresh(): void {
     if (v.getSource() === 'remote') anyRemote = true;
     else if (k === 'data_tier') tierFromTemplate = true;
   }
-  // T-161 fail safe: the template default for data_tier is 'paid', which would claim "not used to train Google's
-  // models". When other keys came from the server but data_tier did not, it reads as 'free' (the parser's own
-  // fail-safe value). With no server values at all (source 'default') cfg() stays DEFAULT_CONFIG, and the consent
+  // T-161 fail safe: when other keys came from the server but data_tier did not, it reads as 'free' (the parser's own
+  // fail-safe value), so a default can never claim "not used to train Google's models". The template default has been
+  // 'free' since D-165 (aligned with the live free-tier config); the guard stays for any future template edit. With no server values at all (source 'default') cfg() stays DEFAULT_CONFIG, and the consent
   // sheet ignores a default-sourced tier (ui/check/sendFlow.ts consentTierCopy).
   if (anyRemote && tierFromTemplate) raw.data_tier = 'free';
   // 'remote' = fetched in this page load; 'cached' = activated in an earlier one (offline start); 'default' = template.

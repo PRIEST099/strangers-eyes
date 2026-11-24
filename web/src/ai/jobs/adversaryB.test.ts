@@ -24,8 +24,12 @@ import { createDeviceQueue } from '../deviceQueue';
 import { createVaultScan } from '../vaultScan';
 import { createMemoryLedger, type Ledger } from '../../core/ledger';
 import { DEFAULT_CONFIG, type AppConfig } from '../../firebase/rcParse';
+import { cloudParamsFor } from '../models';
 import { checkCleanJpeg } from '../../tier0/exif';
-import { ADV_B_PROMPT, adversaryB, adversaryBRequest, createAdvBCache, parseAdvBText, type AdvBCache } from './adversaryB';
+import {
+  ADV_B_PROMPT, adversaryB, adversaryBRequest, BREAKER_THRESHOLD, createAdvBBreaker, createAdvBCache, createAdvBPins, failoverOrder,
+  isReattack, parseAdvBText, type AdvBBreaker, type AdvBCache, type AdvBPins,
+} from './adversaryB';
 import { ParseError } from '../parse';
 import type { VaultItem } from '../../core/types';
 
@@ -52,8 +56,8 @@ const VAULT: VaultItem[] = [{ id: 'vi_000000000003', kind: 'employer', label: 'N
 const SESSION = 's-1';
 const MODEL = DEFAULT_CONFIG.adversaryModel;
 
-type Reply = { text?: string; finish?: string; refuse?: boolean; err?: { code: string; status?: number } };
-interface H { g: EgressGate; ledger: Ledger; il: Interlock; calls: number; replies: Reply[]; config: AppConfig; online: boolean; capUsed: number; notices: GateNotice[]; faces: unknown[] }
+type Reply = { text?: string; finish?: string; refuse?: boolean; hang?: boolean; err?: { code: string; status?: number } };
+interface H { g: EgressGate; ledger: Ledger; il: Interlock; calls: number; replies: Reply[]; config: AppConfig; online: boolean; capUsed: number; notices: GateNotice[]; faces: unknown[]; models: string[]; banners: string[] }
 const live: H[] = [];
 
 function model(h: H): GateModel {
@@ -61,6 +65,7 @@ function model(h: H): GateModel {
     async generateContent(_parts: Part[]) {
       h.calls++;
       const r = h.replies.length > 1 ? h.replies.shift()! : h.replies[0];
+      if (r.hang) return new Promise<never>(() => undefined); // never answers: the gate's own deadline must fire
       if (r.err) throw Object.assign(new Error(r.err.code), { code: r.err.code, ...(r.err.status ? { customErrorData: { status: r.err.status } } : {}) });
       const res: GateResponse = {
         text: () => { if (r.refuse) throw Object.assign(new Error('blocked: SAFETY'), { code: 'response-error' }); return r.text ?? ''; },
@@ -75,15 +80,16 @@ function model(h: H): GateModel {
 async function harness(replies: Reply[], over: Partial<AppConfig> = {}): Promise<H> {
   const vs = createVaultScan({ loadReal: async () => VAULT, register: setVaultScanner });
   await vs.init({ judge: false });
-  const h = { replies, calls: 0, config: { ...DEFAULT_CONFIG, ...over }, online: true, capUsed: 0, notices: [], faces: [] } as unknown as H;
+  const h = { replies, calls: 0, config: { ...DEFAULT_CONFIG, ...over }, online: true, capUsed: 0, notices: [], faces: [], models: [], banners: [] } as unknown as H;
   h.ledger = createMemoryLedger();
   h.il = createInterlock(tripwire);
   h.g = createEgressGate({
     cfg: () => h.config, vault: vs, availabilityNow: async () => 'unavailable',
     prefs: { nanoEnabled: () => false, simulateNoNano: () => false },
     caps: { usedToday: () => h.capUsed, increment: () => ++h.capUsed }, online: () => h.online, ensureAuth: async () => 'uid',
-    interlock: h.il, tripwire, deviceQueue: createDeviceQueue(), buildModel: () => model(h), ledger: h.ledger,
-    status: { markTripwire: () => undefined, report: () => undefined, set: () => undefined }, notify: (n) => h.notices.push(n),
+    interlock: h.il, tripwire, deviceQueue: createDeviceQueue(),
+    buildModel: (_spec, _mode, config, job) => { h.models.push(cloudParamsFor(config, job).model); return model(h); }, ledger: h.ledger,
+    status: { markTripwire: () => undefined, report: (ev) => { h.banners.push(ev); }, set: () => undefined }, notify: (n) => h.notices.push(n),
     samples: async () => null,
     images: { checkClean: checkCleanJpeg, decode: async () => ({}), faces: async () => h.faces, ocr: async () => [] },
     sha256Hex: async (b) => sha(b), now: () => Date.now(), clock: () => performance.now(), sleep: async () => undefined, random: () => 0.5,
@@ -194,5 +200,227 @@ describe('adversaryB through the gate', () => {
     h.faces = [{ x: 1, y: 1, w: 4, h: 4 }];
     expect(await attack(h)).toMatchObject({ kind: 'notSent', reason: 'FACE', copyId: 'copy.gate.blockedFace' });
     expect(h.calls).toBe(0);
+  });
+});
+
+describe('D-165: pass-B model failover (every attempt is its own gate call)', () => {
+  const FB1 = 'gemini-4-hydrogen';
+  const FB2 = 'gemini-3.1-flash-lite';
+  const overloaded: Reply = { err: { code: 'fetch-error', status: 503 } };
+  const quota: Reply = { err: { code: 'fetch-error', status: 429 } };
+  const fb = (h: H, fallbacks: string[], breaker: AdvBBreaker = createAdvBBreaker(), cache?: AdvBCache) => adversaryB(
+    { sessionId: SESSION, image: image(), consent: mintConsent({ sha256: sha(IMG_BYTES), sessionId: SESSION }), model: MODEL },
+    { run: (r) => h.g.gate(r), notices: { subscribe: () => () => undefined }, fallbackModels: fallbacks, breaker, ...(cache ? { cache } : {}) },
+  );
+  const withFallbacks = (replies: Reply[], fallbacks: string[] = [FB1, FB2]) => harness(replies, { adversaryFallbackModels: fallbacks });
+
+  it('failoverOrder: primary first, then the RC list in order, deduplicated, tripped models skipped, never empty', () => {
+    const b = createAdvBBreaker(1);
+    expect(failoverOrder(MODEL, [], b)).toEqual([MODEL]);
+    expect(failoverOrder(MODEL, [FB1, MODEL, FB2, FB1], b)).toEqual([MODEL, FB1, FB2]);
+    b.serverError(MODEL);
+    expect(failoverOrder(MODEL, [FB1, FB2], b)).toEqual([FB1, FB2]);
+    b.serverError(FB1); b.serverError(FB2);
+    expect(failoverOrder(MODEL, [FB1, FB2], b)).toEqual([MODEL]); // all tripped: the primary alone
+    b.answered(FB1);
+    expect(failoverOrder(MODEL, [FB1, FB2], b)).toEqual([FB1]);
+  });
+
+  it('the RC default [] changes nothing: a 5xx is one gate call (with its own retry), no failover', async () => {
+    const h = await harness([overloaded]);
+    const o = await fb(h, []);
+    expect(o).toMatchObject({ kind: 'failed', code: 'CLOUD_SERVER', retry: true });
+    expect(o.call.failoverFrom).toBeUndefined();
+    expect(h.ledger.entries()).toHaveLength(1);
+    expect(new Set(h.models)).toEqual(new Set([MODEL]));
+  });
+
+  it('5xx on the primary → the next RC model, through the gate: a second Ledger entry on that model, same consented image', async () => {
+    const h = await withFallbacks([overloaded, overloaded, { text: fixture('advB.v1.ok.json') }]);
+    const o = await fb(h, [FB1, FB2]);
+    expect(o.kind).toBe('result');
+    if (o.kind !== 'result') return;
+    expect(o.result.model).toBe(FB1);
+    expect(o.call).toMatchObject({ model: FB1, route: 'IN_CLOUD', failoverFrom: [MODEL] });
+    expect(h.models).toEqual([MODEL, MODEL, FB1]); // the gate's own 5xx retry on the primary, then one call on FB1
+    const entries = h.ledger.entries();
+    expect(entries).toHaveLength(2);
+    expect(entries.map((e) => e.model)).toEqual([MODEL, FB1]);
+    expect(entries.every((e) => e.job === 'adversaryB' && e.payloadClass === 'S3')).toBe(true);
+    expect(entries[1].imageSha256).toEqual([sha(IMG_BYTES)]);
+    expect(h.capUsed).toBe(1); // only the run that answered counts
+    expect(h.banners).toEqual([]); // the primary's failure banner was deferred, and the failover answered
+  });
+
+  it('429 on the primary also fails over; every model failing returns the LAST failure and raises one banner', async () => {
+    const h = await withFallbacks([quota, quota, quota, overloaded]);
+    const o = await fb(h, [FB1]);
+    expect(o).toMatchObject({ kind: 'failed', code: 'CLOUD_SERVER', retry: true, call: { model: FB1, failoverFrom: [MODEL] } });
+    expect(h.ledger.entries().map((e) => e.model)).toEqual([MODEL, FB1]);
+    expect(h.banners).toEqual(['network']); // only the last attempt reports
+  });
+
+  it('each failover attempt runs the gate checks again: a face → notSent, the fallback never sees the image', async () => {
+    const h = await withFallbacks([overloaded]);
+    const first = h.g.gate.bind(h.g);
+    let n = 0;
+    const o = await adversaryB(
+      { sessionId: SESSION, image: image(), consent: mintConsent({ sha256: sha(IMG_BYTES), sessionId: SESSION }), model: MODEL },
+      { run: async (r) => { if (n++ === 1) h.faces = [{ x: 1, y: 1, w: 4, h: 4 }]; return first(r); },
+        notices: { subscribe: () => () => undefined }, fallbackModels: [FB1], breaker: createAdvBBreaker() },
+    );
+    expect(o).toMatchObject({ kind: 'notSent', reason: 'FACE' });
+    expect(h.models).toEqual([MODEL, MODEL]);
+    expect(h.ledger.entries()).toHaveLength(2);
+  });
+
+  it('the gate refuses a model RC does not pin (CLASS_MISMATCH), so a caller cannot pick any model', async () => {
+    const h = await harness([overloaded]); // RC lists no fallbacks
+    const o = await fb(h, [FB1]); // a stale or forged list on the caller's side
+    expect(o).toMatchObject({ kind: 'notSent', reason: 'CLASS_MISMATCH' });
+    expect(h.models).toEqual([MODEL, MODEL]);
+    const r = adversaryBRequest({ sessionId: SESSION, image: image(), consent: mintConsent({ sha256: sha(IMG_BYTES), sessionId: SESSION }), model: MODEL }, { model: 'gemini-9-x' });
+    await expect(h.g.gate(r)).rejects.toMatchObject({ reason: 'CLASS_MISMATCH' });
+  });
+
+  it('no failover after a decline, a safety block, a timeout, a truncated or an unreadable answer', async () => {
+    const cases: [Reply, Record<string, unknown>][] = [
+      [{ text: fixture('advB.v1.declined.json') }, { kind: 'refused', why: 'declined' }],
+      [{ refuse: true }, { kind: 'refused', why: 'blocked' }],
+      [{ text: '{"audit_status":"ok"', finish: 'MAX_TOKENS' }, { kind: 'failed', state: 'truncated' }],
+      [{ text: 'I would rather not.' }, { kind: 'failed', state: 'unreadable' }],
+    ];
+    for (const [reply, want] of cases) {
+      const h = await withFallbacks([reply]);
+      expect(await fb(h, [FB1, FB2])).toMatchObject(want);
+      expect(h.models).toEqual([MODEL]);
+      expect(h.ledger.entries()).toHaveLength(1);
+    }
+    // A timeout (D-158: never retried, never failed over): the model never answers and the gate's deadline fires.
+    const t = await withFallbacks([{ hang: true }]);
+    const o = await adversaryB(
+      { sessionId: SESSION, image: image(), consent: mintConsent({ sha256: sha(IMG_BYTES), sessionId: SESSION }), model: MODEL },
+      { run: (r) => t.g.gate({ ...r, timeoutMs: 30 }), notices: { subscribe: () => () => undefined }, fallbackModels: [FB1, FB2], breaker: createAdvBBreaker() },
+    );
+    expect(o).toMatchObject({ kind: 'failed', state: 'error', code: 'TIMEOUT', call: { model: MODEL } });
+    expect(t.models).toEqual([MODEL]);
+    expect(t.ledger.entries()).toHaveLength(1);
+  });
+
+  it('a decline on a fallback is final: no third model, and the gate refuses any further attack', async () => {
+    const h = await withFallbacks([overloaded, overloaded, { text: fixture('advB.v1.declined.json') }]);
+    expect(await fb(h, [FB1, FB2])).toMatchObject({ kind: 'refused', why: 'declined', call: { model: FB1 } });
+    expect(h.models).toEqual([MODEL, MODEL, FB1]);
+    expect(await fb(h, [FB1, FB2])).toMatchObject({ kind: 'refused', why: 'blocked' });
+    expect(h.models).toHaveLength(3);
+  });
+
+  it(`breaker: after ${BREAKER_THRESHOLD} consecutive 5xx attempts a model is skipped for the session; an answer resets it`, async () => {
+    const breaker = createAdvBBreaker();
+    const h = await withFallbacks([overloaded], [FB1]);
+    for (let k = 0; k < BREAKER_THRESHOLD; k++) await fb(h, [FB1], breaker); // both models 5xx every time
+    expect(breaker.tripped(MODEL) && breaker.tripped(FB1)).toBe(true);
+    const before = h.models.length;
+    await fb(h, [FB1], breaker); // everything tripped: the primary alone, once
+    expect(h.models.slice(before)).toEqual([MODEL, MODEL]);
+
+    const b2 = createAdvBBreaker();
+    const h2 = await withFallbacks([{ text: fixture('advB.v1.ok.json') }], [FB1]);
+    b2.serverError(MODEL); b2.serverError(MODEL); // the primary is already tripped this session
+    const o = await fb(h2, [FB1], b2);
+    expect(o).toMatchObject({ kind: 'result', call: { model: FB1 } });
+    expect(h2.models[0]).toBe(FB1); // straight to the fallback: no wasted call on the overloaded primary
+    expect(o.call.failoverFrom).toBeUndefined();
+    b2.answered(MODEL);
+    expect(b2.tripped(MODEL)).toBe(false);
+  });
+
+  it('a 429 does not trip the breaker (quota is not overload)', async () => {
+    const breaker = createAdvBBreaker(1);
+    const h = await withFallbacks([quota]);
+    await fb(h, [FB1], breaker);
+    expect(breaker.tripped(MODEL) || breaker.tripped(FB1)).toBe(false);
+  });
+
+  it('a failover result is cached under the primary key: a revisit is CACHED with no new gate call', async () => {
+    const h = await withFallbacks([overloaded, overloaded, { text: fixture('advB.v1.ok.json') }]);
+    const cache = createAdvBCache();
+    await fb(h, [FB1], createAdvBBreaker(), cache);
+    const again = await fb(h, [FB1], createAdvBBreaker(), cache);
+    expect(again).toMatchObject({ kind: 'result', call: { route: 'CACHED', model: FB1 } });
+    expect(h.models).toHaveLength(3);
+  });
+
+  // The attack before a fix and the re-attack after it must face the SAME model, or "Risk reduced" could come from a
+  // model swap instead of the user's fix.
+  const run = (h: H, runId: string, pins: AdvBPins, breaker: AdvBBreaker = createAdvBBreaker(), fallbacks: string[] = [FB1, FB2]) => adversaryB(
+    { sessionId: SESSION, image: image(), consent: mintConsent({ sha256: sha(IMG_BYTES), sessionId: SESSION }), model: MODEL, runId },
+    { run: (r) => h.g.gate(r), notices: { subscribe: () => () => undefined }, fallbackModels: fallbacks, breaker, pins },
+  );
+
+  it('isReattack: r1 and no runId are the first attack; r2, r3… are re-attacks', () => {
+    expect([isReattack(undefined), isReattack('r1'), isReattack('r2'), isReattack('r3')]).toEqual([false, false, true, true]);
+  });
+
+  it('a re-attack is pinned to the model that answered r1, even when the primary is healthy again', async () => {
+    const h = await withFallbacks([overloaded, overloaded, { text: fixture('advB.v1.ok.json') }]);
+    const pins = createAdvBPins();
+    const r1 = await run(h, 'r1', pins);
+    expect(r1).toMatchObject({ kind: 'result', result: { model: FB1 } });
+    expect(pins.get(SESSION)).toBe(FB1);
+    const r2 = await run(h, 'r2', pins);
+    expect(r2).toMatchObject({ kind: 'result', result: { model: FB1 }, call: { model: FB1 } });
+    expect(r2.call.failoverFrom).toBeUndefined();
+    expect(h.models).toEqual([MODEL, MODEL, FB1, FB1]); // r2 went straight to FB1, the primary was not asked
+    expect(h.ledger.entries().map((e) => e.model)).toEqual([MODEL, FB1, FB1]);
+  });
+
+  it('a re-attack never fails over: an overloaded r1 model is a Try again, not a different attacker', async () => {
+    const h = await withFallbacks([{ text: fixture('advB.v1.ok.json') }, overloaded]);
+    const pins = createAdvBPins();
+    expect(await run(h, 'r1', pins)).toMatchObject({ kind: 'result', result: { model: MODEL } });
+    const r2 = await run(h, 'r2', pins);
+    expect(r2).toMatchObject({ kind: 'failed', code: 'CLOUD_SERVER', retry: true, call: { model: MODEL } });
+    expect(r2.call.failoverFrom).toBeUndefined();
+    expect(h.models).toEqual([MODEL, MODEL, MODEL]); // r1, then r2 and the gate's own retry: never FB1 or FB2
+    expect(h.banners).toEqual(['network']); // the single attempt reports its failure (nothing deferred)
+  });
+
+  it('a re-attack ignores the breaker: a tripped r1 model is still the one asked', async () => {
+    const h = await withFallbacks([{ text: fixture('advB.v1.ok.json') }]);
+    const pins = createAdvBPins();
+    const breaker = createAdvBBreaker();
+    await run(h, 'r1', pins, breaker);
+    for (let k = 0; k < BREAKER_THRESHOLD; k++) breaker.serverError(MODEL);
+    expect(breaker.tripped(MODEL)).toBe(true);
+    expect(await run(h, 'r2', pins, breaker)).toMatchObject({ kind: 'result', result: { model: MODEL } });
+    expect(h.models).toEqual([MODEL, MODEL]);
+  });
+
+  it('a re-attack with no live r1 answer (e.g. a recorded replay) uses the primary alone, no failover', async () => {
+    const h = await withFallbacks([overloaded]);
+    const o = await run(h, 'r2', createAdvBPins());
+    expect(o).toMatchObject({ kind: 'failed', code: 'CLOUD_SERVER', call: { model: MODEL } });
+    expect(new Set(h.models)).toEqual(new Set([MODEL]));
+  });
+
+  it('a retried r1 may fail over and moves the pin; a cached r1 revisit keeps it', async () => {
+    const h = await withFallbacks([overloaded, overloaded, { text: fixture('advB.v1.ok.json') }]);
+    const pins = createAdvBPins();
+    pins.set(SESSION, 'stale-model');
+    const cache = createAdvBCache();
+    const once = await adversaryB(
+      { sessionId: SESSION, image: image(), consent: mintConsent({ sha256: sha(IMG_BYTES), sessionId: SESSION }), model: MODEL, runId: 'r1' },
+      { run: (r) => h.g.gate(r), notices: { subscribe: () => () => undefined }, fallbackModels: [FB1], breaker: createAdvBBreaker(), pins, cache },
+    );
+    expect(once).toMatchObject({ kind: 'result', result: { model: FB1 } });
+    expect(pins.get(SESSION)).toBe(FB1);
+    pins.set(SESSION, 'stale-model');
+    const again = await adversaryB(
+      { sessionId: SESSION, image: image(), consent: mintConsent({ sha256: sha(IMG_BYTES), sessionId: SESSION }), model: MODEL, runId: 'r1' },
+      { run: (r) => h.g.gate(r), notices: { subscribe: () => () => undefined }, fallbackModels: [FB1], breaker: createAdvBBreaker(), pins, cache },
+    );
+    expect(again).toMatchObject({ kind: 'result', call: { route: 'CACHED' } });
+    expect(pins.get(SESSION)).toBe(FB1);
   });
 });

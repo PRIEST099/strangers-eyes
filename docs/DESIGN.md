@@ -174,6 +174,10 @@ Every latency, counter and byte figure is `tabular-nums`. Weights are 400/500/60
   - `const wide = route.name === 'judge' || route.name === 'check'`. The inner wrapper becomes
     `mx-auto w-full ${wide ? 'max-w-6xl' : 'max-w-3xl'}`.
   - Main becomes `px-4 pt-6 pb-28 sm:px-6 lg:px-8`. pb-28 keeps the 48 px HUD clear of the last content.
+  - HUD never over content (Nov 24 judging fix): at lg the main/rail row gets `lg:pb-[4.5rem]` (main and the rail
+    end with a `border-b`), so the pill floats in a reserved 72 px band and covers nothing at any scroll position.
+    Below lg the HUD is a full-width solid 72 px dock (`bg-canvas border-t`, like the sticky header at the top) and
+    pb-28 lets the end of every page scroll clear of it. Checked at 1440×900 and 390×844 (judge run, every 200 px).
   - Rail becomes `w-72 xl:w-80 bg-canvas border-l border-line p-4`; keep the `id`/`aria-labelledby` order exactly.
   - The skip button gets `focus:rounded-card`.
 - **SystemBanner.tsx**: the wrapper markup stays byte-identical
@@ -550,13 +554,16 @@ NEW `ui/components/verdict/RiskMeter.tsx`, NEW `ui/components/verdict/BandRuler.
     - A leading 10 px aria-hidden route dot coloured from the last done entry's `hudRoute`: device-fill, cloud-fill,
       `bg-route-rules`, or `bg-route-blocked`; QUEUED and CACHED get an outline ring.
     - A `key={lastId}` `animate-pulse-ring` span in that colour.
-    - The text is exactly `hudPill(entries)`.
+    - The text is exactly `hudPill(entries, tech)`. Settings › Technical details (`techDetails`, default OFF) picks
+      the wording: off, plain job names and `{job} › {ROUTE} {latency}` (label "AI calls"); on, today's
+      `{job} › {ROUTE} ({engine}) {latency}` (label "HUD") and, in the log, the payload class and raw notes/codes.
+      The route badge and latency show either way.
   - Expanded: `w-[min(32rem,calc(100vw-1.5rem))] rounded-stage shadow-pop`, lines at `text-hud`, each with a lane dot.
   - **Keep exactly:**
     - the collapsed `class="sr-only"` on the section;
     - `<div role="log" aria-live="polite">` with no class when collapsed;
     - `aria-label="Router HUD"`;
-    - the bottom-left position.
+    - the bottom-left position (at lg; below lg the pill sits at the left of the full-width dock).
 - **lanes.test.ts:**
   - `laneOf` maps every Route.
   - An IN_CLOUD S4 fallback entry (`inferenceSource: 'in_cloud'`) lands in `cloud`.

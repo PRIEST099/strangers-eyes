@@ -69,9 +69,10 @@ export function clueLabelId(item: Pick<EditorItem, 'clue' | 'regexKind'>): Strin
   return `ui.clue.${item.clue.type}`;
 }
 
-export function readerLabelId(r: Readers): StringId | null {
+/** The reader's label; `tech` false (Settings › Technical details off) says "Built-in check" instead of "Tier-0". */
+export function readerLabelId(r: Readers, tech = true): StringId | null {
   switch (r) {
-    case 'tier0': return 'ui.editor.reader.tier0';
+    case 'tier0': return tech ? 'ui.editor.reader.tier0' : 'ui.editor.reader.tier0Plain';
     case 'nano': return 'ui.editor.reader.nano';
     case 'both': return 'ui.editor.reader.both';
     default: return null;

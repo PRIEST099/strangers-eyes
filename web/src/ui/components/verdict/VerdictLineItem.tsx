@@ -1,5 +1,5 @@
 // web/src/ui/components/verdict/VerdictLineItem.tsx: one verdict line (T-077; SPEC SCR-09). Icon + text + confidence,
-// and a "Why?" disclosure (aria-expanded / aria-controls) with the referee's reason, the supporting clue IDs, who
+// and a "Why?" disclosure (aria-expanded / aria-controls) with the supporting clues (never the referee's free text), who
 // decided (route badge) and, once SCR-16 exists, an "Explain" button. The vault label is muted text after the KIND.
 // DESIGN.md §5.3: a tone rule on the left over surface-2, the confidence as an always-visible pill, and for lines with a
 // distance band a BandRuler (bands only: no number, map or address).
@@ -20,9 +20,11 @@ export interface VerdictLineItemProps {
   onToggle: () => void;
   /** SCR-16 explainer for the line's clues; the button shows only when given. */
   onExplain?: (clueIds: readonly string[]) => void;
+  /** Settings › Technical details: "Referee:" instead of "Guess check:". */
+  tech?: boolean;
 }
 
-export function VerdictLineItem({ line, idBase, open, onToggle, onExplain }: VerdictLineItemProps) {
+export function VerdictLineItem({ line, idBase, open, onToggle, onExplain, tech = false }: VerdictLineItemProps) {
   const textId = `${idBase}-text`;
   const panelId = `${idBase}-why`;
   const { before, kind, label, after } = line.segments;
@@ -88,10 +90,10 @@ export function VerdictLineItem({ line, idBase, open, onToggle, onExplain }: Ver
       </div>
       {line.why && (
         <div id={panelId} hidden={!open} className="ml-8 flex flex-col gap-2 border-t border-line pt-2 text-small">
-          {line.why.reason !== null && <p className="text-fg">{line.why.reason}</p>}
-          {line.why.clues !== null && <p className="font-mono break-all text-muted">{line.why.clues}</p>}
+          {/* Never the referee's free-text reason (misuse hardening): clues and who graded it only. */}
+          {line.why.clues !== null && <p className="break-all text-muted">{line.why.clues}</p>}
           <p className="flex flex-wrap items-center gap-2">
-            <span className="text-muted">{t('ui.verdict.referee')}</span>{' '}
+            <span className="text-muted">{t(tech ? 'ui.verdict.referee' : 'ui.verdict.refereePlain')}</span>{' '}
             <Badge route={line.why.route} />
           </p>
           {onExplain && line.why.clueIds.length > 0 && (

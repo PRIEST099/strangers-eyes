@@ -27,6 +27,8 @@ final class Ledger {
   var facesSent: Int { entries.reduce(0) { $0 + $1.facesSent } }
   var vaultItemsSent: Int { entries.reduce(0) { $0 + $1.vaultItemsSent } }
   var cloudRequests: Int { entries.filter { $0.route == .inCloud }.count }
+  /// Bytes actually sent to the cloud (a CACHED replay sends none).
+  var cloudBytes: Int { entries.filter { $0.route == .inCloud }.reduce(0) { $0 + $1.bytes } }
   var onDeviceCalls: Int { entries.filter { $0.route == .onDevice }.count }
   var rulesCalls: Int { entries.filter { $0.route == .rulesOnly }.count }
   var blocked: Int { entries.filter { $0.route == .blocked }.count }

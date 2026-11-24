@@ -3,13 +3,16 @@
 //   - loadSamplePhoto: the bundled sample through the normal import (tier0/importPhoto: decode, metadata check, master).
 //   - judgeNanoStep: the pre-screen's model step as S4 (ai/jobs/prescreen with `judge`): the image is the sample's
 //     pre-rendered nano768 file, sent as fetched, so its sha256 is the manifest's (the gate's S4 proof, AC-023).
-//   - recordedAttack: the CACHED replay (copy.judge.cached) of the recorded pass B for this sample.
+//   - recordedAttack: the CACHED replay (copy.judge.cached) of the recorded pass B for this sample. A replay writes one
+//     finished CACHED Ledger entry (ledger.record, ARCH §8.6: 0 bytes, no image, nothing sent), so the HUD, the lanes
+//     and the Cloud Ledger show the recording as what it is instead of "Nothing has left this device" beside a result.
 // Sample files come from this origin's /samples/ only (vault/judgeVault.sampleUrl). Nothing here touches the real vault.
 import type { AttackOutcome } from '../../ai/jobs/adversaryB';
 import type { OutgoingImage } from '../../ai/egressGate';
 import { parseAdvB } from '../../ai/parse';
 import { vaultScan } from '../../ai/vaultScan';
 import { deriveFrame } from '../../core/frames';
+import { ledger } from '../../core/ledger';
 import type { OcrWord, PxRect, VaultItem } from '../../core/types';
 import type { ImportedPhoto } from '../../tier0/importPhoto';
 import type { Tier0Finding } from '../../tier0/tier0';
@@ -78,6 +81,8 @@ export interface RecordedAttackInput {
   /** Re-attack: the masks and crop actually sent (master px); null for the first attack. */
   fix: { masks: readonly PxRect[]; crop: PxRect | null } | null;
   master: { width: number; height: number };
+  /** The check's session id, for the CACHED Ledger entry (omitted: no entry is written). */
+  sessionId?: string;
 }
 
 /** The CACHED replay for this attack, or null when the recording cannot be read (the live outcome then stands). */
@@ -88,10 +93,19 @@ export async function recordedAttack(i: RecordedAttackInput): Promise<AttackOutc
     if (i.fix && fixedRecordingApplies(parseAdvB(first), i.fix.masks, i.fix.crop, i.master.width, i.master.height, i.sample.fixMasked)) {
       use = await fetchJson(i.sample.cachedAdvBFixed);
     }
-    return recordedOutcome(use, {
+    const out = recordedOutcome(use, {
       runId: i.runId, sentImageSha256: i.image.sha256, sentFrame: i.image.frame, recordedAt: i.sample.recordedAt, model: i.sample.model,
       echo: (p) => vaultScan.echoScan(p),
     }, i.master.width, i.master.height);
+    if (i.sessionId !== undefined) {
+      // A replay sends nothing: 0 bytes, no image, no hash. It is still an attacker result on screen, so it is logged.
+      ledger.record({
+        sessionId: i.sessionId, judge: true, ts: Date.now(), job: 'adversaryB', payloadClass: 'S3', route: 'CACHED',
+        mode: 'ONLY_IN_CLOUD', model: i.sample.model, promptVersion: null, latencyMs: 0, bytesOut: 0, imagesOut: 0,
+        imageSha256: [], facesInOutgoing: 0, vaultItemsInOutgoing: 0, notes: ['recorded'],
+      });
+    }
+    return out;
   } catch {
     return null;
   }

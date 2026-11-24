@@ -6,7 +6,7 @@
 //   LEVEL  headline                                              (a heading; LOW's copy carries "This isn't a guarantee.")
 //   the lines (a list): icon · text (muted vault label) · confidence · [Why?]
 //   Not linked: … · Attacker's best guess: … · noVault + "Add places"
-//   Referee: <route> <latency> · Distances: code
+//   Referee: <route> <latency> · Distances: code              ("Guess check:" unless Settings › Technical details)
 //   [actions]                                                    (Fix / Export, supplied by the Check screen)
 //   The cloud never learns whether it was right.                 (always visible, whatever the level; AC-163)
 // A polite live region announces the headline when the card appears or the verdict changes.
@@ -79,17 +79,20 @@ export interface VerdictCardProps {
    * gallery) turns it off for all but the selected one, so they do not all speak at once.
    */
   announce?: boolean;
+  /** Overrides Settings › Technical details (clue ids in "Why?", "Referee:" wording). */
+  tech?: boolean;
 }
 
 export function VerdictCard({
   verdict, vault, comparison = null, showVaultLabels, referee = null, actions, onFocusClues, onExplain,
-  headingLevel = 3, defaultOpenLineId = null, announce = true,
+  headingLevel = 3, defaultOpenLineId = null, announce = true, tech: givenTech,
 }: VerdictCardProps) {
   const settings = useSettings();
   const show = showVaultLabels ?? settings.showVaultLabels;
+  const tech = givenTech ?? settings.techDetails;
   const view = useMemo(
-    () => verdictCardView(verdict, vault, { showVaultLabels: show, comparison }),
-    [verdict, vault, show, comparison],
+    () => verdictCardView(verdict, vault, { showVaultLabels: show, comparison, tech }),
+    [verdict, vault, show, comparison, tech],
   );
   const uid = useId();
   const headingId = `${uid}-headline`;
@@ -214,6 +217,7 @@ export function VerdictCard({
                 open={openLine?.id === line.id}
                 onToggle={() => setOpenId((cur) => (cur === line.id ? null : line.id))}
                 onExplain={onExplain}
+                tech={tech}
               />
             ))}
           </ul>
@@ -248,7 +252,7 @@ export function VerdictCard({
           <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-small text-muted">
             {referee && (
               <>
-                <span>{t('ui.verdict.referee')}</span>{' '}
+                <span>{t(tech ? 'ui.verdict.referee' : 'ui.verdict.refereePlain')}</span>{' '}
                 <Badge route={referee.route} />{' '}
                 {referee.latencyMs !== null && (
                   <>

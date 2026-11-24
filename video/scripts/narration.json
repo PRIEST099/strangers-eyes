@@ -28,15 +28,15 @@
   },
   {
    "id": "castle",
-   "text": "Cover back on, the copy goes out. These are real Gemini answers, recorded on November twenty-third and replayed. It named the city and the castle: within one kilometre of home, and of work. You can't cover a castle, so the app says: crop it, or don't post it."
+   "text": "Cover back on, the copy goes out. These are real Gemini answers, recorded on November twenty-third and replayed. The AI recognised the castle. The app never shows where the AI thinks you are, only how close it came: within one kilometre of home, and of work. You can't cover a castle, so the app says: crop it, or don't post it."
   },
   {
    "id": "crossing",
-   "text": "This one can be fixed. The AI read a street sign and its house-number plate, and named the street, within five kilometres of home and work. The app covers both, then attacks again. Now it can only say Berlin. Risk reduced, with the AI's confidence shown. Never a guarantee."
+   "text": "This one can be fixed. The AI read a street sign and its house-number plate, and found the street, within five kilometres of home and work. The app covers both, then attacks again. Now it can only guess the city. Risk reduced, with the AI's confidence shown. Never a guarantee."
   },
   {
    "id": "station",
-   "text": "But covering isn't always enough. With the sign hidden, the AI still named the city from the building itself. Still exposed."
+   "text": "But covering isn't always enough. With the sign hidden, the AI still found the right city from the building itself. Still exposed."
   },
   {
    "id": "results",
@@ -44,7 +44,7 @@
   },
   {
    "id": "hybrid",
-   "text": "That's hybrid AI: the cloud brings world knowledge, your device keeps the secrets. Private steps run on Gemini Nano in Chrome, or Apple's model on iPhone. No on-device AI? Simple rules take over, never the cloud. Built on Firebase AI Logic."
+   "text": "That's hybrid AI: the cloud brings world knowledge, your device keeps the secrets. Private steps run on Gemini Nano in Chrome, or on Apple's own model on iPhone, shown here in the iOS app. No on-device AI? Simple rules take over, never the cloud. Built on Firebase AI Logic."
   },
   {
    "id": "close",

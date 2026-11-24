@@ -44,7 +44,7 @@ const render = (caps: CapabilitiesView, extra: Omit<CapabilityPanelProps, 'caps'
   renderToStaticMarkup(createElement(CapabilityPanel, { caps, ...extra }));
 /** The data-route of the policy row for class `k`. */
 const routeOf = (html: string, k: string) => {
-  const row = html.split('<tr').find((r) => r.includes(`>${k}</span>`));
+  const row = html.split('<tr').find((r) => r.includes(`data-class="${k}"`));
   return row?.match(/data-route="([A-Z_]+)"/)?.[1];
 };
 const DOWNLOAD = T('ui.cap.download');
@@ -62,7 +62,8 @@ describe('SCR-02 layout (every state)', () => {
   it.each(states)('%s: invariant line, four rows with disclosures, S0–S4 table, three links', (_n, s) => {
     const html = render(view(s));
     expect(html).toContain(T('copy.cap.invariant'));
-    for (const id of ['ui.cap.row.nano', 'ui.cap.row.tier0', 'ui.cap.row.cloud', 'ui.cap.row.offline'] as const) {
+    // Technical details off (the default): the Tier-0 row reads in plain words and the table has no S0–S4 codes.
+    for (const id of ['ui.cap.row.nano', 'ui.cap.row.tier0Plain', 'ui.cap.row.cloud', 'ui.cap.row.offline'] as const) {
       expect(html).toMatch(new RegExp(`<h3[^>]*>${T(id).replace(/[()]/g, '\\$&')}</h3>`));
       // Each "What this means" names its row for screen readers.
       expect(html).toContain(`${T('ui.cap.means')}<span class="sr-only">: ${T(id)}</span>`);
@@ -70,6 +71,15 @@ describe('SCR-02 layout (every state)', () => {
     expect(html.match(/<details/g)?.length).toBeGreaterThanOrEqual(4);
     expect(html).toContain(T('ui.cap.policy.caption'));
     for (const k of ['S0', 'S1', 'S2', 'S3', 'S4']) expect(routeOf(html, k)).toBeDefined();
+    expect(html).not.toMatch(/>S[0-4]<\/span>/);
+    expect(html).not.toContain('Tier-0');
+    // Technical details on: the codes and "Tier-0" come back, the badges are the same.
+    const techHtml = renderToStaticMarkup(createElement(CapabilityPanel, { caps: view(s), tech: true }));
+    for (const k of ['S0', 'S1', 'S2', 'S3', 'S4']) {
+      expect(techHtml).toContain(`>${k}</span>`);
+      expect(routeOf(techHtml, k)).toBe(routeOf(html, k));
+    }
+    expect(techHtml).toContain(T('ui.cap.row.tier0'));
     expect(html).toContain(`href="#/vault"`);
     expect(html).toContain(`href="#/judge"`);
     expect(html).toContain(`href="#/check"`);

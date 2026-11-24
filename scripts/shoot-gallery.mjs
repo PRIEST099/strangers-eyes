@@ -81,7 +81,8 @@ const SHOTS = [
     { toggle: 'Autoplay', on: true }, { waitText: 'Send (done)', timeout: 90000 }, { toggle: 'Autoplay', on: false },
     { waitText: VERDICTS, timeout: 150000 }, { wait: 2500 }, { log: 'CACHED|IN CLOUD|RULES-ONLY|ON-DEVICE|BLOCKED|stranger|narrows|exposure|Partial|guess' },
     { clickIfEnabled: 'Dismiss' }, { wait: 400 },
-    { scroll: ['CACHED SAMPLE', ...VERDICTS], block: 'start', offset: -120 }, { wait: 800 }, { shot: true },
+    // Frame the verdict itself (level, headline, distance bands, best guess); the rail still shows CACHED SAMPLE.
+    { scroll: [...VERDICTS], block: 'start', offset: -150 }, { wait: 800 }, { shot: true },
     { thumb: VERDICTS },
   ] },
   { name: '04-reattack', hash: null, steps: [
@@ -202,7 +203,10 @@ async function thumbnail(text, file) {
   if (h > r.vh) { h = r.vh; w = h * 1.5; }
   const x = Math.max(0, Math.min(r.right - w, r.x + r.w / 2 - w / 2));
   const y = Math.max(0, Math.min(r.vh - h, r.y + r.h / 2 - h / 2));
+  // The HUD dock floats over the page's bottom edge; a crop of the card would cut it in half, so it sits out this capture.
+  await evaluate(`(() => { const d = document.querySelector('[data-hud="dock"]'); if (d) d.style.visibility = 'hidden'; return true; })()`);
   const shot = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false, clip: { x, y, width: w, height: h, scale: 1200 / w } });
+  await evaluate(`(() => { const d = document.querySelector('[data-hud="dock"]'); if (d) d.style.visibility = ''; return true; })()`);
   writeFileSync(file, Buffer.from(shot.data, 'base64'));
   console.log(`wrote ${file} (card ${Math.round(r.w)}x${Math.round(r.h)}, clip ${Math.round(w)}x${Math.round(h)} at ${Math.round(x)},${Math.round(y)} -> 1200x800)`);
 }

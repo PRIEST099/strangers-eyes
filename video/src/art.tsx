@@ -30,7 +30,7 @@ export const STREET_LABEL: Record<StreetBox, string> = { sign: 'STREET SIGN', sh
 export const Street = ({ w, person = false, boxes = {}, masks = {}, style }: {
   w: number; person?: boolean; boxes?: Partial<Record<StreetBox, number>>; masks?: Partial<Record<StreetBox, number>>; style?: CSSProperties;
 }) => (
-  <svg width={w} height={w * 0.5625} viewBox="0 0 800 450" style={{ display: 'block', ...style }}>
+  <svg width={w} height={(w * 9) / 16} viewBox="0 0 800 450" style={{ display: 'block', ...style }}>
     <defs>
       <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#7fb0dc" /><stop offset="1" stopColor="#bcd6ec" /></linearGradient>
     </defs>

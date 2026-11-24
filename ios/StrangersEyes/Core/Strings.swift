@@ -19,6 +19,25 @@ enum Strings {
   /// `{name}` placeholders (SPEC §11); names may contain spaces and capitals ({band words}, {KIND}).
   static func t(_ key: String, _ params: [String: String]) -> String {
     guard let text = table[key] else { return key }
+    return fill(text, params)
+  }
+
+  /// The same, with the named placeholders dropped from the template together with one neighbouring " · " separator.
+  /// Used where a value must never be shown (the attacker's guessed place name), whichever en.json is bundled.
+  static func t(_ key: String, _ params: [String: String], omitting: Set<String>) -> String {
+    guard var text = table[key] else { return key }
+    for name in omitting {
+      for pattern in ["\\s*·\\s*\\{\(NSRegularExpression.escapedPattern(for: name))\\}", "\\{\(NSRegularExpression.escapedPattern(for: name))\\}\\s*·\\s*",
+                      "\\{\(NSRegularExpression.escapedPattern(for: name))\\}"] {
+        guard let re = try? NSRegularExpression(pattern: pattern) else { continue }
+        let r = NSRange(text.startIndex..., in: text)
+        if re.firstMatch(in: text, range: r) != nil { text = re.stringByReplacingMatches(in: text, range: r, withTemplate: ""); break }
+      }
+    }
+    return fill(text, params.filter { !omitting.contains($0.key) })
+  }
+
+  private static func fill(_ text: String, _ params: [String: String]) -> String {
     let ns = text as NSString
     var out = ""
     var last = 0

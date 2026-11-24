@@ -6,6 +6,8 @@
 // this device" sends nothing and returns to the editor (AC-132). Shown inline as the step's panel (not a modal) so the
 // stepper stays usable; pass A's grounding checkbox is not shown (pass A is not built, and live RC is the free tier).
 // When the cloud is off (offline, kill switch, cap, App Check/Auth, a BREACH) the sheet does not open: only the reason.
+// Settings › Technical details adds the sha256 prefix, the prompt version (advB.v1) and the exact model id; off, the
+// meta is size only and "what's sent" names Gemini in the cloud in plain words.
 import { useEffect, useState } from 'react';
 import { t, type StringId } from '../../core/strings';
 import type { DryRun } from '../../ai/preflight';
@@ -13,6 +15,7 @@ import type { MaskedFrameCandidate } from '../check/editor';
 import { consentCounts, FAILURE_COPY, sendBlockedCopy } from '../check/sendFlow';
 import { caps, prefs } from '../../core/localPrefs';
 import { useOnline } from '../hooks/useOnline';
+import { useTechDetails } from '../hooks/usePrefs';
 import { useSystemStatus } from '../hooks/useSystemStatus';
 import type { SendState } from '../checkState';
 import { kilobytes } from '../layout';
@@ -31,7 +34,7 @@ export interface ConsentPanelProps {
   onCancel: () => void;
 }
 
-function OutgoingImage({ dry }: { dry: DryRun }) {
+function OutgoingImage({ dry, tech }: { dry: DryRun; tech: boolean }) {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
     const u = URL.createObjectURL(dry.image.jpeg);
@@ -50,7 +53,9 @@ function OutgoingImage({ dry }: { dry: DryRun }) {
         </div>
       )}
       <figcaption className="font-mono text-small break-all text-muted tabular-nums" data-testid="consent-meta">
-        {t('ui.consent.meta', { w: width, h: height, kb: kilobytes(dry.bytes), sha: dry.image.sha256.slice(0, 8) })}
+        {tech
+          ? t('ui.consent.meta', { w: width, h: height, kb: kilobytes(dry.bytes), sha: dry.image.sha256.slice(0, 8) })
+          : t('ui.consent.metaPlain', { w: width, h: height, kb: kilobytes(dry.bytes) })}
       </figcaption>
     </figure>
   );
@@ -71,6 +76,7 @@ function Check({ ok, text }: { ok: boolean; text: string }) {
 export function ConsentPanel({ send, candidate, tierCopy, model, sent, onSend, onCancel }: ConsentPanelProps) {
   const online = useOnline();
   const status = useSystemStatus();
+  const tech = useTechDetails();
   const blocked = sendBlockedCopy({ online: online && !prefs.simulateOffline(), status, capUsed: caps.usedToday() });
   if (blocked && !sent) {
     return (
@@ -91,7 +97,7 @@ export function ConsentPanel({ send, candidate, tierCopy, model, sent, onSend, o
     <div className="mt-3 flex flex-col gap-4" data-testid="consent-sheet">
       <p className="text-title font-semibold">{t('copy.consent.title')}</p>
       {sent && <p className="text-small text-muted">{t('ui.consent.sent')}</p>}
-      <OutgoingImage dry={dry} />
+      <OutgoingImage dry={dry} tech={tech} />
       <div className="rounded-card border border-line bg-surface-2 p-4">
         <p className={EYEBROW}>{t('ui.consent.checklist')}</p>
         <ul className="mt-3 flex flex-col gap-2 text-body">
@@ -112,7 +118,7 @@ export function ConsentPanel({ send, candidate, tierCopy, model, sent, onSend, o
         </div>
       )}
       <div className="flex max-w-[68ch] flex-col gap-2 text-small">
-        <p className="flex items-start gap-2 break-words"><Icon name="cloud" className="mt-0.5 size-4 text-route-cloud" /><span className="min-w-0">{t('ui.consent.whatsSent', { prompt: 'advB.v1', model })}</span></p>
+        <p className="flex items-start gap-2 break-words"><Icon name="cloud" className="mt-0.5 size-4 text-route-cloud" /><span className="min-w-0">{tech ? t('ui.consent.whatsSent', { prompt: 'advB.v1', model }) : t('ui.consent.whatsSentPlain')}</span></p>
         <p data-testid="consent-tier" className="pl-6 text-muted">{t(tierCopy)}</p>
         <p className="flex items-start gap-2"><Icon name="lock" className="mt-0.5 size-4 text-verdict-teal" /><span>{t('copy.consent.never')}</span></p>
       </div>

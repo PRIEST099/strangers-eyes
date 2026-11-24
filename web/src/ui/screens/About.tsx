@@ -16,6 +16,7 @@ import { Badge } from '../components/Badge';
 import { HybridLanes } from '../components/HybridLanes';
 import { StoryReel } from '../components/StoryReel';
 import { CARD, H1, H2 } from '../components/surface';
+import { useTechDetails } from '../hooks/usePrefs';
 
 /** Link targets (not copy). The repo is public from T-170 (Nov 29). */
 export const REPO_URL = 'https://github.com/PRIEST099/strangers-eyes';
@@ -77,6 +78,8 @@ function Section({ id, titleId, children }: { id: string; titleId: StringId; chi
 
 export function About() {
   const commit = commitOf(import.meta.env.VITE_GIT_SHA);
+  // The S0–S4 codes beside each row only with Settings › Technical details (the rows say it in words either way).
+  const tech = useTechDetails();
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">
@@ -131,9 +134,9 @@ export function About() {
             </thead>
             <tbody>
               {PAYLOAD_CLASSES.map((k) => (
-                <tr key={k} className="border-t border-line align-top">
+                <tr key={k} data-class={k} className="border-t border-line align-top">
                   <th scope="row" className="w-[42%] px-3 py-3 font-normal sm:px-4">
-                    <span className="mr-1.5 font-mono text-caption font-bold text-muted">{k}</span>
+                    {tech && <span className="mr-1.5 font-mono text-caption font-bold text-muted">{k}</span>}
                     {t(`ui.cap.policy.${k}`)}
                   </th>
                   <td className="px-3 py-3 sm:px-4">

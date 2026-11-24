@@ -2,6 +2,8 @@
 //   - On-device AI: the capability state (the same view as the header chip and SCR-02), the Download button when Chrome
 //     offers the model, a button that opens SCR-02, and "Use Gemini Nano when available" (on; AC-277). Off: S0/S1 run
 //     RULES-ONLY and S2/S4 run in the cloud (AD-33); the capability view shows (c) at once.
+//   - Display: "Technical details" (off by default): privacy classes, prompt versions, image hashes and model names in the
+//     HUD, the Cloud Ledger and each step. Route badges and latency show either way.
 //   - Usage: "Cloud checks today: {used}/{cap}" (local counter, RC cap) with copy.settings.capNote, then this page's
 //     Ledger counters (requests, on-device calls, rule checks, blocked; T-063, live from the in-memory Ledger).
 //   - Data: Burn vault (the shared BurnVaultDialog), Clear history and Copy ledger receipt (T-063: copy.receipt.line from
@@ -157,6 +159,15 @@ export function Settings({ deps = APP_DEPS, debug = debugFlag() }: SettingsProps
           hint={t('ui.settings.useNanoHint')}
           checked={settings.useNano}
           onChange={(on) => save(localPrefs.updateSettings({ useNano: on }))}
+        />
+      </Section>
+
+      <Section id="settings-display" titleId="ui.settings.display">
+        <Toggle
+          label={t('ui.settings.techDetails')}
+          hint={t('ui.settings.techDetailsHint')}
+          checked={settings.techDetails}
+          onChange={(on) => save(localPrefs.updateSettings({ techDetails: on }))}
         />
       </Section>
 

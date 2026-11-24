@@ -248,12 +248,12 @@ export const Gate = () => (
   <AbsoluteFill>
     <Series>
       <Series.Sequence durationInFrames={S(3.9)}>
-        <Full clip="gate" from={11.25} to={15.1} sec={3.9} />
+        <Full clip="gate" from={mark('gate', 'unticked', -0.38)} to={mark('gate', 'unticked', 3.47)} sec={3.9} />
         <Sequence from={S(2.6)}><Callout x={1120} y={640} tx={870} ty={530} w={560} text="Cover removed on purpose" color={C.amber} /></Sequence>
       </Series.Sequence>
-      <Series.Sequence durationInFrames={S(1.4)}><Full clip="gate" from={22.2} to={23.6} sec={1.4} /></Series.Sequence>
+      <Series.Sequence durationInFrames={S(1.4)}><Full clip="gate" from={mark('gate', 'blocked', -1.38)} to={mark('gate', 'blocked', 0.02)} sec={1.4} /></Series.Sequence>
       <Series.Sequence durationInFrames={S(5.2)}>
-        <Full clip="gate" from={25.6} to={30.6} sec={5.2} z0={1} z1={1.12} origin="54% 70%" />
+        <Full clip="gate" from={mark('gate', 'blocked', 2.02)} to={mark('gate', 'blocked', 7.02)} sec={5.2} z0={1} z1={1.12} origin="54% 70%" />
         <Stamp text="BLOCKED · never reached the attacker" color={C.red} at={0.8} x={300} y={880} rot={-3} />
       </Series.Sequence>
     </Series>
@@ -264,14 +264,14 @@ export const Gate = () => (
 
 // ---------------------------------------------------------------- 7 the castle: real answer, red, nothing to fix
 export const Castle = () => {
-  const split = useAt(9.3, 16);
+  const split = useAt(8.9, 16);
   return (
     <AbsoluteFill>
-      <Sequence durationInFrames={S(9.3)}>
-        <Full clip="castle" from={12.7} to={22.0} sec={9.3} z0={1} z1={1.1} origin="30% 45%" />
+      <Sequence durationInFrames={S(8.9)}>
+        <Full clip="castle" from={12.7} to={22.0} sec={8.9} z0={1} z1={1.1} origin="30% 45%" />
         <Sequence from={S(3.4)}><div style={{ position: 'absolute', left: 560, top: 110 }}><Chip color={C.cloud} bg="rgba(10,11,15,0.92)" size={30}>Real Gemini answer · recorded Nov 23 · replayed</Chip></div></Sequence>
       </Sequence>
-      <Sequence from={S(9.3)} durationInFrames={S(3.4)}>
+      <Sequence from={S(8.9)} durationInFrames={S(7.3)}>
         <AbsoluteFill style={{ background: C.bg }}>
           <div style={{ position: 'absolute', left: 40, top: 120, width: 1060, height: 600, borderRadius: 18, overflow: 'hidden', transform: `scale(${1 - 0.0 * split})` }}>
             <Freeze frame={0}><div style={{ width: 1920, height: 1080, transform: 'scale(0.75)', transformOrigin: 'top left', marginLeft: -60 }}><Full clip="castle" from={21.6} to={22.6} sec={1} /></div></Freeze>
@@ -280,12 +280,13 @@ export const Castle = () => {
             <RingMap w={680} h={460} rings={[{ r: 70, label: '1 km', color: C.red }, { r: 150, label: '5 km', color: C.amber }]} highlight={0} />
             <div style={{ display: 'flex', gap: 14, marginTop: 18 }}><Chip color={C.red}>Home: within 1 km</Chip><Chip color={C.red}>Work: within 1 km</Chip></div>
             <div style={{ fontSize: 22, color: C.muted, marginTop: 12 }}>rings around your own places · worked out on your device</div>
+            <div style={{ marginTop: 22, opacity: useAt(11.0) }}><Chip color={C.muted} size={26}>Where the AI thinks you are: never shown</Chip></div>
           </div>
           <div style={{ position: 'absolute', left: 40, top: 40 }}><StepStrip active={3} current={3} small /></div>
         </AbsoluteFill>
       </Sequence>
-      <Sequence from={S(12.7)}>
-        <Full clip="castle" from={28.5} to={34.2} sec={4.6} z0={1.08} z1={1.14} origin="0% 62%" />
+      <Sequence from={S(16.2)}>
+        <Full clip="castle" from={28.5} to={34.2} sec={5.0} z0={1.08} z1={1.14} origin="0% 62%" />
         <Stamp text="Crop it, or don't post it" color={C.red} at={0.6} x={980} y={840} rot={-4} />
       </Sequence>
       <RealTag />
@@ -305,7 +306,7 @@ export const Crossing = () => (
     </Sequence>
     <Sequence from={S(2.9)} durationInFrames={S(4.5)}>
       <Full clip="crossing" from={mark('crossing', 'verdictShown', -0.2)} to={mark('crossing', 'verdictShown', 4.3)} sec={4.5} z0={1.05} z1={1.12} origin="20% 25%" />
-      <Sequence from={S(0.8)}><div style={{ position: 'absolute', left: 120, top: 760 }}><Chip color={C.amber} bg="rgba(10,11,15,0.92)" size={32}>Named the street · within 5 km of home and work</Chip></div></Sequence>
+      <Sequence from={S(0.8)}><div style={{ position: 'absolute', left: 120, top: 760 }}><Chip color={C.amber} bg="rgba(10,11,15,0.92)" size={32}>Found the street · within 5 km of home and work</Chip></div></Sequence>
     </Sequence>
     <Sequence from={S(7.4)} durationInFrames={S(1.9)}>
       <Full clip="crossing" from={mark('crossing', 'fix', 0.3)} to={mark('crossing', 'applied', 0.3)} sec={1.9} />
@@ -316,7 +317,7 @@ export const Crossing = () => (
     </Sequence>
     <Sequence from={S(10.8)}>
       <Full clip="crossing" from={mark('crossing', 'after', -0.3)} sec={7.1} />
-      <Sequence from={S(0.9)}><div style={{ position: 'absolute', left: 150, top: 920 }}><Chip color={C.green} bg="rgba(10,11,15,0.92)" size={32}>Attacked again: only "Berlin"</Chip></div></Sequence>
+      <Sequence from={S(0.9)}><div style={{ position: 'absolute', left: 150, top: 920 }}><Chip color={C.green} bg="rgba(10,11,15,0.92)" size={32}>Attacked again: city level only</Chip></div></Sequence>
       <Stamp text="Risk reduced · not a guarantee" color={C.green} at={2.2} x={1040} y={150} rot={-3} />
     </Sequence>
     <RealTag />
@@ -393,9 +394,9 @@ export const Results = () => {
 export const Hybrid = () => {
   const t = useSec();
   const split = useAt(5.4, 15);
-  const noAI = useAt(10.4, 14);
-  const crash = interpolate(t, [11.0, 11.8], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
-  const fire = useAt(14.0, 14);
+  const noAI = useAt(12.6, 14);
+  const crash = interpolate(t, [13.2, 14.0], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
+  const fire = useAt(16.2, 14);
   return (
     <AbsoluteFill>
       <Title y={40}>Hybrid AI</Title>
@@ -414,10 +415,10 @@ export const Hybrid = () => {
           </div>
           <div style={{ opacity: split, transform: `translateY(${(1 - split) * 40}px)`, textAlign: 'center' }}>
             <div style={{ width: 240, height: 440, borderRadius: 36, border: `8px solid #2b2f39`, overflow: 'hidden', background: '#000', margin: '0 auto' }}>
-              <Img src={staticFile('img/ios-07-verdict.png')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }} />
+              <Img src={staticFile('img/ios-judge-10-compare.png')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: '50% 40%' }} />
             </div>
             <div style={{ marginTop: 14 }}><Chip color={C.device}>Apple's model on iPhone</Chip></div>
-            <div style={{ fontSize: 18, color: C.muted, marginTop: 8, width: 380 }}>iOS Simulator · the attacker here is a labelled stand-in</div>
+            <div style={{ fontSize: 18, color: C.muted, marginTop: 8, width: 380 }}>iOS Simulator · Apple's model on the device · recorded attacker answer</div>
           </div>
         </div>
       </div>

@@ -21,7 +21,7 @@ import enums from '@prompts/enums.v1.json';
 import type { AdversaryResult, ClaimKind, RefereeMatch, VaultItem, VaultKind } from '../../core/types';
 import { STRENGTHS } from '../../core/types';
 import {
-  KIND_COMPAT, isGenericLabel, mergeMatches, refereeClaims, refereeVaultItems, rulesReferee,
+  KIND_COMPAT, geoPairs, isGenericLabel, mergeMatches, refereeClaims, refereeVaultItems, rulesReferee,
   type RefereeClaim, type RefereeVaultItem,
 } from '../../core/referee';
 import { gate as appGate, type GateRequest, type GateResult } from '../egressGate';
@@ -194,7 +194,7 @@ export async function referee(i: RefereeInput, deps: RefereeDeps = {}): Promise<
     if (r.route !== 'ON_DEVICE' && !cloud) {
       return rulesOnly(r.notes.some(deviceFailedNote) ? 'device_failed' : 'no_device', [...r.notes], r.ledgerId);
     }
-    const merged = mergeMatches(r.value, rules);
+    const merged = mergeMatches(r.value, rules, geoPairs(claims, items)); // D-168
     const notes = [...r.notes, ...merged.notes.filter((n) => !r.notes.includes(n))];
     const matches = cloud ? merged.matches.map((m) => (m.route === 'ON_DEVICE' ? { ...m, route: 'IN_CLOUD' as const } : m)) : merged.matches;
     return { matches, route: cloud ? 'IN_CLOUD' : 'ON_DEVICE', latencyMs: r.latencyMs, ledgerId: r.ledgerId, notes, fallback: null };

@@ -245,6 +245,20 @@ enum VerdictEngine {
     v.bestGuess.map { Strings.t("copy.verdict.bestGuess", ["level": $0.level, "label": $0.label, "confidence": $0.confidence]) }
   }
 
+  /// What the UI shows for the best guess (misuse hardening): precision level and confidence, NEVER the attacker's
+  /// guessed place name. `bestGuessText` stays the exact web port for the parity vectors; the label is never rendered.
+  static func bestGuessDisplay(_ v: Verdict) -> String? {
+    v.bestGuess.map { Strings.t("copy.verdict.bestGuess", ["level": $0.level, "confidence": $0.confidence], omitting: ["label"]) }
+  }
+
+  /// The compare header as shown: comparisonHeadline, with a best-guess line swapped for its label-free display.
+  static func comparisonHeadlineDisplay(_ cmp: VerdictComparison) -> String {
+    let h = comparisonHeadline(cmp)
+    var params = h.params
+    if let line = params["line"], let bg = bestGuessText(cmp.after), line == bg { params["line"] = bestGuessDisplay(cmp.after) ?? "" }
+    return Strings.t(h.copyId, params)
+  }
+
   static func notLinkedText(_ v: Verdict, _ vault: [VaultItem]) -> String? {
     let ids = Set(v.notLinkedVaultIds)
     var seen = Set<String>()

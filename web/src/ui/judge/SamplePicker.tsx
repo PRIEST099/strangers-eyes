@@ -5,8 +5,12 @@
 // licensed, already solid-masked); no network beyond the app's own origin.
 // Test hooks: every sample button keeps `data-sample` and `aria-pressed`, and its accessible name is exactly the title
 // (the image is alt="", a compact title below sm is a sr-only span, never aria-label).
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+// `startHere` marks the suggested first pick (the level crossing, whose recording ends "Risk reduced") with a "Start
+// here" chip on its card, without reordering the manifest. The chip sits OUTSIDE the button (so the button's name stays
+// exactly the title) and is the button's description (aria-describedby).
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { sampleUrl, type JudgeSample } from '../../vault/judgeVault';
+import { t } from '../../core/strings';
 import { Button } from '../components/Button';
 
 export interface SamplePickerProps {
@@ -16,6 +20,8 @@ export interface SamplePickerProps {
   /** A sample is running: show the compact strip. */
   compact: boolean;
   onPick: (index: number) => void;
+  /** The id of the suggested first sample (a "Start here" chip on its full card); null or absent: none. */
+  startHere?: string | null;
 }
 
 /** The card: CARD without its padding (the thumbnail runs edge to edge). The selected card gets the device ring. */
@@ -25,7 +31,8 @@ const cardClass = (on: boolean) =>
 /** The collapse transition (ms); the collapsed cards are unmounted after it, so each `data-sample` exists once. */
 const COLLAPSE_MS = 250;
 
-export function SamplePicker({ samples, selected, compact, onPick }: SamplePickerProps) {
+export function SamplePicker({ samples, selected, compact, onPick, startHere = null }: SamplePickerProps) {
+  const chipId = useId();
   const [gone, setGone] = useState(compact);
   useEffect(() => {
     if (!compact) { setGone(false); return; }
@@ -60,10 +67,21 @@ export function SamplePicker({ samples, selected, compact, onPick }: SamplePicke
           <ul className="grid grid-cols-1 gap-3 p-3 sm:grid-cols-3">
             {samples.map((s, i) => {
               const on = s.id === selected;
+              const first = s.id === startHere;
               return (
                 <li key={s.id} className={cardClass(on)}>
+                  {first && (
+                    <span
+                      id={chipId}
+                      data-start-here=""
+                      className="pointer-events-none absolute top-2 left-2 z-10 rounded-chip bg-accent px-2 py-0.5 text-caption font-bold text-accent-fg shadow-e1"
+                    >
+                      {t('ui.judge.startHere')}
+                    </span>
+                  )}
                   <Button
                     variant="ghost" size="icon" data-sample={s.id} aria-pressed={on} onClick={() => onPick(i)}
+                    aria-describedby={first ? chipId : undefined}
                     className="w-full overflow-hidden rounded-[13px]"
                   >
                     <span className="flex w-full items-center gap-3 p-2 sm:flex-col sm:items-stretch sm:gap-0 sm:p-0">

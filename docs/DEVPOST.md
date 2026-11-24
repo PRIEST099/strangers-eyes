@@ -1,8 +1,9 @@
 # Devpost submission text: Strangers' Eyes
 
-> Drafted for T-165. The user pastes each field into the Devpost draft (T-171) and submits (T-190). Claude never submits.
-> **Field limits are [UNVERIFIED]** until someone reads the real Devpost draft form (T-167, RUNBOOK §7.5). Character counts below are measured with a script on the text between the `<!-- field -->` markers (Unicode code points, leading and trailing newline excluded).
-> Only three USER markers remain (below). Each needs a value only the user has: the YouTube URL, the public repo URL, and the platform and category choice.
+> Drafted for T-165; the user pastes each field into the Devpost draft (T-171) and submits (T-190). Claude never submits.
+> **Field limits are [UNVERIFIED]** until the real draft form is read (T-167, RUNBOOK §7.5). Counts are Unicode code points between the `<!-- field -->` markers, measured by script.
+> Three USER markers remain: the YouTube URL, the public repo URL, and the platform and category choice.
+> **[USER] Paste only after redeploy #7.** The Misuse paragraph, the Ledger wording and the failover sentence describe the uncommitted working tree. The hosted build (b44a55c) still shows the attacker's guessed place name in the verdict and has no failover code. Commit, redeploy Hosting (T-107) and check the live verdict line before pasting.
 
 ## Character counts
 
@@ -10,11 +11,11 @@
 |---|---|---|---|
 | Name | 15 | [UNVERIFIED: T-167] (Devpost usually 60) | fits the usual limit |
 | Elevator pitch | 165 | [UNVERIFIED: T-167] (Devpost usually 200; SPEC §1 says ≤200) | fits |
-| About the project (Markdown) | 11,323 (1,930 words) | [UNVERIFIED: T-167] (no limit known) | re-check when the draft is read |
-| Testing instructions | 1,915 | [UNVERIFIED: T-167] | re-check when the draft is read |
+| About the project (Markdown) | 8,671 (1,362 words) | [UNVERIFIED: T-167] (no limit known) | re-check when the draft is read |
+| Testing instructions | 1,570 | [UNVERIFIED: T-167] | re-check when the draft is read |
 | Built during the submission period | 583 | [UNVERIFIED: T-167] | re-check when the draft is read |
 
-Measured Nov 23 after the final edit, with no fill-in markers left inside the fields.
+Measured Nov 24 after the submission-hardening rewrite and the writeup fixes (Ledger wording, failover, iOS pre-screen, the restored iOS Auth/Remote Config disclosure), with no fill-in markers left inside the fields.
 
 ---
 
@@ -36,6 +37,8 @@ The cloud plays the stalker; your device holds the answers. See what AI can infe
 ## Video
 [USER: YOUTUBE_URL after T-187]
 
+About the footage: the app was recorded in headless Chrome, which has no Gemini Nano, so private steps show RULES-ONLY. Judge runs replay the Nov 23 recorded answers, badged CACHED SAMPLE, so no photo was sent again. iOS footage is from the Simulator.
+
 ## Platforms
 Web (Chrome and any modern browser) and iOS (SwiftUI, tested in the Simulator). [USER: platforms and "Best of" category, T-172]
 
@@ -44,87 +47,77 @@ firebase-ai-logic, gemini, gemini-nano, apple-foundation-models, firebase-app-ch
 
 ## About the project
 <!-- about -->
-## Inspiration
-**Location off isn't location hidden.** Turn location off, post a coffee photo, feel covered. In our test, a cloud AI still placed 5 of 10 GPS-free photos within 5 km (two at street level, about 200–250 m) and refused none of its 20 runs. Strangers' Eyes lets that AI attack a redacted copy first. Your device, not the cloud, works out how close it got to home, masks the clues, and asks again: masking the clues it named pushed 3 of the 4 re-attacked photos back out to country distance or beyond. (Our Nov 23 test used 10 openly licensed photos of public places with gemini-3.5-flash-lite; they may be in the model's training data, so a never-published photo may fare differently.)
+## TL;DR
+- A cloud AI (Gemini, through Firebase AI Logic) tries to work out where your photo was taken, from a redacted copy.
+- Your device alone grades the guess against a private vault (home, work, children's names), masks the clues, and lets the cloud try again.
+- **The attacker never learns whether it guessed right.**
 
-Deleting GPS data no longer protects a photo. Multimodal models now place photos from the pixels alone: a bus-stop code, a street sign, a staff lanyard, the view from a window. Published studies report up to about 60% street-level accuracy on social-media-like images (Privacy International, "Nowhere to Hide?", 2026). Tools that strip EXIF ignore the pixels, and research prototypes send the raw photo to the cloud and know nothing about what you personally need to hide.
+## The idea
+Most privacy tools hide data from the cloud. Strangers' Eyes makes the cloud the threat and keeps the answer key on the device.
 
-We built Strangers' Eyes for parents, marketplace sellers and creators, and above all for people who must not reveal where they live: domestic-violence survivors, journalists and activists.
+Gemini plays a stranger. It sees only an EXIF-free copy with faces and vault text solid-masked, after you approve that exact image. Your device compares its guesses with your vault, which never leaves it; code turns them into distance bands to your own places ("Home: within 1 km"). One tap masks the clues the attacker used and the cloud attacks again. The verdict reads "Risk reduced" (never "safe") with the attacker's confidence, or "Still exposed" with a crop or don't-post suggestion. The cloud never gets the one answer a stalker wants: yes, that is near where they live.
 
-## What it does
-You keep a private vault on your device: your home and work pins, your employer, your children's names. Then you check a photo before posting it:
+**Why hybrid:** placing a photo needs world-scale knowledge only a large cloud model has; judging the attack needs your secrets, which must stay local. The app splits the job at that line.
 
-1. **Pre-screen (device).** Faces, text and metadata are found on the device. Gemini Nano looks at the original photo for location clues. Anything matching your vault (say "LUCAS" on a lunchbox) is solid-masked on the device.
-2. **Consent.** You see the exact redacted, EXIF-free copy that will be sent, and approve it.
-3. **Attack (cloud).** Gemini, through Firebase AI Logic, plays a stranger and tries to place the photo from that copy alone.
-4. **Referee (device).** An on-device model compares the attacker's guesses with your vault. Code turns them into distance bands to your own pins ("Home: within 1 km"), never a map pin for the guess.
-5. **Fix and re-attack.** One tap masks or crops the clues the attacker used, and the cloud attacks the fixed copy. If its new guess lands farther from your pins, the verdict reads "Risk reduced" (never "safe"), with its confidence. If the attacker still recognises the place, it says "Still exposed" and suggests a crop or not posting.
+**Why now:** location off isn't location hidden. Privacy International reports up to about 60% street-level accuracy on social-media-like images ([Nowhere to Hide?](https://privacyinternational.org/report/5736/nowhere-hide-privacy-risks-and-policy-implications-ai-geolocation), 2026). In our 10-photo test, free-tier Gemini placed 5 GPS-free photos within 5 km (3 within 1 km) and refused none of 20 runs; masking the clues it named moved 3 of 4 re-attacked photos outward.
 
-The attacker never learns whether it guessed right, because the grading happens on your device.
+## Who it is for
+Illustrative scenarios; no real people.
+- **A parent posting a park photo.** The attacker reads the park's name board; the device sees that is within 1 km of home and masks it. The re-attack gets only the city: "Risk reduced".
+- **A survivor of domestic abuse who has moved.** The new address exists only in the vault. If a window view still places the photo, the app says "Still exposed", not false comfort.
+- **A seller photographing an item at home.** A parcel label with their name is masked on the device before anything is sent; the attack then shows what the room gives away.
+
+## Misuse
+A "where was this taken" tool would help stalkers. So the app never shows the attacker's guessed place (no name, pin or address): only how precise it was (street, city, country), its confidence and the clue types, plus distance bands to *your own* vault pins. With an empty vault it says how exposed a photo is, not where it is. Photos come from local files only; users confirm they are 18+ and checking their own photos. Honest limit: the raw answer is visible in DevTools, which adds little over asking Gemini directly; App Check, quotas, a daily cap and a kill switch limit volume, not intent.
+
+## How it compares
+- **AI and OSINT geolocation** ([GeoSpy](https://www.404media.co/the-powerful-ai-tool-that-cops-or-stalkers-can-use-to-geolocate-photos-in-seconds/), [Bellingcat's geolocation work](https://www.bellingcat.com/tag/geolocation/)): the attacker's view. We turn it into a self-test and hide the answer.
+- **EXIF strippers** ([Scrambled Exif](https://f-droid.org/en/packages/com.jarsilio.android.scrambledeggsif/)): remove GPS, not the street sign. We strip metadata, then test the pixels.
+- **Image cloaking** ([Fawkes](https://news.uchicago.edu/story/new-tool-protect-yourself-against-facial-recognition-software)): protects faces from recognition, not places.
+- **Before-you-post checkers** ([CHI 2025 study](https://arxiv.org/abs/2503.20226), [Geo-Safe-Filter](https://awpbash.github.io/projects/geo-safe-filter)): closest to us, but send the photo to a cloud model and don't know which places matter to you.
+
+New here: an on-device vault as ground truth, grading the attacker never sees, one enforced Egress Gate with a ledger, and routing by data sensitivity.
 
 ## How we built it with Firebase AI Logic
-- **Routing by sensitivity class.** Every AI request is sorted by what it carries. S0 (anything touching the vault) and S1 (the original photo) are `ONLY_ON_DEVICE` and fail closed to deterministic code labelled RULES-ONLY, never to the cloud. S2 (public explanations) is `PREFER_ON_DEVICE` with a real cloud fallback. S3 (the attacker) is `ONLY_IN_CLOUD`. S4 (Judge Mode samples with a fake vault) is `PREFER_ON_DEVICE`, so judges without Nano still see every step. The policy lives in Remote Config; a hard floor in code means Remote Config can never let S0 or S1 reach the cloud.
-- **One Egress Gate for every call.** A single wrapper is the only code allowed to call the SDK (a build-time boundary check enforces it). Before each call it checks the class, checks that Nano reports `available` in that same call (without `window.LanguageModel` the web SDK silently sends `ONLY_ON_DEVICE` to the cloud), re-checks the exact outgoing image (no metadata, zero faces, zero vault text), scans prompts for vault strings, and writes one Ledger entry. The Router HUD shows `ON-DEVICE`, `IN CLOUD` or `RULES-ONLY` with latency for every call; the Cloud Ledger shows "Faces sent: 0 · Vault items sent: 0".
-- **Web:** `firebase/ai` hybrid with Gemini Nano in Chrome (image input plus a JSON-schema `responseConstraint`) for the pre-screen and referee; `gemini-3.5-flash-lite` with a JSON response schema for the attacker, chosen in Remote Config. In our 10-photo test it answered in a median 7.0 s (p90 9.4 s, max 10.9 s). MediaPipe and Tesseract.js do face and text detection on the device. Distances and bands are plain code (haversine), not the model.
-- **iOS (lean, tested in the Simulator):** SwiftUI with `FirebaseAILogic` pinned to exactly 12.19.3, because `HybridModel` was removed in 13.0.0. The vault is a local file with complete file protection. Vision finds faces and text and solid-masks them. A Swift Egress Gate writes the same Ledger and Router HUD. An Apple Foundation Models referee runs in an on-device-only session, with the rules as its floor. Consent, fix and re-attack mirror the web. 20 of 20 XCTests pass, using the same shared test vectors as the web. In the Simulator a check went red → "Risk reduced" with Apple FM answering on the device and a clearly labelled debug stand-in attacker. The real Gemini call on iOS is built but has not been run.
-- **Also used:** App Check (reCAPTCHA Enterprise on the hosted site), Anonymous Auth (per-user quotas, no identity), Remote Config (routing policy, model names, prompt versions, timeouts, caps, kill switch) and Hosting.
+- **Routing by what a request carries.** Vault data (S0) and the original photo (S1): `ONLY_ON_DEVICE`, failing closed to rules, never the cloud. Public explanations (S2) and fake-vault Judge samples (S4): `PREFER_ON_DEVICE`. The attacker (S3): `ONLY_IN_CLOUD`. The policy lives in Remote Config, with a hard floor in code.
+- **One Egress Gate.** The only code allowed to call the SDK (a build check enforces it). Before each call it confirms Nano is `available` right then (without `window.LanguageModel` the web SDK silently sends `ONLY_ON_DEVICE` to the cloud), re-checks the outgoing image (no metadata, faces or vault text), scans prompts for vault strings, and writes a Ledger entry. Technical details shows each step's route (ON-DEVICE, IN CLOUD, RULES-ONLY) and latency.
+- **Web:** `firebase/ai` hybrid: Gemini Nano in Chrome for the pre-screen and referee (verified in Chrome 157, ~6–10 s warm); `gemini-3.5-flash-lite` with a JSON schema for the attacker (median 7.0 s). Remote Config can name backup models to try on a 5xx or 429 (`adversary_fallback_models`); the list ships empty, so today an overloaded attacker means Judge Mode replays its recorded answers. MediaPipe and Tesseract.js find faces and text; distances are code (haversine). Over 3,300 tests.
+- **iOS (Simulator):** SwiftUI, `FirebaseAILogic` pinned to 12.19.3 (`HybridModel` was removed in 13.0.0), Vision masks, a Swift Egress Gate. Apple Foundation Models run the pre-screen (over Vision's OCR text and scene labels, never the image) and the referee on the device. iOS Judge Mode replays the same recorded Gemini answers; a Nov 24 UI test ran sample 2 to "Risk reduced" with every private step ON-DEVICE and 0 bytes sent. An earlier Simulator demo used a labelled debug stand-in attacker.
+- **Also (web):** App Check, Anonymous Auth, Remote Config, Hosting. iOS uses App Check only.
 
 ## Judge Mode samples: please read
-The three Judge Mode photos are CC0 photos of public places from Wikimedia Commons, two in Ljubljana and one in Berlin (credited in the repo). We solid-masked people, adverts showing people and real number plates, and drew in a prop: a "LUCAS" name-tag lunchbox. The vault is made up; each sample's pins sit in a park and a square near that photo. The app reads the "LUCAS" tag and masks it on the device before anything is sent.
+Three CC0 Wikimedia Commons photos of public places (two Ljubljana, one Berlin; credited in the repo). We solid-masked people, adverts showing people and real plates, and drew in a "LUCAS" name-tag lunchbox, which the app masks on the device. The vault is made up; pins sit in a park and a square near each photo.
 
-Each sample runs a live attack when the cloud model is available. When it isn't, Judge Mode replays real attacker answers, labelled CACHED SAMPLE. We recorded them on Nov 23 through the app's own gate, keeping the first answer of each sample; we never re-ran a photo for a nicer answer. One disclosure: sample 2 was a bike-share path (recorded "Still exposed"); we replaced it with a Berlin street photo whose clues a mask can remove. Of six Berlin photos we tried, Google's model was overloaded for most (server errors, no answer), and the level crossing is the one that got a complete answer. A live run may answer differently:
-- **Station forecourt.** The attacker read the station sign and named the wrong city, Maribor, about 100 km away. The fix masked that sign. The re-attack then named the right city, Ljubljana, from the building itself: **Still exposed**. A wrong guess is not safety.
-- **Level crossing by a street sign (Berlin).** The attacker read the street sign and its house-number plate and named the street: within 5 km of the made-up home and work pins. The fix masked both. The re-attack could only say "Berlin": **Risk reduced**, with its confidence shown, never "safe".
-- **Castle courtyard with the LUCAS lunchbox.** Named Ljubljana Castle, 0.1 km from the made-up work pin, using only clues a mask can't remove. There is nothing to fix: red, so crop or don't post.
+Each sample attacks live when the cloud model is available. Otherwise it replays real answers recorded on Nov 23 through the app's gate (first answer per sample), labelled CACHED SAMPLE. The replay itself sends nothing, but the Cloud Ledger still counts what really left: a live attempt that timed out or got a server error had already sent the redacted copy, and without Nano the sample pre-screen and referee run in the cloud. It reads zero only when nothing was tried (offline, daily cap, kill switch) and Nano ran the private steps. Disclosure: sample 2 was a bike-share path (recorded "Still exposed"); we swapped in a Berlin photo whose clues a mask can remove. Of six Berlin photos tried, Google's model was overloaded for most; the level crossing got a complete answer. A live run may differ:
+- **Station:** read the sign, named the wrong city ~100 km away; with the sign masked it found the right city from the building. **Still exposed.**
+- **Level crossing:** street level from the sign and house-number plate, within 5 km of the pins; masked, only the city. **Risk reduced.**
+- **Castle with the lunchbox:** 0.1 km from the work pin, nothing removable. Red: crop or don't post.
 
-We kept these results. Masking text clues can work; a mask can't hide a landmark, and the app says so instead of claiming "Risk reduced".
+## Challenges and lessons
+- `ONLY_ON_DEVICE` is not a guarantee on the web, so "on-device" is checked on every call, and an `in_cloud` result on a private call counts as a breach.
+- Free-tier `gemini-3.8-flash` returned 500/503 on most calls (80–143 s when it answered); we moved to flash-lite with a 45 s timeout.
+- Masks fix text, not buildings, and a wrong first guess can look reassuring.
 
-## Challenges we ran into
-- `ONLY_ON_DEVICE` is not a guarantee on the web: in browsers without `window.LanguageModel` the SDK quietly uses the cloud. We added a fresh availability check before every private call, and a check after it that treats any `in_cloud` result on a private call as a breach.
-- On the free tier, `gemini-3.8-flash` returned 500/503 on most calls, and when it did answer it took 80–143 s. Small probes showed the overload was on Google's side, not in our request: even a text-only call timed out. We moved the attacker to `gemini-3.5-flash-lite` in Remote Config, gave it 45 s, and stopped retrying timeouts. The server keeps working after the client gives up, so a retry only doubles the wait.
-- The iOS hybrid API (`HybridModel`) was removed in firebase-ios-sdk 13.0.0, so we pinned 12.19.3.
-- Gemini Nano and the Simulator's Foundation Models cannot run together on an 8 GB Mac, so we planned all work and filming around one runtime at a time.
-- On-device models sometimes called a match "exact" because of a common word ("a coastal city" vs "City General Hospital"). A device match with no support from the rules is now capped at "possible", on web and iOS.
-- Default OCR read our test name tag in only 14 of 30 placements; the two-pass adaptive union the app uses reads 29 of 30.
-- Recording real answers for Judge Mode exposed a replay bug: a real model numbers its clues afresh each time, so matching clues by number always passed. The replay now checks that the clues the live fix masked are masked again.
-
-## Accomplishments that we're proud of
-- In our 10-photo test (openly licensed photos of public places, GPS stripped, faces masked, `gemini-3.5-flash-lite`, up to 3 runs per photo with the third skipped when the first two agreed), the attacker refused 0 of its 20 runs. It placed 5 of 10 photos within 5 km and 3 within 1 km. Masking the clues it marked removable moved 3 of the 4 re-attacked located photos outward.
-- Real Gemini Nano, through the Egress Gate in Chrome 157: the referee ran on the device in about 6.1 s warm (15.6 s cold) and the pre-screen in about 9.5 s warm (13.0 s cold).
-- Vault data and the original photo have no path to the cloud: private calls fail closed to rules, and the build fails if any file other than the gate calls the SDK. Over 3,300 web tests pass.
-- The whole loop (pre-screen, consent, attack, verdict, fix, re-attack) runs in any browser through Judge Mode, with no login: live when the cloud attacker is available, otherwise on real attacker answers recorded on Nov 23 (labelled CACHED SAMPLE).
-
-## What we learned
-- "On-device" has to be checked on every call, not assumed from a mode name.
-- Sensitivity classes are a simple way to decide what runs where, and easy to show to users.
-- Distances and verdicts belong in code; the model's job is to read pixels and text.
-- Masks fix text, not buildings. And a wrong first guess can look reassuring: masking a misleading sign helped the attacker find the right city.
-
-## What's next
-Android with Gemini Nano on the same Firebase project; the real cloud attacker, Auth and Remote Config on iOS; a larger benchmark of never-published photos; grounded attacker notes with Search Suggestions on the paid tier; a "check before you post" browser extension; more languages.
+**Next:** Android with Nano, the live Gemini call on iOS, a benchmark of never-published photos, a browser extension.
 
 ## Limitations (honest)
-- The test set is small: 10 openly licensed photos that may be in the model's training data, so the located counts may be optimistic. A planned 25-photo benchmark of our own photos was not run.
-- The attacker is `gemini-3.5-flash-lite` on the free tier (Firebase Spark, no billing), a lighter model than flash; a stronger attacker may find more. On the free tier Google may use the redacted image to improve its products, and the consent screen says so. Search grounding is off, so the grounded "attacker notes" pass is not shown on the hosted app.
-- On iOS the real Gemini attacker, Anonymous Auth, Remote Config and the on-device pre-screen are not done yet; the Simulator demo uses a labelled stand-in attacker.
-- Without Nano, private steps run as rules, not AI. Nano needs capable desktop hardware.
-- The raw attacker JSON is visible in DevTools; these measures do not stop a determined attacker. When you re-attack, the cloud sees which areas you masked, but never why.
-
-## Built during the submission period
-New project started Nov 19 2026, written during the period with Claude Code. Details in the field below.
+- Numbers come from our 10-photo test only (public places that may be in the model's training data); the planned 25-photo benchmark was not run.
+- Free tier (Firebase Spark): `gemini-3.5-flash-lite`, so a stronger model may find more; Google may use the redacted image to improve its products (the consent screen says so); Search grounding is off.
+- iOS Judge Mode replays the recorded answers with Apple Foundation Models on the device; the live iPhone Gemini call has not run yet. iOS does not use Anonymous Auth or Remote Config yet: it reads the bundled template defaults.
+- Without Nano, private steps run as rules. On a re-attack the cloud sees which areas you masked, never why.
 <!-- /about -->
 
 ## Testing instructions
 <!-- testing -->
-1. Open https://strangers-eyes.web.app in any browser, desktop or mobile. No login: an anonymous session is created automatically. Free.
-2. Confirm you are 18+, then choose "Open Judge Mode" (or open https://strangers-eyes.web.app/?judge=1). Three samples and a made-up vault load. Press "Run this sample". Autoplay steps through pre-screen, consent, attack and verdict, then fix and re-attack when a clue can be masked, with no further input. Our target is a final verdict within 90 s; the cloud attack itself took a median 7 s in our tests.
-3. Watch the Router HUD (bottom left): every AI step is labelled ON-DEVICE, IN CLOUD or RULES-ONLY, with its latency. The Cloud Ledger counts exactly what left the device.
-4. Expect honest verdicts, not a guaranteed "Risk reduced". In our Nov 23 runs the level crossing ended "Risk reduced", the station "Still exposed" (its first guess was the wrong city until the fix), and the castle red with nothing to fix; a live run may answer differently.
-5. About the samples: CC0 photos of public places in Ljubljana and Berlin with solid masks over people and plates, a drawn prop and a made-up vault. When the live attacker is unavailable (offline, quota or daily cap, kill switch, App Check failure, a timeout or a server error), Judge Mode replays real answers recorded on Nov 23, badged CACHED SAMPLE.
-6. Optional on-device AI: desktop Chrome with on-device AI enabled (chrome://settings/ai and chrome://flags/#prompt-api-for-gemini-nano-multimodal-input), then reload. The capability panel shows whether Gemini Nano is available on that browser; when it is, private steps run ON-DEVICE.
-7. Optional, your own photo: use a people-free photo you took. With an empty vault you still see the clues and the attacker's guess quality.
+1. Open https://strangers-eyes.web.app in any browser. No login, free.
+2. Confirm you are 18+, choose "Open Judge Mode" (or https://strangers-eyes.web.app/?judge=1) and press "Run this sample". Autoplay runs pre-screen, consent, attack and verdict, then fix and re-attack when a clue can be masked.
+3. Turn on Technical details to see where each AI step ran (ON-DEVICE, IN CLOUD or RULES-ONLY) and its latency. The Cloud Ledger counts what left the device.
+4. Expect honest verdicts: in our Nov 23 runs the level crossing ended "Risk reduced", the station "Still exposed", the castle red; a live run may differ.
+5. Samples are CC0 public-place photos with masks over people and plates, a drawn prop and a made-up vault. If the live attacker is unavailable (offline, quota, daily cap, kill switch, App Check failure, timeout or server error), Judge Mode replays answers recorded Nov 23, badged CACHED SAMPLE. The replay sends nothing, but the Cloud Ledger counts anything that already left: a live attempt that timed out or failed, and, without Nano, the cloud pre-screen and referee.
+6. Optional: desktop Chrome with on-device AI (chrome://settings/ai and chrome://flags/#prompt-api-for-gemini-nano-multimodal-input), then reload; private steps run ON-DEVICE when Settings shows Nano available.
+7. Optional: a people-free photo you took. With an empty vault you still see the clues and how precise the guess was.
 
-For users 18+. Available until the end of judging. iOS is shown in the video; build steps are in the README (it needs your own Firebase project, GoogleService-Info.plist and App Check debug token).
+For users 18+, available until judging ends. iOS is in the video; build steps are in the README (needs your own Firebase project and App Check debug token).
 <!-- /testing -->
 
 ## Built during the submission period (summary field)
@@ -133,19 +126,16 @@ Strangers' Eyes is a new project, started on Nov 19 2026, with no pre-existing c
 <!-- /built -->
 
 ## Gallery (T-166; no third-party logos, no real home or school)
-One caption per image, in this order. Files are in `docs/img/gallery/`.
+Files are in `docs/img/gallery/`, one caption each, in this order. Retaken Nov 24 from the real flow on the plain-language screens (`scripts/shoot-gallery.mjs`; 02–04 replay the recorded answers with Simulate offline, so nothing was sent; 05 is the gate refusing on the device).
 
-1. `01-home.png`: "Location off isn't location hidden. Home shows the tagline and a short illustrated story of what the app does."
-2. `02-judge-run.png`: "A Judge Mode run: the device lane and the cloud lane, with every AI step badged in the Router HUD (ON-DEVICE, IN CLOUD or RULES-ONLY) and its latency."
-3. `03-verdict.png`: "The first verdict: the attacker named the street, within 5 km of the made-up home and work pins, shown as distance bands, never a map pin. The Cloud Ledger still reads Faces sent: 0 · Vault items sent: 0. Shown with the recorded Nov 23 answer (CACHED SAMPLE)."
-4. `04-reattack.png`: "Fix and re-attack: the fix masks the clues the attacker named, the fixed copy is attacked again, and the before/after compare shows the new verdict with the attacker's confidence. Here: the recorded Nov 23 answer (CACHED SAMPLE): masking the street sign and its number plate left only 'Berlin': risk reduced, never 'safe'."
-5. `05-blocked.png`: "The Egress Gate stops a copy that still shows a vault match (the LUCAS name tag) before it can leave the device: BLOCKED, 0 bytes sent, Vault items sent: 0."
-6. `06-about-routing.png`: "What leaves this device: S0 to S4 routing. The vault and the original photo never leave; the attacker runs in the cloud, and public explanations and Judge Mode samples go there only when on-device AI isn't available."
-7. `07-capabilities.png`: "What runs where on this browser: Gemini Nano on the device when available, otherwise rules-only code for private steps, never the cloud."
+1. `01-home.png`: "Location off isn't location hidden: the tagline and an illustrated story of the app."
+2. `02-judge-run.png`: "A Judge Mode run: every AI step labelled ON-DEVICE, IN CLOUD or RULES-ONLY, with its latency."
+3. `03-verdict.png`: "Level crossing, first verdict: a street-level guess within 5 km of the made-up pins, shown as distance bands, never a map pin. Recorded Nov 23 answer (CACHED SAMPLE)."
+4. `04-reattack.png`: "Fix and re-attack: with the street sign and house-number plate masked, the attacker got only the city. Risk reduced, never 'safe'. Recorded Nov 23 answer (CACHED SAMPLE)."
+5. `05-blocked.png`: "The Egress Gate blocks a copy that still shows a vault match (LUCAS): 0 bytes sent."
+6. `06-about-routing.png`: "What leaves this device: never the vault or the original photo."
+7. `07-capabilities.png`: "What runs where on this browser: Nano when available, otherwise rules, never the cloud, for private steps."
 
-Optional diagrams (add after the screenshots if the gallery allows):
-
-8. `docs/img/architecture.png`: "Architecture: one Egress Gate between the device and Firebase AI Logic."
-9. `docs/img/routing.png`: "Routing by sensitivity class, stored in Remote Config with a hard floor in code."
+Optional: 8. `docs/img/architecture.png` "One Egress Gate between the device and Firebase AI Logic." 9. `docs/img/routing.png` "Routing by sensitivity class, with a hard floor in code."
 
 Thumbnail: `docs/img/thumbnail.png` (3:2).

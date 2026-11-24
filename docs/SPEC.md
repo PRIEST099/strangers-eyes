@@ -855,8 +855,8 @@ Each screen lists its purpose, layout, behaviour, states (a)–(e), copy IDs and
   - the **Investigator notes** card: pass A's Markdown, streamed and sanitised (no raw HTML; links open in a new tab with `rel="noopener noreferrer"`).
     - Directly under the notes, at **the same width**: the **Search Suggestions** chip (`groundingMetadata.searchEntryPoint.renderedContent`), injected **unmodified** into a shadow root. It shows the `webSearchQueries` as provided.
     - Then **Sources**: `groundingChunks[].web.title`, each linked directly to its `uri`.
-  - **Clues the attacker found** (pass B): `c1..`, each with type, evidence (≤20 words), the level it reveals, severity, whether it is removable, and an "Explain" button. Boxes are drawn on the image.
-  - **Attacker's best guess:** level, area label and confidence for h1, with h2 and h3 behind "More guesses". **Never** coordinates, a radius in metres, a map or a street address.
+  - **Clues the attacker found** (pass B): each with its type, the level it reveals, severity and whether it is removable ("Street sign · reveals the street · High · can be masked"), and an "Explain" button. Boxes are drawn on the image. Misuse hardening (Nov 24, user-approved): the UI **never** renders the attacker's guessed place names (hypothesis labels), inference values, clue evidence text, the scene summary or a referee's free-text reason, so the app can't be used as a free "where was this photo taken" tool. The data stays in memory where the referee and the fix planner need it (the referee compares labels with the vault on the device). Clue ids show only with Settings › Technical details.
+  - **Attacker's best guess:** level and confidence for h1 only (`copy.verdict.bestGuess`). **Never** its place name, coordinates, a radius in metres, a map or a street address.
   - Status line `copy.adv.running`, and the route badges `IN CLOUD · gemini-3.8-flash + Google Search` (pass A) and `IN CLOUD · gemini-3.8-flash` (pass B).
 - **Behaviour:**
   - Pass A and pass B start **together** (D-02).
@@ -923,7 +923,7 @@ Each screen lists its purpose, layout, behaviour, states (a)–(e), copy IDs and
    [!] HOME: within 1 km (neighbourhood)                   attacker confidence medium          [Why?]
    [lock] CHILD'S NAME: caught and masked on this device (never sent)
    Not linked: CAR PLATE
-   Attacker's best guess: neighbourhood level · <area label> · medium
+   Attacker's best guess: neighbourhood level · attacker confidence medium
    Referee: ON-DEVICE (Gemini Nano) 1.3 s · Distances: code
    [Fix it on this device]   [Export as is]
    The cloud never learns whether it was right.
@@ -1219,6 +1219,11 @@ Each screen lists its purpose, layout, behaviour, states (a)–(e), copy IDs and
 
 **Settings (P0):**
 - **On-device AI:** status and the Download button (same as SCR-02); "Use Gemini Nano when available" (on).
+- **Display:** "Technical details" (**off** by default; Nov 24 judging feedback). Off, the UI uses plain words: no
+  privacy-class codes (S0–S4), prompt versions, sha256 prefixes, raw model ids, gate/error codes, "Tier-0", "pass B"
+  or "referee" (the HUD, Cloud Ledger, "What the cloud saw", consent meta, clue list, attack panel, lanes, verdict
+  "Why?", SCR-02 table and About table). On, today's full detail. The route badge and latency show for every AI call
+  either way.
 - **Usage:** "Cloud checks today: {used}/{daily_adversary_cap}" with `copy.settings.capNote`.
 - **Data:** Burn vault; Clear history; Copy ledger receipt.
 
@@ -1321,6 +1326,7 @@ The city and country thresholds are placeholders; winner-spec only said "same ci
 - **Caught:** a vault item masked before upload (by Tier-0 or Nano) gives a TEAL line, `copy.verdict.caught`. Caught lines do not count toward risk.
 - **Echo:** a vault string found in pass B's free-text fields (`scene_summary`, `decline_reason`, clue `evidence`, hypothesis `label`, inference `value`; never enum values or IDs, D-65) gives a HIGH line, `copy.verdict.echo`.
 - **Not linked:** text items with no match and pins in band `country` or `none` are summarised in one grey line, `copy.verdict.notLinked`.
+- **Device and rules matches (D-90, D-157, D-168):** the device referee's matches and the §10.3 rules matches are merged per (claim, vault item) pair, keeping the stronger. A device match that no rules match supports is capped at `possible` (D-157). Exception (D-168): a device-only link between a place guess (claim kind `area`) and a pin (home, work, school or place pin) is **dropped**, not capped: whether a guessed place is near a pin is geometry, and the distance bands (§10.1) already show it (invariant 5). Any rules evidence for the pair keeps it, and the device may upgrade it as before. HUD notes: `device-only: capped at possible`, `device-only place × pin: dropped (bands decide)`. Vectors: `shared/testvectors/referee.json` (both platforms).
 - KIND display names are in §17.3.
 
 ### 10.3 Rules-only referee
@@ -1396,7 +1402,7 @@ Otherwise show `copy.verdict.still`, naming the worst remaining line.
 | copy.cap.title | What runs where on this browser |
 | copy.cap.invariant | Your vault and your original photo never leave this device, whatever this panel shows. |
 | copy.cap.nanoReady | Gemini Nano is ready. Private checks run on this device. |
-| copy.cap.nanoTextOnly | Gemini Nano is ready for text but not images in this browser. The photo pre-screen uses built-in rules; the referee and fix planner use Nano. |
+| copy.cap.nanoTextOnly | Gemini Nano is ready for text but not images in this browser. The photo pre-screen uses built-in rules; checking the attacker's guesses and planning the fix use Nano. |
 | copy.cap.nanoDownloadable | Gemini Nano can be downloaded (about 4 GB). Until then, private checks use built-in rules. |
 | copy.cap.nanoDownloading | Downloading Gemini Nano… {pct}%. Private checks use built-in rules until it's ready. |
 | copy.cap.nanoNone | No on-device AI in this browser. Private checks use built-in rules (rules-only). Nothing private goes to the cloud instead. |
@@ -1453,8 +1459,8 @@ Otherwise show `copy.verdict.still`, naming the worst remaining line.
 | copy.adv.noSignal | The attacker found no usable location clues in this photo. |
 | copy.adv.truncated | The attacker's answer was cut off. Try again. |
 | copy.adv.timeout | The attacker didn't answer in time. Nothing was queued; try again in a minute. On-device findings are still shown. |
-| copy.ref.running | Referee comparing guesses with your vault… on this device |
-| copy.ref.rules | Rules-only referee (no on-device AI). Your vault still stays here. |
+| copy.ref.running | Checking the attacker's guesses against your vault… on this device |
+| copy.ref.rules | Guesses checked by built-in rules (no on-device AI). Your vault still stays here. |
 | copy.verdict.red | A stranger could find you from this photo |
 | copy.verdict.amber | This photo narrows things down |
 | copy.verdict.low | Low exposure found. This isn't a guarantee. |
@@ -1466,7 +1472,7 @@ Otherwise show `copy.verdict.still`, naming the worst remaining line.
 | copy.verdict.caught | {KIND}: caught and masked on this device |
 | copy.verdict.echo | The attacker read text matching your {KIND}. Fix it before posting. |
 | copy.verdict.notLinked | Not linked: {KINDS} |
-| copy.verdict.bestGuess | Attacker's best guess: {level} level · {label} · {confidence} |
+| copy.verdict.bestGuess | Attacker's best guess: {level} level · attacker confidence {confidence} |
 | copy.verdict.noVault | Add your places to see how close this gets to you. |
 | copy.verdict.neverLearns | The cloud never learns whether it was right. |
 | copy.verdict.reduced | Risk reduced: {before} → {after} |
@@ -1513,7 +1519,7 @@ Otherwise show `copy.verdict.still`, naming the worst remaining line.
 | copy.err.browser | This browser can't run Strangers' Eyes (it needs WebAssembly and IndexedDB). Try a current Chrome, Edge, Firefox or Safari. |
 | copy.settings.capNote | The daily limit protects against misuse; it resets at midnight. |
 | copy.about.notGuarantee | Strangers' Eyes reduces risk. It can't promise a photo is safe to post. |
-| copy.about.howItWorks | Your private vault stays on this device and acts as the answer key. · An on-device referee grades the cloud attacker, which never sees the result. · An Egress Gate checks every request and blocks leaks before they happen. · What runs where is set by data sensitivity, and shown live. |
+| copy.about.howItWorks | Your private vault stays on this device and acts as the answer key. · This device grades the cloud attacker's guesses, and the attacker never sees the result. · An Egress Gate checks every request and blocks leaks before they happen. · What runs where is set by data sensitivity, and shown live. |
 | copy.about.reattackDisclosure | When you re-attack, the cloud sees which areas you masked, but never why. |
 | copy.about.support | If you're worried someone is tracking you, contact a local domestic-violence or victim-support service. |
 | copy.hud.policyRejected | Policy update rejected: private classes must stay on this device. |
@@ -1758,19 +1764,20 @@ The Router HUD line format is `{job} › {ROUTE} ({engine}) {latency}`, for exam
 ## 16. Remote Config parameters (product meaning)
 
 - **The key names and the template are owned by ARCHITECTURE §13 / `remoteconfig.template.json`.** Once that file exists, it is the source of truth for defaults.
-- This table gives the product meaning of exactly the 27 keys in ARCHITECTURE §13.2, with the same names and defaults (types, clamps and validation live there). If a default here differs from the template, the template wins; fix this table (D-40).
+- This table gives the product meaning of exactly the 28 keys in ARCHITECTURE §13.2, with the same names and defaults (types, clamps and validation live there). If a default here differs from the template, the template wins; fix this table (D-40).
 
 | Key | Type | Default | Product meaning |
 |---|---|---|---|
 | `kill_switch` | BOOLEAN | `false` | Disables every cloud call (S3; S2/S4 cloud fallback). Applies in real time via `onConfigUpdate`. |
 | `routing_policy` | JSON | nested `{version, classes, jobs}`, ARCHITECTURE §7 | Mode per class and class per job. The S0/S1 floor is enforced in code (D-14). |
-| `adversary_model` | STRING | `gemini-3.8-flash` | Model for C1, C2 and C3 (G1 may change it). An exact ID, never `-latest`. |
+| `adversary_model` | STRING | `gemini-3.5-flash-lite` | Model for C1, C2 and C3 (flash-lite since D-159). An exact ID, never `-latest`. |
+| `adversary_fallback_models` | JSON | `[]` | Pass-B failover order (D-165): up to 3 exact IDs, each tried once only after a server error (5xx) or quota error (429), each its own gate call and Ledger entry. Never after a decline, safety block, timeout or unreadable answer (invariant 7). First attack only: a re-attack goes only to the model that answered the first attack, so "Risk reduced" never comes from a model swap. `[]` = no failover (the live config has no list yet). |
 | `adversary_thinking_level` | STRING | `MEDIUM` | LOW, MEDIUM or HIGH. MINIMAL is rejected (400 on 3.8 and 4.x). |
 | `explain_cloud_model` | STRING | `gemini-3.5-flash-lite` | Cloud side of S2 and S4 |
 | `explain_thinking_level` | STRING | `LOW` | Thinking level for the cloud side of S2 and S4: MINIMAL, LOW, MEDIUM or HIGH |
 | `prompt_versions` | JSON | `{"advA":"advA.v1","advB":"advB.v1","nanoPre":"nanoPre.v1","nanoVaultText":"nanoVaultText.v1","nanoRef":"nanoRef.v1","nanoFix":"nanoFix.v1","explain":"explain.v1","fmPre":"fmPre.v1"}` | Must name versions bundled in `shared/prompts/`; unknown values fall back to the bundled default |
-| `grounding_enabled` | BOOLEAN | `true` | Pass A on or off |
-| `data_tier` | STRING | `paid` | `paid` or `free`. Drives the consent copy; `free` forces grounding off. |
+| `grounding_enabled` | BOOLEAN | `false` | Pass A on or off (`false` matches the live free-tier config, D-165) |
+| `data_tier` | STRING | `free` | `paid` or `free`. Drives the consent copy; `free` forces grounding off. `free` matches the live config (D-165); the paid line shows only when a fetched value says `paid` (D-163). |
 | `daily_adversary_cap` | NUMBER | `20` | Attack runs per installation per **local day**. One run is an A+B pair (or B alone). Re-attacks count. Judge Mode shares the counter and falls back to CACHED. Keep project-wide grounded queries well below 1,500 a day. |
 | `max_fix_rounds` | NUMBER | `3` | Fix and re-attack rounds per photo |
 | `bands_m` | JSON | `{"street":250,"neighbourhood":1000,"district":5000,"city":30000,"country":500000}` | Must be strictly increasing. City and country are placeholders. Street, neighbourhood and district are locked to 250 / 1,000 / 5,000 (D-77); any other table falls back to the defaults. |
@@ -1782,7 +1789,7 @@ The Router HUD line format is `{job} › {ROUTE} ({engine}) {latency}`, for exam
 | `cloud_image_max_px` | NUMBER | `1536` | Longest side sent to the cloud, clamped to 768–2048 (never larger than the ≤2048 px master, D-20) |
 | `nano_image_max_px` | NUMBER | `768` | Longest side sent to Nano |
 | `ocr_max_px` | NUMBER | `1600` | Longest side of the OCR downscale of the master (D-20) |
-| `timeouts_ms` | JSON | `{"advA":90000,"advB":60000,"explain":20000,"deviceImage":60000,"deviceText":30000}` | Per-job timeouts (ARCHITECTURE §9.2): pass A 90 s, pass B 60 s, explainer 20 s, device image jobs 60 s, device text jobs 30 s. There is no single `request_timeout_ms`. |
+| `timeouts_ms` | JSON | `{"advA":60000,"advB":45000,"explain":20000,"deviceImage":60000,"deviceText":30000}` | Per-job timeouts (ARCHITECTURE §9.2): pass A 60 s, pass B 45 s (D-159), explainer 20 s, device image jobs 60 s, device text jobs 30 s. There is no single `request_timeout_ms`. |
 | `judge_mode_enabled` | BOOLEAN | `true` | Shows Judge Mode |
 | `judge_cached_fallback` | BOOLEAN | `true` | Use recorded pass-B fixtures when the live adversary is unavailable |
 | `judge_autoplay_default` | BOOLEAN | `true` | Judge Mode autoplay |

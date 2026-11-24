@@ -6,7 +6,7 @@ import { HudLines, RouterHUD } from '../ui/components/RouterHUD';
 import { LedgerPanel } from '../ui/components/LedgerPanel';
 import { createMemoryLedger, type Ledger, type LedgerStart } from './ledger';
 import { createSentImageStore } from './ledgerImages';
-import { bytesText, hudLine, hudPill, hudRoute, latencyText, lastCloudImageSend, ledgerCounters, receiptText } from './ledgerView';
+import { bytesText, hudLine, hudPill, hudRoute, lastAttackReplayed, latencyText, lastCloudImageSend, ledgerCounters, receiptText } from './ledgerView';
 import { t } from './strings';
 
 const SHA_A = 'a'.repeat(64);
@@ -61,7 +61,7 @@ describe('HUD lines (SCR-14, AC-220)', () => {
     const l = createMemoryLedger();
     demo(l);
     l.begin(start('explain', 'S2'));
-    const lines = l.entries().map(hudLine);
+    const lines = l.entries().map((e) => hudLine(e));
     expect(lines).toHaveLength(4);
     expect(lines.map((x) => x.route)).toEqual(['ON_DEVICE', 'IN_CLOUD', 'ON_DEVICE', null]);
     expect(lines[1]).toMatchObject({ job: 'attacker pass B', cls: 'S3', engine: 'gemini-3-pro', latency: '8.2 s', bytes: '60 KB', tags: ['simulated'] });
@@ -81,9 +81,40 @@ describe('HUD lines (SCR-14, AC-220)', () => {
     expect(hudLine(x).tags).toContain('fallback: no on-device model');
   });
 
+  it('Technical details off: plain job, engine and tags (no class code, raw note or gate code); route and latency stay', () => {
+    const l = createMemoryLedger();
+    const a = l.begin(start('explain', 'S2'));
+    l.commit(a, { route: 'ON_DEVICE', inferenceSource: 'in_cloud', model: 'gemini-x-pinned', latencyMs: 2100, notes: ['fallback: no on-device model', 'RECLASSIFIED S2→S0'] });
+    const [x] = l.entries();
+    const plain = hudLine(x, false);
+    expect(plain.job).toBe(t('ui.jobPlain.explain'));
+    expect(plain.route).toBe('IN_CLOUD');
+    expect(plain.latency).toBe('2.1 s');
+    expect(plain.engine).toBe(t('ui.hud.engine.cloudPlain'));
+    expect(plain.tags).toEqual([t('ui.hud.tagPlain.fallback')]);
+    expect(plain.tags.join(' ')).not.toMatch(/S[0-4]/);
+    expect(hudPill(l.entries(), false)).toBe(`${t('ui.jobPlain.explain')} › IN CLOUD 2.1 s`);
+    // technical: the raw notes and the exact model id
+    expect(hudLine(x, true).tags).toContain('RECLASSIFIED S2→S0');
+    expect(hudLine(x, true).engine).toBe('gemini-x-pinned');
+  });
+
+  it('a replay is a recording: lastAttackReplayed follows the newest finished attacker entry', () => {
+    const l = createMemoryLedger();
+    expect(lastAttackReplayed(l.entries())).toBe(false);
+    demo(l);
+    expect(lastAttackReplayed(l.entries())).toBe(false);
+    l.record({ sessionId: 's9', judge: true, ts: 0, job: 'adversaryB', payloadClass: 'S3', route: 'CACHED', mode: 'ONLY_IN_CLOUD', model: 'm', promptVersion: null,
+      latencyMs: 0, bytesOut: 0, imagesOut: 0, imageSha256: [], facesInOutgoing: 0, vaultItemsInOutgoing: 0, notes: ['recorded'] });
+    expect(lastAttackReplayed(l.entries())).toBe(true);
+    expect(lastAttackReplayed(l.entries(), 's9')).toBe(true);
+    expect(lastAttackReplayed(l.entries(), 'nope')).toBe(false);
+    expect(ledgerCounters(l.entries()).cloudRequests).toBe(1); // the replay sent nothing
+  });
+
   it('pill, latency and byte formats', () => {
     const l = createMemoryLedger();
-    expect(hudPill(l.entries())).toBe(t('ui.hud.idle'));
+    expect(hudPill(l.entries())).toBe(t('ui.hud.idleShort'));
     demo(l);
     expect(hudPill(l.entries())).toBe('referee › ON-DEVICE (Gemini Nano) 1.3 s');
     expect(latencyText(850)).toBe('850 ms');
@@ -95,10 +126,15 @@ describe('HUD lines (SCR-14, AC-220)', () => {
   it('renders the log lines and the pill', () => {
     const l = createMemoryLedger();
     demo(l);
-    const html = renderToStaticMarkup(createElement(RouterHUD, { entries: l.entries() }));
+    const html = renderToStaticMarkup(createElement(RouterHUD, { entries: l.entries(), tech: true }));
     expect(html).toContain('role="log"');
     expect(html).toContain('referee › ON-DEVICE (Gemini Nano) 1.3 s');
     expect((html.match(/data-hud-line="/g) ?? []).length).toBe(3);
+    // Technical details off (the default): plain job names, no payload class, still the route and the latency.
+    const plain = renderToStaticMarkup(createElement(RouterHUD, { entries: l.entries() }));
+    expect(plain).toContain(`${t('ui.jobPlain.referee')} › ON-DEVICE 1.3 s`);
+    expect(plain).not.toMatch(/\[S[0-4]\]/);
+    expect((plain.match(/data-hud-line="/g) ?? []).length).toBe(3);
     expect(renderToStaticMarkup(createElement(HudLines, { entries: [] }))).toContain(t('ui.hud.empty'));
   });
 });
@@ -121,9 +157,15 @@ describe('What the cloud saw (SCR-15)', () => {
     expect(empty).toContain(t('copy.cloudSaw.empty'));
     demo(l);
     await images.remember(new Blob([new Uint8Array([0xff, 0xd8, 0xff])], { type: 'image/jpeg' }));
-    const html = renderToStaticMarkup(createElement(LedgerPanel, { counters: ledgerCounters(l.entries()), entries: l.entries(), images }));
+    const html = renderToStaticMarkup(createElement(LedgerPanel, { counters: ledgerCounters(l.entries()), entries: l.entries(), images, tech: true }));
     expect(html).toContain(`data-sha-prefix="${SHA_A.slice(0, 8)}"`);
     expect(html).toContain('advB.v1');
+    // Technical details off: no prompt id, no visible hash, no payload class; the route badges stay.
+    const plain = renderToStaticMarkup(createElement(LedgerPanel, { counters: ledgerCounters(l.entries()), entries: l.entries(), images }));
+    expect(plain).not.toContain('advB.v1');
+    expect(plain).not.toContain(`${SHA_A.slice(0, 8)}<`);
+    expect(plain).not.toMatch(/\[S[0-4]\]/);
+    expect(plain).toContain('data-route="IN_CLOUD"');
     expect(html).toContain('Images: 1 · Requests: 1');
     expect(html).not.toContain(SHA_ORIG.slice(0, 8) + '<'); // the on-device hash is not the cloud-saw hash
   });

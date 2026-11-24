@@ -1702,7 +1702,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
     - Prompt scan; a ledger entry; the route from `rawResponse.modelVersion` (U-24).
   - Verify: gate XCTests with protocol-mocked sessions; the boundary check exits 0.
 
-- [ ] T-125 [CLAUDE] FM pre-screen (I3, S1). Due: Fri Nov 27 · Deps: T-124 · AC: AC-324
+- [x] T-125 [CLAUDE] FM pre-screen (I3, S1). Due: Fri Nov 27 · Deps: T-124 · AC: AC-324 **Ticked Nov 24 (D-167):** `ios/StrangersEyes/AI/PrescreenJob.swift` (prompt `shared/prompts/fmPre.v1.user.md`): text only (Vision OCR lines with a 3x3 region + top 10 scene labels, never the image), vault-matched words left out, through the Swift EgressGate as S1 with a fresh availability check and a fail-closed RULES-ONLY fallback; types/regions/line ids validated in code. Evidence: `StrangersEyesTests/JudgeTests.swift` pre-screen tests (lines and vault words left out, validation, rules fallback when unavailable, ON-DEVICE Ledger entry when available) in the 32 XCTests passing Nov 24; the Nov 24 Simulator UI run showed the pre-screen ON-DEVICE (Apple FM). Budget held by caps (40 lines × 80 chars, 10 labels) inside the gate's 4,096-token check.
   - Read: SPEC §14.2 (I3); ARCH §10.12; API-NOTES §3.9
   - Do:
     - `@Generable` `FMPreScreen`. **No tool calls.**
@@ -1711,7 +1711,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
     - A new session per call; progress UI (`copy.ios.slow`); RULES_ONLY fallback.
   - Verify: a SIM run on the hero photo; the HUD shows ON-DEVICE (Apple FM).
 
-- [ ] T-126 [CLAUDE] FM vault-text match, referee and fix (I4, S0). Due: Fri Nov 27 · Deps: T-125 · AC: AC-324, AC-325, AC-326 **Partly done Nov 21:** FM referee (I4a) done with the D-157 cap; FM vault-text match and fix planner not done.
+- [ ] T-126 [CLAUDE] FM vault-text match, referee and fix (I4, S0). Due: Fri Nov 27 · Deps: T-125 · AC: AC-324, AC-325, AC-326 **Partly done Nov 21:** FM referee (I4a) done with the D-157 cap; FM vault-text match and fix planner not done. **Nov 24 (D-167, D-168):** the FM referee also runs in iOS Judge Mode against each sample's in-memory fake vault; device-only place-guess × pin links are now dropped (D-168, web parity, shared vectors); 32 XCTests pass. I3b/I4b still not built.
   - Read: SPEC §14.2 (I4); ARCH §10.8–10.10, §10.1, §19.3–19.4 (static Generable, IDs validated in code)
   - Do:
     - Shared prompts with `@Generable` results. Unknown IDs are dropped in code; avoid dynamic schemas.
@@ -1720,7 +1720,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
     - With 20 vault items and 12 claims, stay under 4,096 tokens; trim by priority if over.
   - Verify: SIM run on LUCAS/City General gives the expected matches; the AC-326 token test.
 
-- [ ] T-127 [CLAUDE] iOS consent and cloud pass B (C2). Due: Fri Nov 27 · Deps: T-124 · AC: AC-327, AC-332 **Partly done Nov 21:** consent sheet + gate done; real Gemini path compiled, never run (quota).
+- [ ] T-127 [CLAUDE] iOS consent and cloud pass B (C2). Due: Fri Nov 27 · Deps: T-124 · AC: AC-327, AC-332 **Partly done Nov 21:** consent sheet + gate done; real Gemini path compiled, never run (quota). **Nov 24 (D-167):** iOS Judge Mode replays the recorded Gemini pass-B answers THROUGH the Swift EgressGate (route CACHED, 0 bytes, Ledger entry), the after-fix recording only when the masks hide its `fixMasked` clues; a run-generation guard drops stale results. The live iPhone Gemini call and the App Check debug-token registration are still not done (U-25 still unverified; registering the token is a user step, see `ios/NOTES.md`).
   - Read: API-NOTES §3.7; ARCH §19.3
   - Do:
     - A consent sheet showing the exact image.

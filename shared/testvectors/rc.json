@@ -1,5 +1,5 @@
 {
-  "description": "Remote Config validation vectors (ARCH §7, §13; SPEC AC-020, AC-293). Single source of truth for web/src/core/routing.test.ts and web/src/firebase/rcParse.test.ts (Vitest) and the iOS RemoteConfigService XCTest port (ARCH §19.3; SPEC §10.7, AC-168). T-060 wrote the `routingPolicy` section (D-96); T-102 added one sibling section per other RC key, `keyConventions` and `effectiveConfig` (D-108, D-118).",
+  "description": "Remote Config validation vectors (ARCH §7, §13; SPEC AC-020, AC-293). Single source of truth for web/src/core/routing.test.ts and web/src/firebase/rcParse.test.ts (Vitest) and the iOS RemoteConfigService XCTest port (ARCH §19.3; SPEC §10.7, AC-168). T-060 wrote the `routingPolicy` section (D-96); T-102 added one sibling section per other RC key, `keyConventions` and `effectiveConfig` (D-108, D-118); D-165 added `adversaryFallbackModels` (pass-B model failover).",
   "routingPolicy": {
     "conventions": [
       "Input forms: {\"absent\": true} = no RC value yet; {\"notString\": v} = a non-string value (web only: an iOS RemoteConfigValue is always a string, so iOS skips these); {\"raw\": s} = this exact string; {\"edits\": [...]} = apply the edits in order to a deep copy of `default`, then serialise it as compact JSON; {\"padTo\": n} = compact `default` with spaces inserted before its final \"}\" until it is n characters long; {\"repeat\": {\"text\": t, \"times\": n}} = t repeated n times.",
@@ -3965,6 +3965,253 @@
         },
         "expect": {
           "value": "gemini-3.5-flash-lite",
+          "warning": "invalid"
+        }
+      }
+    ]
+  },
+  "adversaryFallbackModels": {
+    "key": "adversary_fallback_models",
+    "type": "JSON",
+    "rule": "JSON array of at most 3 distinct exact model ids (each as adversary_model: isExactModelId, never trimmed or folded); empty allowed (= no failover); anything else → invalid (never partly used), default []",
+    "cases": [
+      {
+        "name": "the default (no failover)",
+        "input": {
+          "raw": "[]"
+        },
+        "expect": {
+          "value": [],
+          "warning": null
+        }
+      },
+      {
+        "name": "one model",
+        "input": {
+          "raw": "[\"gemini-4-hydrogen\"]"
+        },
+        "expect": {
+          "value": [
+            "gemini-4-hydrogen"
+          ],
+          "warning": null
+        }
+      },
+      {
+        "name": "three models, order kept",
+        "input": {
+          "raw": "[\"gemini-3.8-flash\",\"gemini-4-hydrogen\",\"gemini-3.1-flash-lite\"]"
+        },
+        "expect": {
+          "value": [
+            "gemini-3.8-flash",
+            "gemini-4-hydrogen",
+            "gemini-3.1-flash-lite"
+          ],
+          "warning": null
+        }
+      },
+      {
+        "name": "JSON whitespace inside the array",
+        "input": {
+          "raw": "[ \"gemini-4-hydrogen\" ]"
+        },
+        "expect": {
+          "value": [
+            "gemini-4-hydrogen"
+          ],
+          "warning": null
+        }
+      },
+      {
+        "name": "four models",
+        "input": {
+          "raw": "[\"a\",\"b\",\"c\",\"d\"]"
+        },
+        "expect": {
+          "value": [],
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "a duplicate",
+        "input": {
+          "raw": "[\"gemini-4-hydrogen\",\"gemini-4-hydrogen\"]"
+        },
+        "expect": {
+          "value": [],
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "a -latest alias",
+        "input": {
+          "raw": "[\"gemini-3.8-flash-latest\"]"
+        },
+        "expect": {
+          "value": [],
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "upper case",
+        "input": {
+          "raw": "[\"Gemini-4-Hydrogen\"]"
+        },
+        "expect": {
+          "value": [],
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "spaces inside an id",
+        "input": {
+          "raw": "[\" gemini-4-hydrogen\"]"
+        },
+        "expect": {
+          "value": [],
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "65-character id",
+        "input": {
+          "raw": "[\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"]"
+        },
+        "expect": {
+          "value": [],
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "an empty id",
+        "input": {
+          "raw": "[\"\"]"
+        },
+        "expect": {
+          "value": [],
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "a number",
+        "input": {
+          "raw": "[1]"
+        },
+        "expect": {
+          "value": [],
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "a null",
+        "input": {
+          "raw": "[\"gemini-4-hydrogen\",null]"
+        },
+        "expect": {
+          "value": [],
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "an object",
+        "input": {
+          "raw": "{\"0\":\"gemini-4-hydrogen\"}"
+        },
+        "expect": {
+          "value": [],
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "\"__proto__\"",
+        "input": {
+          "raw": "[\"__proto__\"]"
+        },
+        "expect": {
+          "value": [],
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "a bare id",
+        "input": {
+          "raw": "gemini-4-hydrogen"
+        },
+        "expect": {
+          "value": [],
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "a JSON string",
+        "input": {
+          "raw": "\"gemini-4-hydrogen\""
+        },
+        "expect": {
+          "value": [],
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "4097 characters",
+        "input": {
+          "padTo": 4097
+        },
+        "expect": {
+          "value": [],
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "empty",
+        "input": {
+          "raw": ""
+        },
+        "expect": {
+          "value": [],
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "truncated JSON",
+        "input": {
+          "raw": "["
+        },
+        "expect": {
+          "value": [],
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "null",
+        "input": {
+          "raw": "null"
+        },
+        "expect": {
+          "value": [],
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "BOM before the JSON",
+        "input": {
+          "raw": "﻿[]"
+        },
+        "expect": {
+          "value": [],
+          "warning": "invalid"
+        }
+      },
+      {
+        "name": "not a string (web only)",
+        "input": {
+          "notString": [
+            "gemini-4-hydrogen"
+          ]
+        },
+        "expect": {
+          "value": [],
           "warning": "invalid"
         }
       }

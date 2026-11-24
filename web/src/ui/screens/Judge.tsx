@@ -23,6 +23,10 @@ import { useMediaQuery } from '../hooks/useMediaQuery';
 import { SamplePicker } from '../judge/SamplePicker';
 import { Check } from './Check';
 
+/** The suggested first pick: the level crossing (judge-02), whose recording ends "Risk reduced" (D-164). The manifest
+ *  order is unchanged; the card just carries a "Start here" chip. */
+const START_HERE_SAMPLE = 'judge-02';
+
 function useRc(): AppConfig | null {
   const [rc, setRc] = useState<AppConfig | null>(null);
   useEffect(() => {
@@ -129,7 +133,7 @@ export function Judge() {
         <>
           <section aria-labelledby="judge-pick" className="flex flex-col gap-3">
             <h2 id="judge-pick" className="text-title font-semibold">{t('ui.judge.pick')}</h2>
-            <SamplePicker samples={manifest.samples} selected={sample?.id ?? null} compact={run !== null} onPick={(i) => begin(i, false)} />
+            <SamplePicker samples={manifest.samples} selected={sample?.id ?? null} compact={run !== null} onPick={(i) => begin(i, false)} startHere={START_HERE_SAMPLE} />
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
               <Button variant={run ? 'secondary' : 'primary'} data-action="run-all" onClick={() => begin(0, true)}>{t('ui.judge.runAll')}</Button>
               {run?.all && <span className="text-small text-muted tabular-nums">{t('ui.judge.runningAll', { n: run.index + 1, total })}</span>}

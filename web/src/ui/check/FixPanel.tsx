@@ -14,6 +14,7 @@ import { Badge } from '../components/Badge';
 import { Button } from '../components/Button';
 import { Icon } from '../components/Icon';
 import { EYEBROW } from '../components/surface';
+import { useTechDetails } from '../hooks/usePrefs';
 
 /** The photo as the fix leaves it: master + solid masks + crop, never the master itself (a failure is solid black). */
 function FixPreview({ master, masks, crop, planned }: { master: HTMLCanvasElement; masks: readonly PxRect[]; crop: PxRect | null; planned: readonly PxRect[] }) {
@@ -73,6 +74,7 @@ export interface FixPanelProps {
 }
 
 export function FixPanel(p: FixPanelProps) {
+  const tech = useTechDetails(); // clue ids in the mask list only with Settings › Technical details
   const { master, fix, applied } = p;
   if (!master) return <p className="mt-3 text-body text-muted">{t('ui.verdict.loading')}</p>;
   const roundLine = <p className={`${EYEBROW} self-start rounded-chip border border-line px-2 py-1`}>{t('ui.fix.round', { n: p.round.n, max: p.round.max })}</p>;
@@ -119,7 +121,7 @@ export function FixPanel(p: FixPanelProps) {
               <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg bg-surface-2 px-3 py-2">
                 <input type="checkbox" className="size-5 shrink-0 accent-fg" checked={!off.has(m.clueId)} onChange={() => p.onToggle(m.clueId)} data-clue={m.clueId} />
                 <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-route-device-fill" />
-                <span className="min-w-0 break-words">{t('ui.fix.maskItem', { type: m.type.replace(/_/g, ' '), id: m.clueId })}</span>
+                <span className="min-w-0 break-words">{tech ? t('ui.fix.maskItem', { type: m.type.replace(/_/g, ' '), id: m.clueId }) : t('ui.fix.maskItemPlain', { type: m.type.replace(/_/g, ' ') })}</span>
               </label>
             </li>
           ))}

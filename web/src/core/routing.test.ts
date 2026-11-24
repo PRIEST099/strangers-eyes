@@ -97,8 +97,8 @@ describe('remoteconfig.template.json', () => {
   const params = template.parameters as Record<string, { defaultValue: { value: string }; valueType: string; description: string }>;
   const table = archRcTable();
 
-  it('has exactly the 27 keys of the ARCH §13.2 table (D-40)', () => {
-    expect(table).toHaveLength(27);
+  it('has exactly the 28 keys of the ARCH §13.2 table (D-40; D-165 added adversary_fallback_models)', () => {
+    expect(table).toHaveLength(28);
     expect(Object.keys(params).sort()).toEqual(table.map((r) => r.key).sort());
   });
 

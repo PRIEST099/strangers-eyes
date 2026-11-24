@@ -117,7 +117,8 @@ describe('loadConfig', () => {
   it('T-161: data_tier reads paid only when the server sent it; a template-default tier next to remote keys is free', async () => {
     h.state.active = { kill_switch: 'false' }; // a server template without data_tier
     const m = await load();
-    expect(m.RC_DEFAULTS.data_tier).toBe('paid'); // the template default this guards against
+    expect(m.RC_DEFAULTS.data_tier).toBe('free'); // the template default since D-165 (aligned with the live config)
+    h.rc.defaultConfig.data_tier = 'paid'; // a future template edit back to paid: the guard must still win
     await m.loadConfig();
     expect(m.cfg()).toMatchObject({ source: 'cached', dataTier: 'free', groundingEnabled: false });
     expect(m.cfg().warnings).toEqual([]);

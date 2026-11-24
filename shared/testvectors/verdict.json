@@ -1,7 +1,7 @@
 {
  "description": "The verdict engine (SPEC §10.1, §10.2, §10.5, §10.6; ARCH §12.3, §12.4; D-115, D-116, D-127, D-128; AC-160, AC-164, AC-166, AC-194). Single source of truth for web/src/core/verdict.test.ts (Vitest) and the iOS XCTest port (SPEC §10.7, AC-168). Each case has an `fn` naming the function under test, a human `name`, its inputs and `expect`.",
  "conventions": [
-  "fn build: buildVerdict(input) where input.vault lists keys of `vault` (in that order) and every other input field is passed as is (adv is the validated pass B in camelCase: status, hypotheses, inferences; null when there is none). expect holds the whole Verdict (level, phase, noVault, lines, pinBands, notLinkedVaultIds, bestGuess; matches when given) plus derived copy: headlineId (SPEC §10.5), texts (each line rendered with shared/strings/en.json; a pin_match appends ' · ' and its band words), bestGuessText (copy.verdict.bestGuess or null) and notLinkedText (copy.verdict.notLinked, KIND display names in vault order joined by ' · ', a repeated name once, or null).",
+  "fn build: buildVerdict(input) where input.vault lists keys of `vault` (in that order) and every other input field is passed as is (adv is the validated pass B in camelCase: status, hypotheses, inferences; null when there is none). expect holds the whole Verdict (level, phase, noVault, lines, pinBands, notLinkedVaultIds, bestGuess; matches when given) plus derived copy: headlineId (SPEC §10.5), texts (each line rendered with shared/strings/en.json; a pin_match appends ' · ' and its band words), bestGuessText (copy.verdict.bestGuess or null; level and confidence only, never the guessed place name: misuse hardening, Nov 24) and notLinkedText (copy.verdict.notLinked, KIND display names in vault order joined by ' · ', a repeated name once, or null).",
   "fn compare: build both inputs, then compareVerdicts(before, after): riskReduced (SPEC §10.6; PARTIAL on either side is false), riskReduced (SPEC §10.6 as amended by D-128: the level dropped, or the same level with a coarser worst pin band AND fewer HIGH lines; AND no vault item's worst line severity rose; AND the worst pin band did not get finer; AND both cover the same vault item ids with the same noVault; PARTIAL on either side is false), worstRemainingLineId (the first most severe line of after: HIGH > MEDIUM > INFO; caught lines never count) and headline (D-116, D-128: after PARTIAL → copy.verdict.partial; reduced → copy.verdict.reduced with band words when the worst pin band got coarser, else the two level headlines' text; not reduced and after LOW with no HIGH or MEDIUM line → copy.verdict.low; else copy.verdict.still naming the worst remaining line's text, else the best-guess text, else the after headline's text).",
   "Bands: SPEC §10.1 over the first 3 hypotheses of an ok pass B: e = max(haversine, radiusKm × 1000), the smallest e wins, ties keep the earlier hypothesis. street/neighbourhood HIGH, district MEDIUM, city INFO, country/none no line. A pin item without a pin is band none. RC bands are validated by bandThresholdsOrDefault (D-77). pinBands never carry effectiveKm (always null): the verdict holds bands, never a measured distance.",
   "Matches: a match counts only with a known claim (refereeClaims: inferences, then hypotheses), a known vault item and a STRENGTHS value. A repeated (claim, item) pair keeps the stronger, the first on a tie. Verdict.matches are sorted by claim order, then vault order. Per item the line uses the strongest match, then the higher claim confidence, then the earlier claim.",
@@ -211,7 +211,7 @@
      "label": "Quay Road area",
      "confidence": "high"
     },
-    "bestGuessText": "Attacker's best guess: street level · Quay Road area · high",
+    "bestGuessText": "Attacker's best guess: street level · attacker confidence high",
     "notLinkedText": null
    }
   },
@@ -286,7 +286,7 @@
      "label": "Quay Road area",
      "confidence": "medium"
     },
-    "bestGuessText": "Attacker's best guess: street level · Quay Road area · medium",
+    "bestGuessText": "Attacker's best guess: street level · attacker confidence medium",
     "notLinkedText": null
    }
   },
@@ -361,7 +361,7 @@
      "label": "Quay Road area",
      "confidence": "medium"
     },
-    "bestGuessText": "Attacker's best guess: street level · Quay Road area · medium",
+    "bestGuessText": "Attacker's best guess: street level · attacker confidence medium",
     "notLinkedText": null
    }
   },
@@ -436,7 +436,7 @@
      "label": "Quay Road area",
      "confidence": "low"
     },
-    "bestGuessText": "Attacker's best guess: street level · Quay Road area · low",
+    "bestGuessText": "Attacker's best guess: street level · attacker confidence low",
     "notLinkedText": null
    }
   },
@@ -491,7 +491,7 @@
      "label": "Quay Road area",
      "confidence": "high"
     },
-    "bestGuessText": "Attacker's best guess: street level · Quay Road area · high",
+    "bestGuessText": "Attacker's best guess: street level · attacker confidence high",
     "notLinkedText": "Not linked: HOME"
    }
   },
@@ -546,7 +546,7 @@
      "label": "Quay Road area",
      "confidence": "high"
     },
-    "bestGuessText": "Attacker's best guess: street level · Quay Road area · high",
+    "bestGuessText": "Attacker's best guess: street level · attacker confidence high",
     "notLinkedText": "Not linked: HOME"
    }
   },
@@ -616,7 +616,7 @@
      "label": "Quay Road area",
      "confidence": "medium"
     },
-    "bestGuessText": "Attacker's best guess: street level · Quay Road area · medium",
+    "bestGuessText": "Attacker's best guess: street level · attacker confidence medium",
     "notLinkedText": null
    }
   },
@@ -686,7 +686,7 @@
      "label": "Quay Road area",
      "confidence": "medium"
     },
-    "bestGuessText": "Attacker's best guess: street level · Quay Road area · medium",
+    "bestGuessText": "Attacker's best guess: street level · attacker confidence medium",
     "notLinkedText": null
    }
   },
@@ -772,7 +772,7 @@
      "label": "Port district",
      "confidence": "high"
     },
-    "bestGuessText": "Attacker's best guess: city level · Port district · high",
+    "bestGuessText": "Attacker's best guess: city level · attacker confidence high",
     "notLinkedText": null
    }
   },
@@ -858,7 +858,7 @@
      "label": "Quay Road area",
      "confidence": "medium"
     },
-    "bestGuessText": "Attacker's best guess: street level · Quay Road area · medium",
+    "bestGuessText": "Attacker's best guess: street level · attacker confidence medium",
     "notLinkedText": null
    }
   },
@@ -942,7 +942,7 @@
      "label": "Quay Road area",
      "confidence": "low"
     },
-    "bestGuessText": "Attacker's best guess: street level · Quay Road area · low",
+    "bestGuessText": "Attacker's best guess: street level · attacker confidence low",
     "notLinkedText": "Not linked: HOME"
    }
   },
@@ -1140,7 +1140,7 @@
      "label": "Quay Road area",
      "confidence": "medium"
     },
-    "bestGuessText": "Attacker's best guess: street level · Quay Road area · medium",
+    "bestGuessText": "Attacker's best guess: street level · attacker confidence medium",
     "notLinkedText": null
    }
   },
@@ -1218,7 +1218,7 @@
      "label": "Quay Road area",
      "confidence": "high"
     },
-    "bestGuessText": "Attacker's best guess: street level · Quay Road area · high",
+    "bestGuessText": "Attacker's best guess: street level · attacker confidence high",
     "notLinkedText": null
    }
   },
@@ -1983,7 +1983,7 @@
      "label": "Hospital quarter",
      "confidence": "medium"
     },
-    "bestGuessText": "Attacker's best guess: neighbourhood level · Hospital quarter · medium",
+    "bestGuessText": "Attacker's best guess: neighbourhood level · attacker confidence medium",
     "notLinkedText": null
    }
   },
@@ -2082,7 +2082,7 @@
      "label": "Quay Road area",
      "confidence": "high"
     },
-    "bestGuessText": "Attacker's best guess: street level · Quay Road area · high",
+    "bestGuessText": "Attacker's best guess: street level · attacker confidence high",
     "notLinkedText": null
    }
   },
@@ -2172,7 +2172,7 @@
      "label": "Port city",
      "confidence": "high"
     },
-    "bestGuessText": "Attacker's best guess: city level · Port city · high",
+    "bestGuessText": "Attacker's best guess: city level · attacker confidence high",
     "notLinkedText": null
    }
   },
@@ -2265,7 +2265,7 @@
      "label": "The coast",
      "confidence": "low"
     },
-    "bestGuessText": "Attacker's best guess: region level · The coast · low",
+    "bestGuessText": "Attacker's best guess: region level · attacker confidence low",
     "notLinkedText": null
    }
   },
@@ -2353,7 +2353,7 @@
      "label": "Harbourside Gym area",
      "confidence": "high"
     },
-    "bestGuessText": "Attacker's best guess: street level · Harbourside Gym area · high",
+    "bestGuessText": "Attacker's best guess: street level · attacker confidence high",
     "notLinkedText": null
    }
   },
@@ -2447,7 +2447,7 @@
      "label": "Quay Road area",
      "confidence": "high"
     },
-    "bestGuessText": "Attacker's best guess: street level · Quay Road area · high",
+    "bestGuessText": "Attacker's best guess: street level · attacker confidence high",
     "notLinkedText": null
    }
   },
@@ -2490,7 +2490,7 @@
      "label": "Old Town",
      "confidence": "medium"
     },
-    "bestGuessText": "Attacker's best guess: neighbourhood level · Old Town · medium",
+    "bestGuessText": "Attacker's best guess: neighbourhood level · attacker confidence medium",
     "notLinkedText": null
    }
   },
@@ -2533,7 +2533,7 @@
      "label": "North side",
      "confidence": "low"
     },
-    "bestGuessText": "Attacker's best guess: district level · North side · low",
+    "bestGuessText": "Attacker's best guess: district level · attacker confidence low",
     "notLinkedText": null
    }
   },
@@ -2586,7 +2586,7 @@
      "label": "Port city",
      "confidence": "high"
     },
-    "bestGuessText": "Attacker's best guess: city level · Port city · high",
+    "bestGuessText": "Attacker's best guess: city level · attacker confidence high",
     "notLinkedText": null
    }
   },
@@ -3307,7 +3307,7 @@
      "label": "North side",
      "confidence": "medium"
     },
-    "bestGuessText": "Attacker's best guess: district level · North side · medium",
+    "bestGuessText": "Attacker's best guess: district level · attacker confidence medium",
     "notLinkedText": "Not linked: CAR PLATE · HOME"
    }
   },
@@ -3397,7 +3397,7 @@
      "label": "… near the quay",
      "confidence": "high"
     },
-    "bestGuessText": "Attacker's best guess: street level · … near the quay · high",
+    "bestGuessText": "Attacker's best guess: street level · attacker confidence high",
     "notLinkedText": "Not linked: UNIT …",
     "matches": [
      {
@@ -3453,7 +3453,7 @@
      "label": "Quay Road area",
      "confidence": "high"
     },
-    "bestGuessText": "Attacker's best guess: street level · Quay Road area · high",
+    "bestGuessText": "Attacker's best guess: street level · attacker confidence high",
     "notLinkedText": "Not linked: CHILD'S NAME"
    }
   },
@@ -3532,7 +3532,7 @@
      "label": "Old Town",
      "confidence": "medium"
     },
-    "bestGuessText": "Attacker's best guess: neighbourhood level · Old Town · medium",
+    "bestGuessText": "Attacker's best guess: neighbourhood level · attacker confidence medium",
     "notLinkedText": null
    }
   },
@@ -3611,7 +3611,7 @@
      "label": "North side",
      "confidence": "medium"
     },
-    "bestGuessText": "Attacker's best guess: district level · North side · medium",
+    "bestGuessText": "Attacker's best guess: district level · attacker confidence medium",
     "notLinkedText": null
    }
   },
@@ -3657,7 +3657,7 @@
      "label": "Port city",
      "confidence": "high"
     },
-    "bestGuessText": "Attacker's best guess: city level · Port city · high",
+    "bestGuessText": "Attacker's best guess: city level · attacker confidence high",
     "notLinkedText": "Not linked: CAR PLATE"
    }
   },
@@ -3711,7 +3711,7 @@
      "label": "North side",
      "confidence": "low"
     },
-    "bestGuessText": "Attacker's best guess: district level · North side · low",
+    "bestGuessText": "Attacker's best guess: district level · attacker confidence low",
     "notLinkedText": "Not linked: HOME"
    }
   },
@@ -3781,7 +3781,7 @@
      "label": "Port city",
      "confidence": "low"
     },
-    "bestGuessText": "Attacker's best guess: city level · Port city · low",
+    "bestGuessText": "Attacker's best guess: city level · attacker confidence low",
     "notLinkedText": null
    }
   },
@@ -3852,7 +3852,7 @@
      "label": "Quay Road area",
      "confidence": "high"
     },
-    "bestGuessText": "Attacker's best guess: street level · Quay Road area · high",
+    "bestGuessText": "Attacker's best guess: street level · attacker confidence high",
     "notLinkedText": null
    }
   },
@@ -4158,7 +4158,7 @@
      "label": "Harbour neighbourhood",
      "confidence": "medium"
     },
-    "bestGuessText": "Attacker's best guess: neighbourhood level · Harbour neighbourhood · medium",
+    "bestGuessText": "Attacker's best guess: neighbourhood level · attacker confidence medium",
     "notLinkedText": "Not linked: CAR PLATE"
    }
   },
@@ -5463,7 +5463,7 @@
     "headline": {
      "copyId": "copy.verdict.still",
      "params": {
-      "line": "Attacker's best guess: district level · Quay Road area · high"
+      "line": "Attacker's best guess: district level · attacker confidence high"
      }
     }
    }

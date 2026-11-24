@@ -216,10 +216,10 @@ describe('vault labels, "Why?", referee row, announcement', () => {
     for (const l of p.verdict.lines) expect(mutedLabel(l, p.vault, true)).toBeNull();
   });
 
-  it('"Why?" is a disclosure: aria-expanded/aria-controls, closed panels hidden, the open one shows reason, clues and route', () => {
+  it('"Why?" is a disclosure: aria-expanded/aria-controls, closed panels hidden, the open one shows clues and route (never the reason)', () => {
     const withWhy = demo.verdict.lines.filter((l) => l.kind !== 'caught');
     const open = withWhy[0];
-    const markup = html({ ...demo, defaultOpenLineId: open.id });
+    const markup = html({ ...demo, defaultOpenLineId: open.id, tech: true });
     const buttons = markup.match(/<button[^>]*aria-expanded="(true|false)"[^>]*>Why\?<\/button>/g) ?? [];
     expect(buttons.length).toBe(withWhy.length);
     expect(buttons.filter((b) => b.includes('aria-expanded="true"')).length).toBe(1);
@@ -231,9 +231,18 @@ describe('vault labels, "Why?", referee row, announcement', () => {
       expect((panel?.[1] ?? '').includes('hidden')).toBe(!b.includes('aria-expanded="true"'));
     }
     const li = (markup.match(/<li[\s\S]*?<\/li>/g) ?? []).find((x) => x.includes(`data-line-id="${open.id}"`)) ?? '';
-    if (open.reason) expect(text(li)).toContain(open.reason);
+    // Misuse hardening: the referee's free-text reason is never rendered (it can restate the attacker's guessed place).
+    if (open.reason) expect(text(li)).not.toContain(open.reason);
     if (open.clueIds.length) expect(text(li)).toContain(`Clues: ${open.clueIds.join(', ')}`);
     expect(li).toContain(`data-route="${open.route}"`);
+    // Technical details off (the default): a count instead of the ids, "Guess check:" instead of "Referee:".
+    const plainLi = (html({ ...demo, defaultOpenLineId: open.id }).match(/<li[\s\S]*?<\/li>/g) ?? []).find((x) => x.includes(`data-line-id="${open.id}"`)) ?? '';
+    if (open.clueIds.length) {
+      expect(text(plainLi)).toContain(S('ui.verdict.cluesCount', { n: String(open.clueIds.length) }));
+      expect(text(plainLi)).not.toContain('Clues:');
+    }
+    expect(text(plainLi)).toContain(S('ui.verdict.refereePlain'));
+    expect(plainLi).toContain(`data-route="${open.route}"`);
   });
 
   it('caught, echo and found-on-device lines have no "Why?"', () => {
@@ -243,8 +252,11 @@ describe('vault labels, "Why?", referee row, announcement', () => {
 
   it('shows "Distances: code" always and the referee route and seconds when given', () => {
     expect(text(html({ ...demo }))).toContain('Distances: code');
-    const body = text(html({ ...demo, referee: { route: 'ON_DEVICE', latencyMs: 1300 } }));
+    const body = text(html({ ...demo, referee: { route: 'ON_DEVICE', latencyMs: 1300 }, tech: true }));
     expect(body).toContain('Referee: ON-DEVICE 1.3 s · Distances: code');
+    // Plain by default: the same badge and seconds, under plain words.
+    const plain = text(html({ ...demo, referee: { route: 'ON_DEVICE', latencyMs: 1300 } }));
+    expect(plain).toContain(`${S('ui.verdict.refereePlain')} ON-DEVICE 1.3 s · Distances: code`);
   });
 
   it('announces the headline, after the compare header when there is one', () => {
@@ -443,6 +455,39 @@ describe('redesign (DESIGN.md §5.3): bands only, the meter, the hero, green onl
       const markup = html({ verdict: cmp.after, vault, comparison: cmp });
       const banner = /<div data-compare="reduced"[^>]*>[\s\S]*?<\/div>/.exec(markup)?.[0] ?? '';
       expect(text(banner).trim()).toBe(view?.text);
+    }
+  });
+});
+
+describe('misuse hardening (Nov 24): the attacker\'s guessed place never reaches the card', () => {
+  it('the best guess is level and confidence only, for every build case, in the view and the markup', () => {
+    for (const c of builds) {
+      const { verdict, vault } = run(c.input);
+      if (!verdict.bestGuess) continue;
+      const view = verdictCardView(verdict, vault, { showVaultLabels: true, tr });
+      expect(view.bestGuess).toBe(S('copy.verdict.bestGuess', { level: verdict.bestGuess.level, confidence: verdict.bestGuess.confidence }));
+      const label = verdict.bestGuess.label.trim();
+      if (label) {
+        expect(view.bestGuess).not.toContain(label);
+        expect(text(html({ verdict, vault }))).not.toContain(label);
+      }
+    }
+  });
+
+  it('a recognisable guessed place and referee reason never render, even with Technical details on', () => {
+    const base = run(byName('SCR-09 demo scene').input);
+    const PLACE = 'Zanzibar Quay Plaza';
+    const REASON = 'Zanzibar quay matches your home street';
+    const verdict: Verdict = {
+      ...base.verdict,
+      bestGuess: base.verdict.bestGuess ? { ...base.verdict.bestGuess, label: PLACE } : { level: 'street', label: PLACE, confidence: 'high' },
+      lines: base.verdict.lines.map((l) => (l.kind === 'caught' ? l : { ...l, reason: REASON })),
+    };
+    for (const tech of [false, true]) {
+      const open = verdict.lines.find((l) => l.kind !== 'caught')?.id ?? null;
+      const out = text(html({ verdict, vault: base.vault, tech, defaultOpenLineId: open }));
+      expect(out).not.toContain('Zanzibar');
+      expect(out).toContain("Attacker's best guess:");
     }
   });
 });

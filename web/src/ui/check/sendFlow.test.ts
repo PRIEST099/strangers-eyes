@@ -107,7 +107,7 @@ describe('sendFlow helpers', () => {
   });
 
   it('T-161 fail safe: the paid-tier line never shows from the template default or with no config', () => {
-    expect(DEFAULT_CONFIG.dataTier).toBe('paid'); // the template default this guards against (ARCH §13.3)
+    expect(DEFAULT_CONFIG.dataTier).toBe('free'); // the template default since D-165 (ARCH §13.3); the guard below covers 'paid'
     expect(DEFAULT_CONFIG.source).toBe('default');
     expect(consentTierCopy(DEFAULT_CONFIG)).toBe('copy.consent.tierFree'); // before RC loads, or after a failed fetch
     expect(consentTierCopy({ dataTier: 'paid', source: 'default' })).toBe('copy.consent.tierFree');

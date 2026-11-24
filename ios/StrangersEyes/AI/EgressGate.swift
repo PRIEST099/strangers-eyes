@@ -9,7 +9,8 @@
 //   JPEG must be the exact bytes the user consented to (sha256), carry no metadata, show 0 faces and 0 vault-text hits
 //   on a fresh Vision pass; any non-template text is scanned for vault strings and pin coordinates. Only then is the
 //   transport called with OUR InlineDataPart bytes. A decline or safety block is final: never retried or rephrased.
-// - Every call writes one Ledger entry (pending → done/fallback/blocked) and so appears in the Router HUD.
+// - Every call writes one Ledger entry (pending → done/fallback/blocked) and so appears in the Router HUD. Judge Mode's
+//   recorded replay goes through `cloud(..., via:)` with every check above and is logged CACHED with 0 bytes.
 // LOCAL ONLY: vault terms and pins are read from the store to scan; they are never logged or put in the Ledger.
 import FirebaseAILogic
 import Foundation
@@ -203,8 +204,12 @@ final class EgressGate {
   }
 
   /// S3 pass B on the consented, re-checked JPEG. `system`/`user` must be the bundled static advB.v1 template.
-  func cloud(job: String, cls: PayloadClass, system: String, user: String, jpeg: Data, consent: ConsentToken?) async -> GateResult<CloudReply> {
+  /// `via`: Judge Mode's RecordedReplayTransport (a recorded answer, CACHED) in place of the configured transport. It
+  /// passes exactly the same checks; nothing about the checks depends on which transport answers.
+  func cloud(job: String, cls: PayloadClass, system: String, user: String, jpeg: Data, consent: ConsentToken?,
+             via: (any CloudTransport)? = nil) async -> GateResult<CloudReply> {
     let t0 = Date()
+    let transport = via ?? self.transport
     let id = ledger.begin(job: job, cls: cls, engine: transport.engine)
     func block(_ r: BlockReason) -> GateResult<CloudReply> {
       let lat = Self.ms(since: t0)
@@ -226,8 +231,10 @@ final class EgressGate {
     do {
       let reply = try await transport.passB(system: system, user: user, jpeg: jpeg)
       let lat = Self.ms(since: t0)
+      // A simulated transport (Judge Mode's recorded replay, the DEBUG fake) sends nothing: CACHED, 0 bytes, 0 requests.
       let route: Route = transport.simulated ? .cached : .inCloud
-      ledger.finish(id, route: route, engine: reply.engine, latencyMs: lat, status: reply.declined ? "refused" : "done", bytes: jpeg.count)
+      ledger.finish(id, route: route, engine: reply.engine, latencyMs: lat, status: reply.declined ? "refused" : "done",
+                    bytes: transport.simulated ? 0 : jpeg.count)
       return GateResult(value: reply, route: route, latencyMs: lat, engine: reply.engine)
     } catch {
       let lat = Self.ms(since: t0)

@@ -71,7 +71,9 @@ enum RefereeJob {
     guard r.route == .onDevice, let answer = r.value else {
       return RefereeOutcome(matches: rules, route: .rulesOnly, latencyMs: r.latencyMs, notes: [r.note ?? "rules"])
     }
-    let merged = Referee.mergeMatches(validate(answer, p), rules)
+    // Same as web mergeMatches: a device-only match is capped at `possible` (D-157), and a device-only place guess × pin
+    // link is dropped (D-168): the distance bands, computed in code, already show how close the guess came to each pin.
+    let merged = Referee.mergeMatches(validate(answer, p), rules, geo: Referee.geoPairs(claims, items))
     return RefereeOutcome(matches: merged.matches, route: .onDevice, latencyMs: r.latencyMs, notes: merged.notes)
   }
 }
