@@ -58,12 +58,16 @@ const CLIPS = {
   // plate → the recorded re-attack can only say "Berlin" → Risk reduced.
   crossing: { offline: true, hash: '#/judge', steps: [
     { waitText: 'Run all' }, { toggle: 'Autoplay', on: true }, { wait: 300 }, { click: CROSSING }, { mark: 'picked' },
-    { waitText: VERDICTS, timeout: 120000 }, { mark: 'verdict' }, { wait: 600 },
-    { scroll: VERDICTS, block: 'start', ms: 1200 }, { wait: 4500 },
-    { waitText: ['Fix (done)', 'Re-attack the fixed photo', 'Apply'], timeout: 60000 }, { mark: 'fix' }, { wait: 3000 },
+    { waitText: VERDICTS, timeout: 120000 }, { toggle: 'Autoplay', on: false }, { mark: 'verdict' }, { wait: 300 },
+    { scroll: VERDICTS, block: 'start', ms: 1200 }, { mark: 'verdictShown' }, { wait: 4500 },
+    { toggle: 'Autoplay', on: true },
+    { waitText: 'Smallest fix found', timeout: 60000 }, { mark: 'fix' }, { wait: 300 },
+    { scroll: 'Smallest fix found', block: 'start', ms: 1000 }, { wait: 1200 },
+    { waitText: 'Fix applied on this device', timeout: 60000 }, { mark: 'applied' }, { wait: 300 },
+    { scroll: 'Fix applied on this device', block: 'center', ms: 900 }, { wait: 2500 },
     { waitText: ['Risk reduced', 'Still exposed'], timeout: 120000 }, { mark: 'after' }, { wait: 600 },
     { scroll: ['Risk reduced', 'Still exposed'], block: 'start', ms: 1200 }, { wait: 4000 },
-    { scroll: 'Before → After', block: 'center', ms: 1600 }, { wait: 4500 },
+    { scroll: 'Before → After', block: 'center', ms: 1600 }, { mark: 'compare' }, { wait: 4500 },
   ] },
   // judge-01, the station: the fix masks the sign, the re-attack names the city from the building: Still exposed.
   station: { offline: true, hash: '#/judge', steps: [

@@ -1,7 +1,7 @@
 {
  "durations": {
   "judge-home": 6.26,
-  "crossing": 45.32,
+  "crossing": 51.82,
   "station": 25.11,
   "castle": 35.86,
   "gate": 31.65
@@ -11,10 +11,13 @@
    "shown": 0
   },
   "crossing": {
-   "picked": 0.33,
-   "verdict": 17.16,
-   "fix": 23.47,
-   "after": 33.47
+   "picked": 0.36,
+   "verdict": 17.4,
+   "verdictShown": 18.93,
+   "fix": 24.99,
+   "applied": 27.53,
+   "after": 40,
+   "compare": 47.43
   },
   "station": {
    "picked": 0.33,

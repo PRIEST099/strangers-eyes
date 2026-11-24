@@ -1,192 +1,460 @@
+// Strangers' Eyes demo video, plain-language cut (D-164; script from the writing panel: a first-time viewer and a
+// hackathon judge scored three drafts). Explainer scenes are drawn (art.tsx); proof scenes are real app footage with
+// plain callouts. Honesty: the attacker's answers in the footage are the Nov 23 live recordings, replayed (CACHED
+// SAMPLE); this browser had no Gemini Nano, so private steps show RULES-ONLY (top-right tag on every footage scene).
 import type { ReactNode } from 'react';
-import { AbsoluteFill, Img, interpolate, Sequence, staticFile, useCurrentFrame, useVideoConfig } from 'remotion';
-import { Caption, Card, Fade, Footage, Photo, Pill, useAppear } from './components';
+import { AbsoluteFill, Freeze, Img, interpolate, OffthreadVideo, Sequence, Series, staticFile, useCurrentFrame, useVideoConfig } from 'remotion';
+import clips from '../public/clips.json';
+import { Callout, Phone, PhotoCard, RingMap, type Box } from './anim';
+import { Chip, EyeCloud, EyeLogo, Icon, StepStrip, Street, useAt, useLin, useSec, Wall } from './art';
 import { C, MONO } from './theme';
 
-// Honesty lines under the footage (docs/VIDEO.md §0): the attacker's answers are real recordings of Nov 23, replayed
-// and labelled CACHED SAMPLE; this browser has no Gemini Nano, so the private steps show RULES-ONLY.
-const REPLAY = "Real app footage · the attacker's answer was recorded live on Nov 23 and is replayed (CACHED SAMPLE) · no Nano in this browser: RULES-ONLY";
+const S = (sec: number) => Math.round(sec * 30);
+const IDX = clips as unknown as { durations: Record<string, number>; marks: Record<string, Record<string, number>> };
+const mark = (clip: string, m: string, plus = 0) => (IDX.marks[clip]?.[m] ?? 0) + plus;
 
-const S = (n: number) => Math.round(n * 30);
-
-// ---------------------------------------------------------------- 1 hook
-export const Hook = () => (
-  <AbsoluteFill>
-    <Sequence durationInFrames={S(4.6)}>
-      <Photo src="judge-03.jpg" from={1.02} to={1.12} origin="55% 30%" />
-      <AbsoluteFill style={{ justifyContent: 'flex-end', padding: 90, background: 'linear-gradient(0deg, rgba(11,12,16,0.85) 0%, rgba(11,12,16,0) 45%)' }}>
-        <Fade delay={6}><div style={{ fontSize: 76, fontWeight: 800, letterSpacing: -1 }}>This photo has no GPS data.</div></Fade>
-        <Fade delay={16}><div style={{ marginTop: 18 }}><Pill color={C.muted}>LOCATION: OFF · EXIF: NONE</Pill></div></Fade>
-      </AbsoluteFill>
-    </Sequence>
-    <Sequence from={S(4.6)}>
-      <Footage clip="castle" from={{ mark: 'verdict', plus: 0.6 }} to={{ mark: 'verdict', plus: 7.4 }} zoom={1.18} zoomTo={1.24} origin="22% 30%" />
-      <Caption kicker="VERDICT" color={C.red} note={REPLAY} />
-    </Sequence>
-  </AbsoluteFill>
-);
-
-// ---------------------------------------------------------------- 2 the idea: who attacks what, who keeps what
-const Lane = ({ color, bg, title, sub, children, delay }: { color: string; bg: string; title: string; sub: string; children: ReactNode; delay: number }) => (
-  <Fade delay={delay} style={{ flex: 1 }}>
-    <div style={{ background: bg, border: `2px solid ${color}55`, borderTop: `6px solid ${color}`, borderRadius: 22, padding: 36, height: 520 }}>
-      <div style={{ fontFamily: MONO, color, fontSize: 28, fontWeight: 800, letterSpacing: 3 }}>{title}</div>
-      <div style={{ fontSize: 30, color: C.muted, marginTop: 8 }}>{sub}</div>
-      <div style={{ marginTop: 30 }}>{children}</div>
-    </div>
-  </Fade>
-);
-const Row = ({ children, delay }: { children: ReactNode; delay: number }) => (
-  <Fade delay={delay} y={12}><div style={{ fontSize: 34, padding: '14px 22px', marginBottom: 14, background: 'rgba(255,255,255,0.05)', borderRadius: 14 }}>{children}</div></Fade>
-);
-export const Idea = () => {
+// ---------------------------------------------------------------- footage helpers
+/** Full-frame real footage from..to (clip seconds), fitted to `sec` seconds on screen; optional push-in. */
+const Full = ({ clip, from, to, sec, z0 = 1, z1 = z0, origin = '50% 50%' }: { clip: string; from: number; to?: number; sec: number; z0?: number; z1?: number; origin?: string }) => {
   const frame = useCurrentFrame();
-  const x = interpolate(frame % 90, [0, 90], [0, 1]);
+  const end = Math.min(to ?? IDX.durations[clip], IDX.durations[clip]);
+  const rate = Math.min(4, Math.max(0.6, (end - from) / sec));
+  const z = interpolate(frame, [0, S(sec)], [z0, z1], { extrapolateRight: 'clamp' });
   return (
-    <AbsoluteFill style={{ padding: '70px 110px' }}>
-      <Fade><div style={{ fontSize: 84, fontWeight: 800, letterSpacing: -2 }}>Strangers' Eyes</div></Fade>
-      <Fade delay={8}><div style={{ fontSize: 38, color: C.muted, marginTop: 6 }}>See your photo the way a stalker's AI would, before you post it.</div></Fade>
-      <div style={{ display: 'flex', gap: 40, marginTop: 56, alignItems: 'stretch' }}>
-        <Lane color={C.cloud} bg={C.cloudBg} title="THE CLOUD · ATTACKER" sub="Gemini via Firebase AI Logic" delay={40}>
-          <Row delay={70}>Gets a <b>redacted copy</b> only</Row>
-          <Row delay={95}>Solid masks · no metadata · no faces</Row>
-          <Row delay={120}>Guesses where it was taken</Row>
-        </Lane>
-        <div style={{ width: 230, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 48, fontFamily: MONO, fontSize: 24 }}>
-          <Fade delay={150}><div style={{ color: C.fg, textAlign: 'center' }}>redacted copy<div style={{ fontSize: 40, transform: `translateX(${-30 + x * 30}px)` }}>◀━━━</div></div></Fade>
-          <Fade delay={180}><div style={{ color: C.muted, textAlign: 'center' }}>guesses<div style={{ fontSize: 40, transform: `translateX(${x * 30 - 15}px)` }}>━━━▶</div></div></Fade>
-          <Fade delay={230}><div style={{ color: C.teal, textAlign: 'center' }}>right or wrong<div style={{ fontSize: 40 }}>✕ never sent</div></div></Fade>
+    <AbsoluteFill style={{ overflow: 'hidden', background: '#000' }}>
+      <OffthreadVideo src={staticFile(`clips/${clip}.mp4`)} muted playbackRate={rate} startFrom={Math.round(from * 30)}
+        style={{ width: '100%', height: '100%', transform: `scale(${z})`, transformOrigin: origin }} />
+      {rate >= 1.25 ? <div style={{ position: 'absolute', right: 24, top: 74, fontFamily: MONO, fontSize: 22, fontWeight: 800, color: C.fg, background: 'rgba(0,0,0,0.75)', borderRadius: 8, padding: '3px 10px' }}>×{rate.toFixed(1)}</div> : null}
+    </AbsoluteFill>
+  );
+};
+/** The honesty tag on every footage scene. */
+const RealTag = ({ text = "REAL APP · AI answers recorded Nov 23, replayed (CACHED SAMPLE) · no on-device AI in this browser: rules" }: { text?: string }) => (
+  <div style={{ position: 'absolute', right: 24, top: 18, maxWidth: 1100, background: 'rgba(10,11,15,0.88)', border: `1px solid ${C.line}`, borderRadius: 10,
+    padding: '8px 14px', fontFamily: MONO, fontSize: 18, color: C.muted }}>{text}</div>
+);
+/** The 4-step chip, top-left of footage scenes. */
+const StepCorner = ({ active, current }: { active: number; current?: number }) => (
+  <div style={{ position: 'absolute', left: 24, top: 18, background: 'rgba(10,11,15,0.88)', borderRadius: 16, padding: 8 }}><StepStrip active={active} current={current} small /></div>
+);
+const Stamp = ({ text, color, at, x, y, rot = -6 }: { text: string; color: string; at: number; x: number; y: number; rot?: number }) => {
+  const p = useAt(at, 9);
+  return <div style={{ position: 'absolute', left: x, top: y, transform: `rotate(${rot}deg) scale(${1.6 - 0.6 * p})`, opacity: Math.min(1, p * 1.3),
+    border: `5px solid ${color}`, color, background: 'rgba(10,11,15,0.9)', borderRadius: 14, padding: '12px 26px', fontSize: 44, fontWeight: 900, letterSpacing: 1 }}>{text}</div>;
+};
+const Title = ({ children, at = 0, size = 64, y = 60 }: { children: ReactNode; at?: number; size?: number; y?: number }) => {
+  const p = useAt(at);
+  return <div style={{ position: 'absolute', left: 0, right: 0, top: y, textAlign: 'center', fontSize: size, fontWeight: 800, opacity: p, transform: `translateY(${(1 - p) * 24}px)` }}>{children}</div>;
+};
+
+// ---------------------------------------------------------------- 1 post
+export const Post = () => {
+  const t = useSec();
+  const rise = useAt(0, 13);
+  const flash = t > 1.2 && t < 1.32 ? 1 : 0;
+  const sheet = useAt(1.8, 15) - useAt(3.7, 15);
+  const off = useAt(2.6, 12);
+  const card = useAt(3.9, 14);
+  const q = useAt(4.6, 10);
+  return (
+    <AbsoluteFill>
+      <div style={{ position: 'absolute', left: 0, top: 0, transform: `translateY(${(1 - rise) * 900}px)` }}>
+        <Phone x={300} y={90} scale={1.0} glow={C.device}>
+          <div style={{ position: 'absolute', left: 0, top: 210 }}><Street w={358} /></div>
+          <div style={{ position: 'absolute', left: 0, right: 0, top: 70, textAlign: 'center', color: C.muted, fontSize: 22 }}>{t < 1.3 ? 'Camera' : 'Photo'}</div>
+          <div style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, background: '#fff', opacity: flash }} />
+          <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 300, background: '#1d212b', borderRadius: '28px 28px 0 0', transform: `translateY(${(1 - sheet) * 320}px)`, padding: 28 }}>
+            <div style={{ fontSize: 26, fontWeight: 800 }}>Before you post</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 34 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 28 }}><Icon kind="pin" size={34} color={off > 0.5 ? C.muted : C.teal} /> Location</div>
+              <div style={{ width: 86, height: 46, borderRadius: 99, background: off > 0.5 ? '#4a4f5c' : C.teal, position: 'relative' }}>
+                <div style={{ position: 'absolute', top: 5, left: 5 + (1 - off) * 40, width: 36, height: 36, borderRadius: 99, background: '#fff' }} />
+              </div>
+            </div>
+            <div style={{ marginTop: 22, fontSize: 24, color: off > 0.5 ? C.fg : C.muted, fontWeight: 800 }}>{off > 0.5 ? 'Location: OFF' : 'Location: ON'}</div>
+          </div>
+        </Phone>
+      </div>
+      {/* the post, on the right */}
+      <div style={{ position: 'absolute', left: 900, top: 150, width: 820, opacity: card, transform: `translate(${(1 - card) * -260}px, ${(1 - card) * 120}px) scale(${0.8 + 0.2 * card})`, transformOrigin: 'left center',
+        background: C.card, border: `1px solid ${C.line}`, borderRadius: 26, padding: 22, boxShadow: '0 30px 80px rgba(0,0,0,0.5)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
+          <div style={{ width: 52, height: 52, borderRadius: 99, background: C.device }} />
+          <div style={{ fontSize: 28, fontWeight: 800 }}>you</div>
+          <div style={{ marginLeft: 'auto' }}><Chip color={C.muted} size={22}><Icon kind="pin" size={22} color={C.muted} /> location off</Chip></div>
         </div>
-        <Lane color={C.device} bg={C.deviceBg} title="YOUR DEVICE · VAULT" sub="Never uploaded, never geocoded" delay={200}>
-          <Row delay={250}>🏠 Home · 🏥 Work · 🧒 Child's name</Row>
-          <Row delay={290}>Compares the guesses with the vault</Row>
-          <Row delay={330}>Distances by code, shown as bands</Row>
-        </Lane>
+        <div style={{ borderRadius: 16, overflow: 'hidden' }}><Street w={776} /></div>
+        <div style={{ display: 'flex', gap: 20, marginTop: 16, fontSize: 28, color: C.muted }}><span style={{ color: C.red }}>♥</span> Posted</div>
+      </div>
+      <div style={{ position: 'absolute', left: 900, top: 760, fontSize: 84, fontWeight: 900, opacity: q, transform: `translateY(${(1 - q) * 30}px) rotate(${t > 5 && t < 5.6 ? Math.sin((t - 5) * 12) * 2 : 0}deg)` }}>Private, right?</div>
+    </AbsoluteFill>
+  );
+};
+
+// ---------------------------------------------------------------- 2 the stranger's AI
+export const Stranger = () => {
+  const t = useSec();
+  const inP = useAt(0, 14);
+  const shrink = useAt(7.2, 15);
+  const beam = useLin(1.2, 2.6);
+  const title = useAt(10.2, 14);
+  const gone = useAt(9.9, 16);
+  const boxes = { sign: useAt(4.2, 12), shop: useAt(5.0, 12), tower: useAt(5.8, 12) };
+  const levels = ['the world', 'a country', 'a city', 'a street'];
+  return (
+    <AbsoluteFill>
+      <div style={{ opacity: 1 - gone }}>
+        <div style={{ position: 'absolute', left: 410 - shrink * 300, top: 150 + shrink * 90, transform: `scale(${(0.9 + 0.1 * inP) * (1 - shrink * 0.32)})`, transformOrigin: 'top left' }}>
+          <div style={{ position: 'relative', borderRadius: 20, overflow: 'hidden', boxShadow: '0 30px 80px rgba(0,0,0,0.6)' }}>
+            <Street w={1100} boxes={boxes} />
+            <div style={{ position: 'absolute', left: 0, right: 0, top: `${beam * 100 - 12}%`, height: '12%', background: `linear-gradient(180deg, transparent, ${C.cloud}55, transparent)`, opacity: beam > 0 && beam < 1 ? 1 : 0 }} />
+          </div>
+        </div>
+        <div style={{ position: 'absolute', left: 1560, top: 40, opacity: inP }}>
+          <EyeCloud w={300} look={Math.sin(t * 2) * 0.8} />
+          <div style={{ textAlign: 'center', fontSize: 28, fontWeight: 800, color: C.cloud }}>the stranger's AI</div>
+        </div>
+        <div style={{ position: 'absolute', left: 1040, top: 330, width: 760 }}>
+          {levels.map((l, i) => {
+            const p = useAt(7.6 + i * 0.6, 14);
+            const w = 760 - i * 150;
+            return <div key={l} style={{ width: w, marginLeft: (760 - w) / 2, height: 84, marginBottom: 14, borderRadius: 14, opacity: p, transform: `translateX(${(1 - p) * 60}px)`,
+              background: i === 3 ? `${C.red}33` : 'rgba(255,255,255,0.06)', border: `2px solid ${i === 3 ? C.red : C.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 34, fontWeight: 800, color: i === 3 ? C.red : C.fg }}>{l}</div>;
+          })}
+        </div>
+      </div>
+      <AbsoluteFill style={{ justifyContent: 'center', alignItems: 'center', opacity: title }}>
+        <div style={{ transform: `scale(${0.9 + 0.1 * title})`, textAlign: 'center', marginTop: -80 }}>
+          <EyeLogo size={260} from={10.2} blinkAt={12.2} />
+          <div style={{ fontSize: 120, fontWeight: 900, letterSpacing: -3, marginTop: 10 }}>Strangers' Eyes</div>
+          <div style={{ fontSize: 42, color: C.muted, marginTop: 8 }}>See what a stranger's AI sees, before you post.</div>
+        </div>
+      </AbsoluteFill>
+    </AbsoluteFill>
+  );
+};
+
+// ---------------------------------------------------------------- 3 how it works, in four steps
+export const How = () => {
+  const t = useSec();
+  const step = t < 6.1 ? 1 : t < 11.6 ? 2 : t < 20.8 ? 3 : 4;
+  const masks = { face: useAt(1.2, 9), sticker: useAt(2.0, 9) };
+  const tagOff = useLin(3.0, 4.6);
+  const cleaned = useAt(4.8, 10);
+  const travel = useAt(6.6, 16);
+  const bubble = useLin(8.6, 10.6);
+  const vault = useAt(11.8, 14) - useAt(15.4, 16);
+  const bump = interpolate(t, [13.6, 14.3, 15.0], [0, 1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
+  const map = useAt(15.6, 15);
+  const token = interpolate(t, [18.4, 19.2, 19.9], [0, 1, 0.15], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
+  const flash = interpolate(t, [19.1, 19.3, 20.2], [0, 1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
+  const never = useAt(19.4, 12);
+  const fix = { sign: useAt(21.0, 9), shop: useAt(21.3, 9), face: 1, sticker: 1 };
+  const again = useAt(21.4, 12);
+  const guess = 'My guess: a city… a street…';
+  const blocksNote = useAt(1.4);
+  return (
+    <AbsoluteFill>
+      <div style={{ position: 'absolute', left: 0, right: 0, top: 36, display: 'flex', justifyContent: 'center' }}><StepStrip active={step} current={step} /></div>
+      {/* the device */}
+      <Phone x={150} y={150} scale={0.95} glow={C.device}>
+        <div style={{ position: 'absolute', left: 0, right: 0, top: 70, textAlign: 'center', fontSize: 26, fontWeight: 800, color: C.device }}>YOUR DEVICE</div>
+        <div style={{ position: 'absolute', left: 0, top: 180, opacity: 1 - map }}>
+          <Street w={358} person masks={masks} />
+          {cleaned > 0.05 ? <div style={{ position: 'absolute', left: 60, top: 70, transform: `rotate(-8deg) scale(${1.4 - 0.4 * cleaned})`, opacity: cleaned, border: `4px solid ${C.fg}`, color: C.fg, padding: '4px 12px', fontWeight: 900, fontSize: 26, background: 'rgba(0,0,0,0.5)' }}>CLEANED COPY</div> : null}
+          {travel > 0.2 ? <div style={{ marginTop: 20, textAlign: 'center' }}><Chip color={C.device} size={20}>🔒 original stays here</Chip></div> : null}
+        </div>
+        {/* the private list */}
+        <div style={{ position: 'absolute', left: 18, right: 18, top: 170, opacity: Math.max(0, vault), transform: `scale(${0.9 + 0.1 * Math.max(0, vault)})` }}>
+          <div style={{ background: '#1d1636', border: `2px solid ${C.device}`, borderRadius: 22, padding: 20 }}>
+            <div style={{ fontSize: 24, fontWeight: 800, color: C.device, marginBottom: 12 }}>🔒 Your private list</div>
+            {([['home', 'Home'], ['work', 'Work'], ['child', "Child's name"], ['car', 'Car plate']] as const).map(([k, l], i) => (
+              <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 14, fontSize: 26, padding: '10px 6px', borderTop: i ? `1px solid ${C.line}` : 'none',
+                transform: i === 0 ? `translateX(${bump * 380}px)` : 'none' }}><Icon kind={k} color={C.fg} /> {l}</div>
+            ))}
+          </div>
+          <div style={{ textAlign: 'center', marginTop: 14, fontSize: 24, fontWeight: 800, color: C.device }}>never leaves your device</div>
+        </div>
+        {/* distance bands around your own places */}
+        <div style={{ position: 'absolute', left: 0, top: 160, opacity: map, transform: `scale(${0.92 + 0.08 * map})` }}>
+          <RingMap w={358} h={420} from={S(15.9)} rings={[{ r: 50, label: '1 km', color: C.red }, { r: 105, label: '5 km', color: C.amber }, { r: 165, label: 'city', color: C.muted }]} />
+          <div style={{ textAlign: 'center', marginTop: 10, fontSize: 21, color: C.muted }}>distance bands, never a map pin</div>
+        </div>
+      </Phone>
+      {/* the checkpoint */}
+      <div style={{ position: 'absolute', left: 925, top: 230 }}><Wall h={600} flash={flash} /></div>
+      {/* the cloud AI */}
+      <div style={{ position: 'absolute', left: 1300, top: 170 }}>
+        <EyeCloud w={380} look={step === 2 ? Math.sin(t * 3) * 0.8 : 0} question={t > 19.6} blinkAt={12} />
+        <div style={{ textAlign: 'center', fontSize: 30, fontWeight: 800, color: C.cloud, marginTop: -6 }}>CLOUD AI · Google Gemini</div>
+      </div>
+      {/* the cleaned copy travels to the cloud */}
+      {travel > 0.01 ? (
+        <div style={{ position: 'absolute', left: 200 + travel * 1160, top: 480 - travel * 30, opacity: Math.min(1, travel * 3), borderRadius: 12, overflow: 'hidden', border: '3px solid #fff', boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }}>
+          <Street w={300} person masks={step >= 4 ? fix : { face: 1, sticker: 1 }} />
+        </div>
+      ) : null}
+      {travel > 0.9 ? <div style={{ position: 'absolute', left: 1210, top: 670, width: 620, fontSize: 25, color: C.fg, lineHeight: 1.35, opacity: travel }}>
+        <div><span style={{ color: C.green, fontWeight: 900 }}>Gets:</span> the cleaned copy only</div>
+        <div><span style={{ color: C.red, fontWeight: 900 }}>Never gets:</span> your private list or your original photo</div>
+      </div> : null}
+      {bubble > 0 && t < 18.4 ? <div style={{ position: 'absolute', left: 1360, top: 120, background: '#fff', color: '#111', borderRadius: 18, padding: '12px 20px', fontSize: 28, fontWeight: 800, fontFamily: MONO }}>
+        {guess.slice(0, Math.round(bubble * guess.length))}</div> : null}
+      {/* the "right or wrong?" token bounces off the checkpoint */}
+      {token > 0.01 ? <div style={{ position: 'absolute', left: 560 + token * 340, top: 560, background: C.card2, border: `2px solid ${C.teal}`, borderRadius: 12, padding: '8px 14px', fontSize: 24, fontWeight: 800 }}>✓ right? ✕ wrong?</div> : null}
+      <div style={{ position: 'absolute', left: 0, right: 0, top: 872, textAlign: 'center', fontSize: 42, fontWeight: 900, color: C.teal, opacity: never * (t < 21 ? 1 : 0) }}>The cloud never learns if it was right.</div>
+      {again > 0.01 ? <div style={{ position: 'absolute', left: 1080, top: 860, opacity: again, display: 'flex', alignItems: 'center', gap: 14, fontSize: 38, fontWeight: 900, color: C.green }}>
+        <span style={{ display: 'inline-block', transform: `rotate(${again * 360}deg)` }}>⟳</span> fix, then attack again</div> : null}
+      <div style={{ position: 'absolute', left: 560, top: 300, width: 330, fontSize: 30, fontWeight: 700, lineHeight: 1.3, color: C.muted, opacity: step === 1 ? blocksNote : 0 }}>solid blocks, never blur · hidden photo data removed</div>
+      {tagOff > 0 && tagOff < 1 ? <div style={{ position: 'absolute', left: 560, top: 420 + tagOff * 300, transform: `rotate(${tagOff * 40}deg)`, opacity: 1 - tagOff, background: '#fff8dc', color: '#333', padding: '8px 14px', fontSize: 22, fontWeight: 700, borderRadius: 6 }}>hidden photo data: place · time · camera</div> : null}
+    </AbsoluteFill>
+  );
+};
+
+// ---------------------------------------------------------------- 4 Judge Mode
+export const Judge = () => {
+  const card = useAt(1.5, 14);
+  const rows = [['home', 'Home'], ['work', 'Work: City General Hospital'], ['child', 'Child: Lucas'], ['car', 'Car plate: SE 1234']] as const;
+  return (
+    <AbsoluteFill>
+      <Full clip="judge-home" from={0} sec={8.4} z0={1} z1={1.05} origin="30% 40%" />
+      <RealTag text="REAL APP · Judge Mode: openly licensed photos of public places, made-up data" />
+      <div style={{ position: 'absolute', left: 30, top: 18 }}><Chip color={C.teal} bg="rgba(10,11,15,0.9)">REAL APP</Chip></div>
+      <div style={{ position: 'absolute', right: 60, top: 200, width: 620, opacity: card, transform: `translateX(${(1 - card) * 120}px)`, background: 'rgba(21,23,29,0.96)', borderTop: `6px solid ${C.device}`, borderRadius: 22, padding: 30, boxShadow: '0 30px 80px rgba(0,0,0,0.6)' }}>
+        <div style={{ fontSize: 34, fontWeight: 900, marginBottom: 12 }}>A made-up family</div>
+        {rows.map(([k, l], i) => {
+          const p = useAt(1.9 + i * 0.27, 14);
+          return <div key={k} style={{ display: 'flex', gap: 16, alignItems: 'center', fontSize: 30, padding: '12px 0', opacity: p, transform: `translateX(${(1 - p) * 40}px)`,
+            borderBottom: k === 'child' ? `3px solid ${C.teal}` : `1px solid ${C.line}` }}><Icon kind={k} />{l}</div>;
+        })}
       </div>
     </AbsoluteFill>
   );
 };
 
-// ---------------------------------------------------------------- 3 Judge Mode
-export const Judge = () => (
-  <AbsoluteFill>
-    <Footage clip="judge-home" from={0} zoom={1} />
-    <Caption kicker="JUDGE MODE" color={C.teal} note="Openly licensed (CC0) photos of public places · a made-up vault · nothing of yours" />
-  </AbsoluteFill>
-);
-
-// ---------------------------------------------------------------- 4 on-device pre-screen
+// ---------------------------------------------------------------- 5 the device covers the name
 export const Prescreen = () => (
   <AbsoluteFill>
-    <Footage clip="castle" from={{ mark: 'prescreen', plus: -1.5 }} to={{ mark: 'consent', plus: -0.5 }} />
-    <Caption kicker="ON THIS DEVICE" color={C.device} note={REPLAY} />
+    <Full clip="castle" from={2.0} to={12.7} sec={8.2} />
+    <RealTag />
+    <StepCorner active={1} />
+    <Sequence from={S(3.0)} durationInFrames={S(3.4)}><Callout x={1150} y={640} tx={930} ty={540} w={620} text="Child's name found → covered on your device" color={C.device} /></Sequence>
   </AbsoluteFill>
 );
 
-// ---------------------------------------------------------------- 5 the Egress Gate
+// ---------------------------------------------------------------- 6 the checkpoint stops it
 export const Gate = () => (
   <AbsoluteFill>
-    <Footage clip="gate" from={{ mark: 'mask', plus: -1 }} />
-    <Caption kicker="EGRESS GATE" color={C.teal} note="Real app footage · mask un-ticked on purpose · the gate refuses on the device: nothing reaches the attacker" />
+    <Series>
+      <Series.Sequence durationInFrames={S(3.9)}>
+        <Full clip="gate" from={11.25} to={15.1} sec={3.9} />
+        <Sequence from={S(2.6)}><Callout x={1120} y={640} tx={870} ty={530} w={560} text="Cover removed on purpose" color={C.amber} /></Sequence>
+      </Series.Sequence>
+      <Series.Sequence durationInFrames={S(1.4)}><Full clip="gate" from={22.2} to={23.6} sec={1.4} /></Series.Sequence>
+      <Series.Sequence durationInFrames={S(5.2)}>
+        <Full clip="gate" from={25.6} to={30.6} sec={5.2} z0={1} z1={1.12} origin="54% 70%" />
+        <Stamp text="BLOCKED · never reached the attacker" color={C.red} at={0.8} x={300} y={880} rot={-3} />
+      </Series.Sequence>
+    </Series>
+    <RealTag text="REAL APP · the cover was removed on purpose · the checkpoint refuses on the device" />
+    <StepCorner active={2} current={2} />
   </AbsoluteFill>
 );
 
-// ---------------------------------------------------------------- 6 the attack and the verdict
-export const Attack = () => (
-  <AbsoluteFill>
-    <Footage clip="castle" from={{ mark: 'consent', plus: -0.5 }} to={{ mark: 'nofix', plus: -1 }} />
-    <Caption kicker="CLOUD ATTACK" color={C.cloud} note={REPLAY} />
-  </AbsoluteFill>
-);
+// ---------------------------------------------------------------- 7 the castle: real answer, red, nothing to fix
+export const Castle = () => {
+  const split = useAt(9.3, 16);
+  return (
+    <AbsoluteFill>
+      <Sequence durationInFrames={S(9.3)}>
+        <Full clip="castle" from={12.7} to={22.0} sec={9.3} z0={1} z1={1.1} origin="30% 45%" />
+        <Sequence from={S(3.4)}><div style={{ position: 'absolute', left: 560, top: 110 }}><Chip color={C.cloud} bg="rgba(10,11,15,0.92)" size={30}>Real Gemini answer · recorded Nov 23 · replayed</Chip></div></Sequence>
+      </Sequence>
+      <Sequence from={S(9.3)} durationInFrames={S(3.4)}>
+        <AbsoluteFill style={{ background: C.bg }}>
+          <div style={{ position: 'absolute', left: 40, top: 120, width: 1060, height: 600, borderRadius: 18, overflow: 'hidden', transform: `scale(${1 - 0.0 * split})` }}>
+            <Freeze frame={0}><div style={{ width: 1920, height: 1080, transform: 'scale(0.75)', transformOrigin: 'top left', marginLeft: -60 }}><Full clip="castle" from={21.6} to={22.6} sec={1} /></div></Freeze>
+          </div>
+          <div style={{ position: 'absolute', left: 1160, top: 130 }}>
+            <RingMap w={680} h={460} rings={[{ r: 70, label: '1 km', color: C.red }, { r: 150, label: '5 km', color: C.amber }]} highlight={0} />
+            <div style={{ display: 'flex', gap: 14, marginTop: 18 }}><Chip color={C.red}>Home: within 1 km</Chip><Chip color={C.red}>Work: within 1 km</Chip></div>
+            <div style={{ fontSize: 22, color: C.muted, marginTop: 12 }}>rings around your own places · worked out on your device</div>
+          </div>
+          <div style={{ position: 'absolute', left: 40, top: 40 }}><StepStrip active={3} current={3} small /></div>
+        </AbsoluteFill>
+      </Sequence>
+      <Sequence from={S(12.7)}>
+        <Full clip="castle" from={28.5} to={34.2} sec={4.6} z0={1.08} z1={1.14} origin="0% 62%" />
+        <Stamp text="Crop it, or don't post it" color={C.red} at={0.6} x={980} y={840} rot={-4} />
+      </Sequence>
+      <RealTag />
+    </AbsoluteFill>
+  );
+};
 
-// ---------------------------------------------------------------- 7 nothing a mask can hide
-export const NoFix = () => (
-  <AbsoluteFill>
-    <Footage clip="castle" from={{ mark: 'nofix', plus: -0.4 }} zoom={1.12} zoomTo={1.16} origin="0% 62%" />
-    <Caption kicker="NO SAFE CLAIM" color={C.red} note="Some clues can't be masked: crop it, or don't post it" />
-  </AbsoluteFill>
-);
-
-// ---------------------------------------------------------------- 8 a fix that works
+// ---------------------------------------------------------------- 8 the level crossing: a fix that works
+const C1: Box = [415, 230, 560, 629];
+const C3: Box = [553, 373, 598, 472];
 export const Crossing = () => (
   <AbsoluteFill>
-    <Footage clip="crossing" from={{ mark: 'verdict', plus: -0.3 }} />
-    <Caption kicker="FIX + RE-ATTACK" color={C.green} note={REPLAY} />
+    <Sequence durationInFrames={S(2.9)}>
+      <AbsoluteFill style={{ background: C.bg, justifyContent: 'center', alignItems: 'center' }}>
+        <PhotoCard src="judge-02.jpg" w={1500} h={1000} boxes={[C1, C3]} scanFrom={S(0.5)} labels={['STREET SIGN', 'HOUSE NUMBER']} />
+      </AbsoluteFill>
+    </Sequence>
+    <Sequence from={S(2.9)} durationInFrames={S(4.5)}>
+      <Full clip="crossing" from={mark('crossing', 'verdictShown', -0.2)} to={mark('crossing', 'verdictShown', 4.3)} sec={4.5} z0={1.05} z1={1.12} origin="20% 25%" />
+      <Sequence from={S(0.8)}><div style={{ position: 'absolute', left: 120, top: 760 }}><Chip color={C.amber} bg="rgba(10,11,15,0.92)" size={32}>Named the street · within 5 km of home and work</Chip></div></Sequence>
+    </Sequence>
+    <Sequence from={S(7.4)} durationInFrames={S(1.9)}>
+      <Full clip="crossing" from={mark('crossing', 'fix', 0.3)} to={mark('crossing', 'applied', 0.3)} sec={1.9} />
+    </Sequence>
+    <Sequence from={S(9.3)} durationInFrames={S(1.5)}>
+      <Freeze frame={0}><Full clip="crossing" from={mark('crossing', 'applied', 0.35)} to={mark('crossing', 'applied', 1.35)} sec={1} /></Freeze>
+      <Callout x={1120} y={640} tx={500} ty={510} w={600} text="Sign + house number covered, on your device" color={C.green} />
+    </Sequence>
+    <Sequence from={S(10.8)}>
+      <Full clip="crossing" from={mark('crossing', 'after', -0.3)} sec={7.1} />
+      <Sequence from={S(0.9)}><div style={{ position: 'absolute', left: 150, top: 920 }}><Chip color={C.green} bg="rgba(10,11,15,0.92)" size={32}>Attacked again: only "Berlin"</Chip></div></Sequence>
+      <Stamp text="Risk reduced · not a guarantee" color={C.green} at={2.2} x={1040} y={150} rot={-3} />
+    </Sequence>
+    <RealTag />
+    <StepCorner active={4} />
   </AbsoluteFill>
 );
 
-// ---------------------------------------------------------------- 9 a fix that isn't enough
-export const Station = () => (
-  <AbsoluteFill>
-    <Footage clip="station" from={{ mark: 'after', plus: -1.2 }} zoom={1.06} origin="0% 10%" />
-    <Caption kicker="STILL EXPOSED" color={C.amber} note={REPLAY} />
-  </AbsoluteFill>
-);
-
-// ---------------------------------------------------------------- 10 the numbers
-const Stat = ({ big, label, color, delay }: { big: string; label: string; color: string; delay: number }) => (
-  <Fade delay={delay} style={{ flex: 1 }}>
-    <Card style={{ height: 380, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-      <div style={{ fontSize: 150, fontWeight: 800, color, letterSpacing: -4, lineHeight: 1 }}>{big}</div>
-      <div style={{ fontSize: 36, marginTop: 24, lineHeight: 1.25 }}>{label}</div>
-    </Card>
-  </Fade>
-);
-export const Proof = () => (
-  <AbsoluteFill style={{ padding: '90px 110px' }}>
-    <Fade><div style={{ fontSize: 64, fontWeight: 800 }}>A ten-photo test</div></Fade>
-    <div style={{ display: 'flex', gap: 36, marginTop: 50 }}>
-      <Stat big="5/10" label="placed within 5 km by the attacker" color={C.red} delay={12} />
-      <Stat big="0" label="refusals" color={C.amber} delay={60} />
-      <Stat big="3/4" label="re-attacked photos pushed further out by masking the clues it named" color={C.green} delay={150} />
-    </div>
-    <Fade delay={30}><div style={{ fontSize: 26, color: C.muted, marginTop: 40 }}>Day-1 adversary spike, re-run Nov 23: 10 openly licensed photos of public places · gemini-3.5-flash-lite · distances by code</div></Fade>
-  </AbsoluteFill>
-);
-
-// ---------------------------------------------------------------- 11 hybrid routing + iPhone
-const Route = ({ what, where, color, delay }: { what: string; where: string; color: string; delay: number }) => (
-  <Fade delay={delay} y={12}>
-    <div style={{ display: 'flex', alignItems: 'center', gap: 24, padding: '20px 26px', marginBottom: 16, background: C.card, border: `1px solid ${C.line}`, borderLeft: `6px solid ${color}`, borderRadius: 14 }}>
-      <div style={{ fontSize: 32, fontWeight: 700, width: 430 }}>{what}</div>
-      <div style={{ fontSize: 28, color: C.muted }}>{where}</div>
-    </div>
-  </Fade>
-);
-export const Hybrid = () => {
-  const { fps } = useVideoConfig();
-  const p = useAppear(fps * 7);
+// ---------------------------------------------------------------- 9 the station: a fix that wasn't enough
+export const Station = () => {
+  const card = useAt(0, 14) - useAt(1.1, 16);
   return (
-    <AbsoluteFill style={{ padding: '80px 110px', flexDirection: 'row', gap: 60 }}>
-      <div style={{ flex: 1 }}>
-        <Fade><div style={{ fontSize: 60, fontWeight: 800, marginBottom: 36 }}>Where each step runs</div></Fade>
-        <Route what="Vault + original photo" where="Gemini Nano on the device · else rules · never the cloud" color={C.device} delay={10} />
-        <Route what="The attacker" where="Gemini in the cloud · redacted copy only" color={C.cloud} delay={40} />
-        <Route what="Plain-language explanations" where="on the device first · cloud fallback" color={C.muted} delay={70} />
-        <Fade delay={100}><div style={{ fontSize: 26, color: C.muted, marginTop: 24 }}>Every call goes through one Egress Gate, and the Router HUD shows where it ran.</div></Fade>
+    <AbsoluteFill>
+      <Sequence from={S(1.2)}>
+        <Full clip="station" from={mark('station', 'after', -1.2)} sec={7.3} z0={1.04} z1={1.08} origin="20% 10%" />
+        <Sequence from={S(2.6)}><Callout x={1100} y={600} tx={640} ty={270} w={600} text="The building itself gave it away" color={C.amber} /></Sequence>
+        <RealTag />
+      </Sequence>
+      <AbsoluteFill style={{ justifyContent: 'center', alignItems: 'center', background: C.bg, opacity: Math.max(0, card) }}>
+        <div style={{ fontSize: 72, fontWeight: 900 }}>A fix that wasn't enough</div>
+      </AbsoluteFill>
+    </AbsoluteFill>
+  );
+};
+
+// ---------------------------------------------------------------- 10 the ten-photo test
+export const Results = () => {
+  const t = useSec();
+  const count = Math.min(5, Math.floor(interpolate(t, [2.4, 4.6], [0, 5.99], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' })));
+  const zero = useAt(5.6, 10);
+  const second = useAt(7.3, 15);
+  const moves = [useAt(8.6, 12), useAt(9.2, 12), useAt(9.8, 12), 0];
+  const verdict3 = useAt(10.6, 12);
+  return (
+    <AbsoluteFill style={{ padding: '70px 120px' }}>
+      <Title y={50}>Our test: 10 photos of public places</Title>
+      <div style={{ position: 'absolute', left: 120, right: 120, top: 200, display: 'flex', gap: 22, justifyContent: 'center', transform: `translateY(${-second * 40}px) scale(${1 - second * 0.15})` }}>
+        {Array.from({ length: 10 }, (_, i) => {
+          const p = useAt(0.4 + i * 0.1, 14);
+          const red = i < 5 && t > 2.4 + i * 0.42;
+          return <div key={i} style={{ width: 130, height: 170, borderRadius: 14, opacity: p, transform: `translateY(${(1 - p) * 60}px) rotateY(${red ? 0 : 0}deg)`,
+            background: red ? `${C.red}33` : C.card, border: `3px solid ${red ? C.red : C.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="70" height="70" viewBox="0 0 70 70"><circle cx="35" cy="35" r="26" fill="none" stroke={red ? C.red : '#3a3f4b'} strokeWidth="4" /><circle cx="35" cy="35" r="12" fill="none" stroke={red ? C.red : '#3a3f4b'} strokeWidth="4" /></svg>
+          </div>;
+        })}
       </div>
-      <div style={{ width: 520, opacity: p, transform: `translateY(${(1 - p) * 30}px)` }}>
-        <div style={{ borderRadius: 46, border: `10px solid #2b2f39`, overflow: 'hidden', height: 840, background: '#000' }}>
-          <Img src={staticFile('img/ios-07-verdict.png')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }} />
+      <div style={{ position: 'absolute', left: 0, right: 0, top: 420, display: 'flex', justifyContent: 'center', gap: 40, opacity: 1 - second * 0.25 }}>
+        <div style={{ fontSize: 64, fontWeight: 900, color: C.red }}>{count} of 10 <span style={{ fontSize: 40, color: C.fg }}>placed within 5 km</span></div>
+        <div style={{ opacity: zero, transform: `scale(${1.3 - 0.3 * zero})` }}><Chip color={C.amber} size={40}>0 refusals</Chip></div>
+      </div>
+      {second > 0.01 ? (
+        <div style={{ position: 'absolute', left: 0, right: 0, top: 560, opacity: second, textAlign: 'center' }}>
+          <div style={{ fontSize: 40, fontWeight: 800, marginBottom: 26 }}>Re-tested after covering the clues it named</div>
+          <div style={{ display: 'flex', gap: 40, justifyContent: 'center' }}>
+            {Array.from({ length: 4 }, (_, i) => {
+              const moved = moves[i];
+              return <div key={i} style={{ width: 210, height: 210, borderRadius: 18, background: C.card, border: `3px solid ${moved > 0.5 ? C.green : C.line}`, position: 'relative' }}>
+                <svg width="210" height="210" viewBox="0 0 210 210">
+                  <circle cx="105" cy="105" r="30" fill="none" stroke="#3a3f4b" strokeWidth="3" /><circle cx="105" cy="105" r="62" fill="none" stroke="#3a3f4b" strokeWidth="3" /><circle cx="105" cy="105" r="92" fill="none" stroke="#3a3f4b" strokeWidth="3" />
+                  <circle cx="105" cy="105" r="6" fill={C.device} />
+                  <circle cx={105 + 22 + moved * 58} cy={105 - 10 - moved * 26} r="11" fill={moved > 0.5 ? C.green : C.amber} />
+                </svg>
+              </div>;
+            })}
+          </div>
+          <div style={{ fontSize: 40, fontWeight: 900, color: C.green, marginTop: 22, opacity: verdict3 }}>3 of 4: the guess moved further away</div>
         </div>
-        <div style={{ fontSize: 22, color: C.muted, marginTop: 14, lineHeight: 1.3 }}>iOS Simulator · Apple Foundation Models on the device · attacker: a labelled debug stand-in (no cloud call)</div>
+      ) : null}
+      <div style={{ position: 'absolute', left: 0, right: 0, top: 150, textAlign: 'center', fontSize: 22, color: C.muted }}>Day-1 test, re-run Nov 23 · gemini-3.5-flash-lite · distances worked out by code, not by the AI</div>
+    </AbsoluteFill>
+  );
+};
+
+// ---------------------------------------------------------------- 11 hybrid AI
+export const Hybrid = () => {
+  const t = useSec();
+  const split = useAt(5.4, 15);
+  const noAI = useAt(10.4, 14);
+  const crash = interpolate(t, [11.0, 11.8], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
+  const fire = useAt(14.0, 14);
+  return (
+    <AbsoluteFill>
+      <Title y={40}>Hybrid AI</Title>
+      <div style={{ position: 'absolute', left: 1240, top: 170, textAlign: 'center', opacity: useAt(0.3) }}>
+        <EyeCloud w={340} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center', fontSize: 30, fontWeight: 800, color: C.cloud }}><Icon kind="globe" color={C.cloud} /> world knowledge</div>
+        <div style={{ fontSize: 26, color: C.muted }}>Gemini in the cloud</div>
       </div>
+      <div style={{ position: 'absolute', left: 1080, top: 200 }}><Wall h={560} flash={crash > 0.5 && crash < 1 ? 1 : 0} /></div>
+      <div style={{ position: 'absolute', left: 120, top: 170, width: 880, opacity: useAt(1.4) }}>
+        <div style={{ fontSize: 34, fontWeight: 900, color: C.device }}>🔒 your secrets stay on your device</div>
+        <div style={{ display: 'flex', gap: 40, marginTop: 30 }}>
+          <div style={{ opacity: split, transform: `translateY(${(1 - split) * 40}px)`, textAlign: 'center' }}>
+            <div style={{ width: 380, height: 250, borderRadius: 16, border: `8px solid #2b2f39`, background: '#10141c', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon kind="laptop" size={120} color={C.device} /></div>
+            <div style={{ marginTop: 14 }}><Chip color={C.device}>Gemini Nano in Chrome</Chip></div>
+          </div>
+          <div style={{ opacity: split, transform: `translateY(${(1 - split) * 40}px)`, textAlign: 'center' }}>
+            <div style={{ width: 240, height: 440, borderRadius: 36, border: `8px solid #2b2f39`, overflow: 'hidden', background: '#000', margin: '0 auto' }}>
+              <Img src={staticFile('img/ios-07-verdict.png')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }} />
+            </div>
+            <div style={{ marginTop: 14 }}><Chip color={C.device}>Apple's model on iPhone</Chip></div>
+            <div style={{ fontSize: 18, color: C.muted, marginTop: 8, width: 380 }}>iOS Simulator · the attacker here is a labelled stand-in</div>
+          </div>
+        </div>
+      </div>
+      {noAI > 0.01 ? (
+        <div style={{ position: 'absolute', left: 120, top: 820, display: 'flex', alignItems: 'center', gap: 30, opacity: noAI }}>
+          <Chip color={C.muted} size={30}>No on-device AI?</Chip>
+          <div style={{ position: 'relative', width: 420, height: 40 }}>
+            <div style={{ position: 'absolute', left: 0, top: 18, width: 420 * Math.min(1, crash * 1.4), height: 4, background: C.red, opacity: 1 - Math.max(0, crash - 0.75) * 4 }} />
+            {crash > 0.7 ? <div style={{ position: 'absolute', left: 400, top: -14, fontSize: 52, color: C.red, fontWeight: 900 }}>✕</div> : null}
+          </div>
+          {crash > 0.8 ? <Chip color={C.teal} size={30}><Icon kind="gear" color={C.teal} /> simple built-in rules · never the cloud</Chip> : null}
+        </div>
+      ) : null}
+      {fire > 0.01 ? <div style={{ position: 'absolute', left: 1180, top: 600, opacity: fire, transform: `scale(${0.9 + 0.1 * fire})`, transformOrigin: 'left center' }}>
+        <Chip color={C.amber} size={40} bg="rgba(251,191,36,0.08)">Built on Firebase AI Logic</Chip></div> : null}
     </AbsoluteFill>
   );
 };
 
 // ---------------------------------------------------------------- 12 close
-export const Close = () => (
-  <AbsoluteFill style={{ justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
-    <Fade><div style={{ fontSize: 40, color: C.muted }}>Stalkers already have this AI.</div></Fade>
-    <Fade delay={40}><div style={{ fontSize: 96, fontWeight: 800, letterSpacing: -2, marginTop: 20 }}>Strangers' Eyes</div></Fade>
-    <Fade delay={55}><div style={{ fontSize: 40, marginTop: 10 }}>See what it sees, before you post.</div></Fade>
-    <Fade delay={70}><div style={{ fontFamily: MONO, fontSize: 44, color: C.teal, marginTop: 44 }}>strangers-eyes.web.app</div></Fade>
-    <Fade delay={85}><div style={{ fontSize: 24, color: C.muted, marginTop: 36 }}>Firebase AI Logic · Gemini · Gemini Nano · Apple Foundation Models · #BuildHybridAI</div></Fade>
-  </AbsoluteFill>
-);
+export const Close = () => {
+  const off = useAt(0.2, 14);
+  return (
+    <AbsoluteFill style={{ justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
+      <div style={{ marginTop: -60 }}>
+        <EyeLogo size={200} from={0.4} blinkAt={2.6} />
+        <div style={{ fontSize: 52, fontWeight: 800, color: C.muted, marginTop: 10, opacity: off }}>Location off isn't location hidden.</div>
+        <div style={{ fontSize: 112, fontWeight: 900, letterSpacing: -3, marginTop: 8, opacity: useAt(2.2), transform: `scale(${0.92 + 0.08 * useAt(2.2)})` }}>Strangers' Eyes</div>
+        <div style={{ fontSize: 40, marginTop: 4, opacity: useAt(2.6) }}>See what a stranger's AI sees, before you post.</div>
+        <div style={{ fontFamily: MONO, fontSize: 48, color: C.teal, marginTop: 34, opacity: useAt(3.6) }}>strangers-eyes.web.app</div>
+        <div style={{ fontSize: 22, color: C.muted, marginTop: 26, opacity: useAt(4.4) }}>Firebase AI Logic · Gemini · Gemini Nano · Apple Foundation Models · #BuildHybridAI</div>
+      </div>
+    </AbsoluteFill>
+  );
+};
 
 export const SCENES: Record<string, () => JSX.Element> = {
-  hook: Hook, idea: Idea, judge: Judge, prescreen: Prescreen, gate: Gate, attack: Attack, nofix: NoFix,
-  crossing: Crossing, station: Station, proof: Proof, hybrid: Hybrid, close: Close,
+  post: Post, stranger: Stranger, how: How, judge: Judge, prescreen: Prescreen, gate: Gate, castle: Castle,
+  crossing: Crossing, station: Station, results: Results, hybrid: Hybrid, close: Close,
 };

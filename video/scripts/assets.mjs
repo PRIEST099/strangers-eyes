@@ -4,6 +4,7 @@ mkdirSync('public/img', { recursive: true });
 const files = {
   'judge-03.jpg': '../web/public/samples/judge-03.jpg',
   'judge-02.jpg': '../web/public/samples/judge-02.jpg',
+  'judge-01.jpg': '../web/public/samples/judge-01.jpg',
   'ios-07-verdict.png': '../ios/screenshots/ios-07-verdict.png',
   'ios-06-referee-running.png': '../ios/screenshots/ios-06-referee-running.png',
 };
