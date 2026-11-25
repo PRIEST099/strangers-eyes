@@ -6,7 +6,7 @@
 
 ## STATE (overwrite in place; never append here)
 - Today: Tue Nov 24 2026 (Day 6). Internal deadline Mon Nov 30 12:00 GMT+2.
-- Now: **Nov 24 evening: D-169 measured-egress section + F-297 Ledger fix (failed sends now show what left) in the working tree; needs commit and a hosting redeploy (user approval).** Before that: **Nov 24 submission hardening done (D-165..D-168), committed and pushed; Hosting redeploy #7 from that commit (see the session log for the live check).** Plain-language web UI with a "Technical details" switch; the attacker's guessed place, evidence and inference text are never shown (misuse hardening); HUD no longer covers content; iOS Judge Mode on Apple FM (pre-screen + referee on the device, recorded attacker through the Swift gate) ends "Risk reduced"; pass-B failover code shipped but off (RC `adversary_fallback_models` = `[]`); RC template = live config. Gallery (7 + thumbnail) re-shot; demo video re-cut (161.2 s, `video/out/strangers-eyes.mp4`, git-ignored).
+- Now: **Nov 24 evening: D-169 measured-egress section + F-297 Ledger fix (failed sends now show what left) committed (cb2fc4c), pushed, and live (Hosting redeploy #8, user-approved).** Before that: **Nov 24 submission hardening done (D-165..D-168), committed and pushed; Hosting redeploy #7 from that commit (see the session log for the live check).** Plain-language web UI with a "Technical details" switch; the attacker's guessed place, evidence and inference text are never shown (misuse hardening); HUD no longer covers content; iOS Judge Mode on Apple FM (pre-screen + referee on the device, recorded attacker through the Swift gate) ends "Risk reduced"; pass-B failover code shipped but off (RC `adversary_fallback_models` = `[]`); RC template = live config. Gallery (7 + thumbnail) re-shot; demo video re-cut (161.2 s, `video/out/strangers-eyes.mp4`, git-ignored).
 - Next (needs the user):
   - Register the iOS Simulator App Check debug token (ios/NOTES.md), then one live iPhone Gemini call on the synthetic scene (U-25, T-127).
   - A Gemini Nano take in the user's own Chrome (Claude in Chrome; Simulator shut down) for the video's private steps.
@@ -15,7 +15,7 @@
   - Devpost competitor look via Claude in Chrome, if wanted.
 - Blocked: paid-tier work (benchmark T-086 etc.) still waits on the user's quota/Blaze decision.
 - Last green: Nov 24. `npm --prefix web run check` green (75 files, 3446 tests); build + check-dist ok; iOS `xcodebuild test` 32/32; iOS Judge UI walk 1/1 on Apple FM.
-- Checkpoints: **G1 PASS + G1b PASS Nov 23 on flash-lite (5/10 located ≤ 5 km, 0 refusals; fix moved 3/4)** | slice done | loop done | hosted (redeploy #7 Nov 24)
+- Checkpoints: **G1 PASS + G1b PASS Nov 23 on flash-lite (5/10 located ≤ 5 km, 0 refusals; fix moved 3/4)** | slice done | loop done | hosted (redeploy #8 Nov 24)
 - Adversary model: gemini-3.5-flash-lite (D-159, RC) | iOS path: A (firebase-ios-sdk 12.19.3)
 - Cuts applied: D-141 demo path only, partly reversed by D-155 (iOS lean). Still deferred: T-081 beyond plain export, T-083, T-084, T-096, T-104 (Firestore), T-106, T-151/T-152, T-160, T-200–T-203.
 - Quota: no Sprint 2 quota active on this account (checked Nov 23); Sprint 3 request deadline Wed Nov 25 10:00 AM PT is a USER decision.
@@ -1283,5 +1283,6 @@ How T-022 ran:
 - D-169: measured-egress section in DEVPOST + README bullet (hosted app, Check flow, no Nano; first attack only, all three attempts failed upstream).
 - F-297 fixed: a send that left and then failed (timeout, 5xx, network, a block or BREACH on a retry, internal error) now records its images and checked hashes when bytes left, and "What the cloud saw" shows that copy; a call that sent nothing records none. Swift: a failed simulated replay logs CACHED, 0 bytes. 4 new tests (gate ×3, ledgerView ×1), each proven by a mutation run (guard, block(), selector). Independent review applied (it found the first cut missed block/BREACH/internal and one test did not reach the guard).
 - Verified: web check 75 files / 3450 tests after the review round, build + check-dist ok; iOS `xcodebuild test` 32/32 (Simulator shut down after).
-- Open: F-298 rules-only OCR over-masks (23 house-number masks on the Berlin photo), F-299 HUD "fallback" tag on failed S3 attacker lines. **Needs a hosting redeploy** for F-297 to be live (user approval).
+- Open: F-298 rules-only OCR over-masks (23 house-number masks on the Berlin photo), F-299 HUD "fallback" tag on failed S3 attacker lines. Shipped on the user's "Yes, ship it".
+- **Hosting redeploy #8:** built cb2fc4c in a detached clean worktree, `npm ci` + build + check-dist ok, `deploy --only hosting` (RC untouched). Live index.html, sw.js, manifests, the judge-02 photo and every JS asset byte-identical to that dist (14/14). Worktree removed.
 
