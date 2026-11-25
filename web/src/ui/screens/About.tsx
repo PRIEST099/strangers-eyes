@@ -12,6 +12,7 @@ import { PAYLOAD_CLASSES, type PayloadClass } from '../../ai/capabilities';
 import { t, type StringId } from '../../core/strings';
 import type { Route } from '../../core/types';
 import type { ReactNode } from 'react';
+import { Art } from '../components/Art';
 import { Badge } from '../components/Badge';
 import { HybridLanes } from '../components/HybridLanes';
 import { StoryReel } from '../components/StoryReel';
@@ -92,6 +93,9 @@ export function About() {
       </div>
 
       <StoryReel variant="strip" className="w-full" />
+
+      {/* D-170: decorative; the card below says it in words. */}
+      <Art name="gate" className="aspect-[2/1] w-full max-w-[68ch]" />
 
       <section aria-labelledby="about-know" data-about="howWeKnow" className={`${CARD} flex max-w-[68ch] flex-col gap-3`}>
         <h2 id="about-know" className="text-title font-semibold">

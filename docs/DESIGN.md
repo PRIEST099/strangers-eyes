@@ -29,6 +29,14 @@ Signature elements (each one is driven by real data and never invented):
 5. **Mask-eye brand mark**: an eye outline whose pupil is a solid black square, echoing the solid-mask rule.
 6. **Judge Mode above the fold**: thumbnail sample cards collapse to a strip, and the run scrolls into view.
 
+### 1.1 Illustrations (D-170, Nov 25)
+Four AI-generated illustrations in one style (near-black ground, violet = this device, blue = the cloud, solid black masks), made in Figma and served from `web/public/art/` (credits and rules in `web/public/art/SOURCES.md`), through `components/Art.tsx` only:
+- `hero`: Welcome (above the reel), Home (beside the headline from lg up, cropped to the headline block; hidden on phones). Home keeps the DESIGN §5.1 fold budget: the headline is 2.75 rem from lg so it stays on two lines beside the art, and both CTAs sit above a 900 px fold minus the HUD band.
+- `check`: inside the Check import drop zone (beside the text from sm up).
+- `gate`: About, a banner above "How we know".
+- `vault`: the video only. The Vault screen loads no image (vaultUi.test.ts).
+They are decoration (`alt=""`, `aria-hidden`) in a dark rounded frame in both themes. Rules: no map, pin or dot for a guess (invariant 5), solid-black masks (invariant 6), no real people or places (invariant 9). A new illustration must be credited in SOURCES.md and must not imply a measured result.
+
 ## 2. Tokens (`web/src/index.css`)
 
 Replace the `:root` and light blocks with the blocks below. Every existing `--se-*` name is kept, and changed values

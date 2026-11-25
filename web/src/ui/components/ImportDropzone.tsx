@@ -14,6 +14,7 @@ import { importPhoto, type ImportedPhoto } from '../../tier0/importPhoto';
 import {
   importAndSettle, pickFromTransfer, pickStep, refuseDragOutsideZone, statusLines, type ImportStatus, type TransferPick,
 } from '../importTransfer';
+import { Art } from './Art';
 import { Icon } from './Icon';
 
 export interface ImportDropzoneProps {
@@ -144,14 +145,18 @@ export function ImportDropzone({ getPins, status, onStatus, onPhoto }: ImportDro
         onDrop={onDrop}
         className={
           'flex min-h-48 w-full flex-col items-center justify-center gap-3 rounded-stage border-2 border-dashed p-8 ' +
-          'text-center text-body transition-colors duration-150 ' +
+          'text-center text-body transition-colors duration-150 sm:flex-row sm:gap-6 sm:p-6 sm:text-left ' +
           (dragging ? 'border-accent bg-surface-2' : 'border-line-strong bg-surface hover:bg-surface-2')
         }
       >
-        <span aria-hidden="true" className="inline-flex size-12 items-center justify-center rounded-card bg-surface-3 text-fg">
-          <Icon name="arrowRight" className="size-6 rotate-90" />
+        {/* D-170: decorative; the drop copy below says what to do. */}
+        <Art name="check" eager className="aspect-[4/3] w-40 shrink-0 sm:w-48" />
+        <span className="flex flex-col items-center gap-3 sm:items-start">
+          <span aria-hidden="true" className="inline-flex size-10 items-center justify-center rounded-card bg-surface-3 text-fg">
+            <Icon name="arrowRight" className="size-5 rotate-90" />
+          </span>
+          <span className="max-w-sm font-medium text-fg">{t('copy.import.drop')}</span>
         </span>
-        <span className="max-w-sm font-medium text-fg">{t('copy.import.drop')}</span>
       </button>
       <div
         id={statusId}

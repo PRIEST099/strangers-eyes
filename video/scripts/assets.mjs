@@ -7,5 +7,9 @@ const files = {
   'judge-01.jpg': '../web/public/samples/judge-01.jpg',
   'ios-judge-10-compare.png': '../ios/screenshots/ios-judge-10-compare.png',
   'ios-06-referee-running.png': '../ios/screenshots/ios-06-referee-running.png',
+  // D-170: the Figma-generated illustrations the app also uses (credited in web/public/art/SOURCES.md).
+  'art-hero.webp': '../web/public/art/hero.webp',
+  'art-vault.webp': '../web/public/art/vault.webp',
+  'art-gate.webp': '../web/public/art/gate.webp',
 };
 for (const [to, from] of Object.entries(files)) { copyFileSync(from, `public/img/${to}`); console.log(`public/img/${to}`); }

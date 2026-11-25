@@ -10,6 +10,7 @@
 // Test hooks: the checkbox is its label's first child, and Continue holds text only.
 import { useEffect, useState, type FormEvent } from 'react';
 import { t, type StringId } from '../../core/strings';
+import { Art } from '../components/Art';
 import { Button } from '../components/Button';
 import { BrandMark, Icon, type IconName } from '../components/Icon';
 import { StoryReel } from '../components/StoryReel';
@@ -80,7 +81,11 @@ export function Welcome({ onContinue }: WelcomeProps) {
             </Button>
           </form>
         </div>
-        <StoryReel variant="hero" className="w-full min-w-0 lg:max-w-[560px] lg:justify-self-end" />
+        {/* D-170: the hero illustration above the reel (decorative; the reel and the copy carry the meaning). */}
+        <div className="flex w-full min-w-0 flex-col gap-4 lg:max-w-[560px] lg:justify-self-end">
+          <Art name="hero" eager sizes="(min-width: 1024px) 560px, 100vw" className="aspect-[16/9] w-full" />
+          <StoryReel variant="hero" className="w-full min-w-0" />
+        </div>
       </div>
     </main>
   );

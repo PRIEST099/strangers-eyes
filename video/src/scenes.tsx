@@ -48,6 +48,19 @@ const Title = ({ children, at = 0, size = 64, y = 60 }: { children: ReactNode; a
 };
 
 // ---------------------------------------------------------------- 1 post
+/** D-170: a Figma-generated illustration as a full-bleed, dimmed backdrop with a slow push-in. */
+const Backdrop = ({ src, opacity, dim = 0.55, z0 = 1.04, z1 = 1.12 }: { src: string; opacity: number; dim?: number; z0?: number; z1?: number }) => {
+  const frame = useCurrentFrame();
+  const { durationInFrames } = useVideoConfig();
+  const z = interpolate(frame, [0, durationInFrames], [z0, z1]);
+  return (
+    <AbsoluteFill style={{ opacity, overflow: 'hidden' }}>
+      <Img src={staticFile(`img/${src}`)} style={{ width: '100%', height: '100%', objectFit: 'cover', transform: `scale(${z})` }} />
+      <AbsoluteFill style={{ background: `radial-gradient(ellipse at 50% 50%, rgba(11,11,15,${dim}) 0%, rgba(11,11,15,${Math.min(0.95, dim + 0.3)}) 75%)` }} />
+    </AbsoluteFill>
+  );
+};
+
 export const Post = () => {
   const t = useSec();
   const rise = useAt(0, 13);
@@ -124,6 +137,7 @@ export const Stranger = () => {
           })}
         </div>
       </div>
+      <Backdrop src="art-hero.webp" opacity={title} dim={0.6} />
       <AbsoluteFill style={{ justifyContent: 'center', alignItems: 'center', opacity: title }}>
         <div style={{ transform: `scale(${0.9 + 0.1 * title})`, textAlign: 'center', marginTop: -80 }}>
           <EyeLogo size={260} from={10.2} blinkAt={12.2} />
@@ -182,6 +196,11 @@ export const How = () => {
           <div style={{ textAlign: 'center', marginTop: 10, fontSize: 21, color: C.muted }}>distance bands, never a map pin</div>
         </div>
       </Phone>
+      {/* D-170: the vault illustration beside the phone while the private list is on screen */}
+      <div style={{ position: 'absolute', left: 575, top: 560, width: 310, height: 310, opacity: Math.max(0, vault), transform: `scale(${0.92 + 0.08 * Math.max(0, vault)})`,
+        borderRadius: 24, overflow: 'hidden', boxShadow: `0 0 60px ${C.device}44` }}>
+        <Img src={staticFile('img/art-vault.webp')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      </div>
       {/* the checkpoint */}
       <div style={{ position: 'absolute', left: 925, top: 230 }}><Wall h={600} flash={flash} /></div>
       {/* the cloud AI */}
@@ -443,7 +462,8 @@ export const Close = () => {
   const off = useAt(0.2, 14);
   return (
     <AbsoluteFill style={{ justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
-      <div style={{ marginTop: -60 }}>
+      <Backdrop src="art-gate.webp" opacity={off} dim={0.7} />
+      <div style={{ marginTop: -60, position: 'relative' }}>
         <EyeLogo size={200} from={0.4} blinkAt={2.6} />
         <div style={{ fontSize: 52, fontWeight: 800, color: C.muted, marginTop: 10, opacity: off }}>Location off isn't location hidden.</div>
         <div style={{ fontSize: 112, fontWeight: 900, letterSpacing: -3, marginTop: 8, opacity: useAt(2.2), transform: `scale(${0.92 + 0.08 * useAt(2.2)})` }}>Strangers' Eyes</div>

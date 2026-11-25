@@ -318,6 +318,8 @@ How a flaw was found:
 | F-298 | Nov 24 | D-169 | main session (live run) | minor | Open: with no Nano, the rules-only text check read "670 words" on the Berlin sample and proposed 23 "House number" masks (3, 7, 437, 7y …), mostly OCR noise; over-masking is the safe direction, but it looks broken to a judge testing their own photo | Not fixed; candidate: a minimum box size/confidence for digit-only house-number hits |
 | F-299 | Nov 24 | D-169 | main session (live run) | nit | Open: a failed S3 attacker line in the HUD carries a "fallback" tag (from `fallback: <code>` notes), though S3 never falls back | Not fixed; candidate: no fallback tag for S3 entries |
 | F-300 | Nov 24 | D-169 | independent review (fact-checker agent) | minor | My first measured-egress bullet overstated: "the verdict sent 0 bytes" (no verdict existed), "that doesn't change what left" (a full run also sends the re-attack copy), "the cloud got" (requests failed), wrong retry count, flow not named | Rewritten as a scoped section; DEVPOST + README agree |
+| F-301 | Nov 25 | D-170 | main session (self) | minor | The first generated hero drew the cloud's eye pointing at location dots on a map grid, which reads as the attacker's guess drawn as a pin (invariant 5) | Discarded; regenerated with "no maps, no pins, no location dots"; SOURCES.md records it |
+| F-302 | Nov 25 | D-170 | test (vaultUi.test.ts) | minor | The vault illustration on the Vault screen broke the guard that the screen loads no image or other resource (it exists so no map tile can ever appear there) | Art removed from the Vault screen (used in the video instead); the guard is unchanged |
 
 ---
 
@@ -468,6 +470,9 @@ How a flaw was found:
 - The HUD at the bottom left now lists every AI call as it happens: which job, its privacy class, where it ran (ON-DEVICE, IN CLOUD, RULES-ONLY, BLOCKED), the engine, how long it took, how many bytes left, and tags such as "fallback: no on-device model" or "Nano off". Collapsed, the pill shows the last call. Everything comes from the Ledger, which only holds ids, kinds, hashes and numbers.
 - The Cloud Ledger rail shows live counters and "What the cloud saw": the exact redacted JPEG of the last cloud send, kept in memory and shown only when the hash of its own bytes equals the hash the gate recorded, with the same 8-character prefix the consent sheet shows. The original photo is never registered. It all lives in memory for this page; nothing is stored or sent.
 - No real AI call was made. Browser check with the DEV fake Nano and fake adversary on a synthetic image: pre-screen and referee ON-DEVICE, pass B IN CLOUD, matching hashes. Found F-220..F-222.
+
+### Nov 25: illustrations (D-170)
+- The app worked but looked bare: text, wireframe-style drawings and plain cards. Four illustrations were generated in Figma in one style (violet for this device, blue for the cloud, solid black masks) and placed where the screens had no visuals, plus three beats of the video. The first hero drew location dots under the cloud, which is exactly the "guess as a pin" the app never shows, so it was redrawn. A privacy test caught an image on the Vault screen, which must load nothing; that one moved to the video.
 
 ### Nov 24 (evening): measuring what leaves (D-169)
 - The write-up claimed the device/cloud split but never measured it. So we measured it on the hosted app: one redacted 338 KB copy and fixed instructions left per request; the original, the pins and the name did not. Google's model was overloaded, so all three attack attempts failed and only the first attack's outgoing request was measured; the write-up says exactly that.

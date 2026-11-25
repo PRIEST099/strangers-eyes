@@ -8,6 +8,7 @@
 // StoryReel beside the two cards at xl (it draws both lanes and the Wall, so it replaces the lanes explainer here).
 // Below xl the order is Check card, reel, Judge card, so the Check CTA stays high on a phone.
 import { t } from '../../core/strings';
+import { Art } from '../components/Art';
 import { ButtonLink } from '../components/Button';
 import { Icon } from '../components/Icon';
 import { StoryReel } from '../components/StoryReel';
@@ -19,11 +20,21 @@ const SAMPLE_THUMBS = ['judge-01', 'judge-02', 'judge-03'] as const;
 export function Home() {
   return (
     <div className="flex flex-col gap-6">
+      {/* D-170: the hero illustration sits beside the tagline from lg up and is cropped to the text block's height, so
+          the fold budget (DESIGN §5.1) is unchanged; from sm to lg it follows the lead at a short banner height; on a
+          phone it is left out so the Check CTA stays high. */}
       <section aria-labelledby="home-title" className="flex flex-col gap-3">
-        <p className={EYEBROW}>{t('ui.welcome.eyebrow')}</p>
-        <h1 id="home-title" className="text-display-sm font-extrabold tracking-[-0.035em] text-balance sm:text-display">
-          {t('copy.app.tagline')}
-        </h1>
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1.45fr)_minmax(0,0.55fr)] lg:items-stretch lg:gap-6">
+          <div className="flex min-w-0 flex-col gap-3">
+            <p className={EYEBROW}>{t('ui.welcome.eyebrow')}</p>
+            <h1 id="home-title" className="text-display-sm font-extrabold tracking-[-0.035em] text-balance sm:text-display lg:text-[2.75rem] lg:leading-[3rem]">
+              {t('copy.app.tagline')}
+            </h1>
+          </div>
+          <div className="relative hidden h-44 min-w-0 sm:block lg:h-auto">
+            <Art name="hero" eager sizes="(min-width: 1024px) 36vw, 100vw" className="absolute inset-0 size-full object-[50%_25%]" />
+          </div>
+        </div>
         <p className={LEAD}>{t('copy.app.oneLiner')}</p>
       </section>
 

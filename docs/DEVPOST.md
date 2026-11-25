@@ -11,11 +11,11 @@
 |---|---|---|---|
 | Name | 15 | [UNVERIFIED: T-167] (Devpost usually 60) | fits the usual limit |
 | Elevator pitch | 165 | [UNVERIFIED: T-167] (Devpost usually 200; SPEC §1 says ≤200) | fits |
-| About the project (Markdown) | 9,696 (1,542 words) | [UNVERIFIED: T-167] (no limit known) | re-check when the draft is read |
+| About the project (Markdown) | 9,943 (1,579 words) | [UNVERIFIED: T-167] (no limit known) | re-check when the draft is read |
 | Testing instructions | 1,570 | [UNVERIFIED: T-167] | re-check when the draft is read |
 | Built during the submission period | 583 | [UNVERIFIED: T-167] | re-check when the draft is read |
 
-Measured Nov 24 after the submission-hardening rewrite and the writeup fixes (Ledger wording, failover, iOS pre-screen, the restored iOS Auth/Remote Config disclosure), with no fill-in markers left inside the fields. Re-measured Nov 24 after adding the "Measured: what left the device" section (D-169).
+Measured Nov 24 after the submission-hardening rewrite and the writeup fixes (Ledger wording, failover, iOS pre-screen, the restored iOS Auth/Remote Config disclosure), with no fill-in markers left inside the fields. Re-measured Nov 24 after adding the "Measured: what left the device" section (D-169) and the illustrations line (D-170).
 
 ---
 
@@ -43,7 +43,7 @@ About the footage: the app was recorded in headless Chrome, which has no Gemini 
 Web (Chrome and any modern browser) and iOS (SwiftUI, tested in the Simulator). [USER: platforms and "Best of" category, T-172]
 
 ## Built with
-firebase-ai-logic, gemini, gemini-nano, apple-foundation-models, firebase-app-check, recaptcha-enterprise, firebase-auth, firebase-remote-config, firebase-hosting, react, typescript, vite, tailwindcss, swiftui, vision, mediapipe, tesseract.js
+firebase-ai-logic, gemini, gemini-nano, apple-foundation-models, firebase-app-check, recaptcha-enterprise, firebase-auth, firebase-remote-config, firebase-hosting, react, typescript, vite, tailwindcss, swiftui, vision, mediapipe, tesseract.js, figma, remotion, kokoro
 
 ## About the project
 <!-- about -->
@@ -90,6 +90,7 @@ New here: an on-device vault as ground truth, grading the attacker never sees, o
 - **Web:** `firebase/ai` hybrid: Gemini Nano in Chrome for the pre-screen and referee (verified in Chrome 157, ~6–10 s warm); `gemini-3.5-flash-lite` with a JSON schema for the attacker (median 7.0 s). Remote Config can name backup models to try on a 5xx or 429 (`adversary_fallback_models`); the list ships empty, so today an overloaded attacker means Judge Mode replays its recorded answers. MediaPipe and Tesseract.js find faces and text; distances are code (haversine). Over 3,300 tests.
 - **iOS (Simulator):** SwiftUI, `FirebaseAILogic` pinned to 12.19.3 (`HybridModel` was removed in 13.0.0), Vision masks, a Swift Egress Gate. Apple Foundation Models run the pre-screen (over Vision's OCR text and scene labels, never the image) and the referee on the device. iOS Judge Mode replays the same recorded Gemini answers; a Nov 24 UI test ran sample 2 to "Risk reduced" with every private step ON-DEVICE and 0 bytes sent. An earlier Simulator demo used a labelled debug stand-in attacker.
 - **Also (web):** App Check, Anonymous Auth, Remote Config, Hosting. iOS uses App Check only.
+- **Illustrations:** the four decorative illustrations in the app and video were generated with Figma's AI image tool for this project (no real people or places; credited in `web/public/art/SOURCES.md`). Everything else on screen is the real app.
 
 ## Judge Mode samples: please read
 Three CC0 Wikimedia Commons photos of public places (two Ljubljana, one Berlin; credited in the repo). We solid-masked people, adverts showing people and real plates, and drew in a "LUCAS" name-tag lunchbox, which the app masks on the device. The vault is made up; pins sit in a park and a square near each photo.
