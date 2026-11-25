@@ -10,10 +10,10 @@
 | Field | Characters | Limit | Status |
 |---|---|---|---|
 | Name | 15 | [UNVERIFIED: T-167] (Devpost usually 60) | fits the usual limit |
-| Elevator pitch | 165 | [UNVERIFIED: T-167] (Devpost usually 200; SPEC §1 says ≤200) | fits |
-| About the project (Markdown) | 9,943 (1,579 words) | [UNVERIFIED: T-167] (no limit known) | re-check when the draft is read |
-| Testing instructions | 1,570 | [UNVERIFIED: T-167] | re-check when the draft is read |
-| Built during the submission period | 583 | [UNVERIFIED: T-167] | re-check when the draft is read |
+| Elevator pitch | 195 | [UNVERIFIED: T-167] (Devpost usually 200; SPEC §1 says ≤200) | fits |
+| About the project (Markdown) | 9,651 (1,752 words) | [UNVERIFIED: T-167] (no limit known) | re-check when the draft is read |
+| Testing instructions | 1,690 | [UNVERIFIED: T-167] | re-check when the draft is read |
+| Built during the submission period | 593 | [UNVERIFIED: T-167] | re-check when the draft is read |
 
 Measured Nov 24 after the submission-hardening rewrite and the writeup fixes (Ledger wording, failover, iOS pre-screen, the restored iOS Auth/Remote Config disclosure), with no fill-in markers left inside the fields. Re-measured Nov 24 after adding the "Measured: what left the device" section (D-169) and the illustrations line (D-170).
 
