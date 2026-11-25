@@ -320,6 +320,8 @@ How a flaw was found:
 | F-300 | Nov 24 | D-169 | independent review (fact-checker agent) | minor | My first measured-egress bullet overstated: "the verdict sent 0 bytes" (no verdict existed), "that doesn't change what left" (a full run also sends the re-attack copy), "the cloud got" (requests failed), wrong retry count, flow not named | Rewritten as a scoped section; DEVPOST + README agree |
 | F-301 | Nov 25 | D-170 | main session (self) | minor | The first generated hero drew the cloud's eye pointing at location dots on a map grid, which reads as the attacker's guess drawn as a pin (invariant 5) | Discarded; regenerated with "no maps, no pins, no location dots"; SOURCES.md records it |
 | F-302 | Nov 25 | D-170 | test (vaultUi.test.ts) | minor | The vault illustration on the Vault screen broke the guard that the screen loads no image or other resource (it exists so no map tile can ever appear there) | Art removed from the Vault screen (used in the video instead); the guard is unchanged |
+| F-303 | Nov 25 | D-171 | main session (self, gallery shot) | minor | The first generated page background had a thin vertical "wall" line that ran straight through the Home headline, reading as a rendering glitch | Both backgrounds regenerated with "no lines"; SOURCES.md records it |
+| F-304 | Nov 25 | D-171 | main session (self) | minor | `shoot-gallery.mjs` 01-home waited for the removed reel's texts ("Just a coffee", "3 / 6") and would have failed; infinite animations are left running at capture, so the shot would catch a random frame | New `{loopAt: ms}` step freezes the HeroLoop at a chosen frame; 01-home waits for a caption and shoots at 5.6 s |
 
 ---
 
@@ -470,6 +472,9 @@ How a flaw was found:
 - The HUD at the bottom left now lists every AI call as it happens: which job, its privacy class, where it ran (ON-DEVICE, IN CLOUD, RULES-ONLY, BLOCKED), the engine, how long it took, how many bytes left, and tags such as "fallback: no on-device model" or "Nano off". Collapsed, the pill shows the last call. Everything comes from the Ledger, which only holds ids, kinds, hashes and numbers.
 - The Cloud Ledger rail shows live counters and "What the cloud saw": the exact redacted JPEG of the last cloud send, kept in memory and shown only when the hash of its own bytes equals the hash the gate recorded, with the same 8-character prefix the consent sheet shows. The original photo is never registered. It all lives in memory for this page; nothing is stored or sent.
 - No real AI call was made. Browser check with the DEV fake Nano and fake adversary on a synthetic image: pre-screen and referee ON-DEVICE, pass B IN CLOUD, matching hashes. Found F-220..F-222.
+
+### Nov 25 (later): a loop instead of a slideshow (D-171)
+- The user judged the animated story not production grade, and the app still had a flat background. The story was replaced by one looping hero built on the Figma art: the copy goes through the gate, the cloud's eye scans it, and its "?" is stopped at the wall, with three captions on the same clock. The page now has a generated background, with its own light-theme version. The first background drew a line straight through the headline and was redrawn.
 
 ### Nov 25: illustrations (D-170)
 - The app worked but looked bare: text, wireframe-style drawings and plain cards. Four illustrations were generated in Figma in one style (violet for this device, blue for the cloud, solid black masks) and placed where the screens had no visuals, plus three beats of the video. The first hero drew location dots under the cloud, which is exactly the "guess as a pin" the app never shows, so it was redrawn. A privacy test caught an image on the Vault screen, which must load nothing; that one moved to the video.

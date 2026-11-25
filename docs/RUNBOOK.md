@@ -1327,7 +1327,7 @@ Claude records the real fields and limits here after Nov 22.
 - **Try it out:** hosted URL, repo URL
 - **Thumbnail:** `docs/img/thumbnail.png`, 3:2, no third-party logos.
 - **Gallery** (no third-party logos, no real home or school):
-  1. `01-home.png`: Home, tagline and illustrated story;
+  1. `01-home.png`: Home, tagline and the animated hero (frozen at 5.6 s with `loopAt`);
   2. `02-judge-run.png`: a Judge Mode run, device lane and cloud lane, with HUD badges;
   3. `03-verdict.png`: the first verdict as distance bands, with the Ledger reading "Faces sent: 0 · Vault items sent: 0";
   4. `04-reattack.png`: fix and re-attack, before and after (the level-crossing recording ends "Risk reduced", D-164; the others "Still exposed" or nothing to fix);

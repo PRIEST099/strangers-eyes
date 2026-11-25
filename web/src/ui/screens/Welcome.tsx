@@ -4,16 +4,15 @@
 //   the box is ticked (AC-070).
 // App stores the acknowledgement (core/localPrefs, inside try/catch) and never shows this screen again on this device;
 // when storage is unavailable it still continues, for this session only. No network, so it works offline (state d).
-// Layout (docs/DESIGN.md §5.1, D-162): two columns at lg (the pitch on the left, the StoryReel on the right; the reel
-// draws both lanes and the Wall, so it also does the explainer's job), stacked below with the reel AFTER the form, so
+// Layout (docs/DESIGN.md §5.1, D-171): two columns at lg (the pitch on the left, the HeroLoop on the right; it draws
+// the device, the Wall and the cloud, so it also does the explainer's job), stacked below with the loop AFTER the form, so
 // the checkbox and Continue stay near the top on a phone and the eyebrow carries the hook there.
 // Test hooks: the checkbox is its label's first child, and Continue holds text only.
 import { useEffect, useState, type FormEvent } from 'react';
 import { t, type StringId } from '../../core/strings';
-import { Art } from '../components/Art';
 import { Button } from '../components/Button';
 import { BrandMark, Icon, type IconName } from '../components/Icon';
-import { StoryReel } from '../components/StoryReel';
+import { HeroLoop } from '../components/HeroLoop';
 import { CARD, EYEBROW, LEAD } from '../components/surface';
 
 /** Each bullet with its icon: b1 is context (info), b2 is the cloud attack (blue), b3 is what stays here (teal lock). */
@@ -81,11 +80,7 @@ export function Welcome({ onContinue }: WelcomeProps) {
             </Button>
           </form>
         </div>
-        {/* D-170: the hero illustration above the reel (decorative; the reel and the copy carry the meaning). */}
-        <div className="flex w-full min-w-0 flex-col gap-4 lg:max-w-[560px] lg:justify-self-end">
-          <Art name="hero" eager sizes="(min-width: 1024px) 560px, 100vw" className="aspect-[16/9] w-full" />
-          <StoryReel variant="hero" className="w-full min-w-0" />
-        </div>
+        <HeroLoop className="w-full min-w-0 lg:max-w-[600px] lg:justify-self-end" />
       </div>
     </main>
   );

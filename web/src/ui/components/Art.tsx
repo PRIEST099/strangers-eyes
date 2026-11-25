@@ -5,12 +5,11 @@
 // They are DECORATION: alt="" and aria-hidden, because the copy next to each one already says what it shows. The art
 // is painted on a near-black ground, so it sits in its own dark, rounded frame in both themes. Same-origin static files,
 // so they work offline after the first load and never touch the Ledger.
-export type ArtName = 'hero' | 'check' | 'vault' | 'gate';
+// The hero illustration is drawn by HeroLoop (D-171), not here; the vault illustration is used in the video only.
+export type ArtName = 'check' | 'gate';
 
 const SRC: Record<ArtName, { src: string; srcSet?: string; w: number; h: number }> = {
-  hero: { src: '/art/hero.webp', srcSet: '/art/hero-768.webp 768w, /art/hero.webp 1536w', w: 1536, h: 864 },
   check: { src: '/art/check.webp', w: 800, h: 600 },
-  vault: { src: '/art/vault.webp', w: 640, h: 640 },
   gate: { src: '/art/gate.webp', w: 960, h: 720 },
 };
 

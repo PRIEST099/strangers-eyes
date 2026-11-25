@@ -135,7 +135,7 @@ Strangers' Eyes is a new project, started on Nov 19 2026, with no pre-existing c
 ## Gallery (T-166; no third-party logos, no real home or school)
 Files are in `docs/img/gallery/`, one caption each, in this order. Retaken Nov 24 from the real flow on the plain-language screens (`scripts/shoot-gallery.mjs`; 02–04 replay the recorded answers with Simulate offline, so nothing was sent; 05 is the gate refusing on the device).
 
-1. `01-home.png`: "Location off isn't location hidden: the tagline and an illustrated story of the app."
+1. `01-home.png`: "Location off isn't location hidden: the tagline and an animated illustration of how a check works."
 2. `02-judge-run.png`: "A Judge Mode run: every AI step labelled ON-DEVICE, IN CLOUD or RULES-ONLY, with its latency."
 3. `03-verdict.png`: "Level crossing, first verdict: a street-level guess within 5 km of the made-up pins, shown as distance bands, never a map pin. Recorded Nov 23 answer (CACHED SAMPLE)."
 4. `04-reattack.png`: "Fix and re-attack: with the street sign and house-number plate masked, the attacker got only the city. Risk reduced, never 'safe'. Recorded Nov 23 answer (CACHED SAMPLE)."

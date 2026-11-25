@@ -4,7 +4,7 @@
 //   Firebase AI Logic, App Check's reCAPTCHA Enterprise, the libraries and licences of THIRD_PARTY_NOTICES) · prior art
 //   (E11, E12) · the 18+ notice · copy.about.support · the repo link.
 // Honest limits: it says "reduces risk", never "safe" (CLAUDE.md invariant 6). Static: no AI call, works offline.
-// Layout (docs/DESIGN.md §5.1, D-162): opens with the StoryReel strip (the six illustrated frames) and "How we know"
+// Layout (docs/DESIGN.md §5.1, D-171): opens with the gate illustration (D-170) and "How we know"
 // (the Day-1 spike numbers with their scope and caveat), then the lanes explainer; prose at text-body max-w-[68ch];
 // the how-it-works <li> stay bare (systemScreens.test), styled from their parent.
 import pkg from '../../../package.json';
@@ -15,7 +15,6 @@ import type { ReactNode } from 'react';
 import { Art } from '../components/Art';
 import { Badge } from '../components/Badge';
 import { HybridLanes } from '../components/HybridLanes';
-import { StoryReel } from '../components/StoryReel';
 import { CARD, H1, H2 } from '../components/surface';
 import { useTechDetails } from '../hooks/usePrefs';
 
@@ -91,8 +90,6 @@ export function About() {
             : t('ui.about.versionNoCommit', { version: pkg.version })}
         </p>
       </div>
-
-      <StoryReel variant="strip" className="w-full" />
 
       {/* D-170: decorative; the card below says it in words. */}
       <Art name="gate" className="aspect-[2/1] w-full max-w-[68ch]" />

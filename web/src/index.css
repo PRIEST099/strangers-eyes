@@ -77,6 +77,10 @@
   --se-shadow-pop: 0 16px 48px rgb(0 0 0 / 0.55), 0 0 0 1px var(--se-line-strong);
   --se-glow-device: 0 0 0 1px rgb(167 139 250 / 0.35), 0 0 24px rgb(124 58 237 / 0.22);
   --se-glow-green: 0 0 0 1px rgb(74 222 128 / 0.45), 0 0 40px rgb(34 197 94 / 0.25);
+  /* D-171: the page background (Figma-generated, web/public/art/SOURCES.md) under a wash, so text on the canvas keeps
+     its contrast pairs; panels (header, Ledger rail, HUD, cards) stay opaque. */
+  --se-bg-art: url('/art/bg-dark.webp');
+  --se-bg-wash: rgb(11 11 15 / 0.38);
 
   background-color: var(--se-canvas);
   color: var(--se-fg);
@@ -87,6 +91,8 @@
     color-scheme: light;
 
     --se-canvas: #f6f6f8;
+    --se-bg-art: url('/art/bg-light.webp');
+    --se-bg-wash: rgb(246 246 248 / 0);
     --se-surface: #ffffff;
     --se-surface-2: #ececf1;
     --se-surface-3: #e2e2ea;
@@ -259,8 +265,6 @@
   --animate-wipe: se-wipe 350ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
   --animate-pop: se-pop 250ms ease-out both;
   --animate-rise: se-rise 200ms ease-out both;
-  /* StoryReel (D-162): the attacker's scan line sweeping the drawn copy once per scene, left to right. */
-  --animate-scan: se-scan 900ms ease-in-out both;
 
   @keyframes se-sheet-in {
     from {
@@ -342,22 +346,6 @@
       transform: translateY(0);
     }
   }
-  @keyframes se-scan {
-    0% {
-      opacity: 0;
-      transform: translateX(0);
-    }
-    15% {
-      opacity: 1;
-    }
-    85% {
-      opacity: 1;
-    }
-    100% {
-      opacity: 0;
-      transform: translateX(160px);
-    }
-  }
 }
 
 @layer base {
@@ -365,6 +353,11 @@
     margin: 0;
     min-height: 100dvh;
     background-color: var(--se-canvas);
+    background-image: linear-gradient(var(--se-bg-wash), var(--se-bg-wash)), var(--se-bg-art);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
     color: var(--se-fg);
     font-family: var(--font-sans);
     -webkit-text-size-adjust: 100%;
@@ -394,10 +387,101 @@
   }
 }
 
-/* StoryReel (D-162): Pause, an off-screen reel and a hidden tab also freeze the one-shot animations of the current scene
-   (WCAG 2.2.2); the JS stepper stops its timer at the same moment. */
-.se-reel[data-paused='true'] * {
+/* HeroLoop (D-171): one 10 s loop drives the overlay and the captions together (no JS timer). Pause stops all of it
+   (WCAG 2.2.2). SVG transforms are in the 1536 × 864 image space. Invariant 5: nothing marks a place; invariant 6: the
+   art's masks are never blurred or covered (brackets sit outside them). */
+.se-loop {
+  --se-loop: 10s;
+}
+.se-loop[data-paused='true'] * {
   animation-play-state: paused !important;
+}
+.se-loop-packet { opacity: 0; animation: se-loop-packet var(--se-loop) ease-in-out infinite; }
+.se-loop-gate { opacity: 0; animation: se-loop-gate var(--se-loop) ease-out infinite; }
+.se-loop-brackets { opacity: 0; transform-box: fill-box; transform-origin: center; animation: se-loop-brackets var(--se-loop) cubic-bezier(0.2, 0.8, 0.2, 1) infinite; }
+.se-loop-eye { opacity: 0; mix-blend-mode: screen; animation: se-loop-eye var(--se-loop) ease-in-out infinite; }
+.se-loop-rays { opacity: 0; animation: se-loop-rays var(--se-loop) ease-in-out infinite, se-loop-dash 0.9s linear infinite; }
+.se-loop-scan { opacity: 0; mix-blend-mode: screen; animation: se-loop-scan var(--se-loop) ease-in-out infinite; }
+.se-loop-q { opacity: 0; animation: se-loop-q var(--se-loop) cubic-bezier(0.3, 0, 0.6, 1) infinite; }
+.se-loop-burst { opacity: 0; transform-box: fill-box; transform-origin: center; animation: se-loop-burst var(--se-loop) ease-out infinite; }
+.se-loop-block { opacity: 0; animation: se-loop-block var(--se-loop) ease-out infinite; }
+.se-loop-cap { position: absolute; inset: 0; opacity: 0; }
+.se-loop-cap-1 { animation: se-loop-cap1 var(--se-loop) ease-out infinite; }
+.se-loop-cap-2 { animation: se-loop-cap2 var(--se-loop) ease-out infinite; }
+.se-loop-cap-3 { animation: se-loop-cap3 var(--se-loop) ease-out infinite; }
+
+@keyframes se-loop-packet {
+  0% { opacity: 0; transform: translateX(330px); }
+  4% { opacity: 1; }
+  17% { transform: translateX(500px); }
+  21% { transform: translateX(524px); }
+  34% { opacity: 1; transform: translateX(650px); }
+  38%, 100% { opacity: 0; transform: translateX(668px); }
+}
+@keyframes se-loop-gate {
+  0%, 14% { opacity: 0; }
+  19% { opacity: 0.85; }
+  30%, 100% { opacity: 0; }
+}
+@keyframes se-loop-brackets {
+  0%, 34% { opacity: 0; transform: scale(1.35); }
+  40% { opacity: 1; transform: scale(1); }
+  66% { opacity: 1; transform: scale(1); }
+  72%, 100% { opacity: 0; transform: scale(1); }
+}
+@keyframes se-loop-eye {
+  0%, 40% { opacity: 0; }
+  46% { opacity: 0.38; }
+  52% { opacity: 0.12; }
+  58% { opacity: 0.38; }
+  64% { opacity: 0.12; }
+  70%, 100% { opacity: 0; }
+}
+@keyframes se-loop-rays {
+  0%, 42% { opacity: 0; }
+  47%, 66% { opacity: 1; }
+  71%, 100% { opacity: 0; }
+}
+@keyframes se-loop-dash {
+  to { stroke-dashoffset: -56; }
+}
+@keyframes se-loop-scan {
+  0%, 46% { opacity: 0; transform: translateY(250px); }
+  49% { opacity: 1; }
+  64% { opacity: 1; transform: translateY(486px); }
+  67%, 100% { opacity: 0; transform: translateY(486px); }
+}
+@keyframes se-loop-q {
+  0%, 70% { opacity: 0; transform: translateX(1160px); }
+  73% { opacity: 1; }
+  84% { opacity: 1; transform: translateX(598px); }
+  86% { opacity: 0.7; transform: translateX(610px); }
+  89%, 100% { opacity: 0; transform: translateX(614px); }
+}
+@keyframes se-loop-burst {
+  0%, 83% { opacity: 0; transform: scale(0.3); }
+  85% { opacity: 1; }
+  94%, 100% { opacity: 0; transform: scale(1.8); }
+}
+@keyframes se-loop-block {
+  0%, 83% { opacity: 0; }
+  85% { opacity: 1; }
+  92%, 100% { opacity: 0; }
+}
+@keyframes se-loop-cap1 {
+  0% { opacity: 0; transform: translateY(6px); }
+  3%, 36% { opacity: 1; transform: none; }
+  40%, 100% { opacity: 0; }
+}
+@keyframes se-loop-cap2 {
+  0%, 40% { opacity: 0; transform: translateY(6px); }
+  43%, 67% { opacity: 1; transform: none; }
+  70%, 100% { opacity: 0; }
+}
+@keyframes se-loop-cap3 {
+  0%, 70% { opacity: 0; transform: translateY(6px); }
+  73%, 96% { opacity: 1; transform: none; }
+  100% { opacity: 0; }
 }
 
 /* AC-063: with prefers-reduced-motion, animations (sheet slide, chip-in, the packet crossing, the mask fill, the
@@ -410,5 +494,23 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* HeroLoop (D-171) with reduced motion: the still illustration, no overlay, the three captions as a static list. */
+@media (prefers-reduced-motion: reduce) {
+  .se-loop-art,
+  .se-loop-toggle {
+    display: none;
+  }
+  .se-loop-captions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .se-loop-cap {
+    position: static;
+    opacity: 1;
+    animation: none !important;
   }
 }

@@ -31,7 +31,7 @@ Signature elements (each one is driven by real data and never invented):
 
 ### 1.1 Illustrations (D-170, Nov 25)
 Four AI-generated illustrations in one style (near-black ground, violet = this device, blue = the cloud, solid black masks), made in Figma and served from `web/public/art/` (credits and rules in `web/public/art/SOURCES.md`), through `components/Art.tsx` only:
-- `hero`: Welcome (above the reel), Home (beside the headline from lg up, cropped to the headline block; hidden on phones). Home keeps the DESIGN §5.1 fold budget: the headline is 2.75 rem from lg so it stays on two lines beside the art, and both CTAs sit above a 900 px fold minus the HUD band.
+- `hero`: the base picture of the HeroLoop (D-171) on Welcome and Home.
 - `check`: inside the Check import drop zone (beside the text from sm up).
 - `gate`: About, a banner above "How we know".
 - `vault`: the video only. The Vault screen loads no image (vaultUi.test.ts).
@@ -277,17 +277,17 @@ NEW `ui/components/surface.ts`, NEW stubs `ui/components/HybridLanes.tsx` and `u
     `lock`, all `text-body`.
   - The age card uses `CARD`. Continue is `size="lg"`, full width below sm.
   - Under the h1: `LEAD` with `ui.welcome.sub` ("It guesses. Your device grades it. The cloud never hears the score.").
-  - Right column (D-162): `<StoryReel variant="hero" />` (max-w 560) in place of the lanes explainer; the reel draws
-    both lanes and the Wall. Below lg it stacks AFTER the age form, so the checkbox and Continue stay near the top.
+  - Right column (D-171): `<HeroLoop />` (max-w 600) in place of the lanes explainer; it draws the device, the Wall and
+    the cloud. Below lg it stacks AFTER the age form, so the checkbox and Continue stay near the top.
   - **Keep:** `<label …min-h-11…><input type="checkbox"` with the checkbox as the label's first child, and the
     Continue `<button type="submit" … disabled="">Continue</button>` with text only inside it.
 - **Home:**
   - `EYEBROW` with `ui.welcome.eyebrow`, hero h1 = tagline (`text-display…`; **the h1 contains text only**), then
     `LEAD` with the oneLiner.
-  - **D-162:** one grid holds the Check card, `<StoryReel variant="hero" />` and the Judge card, in that DOM order
-    (so on a phone the Check CTA comes before the reel). At xl: reel left spanning both rows, Check card and Judge card
+  - **D-171 (was D-162):** one grid holds the Check card, `<HeroLoop />` and the Judge card, in that DOM order
+    (so on a phone the Check CTA comes before the loop). At xl: loop left spanning both rows, Check card and Judge card
     stacked right (`xl:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)] xl:grid-rows-[auto_1fr]`; AppShell `wide` includes
-    home), so both CTAs sit above 900 px at 1440×900. The reel replaces the lanes explainer on Home.
+    home), so both CTAs sit above 900 px at 1440×900 (Judge CTA bottom 823 px, above the 72 px HUD band).
   - Two `CARD`s:
     - Check: a `border-l-4 border-l-route-device-fill` rule, the hook `ui.story.ask` ("What can it see in yours?") and
       a primary `lg` CTA.
@@ -295,29 +295,26 @@ NEW `ui/components/surface.ts`, NEW stubs `ui/components/HybridLanes.tsx` and `u
   - The vault link becomes a teal-outlined row with a lock and the unchanged `ui.home.vaultChip` text, keeping
     `href="#/vault"`. The DEV link is unchanged.
 - **About:**
-  - Opens with `<StoryReel variant="strip" />` (the six illustrated frames, numbered captions; 2 columns in a ≥48 rem
-    container, so each frame is at least about 370 px), then the "How we know" `CARD` (`ui.story.how.*`: the Day-1 spike numbers with their scope and the
+  - Opens with the gate illustration (D-170), then the "How we know" `CARD` (`ui.story.how.*`: the Day-1 spike numbers with their scope and the
     training-data caveat), then `HybridLanes explainer`.
   - Prose at `text-body max-w-[68ch]`, h2 = `H2`. The "What leaves this device" table gets the route Badge per row
     (existing strings).
   - **The how-it-works `<li>` stay bare** (`<li>{point}</li>`, no class): style them from the parent with `[&>li]:…`.
 - **Unsupported:** a centred `CARD` with the BrandMark. Keep `<p id="on-device-feature">`.
 
-- **StoryReel (D-162, `ui/components/StoryReel.tsx`):** "The Coffee Post", six scenes (~18 s) in the lanes geometry:
-  the post (location off) · the cloud's AI reads the redacted copy and claims street level · only the device grades
-  it (rings around the user's own work, `haversine · on device`) · the device masks the clues · asked again: its best
-  guess drops to country, green "Risk reduced: RED → LOW" with confidence · "The attacker never learns whether it
-  guessed right." A JS stepper re-keys each scene so it replays the one-shot keyframes (plus the one-shot `se-scan`);
-  scene changes are a clip-path wipe. It stops after 3 loops on the scene-6 end card (never the green frame), has an
-  always-visible Pause/Play (44 px, WCAG 2.2.2), pauses when the tab is hidden or the reel is off-screen. Under reduced
-  motion the player stays (same 380 px stage) but shows still frames from scene 1 with manual Prev/Next (44 px) and no
-  autoplay; the six-frame strip is About only. Captions reserve 3 lines on phones (own row) and 2 from sm, in `lh`
-  units. Permanent "Illustrated story" tag; the stage is aria-hidden and a visually hidden `<ol>` holds the captions.
-  Never a pin or address for the guess: the cloud lane states only a precision LEVEL (bars plus "Claim: street level",
-  `ui.compare.guessLevel`); `ui.band.*` distances appear only in the device lane (the device's measure against the
-  user's own places). Masks solid `#000` scaling in, and anything holding a mask enters by the clip-path wipe, never an
-  opacity fade (the Wall packet carries no mask glyph). LOW is grey, green only in the "Risk reduced" banner. DEV `?reelScene=N` pins one scene for `scripts/shoot-reel.mjs` (deterministic frames for
-  the clip; output to PRIV/video, never the repo).
+- **HeroLoop (D-171, `ui/components/HeroLoop.tsx`; replaces the D-162 StoryReel, removed at the user's request as not
+  production grade):** the Figma hero illustration with an SVG overlay in the image's own 1536 × 864 space, one 10 s
+  CSS loop (`se-loop-*` in index.css) that also drives the three HTML captions (`ui.loop.s1–s3`), no JS timer:
+  1 a violet packet leaves the phone and flashes through the gate, violet brackets frame the art's solid masks ·
+  2 the cloud's eye pulses, its scan rays run, a scan bar sweeps the copy · 3 a "?" (right or wrong?) flies back and
+  is stopped at the wall. Always-visible Pause/Play (44 px, WCAG 2.2.2). Under reduced motion: no overlay, no button,
+  the three captions as a static list. "Illustration" tag; the picture is aria-hidden and a visually hidden `<ol>`
+  holds the steps. Never a pin, map or dot for a guess; the rays end at the copy; masks are never blurred or covered
+  (the only blur is the glow filter on light effects). `HeroLoop.test.ts` guards these. Gallery: `{loopAt: ms}` in
+  `scripts/shoot-gallery.mjs` freezes a chosen frame.
+- **Page background (D-171):** `body` paints a Figma-generated background (`/art/bg-dark.webp`, `/art/bg-light.webp`)
+  under a wash (`--se-bg-wash`) so text on the canvas keeps its contrast; panels (header, Ledger rail, HUD, cards) stay
+  opaque (no backdrop blur).
 
 **Acceptance:**
 - 1440 dark/light: Welcome is two columns with the reel on the right, and the tagline is 56 px.
@@ -644,8 +641,8 @@ NEW `ui/components/verdict/RiskMeter.tsx`, NEW `ui/components/verdict/BandRuler.
   true. No new npm dependencies; inline SVG only.
 - WCAG AA in dark and light (`tokens.test.ts`). The focus ring is visible everywhere. Keyboard order equals visual
   order. Every animation is one-shot and zeroed by the reduced-motion block. Nothing loops at rest except the
-  existing attack shimmer, which is off under reduced motion, and the StoryReel (D-162): a JS stepper replaying
-  one-shot keyframes, capped at 3 loops, with Pause, and under reduced motion still frames stepped by Prev/Next.
+  existing attack shimmer, which is off under reduced motion, and the HeroLoop (D-171): a 10 s CSS loop with an
+  always-visible Pause, drawn as a still with a static caption list under reduced motion.
 - At 375 and 390 there is no horizontal scroll (AC-060): use `minmax(0,1fr)` and `min-w-0` in grids, and
   `break-all` on sha and model values. The Ledger is a right rail at ≥1024 and a bottom sheet below.
 - Performance: memoise the chip lists. The packet uses transform/opacity only, to keep 60 fps capture on the 8 GB M1.

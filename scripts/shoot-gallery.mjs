@@ -54,19 +54,21 @@ const REATTACK = ['Still exposed', 'Risk reduced', "That's 3 rounds", 'None of t
  *   {toggle: 'label', on: bool}      set the switch/checkbox labelled by this text (contains) to on/off
  *   {untick: 'text'}                 un-tick every checkbox whose label or row contains this text
  *   {waitText: 'text' | [...], timeout} wait until the page shows the text (any of a list)
- *   {waitShown: 'text', timeout}     wait until an element whose own text is exactly this is laid out (StoryReel's "3 / 6")
+ *   {waitShown: 'text', timeout}     wait until an element whose own text is exactly this is laid out (e.g. a step counter)
  *   {wait: ms}
  *   {scroll: 'text' | [...], block: 'start'|'center'|'end', offset: px}  scroll the smallest element showing the text
  *                                    (the first of a list that is on the page) into view
  *   {log: 'regex'}                   print the page lines matching this regex (facts the lead needs, e.g. vault matches)
  *   {scrollTop: true}                scroll every scroll container to the top
+ *   {loopAt: ms}                     freeze the HeroLoop (D-171) at this point of its 10 s cycle (every animation inside
+ *                                    .se-loop is paused at that time), so the shot shows a chosen moment
  *   {shot: true}                     capture now (the shot's file)
  *   {thumb: 'text' | [...]}          the thumbnail: the card holding this text (the first of a list on the page; see
  *                                    thumbnail()), 3:2, 1200x800
  */
 const SHOTS = [
   { name: '01-home', hash: '#/', steps: [
-    { waitText: 'Just a coffee' }, { waitShown: '3 / 6', timeout: 60000 }, { wait: 2200 }, { shot: true },
+    { waitText: 'In the cloud, an AI attacks the copy' }, { wait: 1500 }, { loopAt: 5600 }, { shot: true },
   ] },
   // 02 -> 03 -> 04 are one Judge run on the level-crossing sample (judge-02, D-164) (hash null = continue the page as it is). Autoplay is off
   // for the pre-screen shot, then on so the sample sends itself (the Send button needs a verified cloud; autoplay's
@@ -230,6 +232,13 @@ const HELPERS = `
 
 async function step(st) {
   if (st.wait) await sleep(st.wait);
+  if (st.loopAt !== undefined) {
+    const n = await evaluate(`(() => { const root = document.querySelector('.se-loop'); if (!root) return -1; let n = 0;
+      for (const x of document.getAnimations()) { const el = x.effect && x.effect.target; if (!el || !root.contains(el)) continue;
+        const d = x.effect.getTiming().duration; x.pause(); x.currentTime = typeof d === 'number' && d < 5000 ? ${st.loopAt} % d : ${st.loopAt}; n++; }
+      return n; })()`);
+    if (n <= 0) throw new Error('loopAt: no HeroLoop animation on the page');
+  }
   if (st.click || st.clickHas) {
     const want = JSON.stringify(st.click ?? st.clickHas);
     const exact = Boolean(st.click);
