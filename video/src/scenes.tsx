@@ -439,13 +439,11 @@ export const Close = () => {
   return (
     <AbsoluteFill style={{ justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
       <Backdrop src="art-gate.webp" opacity={off} dim={0.7} />
-      <div style={{ marginTop: -60, position: 'relative' }}>
+      <div style={{ marginTop: -40, position: 'relative' }}>
         <EyeLogo size={200} from={0.4} blinkAt={2.6} />
         <div style={{ fontSize: 52, fontWeight: 800, color: C.muted, marginTop: 10, opacity: off }}>Location off isn't location hidden.</div>
         <div style={{ fontSize: 112, fontWeight: 900, letterSpacing: -3, marginTop: 8, opacity: useAt(2.2), transform: `scale(${0.92 + 0.08 * useAt(2.2)})` }}>Strangers' Eyes</div>
         <div style={{ fontSize: 40, marginTop: 4, opacity: useAt(2.6) }}>See what a stranger's AI sees, before you post.</div>
-        <div style={{ fontFamily: MONO, fontSize: 48, color: C.teal, marginTop: 34, opacity: useAt(3.6) }}>strangers-eyes.web.app</div>
-        <div style={{ fontSize: 22, color: C.muted, marginTop: 26, opacity: useAt(4.4) }}>Firebase AI Logic · Gemini · Gemini Nano · Apple Foundation Models · #BuildHybridAI</div>
       </div>
     </AbsoluteFill>
   );

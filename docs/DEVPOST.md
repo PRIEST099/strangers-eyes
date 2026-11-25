@@ -32,7 +32,7 @@ The cloud plays the stalker; your device holds the answers. See what AI can infe
 ## Try it out (links)
 - Live app: https://strangers-eyes.web.app
 - Judge Mode deep link: https://strangers-eyes.web.app/?judge=1
-- Code: [USER: REPO_URL, public after T-170]
+- Code: https://github.com/PRIEST099/strangers-eyes
 
 ## Video
 [USER: YOUTUBE_URL after T-187]
