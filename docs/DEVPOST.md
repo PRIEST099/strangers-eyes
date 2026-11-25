@@ -35,7 +35,7 @@ Turning off location doesn't hide where a photo was taken. Strangers' Eyes lets 
 - Code: https://github.com/PRIEST099/strangers-eyes
 
 ## Video
-[USER: YOUTUBE_URL after T-187]
+https://youtu.be/PGCWtGaSe_A
 
 About the footage: the app was recorded in headless Chrome, which has no Gemini Nano, so private steps show RULES-ONLY. Judge runs replay the Nov 23 recorded answers, badged CACHED SAMPLE, so no photo was sent again. iOS footage is from the Simulator.
 
