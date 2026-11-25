@@ -150,6 +150,20 @@ describe('What the cloud saw (SCR-15)', () => {
     expect(lastCloudImageSend(l.entries(), 'other')).toBeNull();
   });
 
+  it('F-297: a send that left and then failed or was blocked on a retry still counts; a call that sent nothing never does', () => {
+    const l = createMemoryLedger();
+    // The kill switch flipped before the retry: BLOCKED, but attempt 1's copy had already left.
+    const b = l.begin(start('adversaryB', 'S3'));
+    l.commit(b, { route: 'BLOCKED', model: 'none', bytesOut: 450_000, imagesOut: 1, imageSha256: [SHA_A], blocked: { reason: 'KILL_SWITCH' } });
+    expect(lastCloudImageSend(l.entries())?.id).toBe(b);
+    expect(ledgerCounters(l.entries())).toMatchObject({ cloudRequests: 1, uniqueImages: 1 });
+    // A device-only entry that somehow carried a hash but sent 0 bytes: never "what the cloud saw".
+    const l2 = createMemoryLedger();
+    const d = l2.begin(start('preScreen', 'S1'));
+    l2.commit(d, { route: 'BLOCKED', model: 'none', bytesOut: 0, imagesOut: 1, imageSha256: [SHA_ORIG], blocked: { reason: 'TRIPWIRE' } });
+    expect(lastCloudImageSend(l2.entries())).toBeNull();
+  });
+
   it('the rail shows the sha prefix and prompt id of the send, and the empty copy before one', async () => {
     const l = createMemoryLedger();
     const images = createSentImageStore(4, async () => SHA_A);

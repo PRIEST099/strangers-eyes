@@ -11,11 +11,11 @@
 |---|---|---|---|
 | Name | 15 | [UNVERIFIED: T-167] (Devpost usually 60) | fits the usual limit |
 | Elevator pitch | 165 | [UNVERIFIED: T-167] (Devpost usually 200; SPEC §1 says ≤200) | fits |
-| About the project (Markdown) | 8,671 (1,362 words) | [UNVERIFIED: T-167] (no limit known) | re-check when the draft is read |
+| About the project (Markdown) | 9,696 (1,542 words) | [UNVERIFIED: T-167] (no limit known) | re-check when the draft is read |
 | Testing instructions | 1,570 | [UNVERIFIED: T-167] | re-check when the draft is read |
 | Built during the submission period | 583 | [UNVERIFIED: T-167] | re-check when the draft is read |
 
-Measured Nov 24 after the submission-hardening rewrite and the writeup fixes (Ledger wording, failover, iOS pre-screen, the restored iOS Auth/Remote Config disclosure), with no fill-in markers left inside the fields.
+Measured Nov 24 after the submission-hardening rewrite and the writeup fixes (Ledger wording, failover, iOS pre-screen, the restored iOS Auth/Remote Config disclosure), with no fill-in markers left inside the fields. Re-measured Nov 24 after adding the "Measured: what left the device" section (D-169).
 
 ---
 
@@ -51,6 +51,12 @@ firebase-ai-logic, gemini, gemini-nano, apple-foundation-models, firebase-app-ch
 - A cloud AI (Gemini, through Firebase AI Logic) tries to work out where your photo was taken, from a redacted copy.
 - Your device alone grades the guess against a private vault (home, work, children's names), masks the clues, and lets the cloud try again.
 - **The attacker never learns whether it guessed right.**
+
+## Measured: what left the device
+On the hosted app (Nov 24), we checked the Berlin sample photo through the normal Check flow, not Judge Mode, with a made-up vault of two pins and a child's name, in a browser without Gemini Nano. Figures are from the consent screen and the Cloud Ledger.
+- **Sent:** one redacted 1536 × 1024 JPEG of 338 KB (metadata stripped, 0 faces, 0 vault matches; the built-in house-number check masked 23 areas, mostly text-recognition false positives) plus fixed instructions: about 456 KB per request.
+- **Not sent:** the 734 KB original, both pins and the name (0 vault items, per the gate). The private pre-checks (metadata, faces, text, vault match) ran as local rules, not in the cloud.
+- **Scope:** all three attack attempts failed (two timed out, one could not reach the model; the gate retried two of them once after a server error): five requests, 2,279 KB in total, and no answer. So this measures the first attack only; a full run also sends a more heavily masked copy for the re-attack.
 
 ## The idea
 Most privacy tools hide data from the cloud. Strangers' Eyes makes the cloud the threat and keeps the answer key on the device.

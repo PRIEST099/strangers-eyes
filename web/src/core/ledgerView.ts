@@ -147,14 +147,18 @@ export function hudPill(entries: readonly LedgerEntry[], tech = true): string {
 }
 
 /**
- * SCR-15: the most recent send that carried an image to the cloud (newest last in `entries`). Only IN_CLOUD entries
- * with images out qualify, so an on-device S1 call (which hashes the nano768 copy of the ORIGINAL) never does.
+ * SCR-15: the most recent send that carried an image to the cloud (newest last in `entries`). An entry qualifies when
+ * it has images out with their checked hashes AND either finished IN_CLOUD (D-148: incl. the DEV fake adversary, which
+ * sends 0 bytes) or saw bytes leave whatever its final route (F-297: a timeout, 5xx, block or BREACH on a retry after
+ * the copy had already left). An on-device S1 call (which hashes the nano768 copy of the ORIGINAL) never qualifies: it
+ * is never IN_CLOUD and sends 0 bytes, and the gate records no image for a call that sent nothing.
  * `sessionId` narrows it to one check.
  */
 export function lastCloudImageSend(entries: readonly LedgerEntry[], sessionId?: string): LedgerEntry | null {
   for (let i = entries.length - 1; i >= 0; i--) {
     const e = entries[i];
-    if (e.status !== 'done' || e.route !== 'IN_CLOUD' || e.imagesOut <= 0 || e.imageSha256.length === 0) continue;
+    if (e.status !== 'done' || e.imagesOut <= 0 || e.imageSha256.length === 0) continue;
+    if (e.route !== 'IN_CLOUD' && e.bytesOut <= 0) continue;
     if (sessionId !== undefined && e.sessionId !== sessionId) continue;
     return e;
   }

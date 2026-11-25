@@ -32,6 +32,7 @@ import { ADV_B_SCHEMA } from './schemas';
 import { ParseError } from './parse';
 import { NoDeviceModelError } from './models';
 import { createMemoryLedger, type Ledger } from '../core/ledger';
+import { lastCloudImageSend, ledgerCounters } from '../core/ledgerView';
 import { DEFAULT_POLICY, effectivePolicy } from '../core/routing';
 import { DEFAULT_CONFIG, type AppConfig } from '../firebase/rcParse';
 import { checkCleanJpeg } from '../tier0/exif';
@@ -1198,6 +1199,46 @@ describe('deadlines (API-NOTES §1.9, F-125) and timeouts_ms (D-131)', () => {
     expect(netCalls).toHaveLength(1);
     expect(netCalls[0].signal?.aborted).toBe(true);
     expect(h.status.report).not.toHaveBeenCalled();
+  });
+  it('F-297: a failed S3 call that already sent its copy records the image and its checked hash, not "nothing left"', async () => {
+    resetWorld({ replies: [{ stall: 'fetch' }] });
+    const h = await harness();
+    expect(errorOf(await call(h, req('advB', { timeoutMs: 30 }))).code).toBe('TIMEOUT');
+    const e = oneEntry(h);
+    expect(e.bytesOut).toBeGreaterThan(0);
+    expect(e.imagesOut).toBe(1);
+    expect(e.imageSha256).toEqual([sha(CLEAN)]);
+    expect(ledgerCounters([e])).toMatchObject({ cloudRequests: 1, uniqueImages: 1, facesSent: 0, vaultItemsSent: 0 });
+    expect(lastCloudImageSend([e])).toBe(e);
+    resetWorld({ replies: [{ status: 503 }, { status: 503 }] });
+    const h2 = await harness();
+    expect(errorOf(await call(h2, req('advB'))).code).toBe('CLOUD_SERVER');
+    expect(netFetch).toHaveBeenCalledTimes(2);
+    expect(oneEntry(h2)).toMatchObject({ imagesOut: 1, imageSha256: [sha(CLEAN)] });
+  });
+  it('F-297: a call that failed after its checks but sent nothing records no image (the bytes > 0 guard)', async () => {
+    // preSendChecks has filled c.digests; the tripwire refuses (vault index unavailable), so fail() runs with 0 bytes.
+    resetWorld({ unavailableAlways: true });
+    const h = await harness();
+    try {
+      expect(errorOf(await call(h, req('advB'))).code).toBe('VAULT_UNAVAILABLE');
+      const e = oneEntry(h);
+      expect(e).toMatchObject({ bytesOut: 0, imagesOut: 0, imageSha256: [] });
+      expect(lastCloudImageSend([e])).toBeNull();
+    } finally {
+      setVaultScanner(tripwireScanner(h.vs.activeTerms(), h.vs.activePins()));
+    }
+  });
+  it('F-297: the kill switch flipped before the retry: BLOCKED, but the copy that already left is recorded', async () => {
+    resetWorld({ replies: [{ status: 503 }, { text: '{"ok":true}' }] });
+    const h = await harness();
+    h.deps.sleep = async () => { h.config = { ...h.config, killSwitch: true }; };
+    expect(blockedOf(await call(h, req('advB'))).reason).toBe('KILL_SWITCH');
+    const e = oneEntry(h);
+    expect(e.bytesOut).toBeGreaterThan(0);
+    expect(e).toMatchObject({ route: 'BLOCKED', imagesOut: 1, imageSha256: [sha(CLEAN)] });
+    expect(ledgerCounters([e])).toMatchObject({ cloudRequests: 1, uniqueImages: 1 });
+    expect(lastCloudImageSend([e])).toBe(e);
   });
   it('a body that never ends, a stream that stalls after a chunk, an aggregate that never settles: all bounded', async () => {
     resetWorld({ replies: [{ stall: 'body' }] });

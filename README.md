@@ -5,6 +5,7 @@
 - **The cloud plays the attacker.** Gemini, through Firebase AI Logic, tries to work out where your photo was taken, from a redacted copy.
 - **Your device holds the answers.** It grades the guess against a private vault (home and work pins, your employer, your children's names), masks the clues the attacker used, and lets it try again.
 - **The attacker never learns whether it guessed right.** The vault and the original photo never leave the device.
+- **Measured on the hosted app** (Nov 24; Berlin sample photo through the normal Check flow, made-up vault of two pins and a child's name, no Gemini Nano; from the consent screen and Cloud Ledger): one redacted 1536 × 1024 JPEG of 338 KB (metadata stripped, 0 faces, 0 vault matches) plus fixed instructions, about 456 KB per request, was sent. The 734 KB original, the pins and the name were not (0 vault items, per the gate); the private pre-checks ran as local rules. All three attack attempts failed (two timeouts, one unreachable; two were retried once after a server error: five requests, 2,279 KB), so this covers the first attack only; a full run also sends the re-attack's copy. Details in [`docs/DEVPOST.md`](docs/DEVPOST.md).
 
 ![Home: the tagline and the illustrated story explainer](docs/img/gallery/01-home.png)
 

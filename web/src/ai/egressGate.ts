@@ -535,6 +535,18 @@ function createGate(deps: GateDeps): EgressGate {
   const nanoOff = (): string | null => (deps.prefs.simulateNoNano() ? 'simulated' : !deps.prefs.nanoEnabled() ? 'Nano off' : null);
   const unavailableNote = (s: NanoState) => (s === 'downloading' || s === 'downloadable' ? 'fallback: model downloading' : 'fallback: no on-device model');
   const bytesOf = <T>(c: Call<T>) => bytesById.get(c.id) ?? 0;
+  /**
+   * F-297: what a call that did NOT succeed (timeout, 5xx, network, abort, a block or BREACH on a retry, an internal
+   * error) had already sent. The hashes are the pre-send digests of the CHECKED bytes (D-129), cached on the call; they
+   * are recorded only when the tripwire saw bytes leave (an unsent call records none), so the Ledger's image count and
+   * "What the cloud saw" (ledgerView.lastCloudImageSend) do not read "nothing has left" after a copy did.
+   */
+  const sentImages = <T>(c: Call<T>, bytes: number): Pick<LedgerPatch, 'imagesOut' | 'imageSha256'> => {
+    if (bytes <= 0) return { imagesOut: 0, imageSha256: [] };
+    const shas: string[] = [];
+    for (const img of c.req.images) { const d = c.digests.get(img); if (d?.ok) shas.push(d.d.sha); }
+    return { imagesOut: c.req.images.length, imageSha256: shas };
+  };
   const latency = <T>(c: Call<T>) => Math.max(0, Math.round(deps.clock() - c.t0));
   const cloudModel = <T>(c: Call<T>) => {
     try { return cloudParamsFor(c.config, c.req.job).model; } catch { return 'cloud'; }
@@ -557,7 +569,7 @@ function createGate(deps: GateDeps): EgressGate {
     const bc = blockCopy(reason);
     const notes = extra.note ? [...c.notes, extra.note] : [...c.notes];
     commit(c, {
-      route: 'BLOCKED', mode: c.mode ?? c.config.routingPolicy.classes[c.cls]?.web ?? 'RULES', model: 'none', bytesOut: bytesOf(c), imagesOut: 0, notes,
+      route: 'BLOCKED', mode: c.mode ?? c.config.routingPolicy.classes[c.cls]?.web ?? 'RULES', model: 'none', bytesOut: bytesOf(c), ...sentImages(c, bytesOf(c)), notes,
       blocked: { reason, ...(hit ? { vaultId: hit.vaultId, vaultKind: hit.kind } : {}) },
       ...(extra.error ? { error: extra.error } : {}),
     });
@@ -578,7 +590,7 @@ function createGate(deps: GateDeps): EgressGate {
     const value = await fn();
     const bytes = bytesOf(c);
     const notes = [...c.notes, note];
-    commit(c, { route: 'RULES_ONLY', mode: 'RULES', model: 'rules', bytesOut: bytes, imagesOut: bytes > 0 ? c.req.images.length : 0, notes, ...(error ? { error } : {}) });
+    commit(c, { route: 'RULES_ONLY', mode: 'RULES', model: 'rules', bytesOut: bytes, ...sentImages(c, bytes), notes, ...(error ? { error } : {}) });
     throw new Done<T>({ value, route: 'RULES_ONLY', payloadClass: c.cls, latencyMs: latency(c), ledgerId: c.id, notes, ...(c.checksMs !== undefined ? { checksMs: c.checksMs } : {}) });
   }
 
@@ -587,7 +599,7 @@ function createGate(deps: GateDeps): EgressGate {
     const bytes = bytesOf(c);
     const notes = opts.note ? [...c.notes, opts.note] : [...c.notes];
     const route: Route = c.mode === 'ONLY_ON_DEVICE' ? 'ON_DEVICE' : 'IN_CLOUD';
-    commit(c, { route, mode: c.mode ?? 'ONLY_IN_CLOUD', model: route === 'ON_DEVICE' ? 'gemini-nano' : cloudModel(c), bytesOut: bytes, imagesOut: bytes > 0 ? c.req.images.length : 0, notes, error: code });
+    commit(c, { route, mode: c.mode ?? 'ONLY_IN_CLOUD', model: route === 'ON_DEVICE' ? 'gemini-nano' : cloudModel(c), bytesOut: bytes, ...sentImages(c, bytes), notes, error: code });
     throw new GateError(code, { ledgerId: c.id, ...(opts.copyId !== undefined ? { copyId: opts.copyId } : {}) });
   }
 
@@ -609,7 +621,7 @@ function createGate(deps: GateDeps): EgressGate {
     for (const ctrl of [...liveCloud]) { try { ctrl.abort(new BreachAbort()); } catch { /* ignore */ } }
     deps.status.markTripwire();
     const notes = [...c.notes, note, '+rules'];
-    commit(c, { route: 'BLOCKED', mode: c.mode ?? 'ONLY_ON_DEVICE', model: 'none', bytesOut: bytesOf(c), imagesOut: 0, notes, blocked: { reason: 'TRIPWIRE' }, error: 'BREACH' });
+    commit(c, { route: 'BLOCKED', mode: c.mode ?? 'ONLY_ON_DEVICE', model: 'none', bytesOut: bytesOf(c), ...sentImages(c, bytesOf(c)), notes, blocked: { reason: 'TRIPWIRE' }, error: 'BREACH' });
     notify(c, { kind: 'banner', copyId: 'copy.gate.tripwire', reason: 'TRIPWIRE', devError: false });
     const fn = c.req.deterministic;
     if (typeof fn !== 'function') throw new GateError('BREACH', { ledgerId: c.id });
@@ -1267,7 +1279,7 @@ function createGate(deps: GateDeps): EgressGate {
       if (e instanceof GateBlocked || e instanceof GateError) throw e;
       if (!c.committed) {
         try {
-          commit(c, { route: c.mode === 'ONLY_IN_CLOUD' ? 'IN_CLOUD' : 'BLOCKED', mode: c.mode ?? 'RULES', model: 'none', bytesOut: bytesOf(c), notes: [...c.notes], error: 'INTERNAL' });
+          commit(c, { route: c.mode === 'ONLY_IN_CLOUD' ? 'IN_CLOUD' : 'BLOCKED', mode: c.mode ?? 'RULES', model: 'none', bytesOut: bytesOf(c), ...sentImages(c, bytesOf(c)), notes: [...c.notes], error: 'INTERNAL' });
         } catch { /* the Ledger itself failed */ }
       }
       throw new GateError('INTERNAL', { ledgerId: id, detail: nameOf(e) }); // the exception's name only, never its text

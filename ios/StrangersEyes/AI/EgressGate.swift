@@ -238,8 +238,12 @@ final class EgressGate {
       return GateResult(value: reply, route: route, latencyMs: lat, engine: reply.engine)
     } catch {
       let lat = Self.ms(since: t0)
-      ledger.finish(id, route: .inCloud, engine: transport.engine, latencyMs: lat, status: "failed", note: "\(type(of: error))", bytes: jpeg.count)
-      return GateResult(value: nil, route: .inCloud, latencyMs: lat, engine: transport.engine, note: "failed")
+      // A failed real call counts the copy as sent (it may have left before the error; overcounting is the safe side).
+      // A failed simulated replay sent nothing (F-297).
+      let route: Route = transport.simulated ? .cached : .inCloud
+      ledger.finish(id, route: route, engine: transport.engine, latencyMs: lat, status: "failed", note: "\(type(of: error))",
+                    bytes: transport.simulated ? 0 : jpeg.count)
+      return GateResult(value: nil, route: route, latencyMs: lat, engine: transport.engine, note: "failed")
     }
   }
 }
