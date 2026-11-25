@@ -47,6 +47,10 @@
    "text": "That's hybrid AI: the cloud brings world knowledge, your device keeps the secrets. Private steps run on Gemini Nano in Chrome, or on Apple's own model on iPhone, shown here in the iOS app. No on-device AI? Simple rules take over, never the cloud. Built on Firebase AI Logic."
   },
   {
+   "id": "design",
+   "text": "Here's the whole design on one page. Private steps stay on your device. Every request to the AI passes one gate. And whether the guess was right never leaves."
+  },
+  {
    "id": "close",
    "text": "Location off isn't location hidden. See what a stranger's AI sees, before you post. Strangers' Eyes."
   }

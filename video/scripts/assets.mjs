@@ -11,5 +11,7 @@ const files = {
   'art-hero.webp': '../web/public/art/hero.webp',
   'art-vault.webp': '../web/public/art/vault.webp',
   'art-gate.webp': '../web/public/art/gate.webp',
+  // The architecture diagram (T-163), shown in the "design" scene.
+  'architecture.png': '../docs/img/architecture.png',
 };
 for (const [to, from] of Object.entries(files)) { copyFileSync(from, `public/img/${to}`); console.log(`public/img/${to}`); }

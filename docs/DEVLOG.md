@@ -322,6 +322,8 @@ How a flaw was found:
 | F-302 | Nov 25 | D-170 | test (vaultUi.test.ts) | minor | The vault illustration on the Vault screen broke the guard that the screen loads no image or other resource (it exists so no map tile can ever appear there) | Art removed from the Vault screen (used in the video instead); the guard is unchanged |
 | F-303 | Nov 25 | D-171 | main session (self, gallery shot) | minor | The first generated page background had a thin vertical "wall" line that ran straight through the Home headline, reading as a rendering glitch | Both backgrounds regenerated with "no lines"; SOURCES.md records it |
 | F-304 | Nov 25 | D-171 | main session (self) | minor | `shoot-gallery.mjs` 01-home waited for the removed reel's texts ("Just a coffee", "3 / 6") and would have failed; infinite animations are left running at capture, so the shot would catch a random frame | New `{loopAt: ms}` step freezes the HeroLoop at a chosen frame; 01-home waits for a caption and shoots at 5.6 s |
+| F-305 | Nov 25 | D-172 | main session (self, Devpost counter) | minor | Two gallery captions (175 and 171 characters) were written without checking the field limit; Devpost caps captions at 140 and its counter went negative after saving | Both shortened (135, 132) and re-saved; DEVPOST.md records the limit |
+| F-306 | Nov 25 | D-173 | main session (self, stills) | minor | The new architecture scene's opening full view put the burned-in subtitle over the diagram's own closing line, its last shot cut the first words of the line below it, and the corner tag sat over the diagram in later shots | Opening view pulled back and raised, last shot widened, tag fades out after the opening; re-checked stills |
 
 ---
 
@@ -472,6 +474,10 @@ How a flaw was found:
 - The HUD at the bottom left now lists every AI call as it happens: which job, its privacy class, where it ran (ON-DEVICE, IN CLOUD, RULES-ONLY, BLOCKED), the engine, how long it took, how many bytes left, and tags such as "fallback: no on-device model" or "Nano off". Collapsed, the pill shows the last call. Everything comes from the Ledger, which only holds ids, kinds, hashes and numbers.
 - The Cloud Ledger rail shows live counters and "What the cloud saw": the exact redacted JPEG of the last cloud send, kept in memory and shown only when the hash of its own bytes equals the hash the gate recorded, with the same 8-character prefix the consent sheet shows. The original photo is never registered. It all lives in memory for this page; nothing is stored or sent.
 - No real AI call was made. Browser check with the DEV fake Nano and fake adversary on a synthetic image: pre-screen and referee ON-DEVICE, pass B IN CLOUD, matching hashes. Found F-220..F-222.
+
+### Nov 25 (night): the architecture in the video, and the gallery in order (D-173)
+- The user asked for the architecture diagram in the video. It gets its own short scene before the close, with one new narration line per idea in the diagram (device lane, the gate, "never sent"), and the camera moves in the pauses so each part is on screen while it is named. The video is now 2:52.
+- The Devpost gallery saved in upload order, not the order chosen; Devpost keeps order through its own drag-sort endpoint, which was used as a drag would. Two captions were over the 140-character limit (F-305). The stills caught three framing problems in the new scene before the render (F-306).
 
 ### Nov 25 (later): a loop instead of a slideshow (D-171)
 - The user judged the animated story not production grade, and the app still had a flat background. The story was replaced by one looping hero built on the Figma art: the copy goes through the gate, the cloud's eye scans it, and its "?" is stopped at the wall, with three captions on the same clock. The page now has a generated background, with its own light-theme version. The first background drew a line straight through the headline and was redrawn.

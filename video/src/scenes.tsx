@@ -433,7 +433,51 @@ export const Hybrid = () => {
   );
 };
 
-// ---------------------------------------------------------------- 12 close
+// ---------------------------------------------------------------- 12 design
+/** The architecture diagram (docs/img/architecture.png, 3200 × 2000), shown in "display units" of 2000 × 1250. A camera
+ *  box {cx, cy, w} (16:9) moves in the narration's pauses: whole page → the device lane → the Egress Gate → "Right or
+ *  wrong? Never sent" with the closing line. Cue times come from the clip's silences (2.3–2.7, 4.5–5.0, 7.4–7.8 s). */
+const CAM = [
+  // whole page framed high enough that the diagram's closing line clears the burned-in subtitle
+  { t: 0, cx: 1000, cy: 680, w: 2500 },
+  { t: 2.25, cx: 1000, cy: 680, w: 2500 }, { t: 2.95, cx: 685, cy: 630, w: 1671 },
+  { t: 4.45, cx: 685, cy: 630, w: 1671 }, { t: 5.15, cx: 1480, cy: 410, w: 900 },
+  { t: 7.35, cx: 1480, cy: 410, w: 900 }, { t: 8.05, cx: 1215, cy: 990, w: 1480 },
+] as const;
+const ease = (v: number) => v * v * (3 - 2 * v);
+const camAt = (t: number) => {
+  let i = 0;
+  while (i < CAM.length - 1 && t >= CAM[i + 1].t) i++;
+  const a = CAM[i], b = CAM[Math.min(i + 1, CAM.length - 1)];
+  const p = b.t > a.t ? ease(Math.min(1, Math.max(0, (t - a.t) / (b.t - a.t)))) : 0;
+  return { cx: a.cx + (b.cx - a.cx) * p, cy: a.cy + (b.cy - a.cy) * p, w: Math.exp(Math.log(a.w) + (Math.log(b.w) - Math.log(a.w)) * p) };
+};
+export const Design = () => {
+  const t = useSec();
+  const { cx, cy, w } = camAt(t);
+  const s = 1920 / w;
+  const lane = Math.min(ramp01(t, 2.9, 3.3), 1 - ramp01(t, 4.4, 4.8));
+  const gate = Math.min(ramp01(t, 5.1, 5.5), 1 - ramp01(t, 7.3, 7.7));
+  const never = ramp01(t, 8.0, 8.4);
+  const pulse = 0.6 + 0.4 * Math.sin(t * Math.PI * 2 * 0.9);
+  return (
+    <AbsoluteFill style={{ background: '#0b0b0f', overflow: 'hidden' }}>
+      <div style={{ position: 'absolute', left: 960 - cx * s, top: 540 - cy * s, width: 2000 * s, height: 1250 * s }}>
+        <Img src={staticFile('img/architecture.png')} style={{ width: '100%', height: '100%' }} />
+        <svg viewBox="0 0 2000 1250" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
+          <rect x="52" y="162" width="1260" height="937" rx="26" fill="none" stroke={C.device} strokeWidth="5" opacity={lane * pulse} />
+          <rect x="1166" y="214" width="338" height="434" rx="26" fill="none" stroke={C.teal} strokeWidth="6" opacity={gate * pulse} />
+          <circle cx="1337" cy="987" r={34 + 10 * pulse} fill="none" stroke={C.red} strokeWidth="5" opacity={never * pulse} />
+        </svg>
+      </div>
+      <div style={{ position: 'absolute', right: 24, top: 18, background: 'rgba(10,11,15,0.88)', border: `1px solid ${C.line}`, borderRadius: 10,
+        padding: '8px 14px', fontFamily: MONO, fontSize: 18, color: C.muted, opacity: useAt(0.2) * (1 - ramp01(t, 2.0, 2.4)) }}>THE ARCHITECTURE · docs/img/architecture.png in the repo</div>
+    </AbsoluteFill>
+  );
+};
+const ramp01 = (t: number, a: number, b: number) => Math.min(1, Math.max(0, (t - a) / (b - a)));
+
+// ---------------------------------------------------------------- 13 close
 export const Close = () => {
   const off = useAt(0.2, 14);
   return (
@@ -451,5 +495,5 @@ export const Close = () => {
 
 export const SCENES: Record<string, () => JSX.Element> = {
   post: Post, stranger: Stranger, how: How, judge: Judge, prescreen: Prescreen, gate: Gate, castle: Castle,
-  crossing: Crossing, station: Station, results: Results, hybrid: Hybrid, close: Close,
+  crossing: Crossing, station: Station, results: Results, hybrid: Hybrid, design: Design, close: Close,
 };

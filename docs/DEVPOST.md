@@ -35,7 +35,7 @@ Turning off location doesn't hide where a photo was taken. Strangers' Eyes lets 
 - Code: https://github.com/PRIEST099/strangers-eyes
 
 ## Video
-https://youtu.be/PGCWtGaSe_A
+https://youtu.be/MED_9p9uS9g
 
 About the footage: the app was recorded in headless Chrome, which has no Gemini Nano, so private steps show RULES-ONLY. Judge runs replay the Nov 23 recorded answers, badged CACHED SAMPLE, so no photo was sent again. iOS footage is from the Simulator.
 
@@ -142,15 +142,15 @@ Strangers' Eyes is a new project, started on Nov 19, 2026, with no code from bef
 <!-- /built -->
 
 ## Gallery (T-166; no third-party logos, no real home or school)
-Files are in `docs/img/gallery/`, one caption each, in this order. Retaken Nov 24 from the real flow on the plain-language screens (`scripts/shoot-gallery.mjs`; 02–04 replay the recorded answers with Simulate offline, so nothing was sent; 05 is the gate refusing on the device).
+Files are in `docs/img/gallery/`, one caption each, in this order. Uploaded to the Devpost draft on Nov 25 in this order, with these captions (Devpost caps captions at 140 characters). Retaken Nov 24 from the real flow on the plain-language screens (`scripts/shoot-gallery.mjs`; 02–04 replay the recorded answers with Simulate offline, so nothing was sent; 05 is the gate refusing on the device).
 
-1. `01-home.png`: "Location off isn't location hidden: the tagline and an animated illustration of how a check works."
+1. `01-home.png`: "Location off isn't location hidden: the home screen, with an animated illustration of how a check works."
 2. `02-judge-run.png`: "A Judge Mode run: every AI step labelled ON-DEVICE, IN CLOUD or RULES-ONLY, with its latency."
-3. `03-verdict.png`: "Level crossing, first verdict: a street-level guess within 5 km of the made-up pins, shown as distance bands, never a map pin. Recorded Nov 23 answer (CACHED SAMPLE)."
-4. `04-reattack.png`: "Fix and re-attack: with the street sign and house-number plate masked, the attacker got only the city. Risk reduced, never 'safe'. Recorded Nov 23 answer (CACHED SAMPLE)."
-5. `05-blocked.png`: "The Egress Gate blocks a copy that still shows a vault match (LUCAS): 0 bytes sent."
-6. `06-about-routing.png`: "What leaves this device: never the vault or the original photo."
-7. `07-capabilities.png`: "What runs where on this browser: Nano when available, otherwise rules, never the cloud, for private steps."
+3. `03-verdict.png`: "Level crossing: a street-level guess within 5 km of the made-up home and work, shown as distance bands, never a map pin. CACHED SAMPLE."
+4. `04-reattack.png`: "Fix and re-attack: with the street sign and house-number plate masked, the AI could only name the city. Risk reduced. CACHED SAMPLE."
+5. `05-blocked.png`: "The Egress Gate stops an attack whose copy still shows a word from the vault (LUCAS): 0 bytes sent on that call."
+6. `06-about-routing.png`: "What leaves this device: never your vault (the private list) or your original photo."
+7. `07-capabilities.png`: "What runs where in this browser: for private steps, Nano when available, otherwise rules, never the cloud."
 
 Optional: 8. `docs/img/architecture.png` "One Egress Gate between the device and Firebase AI Logic." 9. `docs/img/routing.png` "Routing by sensitivity class, with a hard floor in code."
 
@@ -160,6 +160,7 @@ Thumbnail: `docs/img/thumbnail.png` (3:2).
 - Title: Strangers' Eyes: see where a stranger's AI thinks your photo was taken, before you post
 - Thumbnail: `video/out/thumbnail.jpg` (1280 × 720, the closing card; git-ignored, regenerate with `npx remotion still` at the last frame)
 - Subtitles: `video/out/subtitles.en.srt`
+- Tags: BuildHybridAI, Firebase AI Logic, Gemini, Gemini Nano, hybrid AI, on-device AI, photo privacy, location privacy, geolocation, Apple Foundation Models. Chapters start at the rendered scene starts (D-173 cut, 2:52), each at least 10 s.
 
 Description:
 
@@ -170,6 +171,17 @@ On your device, the app covers faces and private words with solid black boxes an
 For your own photos, the private steps run on the device (Gemini Nano in Chrome, or Apple's on-device model on iOS) and the attack runs in the cloud, all through Firebase AI Logic. With no on-device AI, simple built-in rules take over, never the cloud. The browser I recorded in had no Gemini Nano, so the web clips show those steps as RULES-ONLY. The iOS clips are from the iOS Simulator.
 
 The Judge Mode answers in this video were recorded on Nov 23 and replayed, labelled as such. The photos are openly licensed pictures of public places, and the family is made up.
+
+Chapters
+0:00 Location off isn't location hidden
+0:21 How a check works
+0:44 Judge Mode: a name covered on the device
+1:01 The last checkpoint
+1:11 Castle: crop it or don't post it
+1:33 Level crossing: risk reduced
+1:50 Station: still exposed, and the 10-photo test
+2:14 Hybrid AI
+2:34 The whole design on one page
 
 Try it: https://strangers-eyes.web.app
 Code: https://github.com/PRIEST099/strangers-eyes
