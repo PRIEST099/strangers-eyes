@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 import { AbsoluteFill, Freeze, Img, interpolate, OffthreadVideo, Sequence, Series, staticFile, useCurrentFrame, useVideoConfig } from 'remotion';
 import clips from '../public/clips.json';
 import { Callout, Phone, PhotoCard, RingMap, type Box } from './anim';
+import { HeroLoopArt } from './heroloop';
 import { Chip, EyeCloud, EyeLogo, Icon, StepStrip, Street, useAt, useLin, useSec, Wall } from './art';
 import { C, MONO } from './theme';
 
@@ -151,82 +152,57 @@ export const Stranger = () => {
 
 // ---------------------------------------------------------------- 3 how it works, in four steps
 export const How = () => {
+  // D-171: the app's hero loop (Figma art + overlay), cued to the narration: 1 clean (masks framed), 2 the copy crosses
+  // the gate and the cloud's AI scans it, 3 the private list stays on the device, distance bands, and the "right or
+  // wrong?" stops at the wall, 4 fix and attack again.
   const t = useSec();
   const step = t < 6.1 ? 1 : t < 11.6 ? 2 : t < 20.8 ? 3 : 4;
-  const masks = { face: useAt(1.2, 9), sticker: useAt(2.0, 9) };
-  const tagOff = useLin(3.0, 4.6);
-  const cleaned = useAt(4.8, 10);
-  const travel = useAt(6.6, 16);
+  const show = useAt(0.1, 16);
+  const blocksNote = useAt(1.6, 14) - useAt(5.8, 16);
   const bubble = useLin(8.6, 10.6);
+  const gets = useAt(9.2, 14) - useAt(18.0, 16);
   const vault = useAt(11.8, 14) - useAt(15.4, 16);
-  const bump = interpolate(t, [13.6, 14.3, 15.0], [0, 1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
-  const map = useAt(15.6, 15);
-  const token = interpolate(t, [18.4, 19.2, 19.9], [0, 1, 0.15], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
-  const flash = interpolate(t, [19.1, 19.3, 20.2], [0, 1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
+  const bands = useAt(15.6, 15) - useAt(18.6, 16);
   const never = useAt(19.4, 12);
-  const fix = { sign: useAt(21.0, 9), shop: useAt(21.3, 9), face: 1, sticker: 1 };
-  const again = useAt(21.4, 12);
+  const again = useAt(21.0, 12);
   const guess = 'My guess: a city… a street…';
-  const blocksNote = useAt(1.4);
   return (
     <AbsoluteFill>
-      <div style={{ position: 'absolute', left: 0, right: 0, top: 36, display: 'flex', justifyContent: 'center' }}><StepStrip active={step} current={step} /></div>
-      {/* the device */}
-      <Phone x={150} y={150} scale={0.95} glow={C.device}>
-        <div style={{ position: 'absolute', left: 0, right: 0, top: 70, textAlign: 'center', fontSize: 26, fontWeight: 800, color: C.device }}>YOUR DEVICE</div>
-        <div style={{ position: 'absolute', left: 0, top: 180, opacity: 1 - map }}>
-          <Street w={358} person masks={masks} />
-          {cleaned > 0.05 ? <div style={{ position: 'absolute', left: 60, top: 70, transform: `rotate(-8deg) scale(${1.4 - 0.4 * cleaned})`, opacity: cleaned, border: `4px solid ${C.fg}`, color: C.fg, padding: '4px 12px', fontWeight: 900, fontSize: 26, background: 'rgba(0,0,0,0.5)' }}>CLEANED COPY</div> : null}
-          {travel > 0.2 ? <div style={{ marginTop: 20, textAlign: 'center' }}><Chip color={C.device} size={20}>🔒 original stays here</Chip></div> : null}
-        </div>
-        {/* the private list */}
-        <div style={{ position: 'absolute', left: 18, right: 18, top: 170, opacity: Math.max(0, vault), transform: `scale(${0.9 + 0.1 * Math.max(0, vault)})` }}>
-          <div style={{ background: '#1d1636', border: `2px solid ${C.device}`, borderRadius: 22, padding: 20 }}>
-            <div style={{ fontSize: 24, fontWeight: 800, color: C.device, marginBottom: 12 }}>🔒 Your private list</div>
-            {([['home', 'Home'], ['work', 'Work'], ['child', "Child's name"], ['car', 'Car plate']] as const).map(([k, l], i) => (
-              <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 14, fontSize: 26, padding: '10px 6px', borderTop: i ? `1px solid ${C.line}` : 'none',
-                transform: i === 0 ? `translateX(${bump * 380}px)` : 'none' }}><Icon kind={k} color={C.fg} /> {l}</div>
-            ))}
-          </div>
-          <div style={{ textAlign: 'center', marginTop: 14, fontSize: 24, fontWeight: 800, color: C.device }}>never leaves your device</div>
-        </div>
-        {/* distance bands around your own places */}
-        <div style={{ position: 'absolute', left: 0, top: 160, opacity: map, transform: `scale(${0.92 + 0.08 * map})` }}>
-          <RingMap w={358} h={420} from={S(15.9)} rings={[{ r: 50, label: '1 km', color: C.red }, { r: 105, label: '5 km', color: C.amber }, { r: 165, label: 'city', color: C.muted }]} />
-          <div style={{ textAlign: 'center', marginTop: 10, fontSize: 21, color: C.muted }}>distance bands, never a map pin</div>
-        </div>
-      </Phone>
-      {/* D-170: the vault illustration beside the phone while the private list is on screen */}
-      <div style={{ position: 'absolute', left: 575, top: 560, width: 310, height: 310, opacity: Math.max(0, vault), transform: `scale(${0.92 + 0.08 * Math.max(0, vault)})`,
-        borderRadius: 24, overflow: 'hidden', boxShadow: `0 0 60px ${C.device}44` }}>
-        <Img src={staticFile('img/art-vault.webp')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      <HeroLoopArt t={t} x={160} y={140} w={1600} opacity={show}
+        cues={{ packets: [[6.2, 8.2], [21.0, 22.4]], brackets: [[1.6, 6.0], [20.9, 23.2]], scan: [8.0, 11.8], q: [18.4, 19.7] }} />
+      <div style={{ position: 'absolute', left: 0, right: 0, top: 30, display: 'flex', justifyContent: 'center' }}><StepStrip active={step} current={step} /></div>
+      {/* 1: on the device */}
+      <div style={{ position: 'absolute', left: 760, top: 720, opacity: blocksNote, transform: `translateY(${(1 - Math.max(0, blocksNote)) * 16}px)` }}>
+        <Chip color={C.device} bg="rgba(11,11,15,0.88)" size={28}>solid blocks, never blur · hidden photo data removed</Chip>
       </div>
-      {/* the checkpoint */}
-      <div style={{ position: 'absolute', left: 925, top: 230 }}><Wall h={600} flash={flash} /></div>
-      {/* the cloud AI */}
-      <div style={{ position: 'absolute', left: 1300, top: 170 }}>
-        <EyeCloud w={380} look={step === 2 ? Math.sin(t * 3) * 0.8 : 0} question={t > 19.6} blinkAt={12} />
-        <div style={{ textAlign: 'center', fontSize: 30, fontWeight: 800, color: C.cloud, marginTop: -6 }}>CLOUD AI · Google Gemini</div>
-      </div>
-      {/* the cleaned copy travels to the cloud */}
-      {travel > 0.01 ? (
-        <div style={{ position: 'absolute', left: 200 + travel * 1160, top: 480 - travel * 30, opacity: Math.min(1, travel * 3), borderRadius: 12, overflow: 'hidden', border: '3px solid #fff', boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }}>
-          <Street w={300} person masks={step >= 4 ? fix : { face: 1, sticker: 1 }} />
-        </div>
-      ) : null}
-      {travel > 0.9 ? <div style={{ position: 'absolute', left: 1210, top: 670, width: 620, fontSize: 25, color: C.fg, lineHeight: 1.35, opacity: travel }}>
+      {/* 2: the cloud guesses from the copy only */}
+      {bubble > 0 && t < 18.4 ? <div style={{ position: 'absolute', left: 1180, top: 470, background: '#fff', color: '#111', borderRadius: 18, padding: '12px 20px', fontSize: 28, fontWeight: 800, fontFamily: MONO }}>
+        {guess.slice(0, Math.round(bubble * guess.length))}</div> : null}
+      <div style={{ position: 'absolute', left: 1180, top: 560, width: 640, fontSize: 26, lineHeight: 1.4, padding: '14px 20px', borderRadius: 16, background: 'rgba(11,11,15,0.88)', border: `1px solid ${C.line}`, opacity: Math.max(0, gets) }}>
         <div><span style={{ color: C.green, fontWeight: 900 }}>Gets:</span> the cleaned copy only</div>
         <div><span style={{ color: C.red, fontWeight: 900 }}>Never gets:</span> your private list or your original photo</div>
-      </div> : null}
-      {bubble > 0 && t < 18.4 ? <div style={{ position: 'absolute', left: 1360, top: 120, background: '#fff', color: '#111', borderRadius: 18, padding: '12px 20px', fontSize: 28, fontWeight: 800, fontFamily: MONO }}>
-        {guess.slice(0, Math.round(bubble * guess.length))}</div> : null}
-      {/* the "right or wrong?" token bounces off the checkpoint */}
-      {token > 0.01 ? <div style={{ position: 'absolute', left: 560 + token * 340, top: 560, background: C.card2, border: `2px solid ${C.teal}`, borderRadius: 12, padding: '8px 14px', fontSize: 24, fontWeight: 800 }}>✓ right? ✕ wrong?</div> : null}
-      <div style={{ position: 'absolute', left: 0, right: 0, top: 872, textAlign: 'center', fontSize: 42, fontWeight: 900, color: C.teal, opacity: never * (t < 21 ? 1 : 0) }}>The cloud never learns if it was right.</div>
-      {again > 0.01 ? <div style={{ position: 'absolute', left: 1080, top: 860, opacity: again, display: 'flex', alignItems: 'center', gap: 14, fontSize: 38, fontWeight: 900, color: C.green }}>
+      </div>
+      {/* 3: the private list and the distance bands stay on the device */}
+      <div style={{ position: 'absolute', left: 200, top: 300, width: 430, opacity: Math.max(0, vault), transform: `scale(${0.92 + 0.08 * Math.max(0, vault)})` }}>
+        <div style={{ borderRadius: 24, overflow: 'hidden', boxShadow: `0 0 60px ${C.device}55`, border: `2px solid ${C.device}` }}>
+          <Img src={staticFile('img/art-vault.webp')} style={{ width: 430, height: 330, objectFit: 'cover', display: 'block' }} />
+        </div>
+        <div style={{ marginTop: 12, padding: '12px 16px', borderRadius: 14, background: 'rgba(11,11,15,0.9)', border: `1px solid ${C.device}`, fontSize: 24 }}>
+          <div style={{ display: 'flex', gap: 18, color: C.fg, fontWeight: 700 }}>
+            <span style={{ display: 'flex', gap: 8, alignItems: 'center', whiteSpace: 'nowrap' }}><Icon kind="home" size={26} /> Home</span>
+            <span style={{ display: 'flex', gap: 8, alignItems: 'center', whiteSpace: 'nowrap' }}><Icon kind="work" size={26} /> Work</span>
+            <span style={{ display: 'flex', gap: 8, alignItems: 'center', whiteSpace: 'nowrap' }}><Icon kind="child" size={26} /> Child's name</span>
+          </div>
+          <div style={{ color: C.device, fontWeight: 800, marginTop: 6 }}>never leaves your device</div>
+        </div>
+      </div>
+      <div style={{ position: 'absolute', left: 185, top: 260, opacity: Math.max(0, bands), transform: `scale(${0.92 + 0.08 * Math.max(0, bands)})` }}>
+        <RingMap w={420} h={420} from={S(15.9)} rings={[{ r: 70, label: '1 km', color: C.red }, { r: 132, label: '5 km', color: C.amber }, { r: 192, label: 'city', color: C.muted }]} />
+        <div style={{ marginTop: 10, width: 420, boxSizing: 'border-box', textAlign: 'center', fontSize: 22, color: C.fg, background: 'rgba(11,11,15,0.88)', borderRadius: 12, padding: '6px 10px' }}>distance bands, worked out on the device · never a map pin</div>
+      </div>
+      <div style={{ position: 'absolute', left: 0, right: 0, top: 900, textAlign: 'center', fontSize: 42, fontWeight: 900, color: C.teal, opacity: never * (t < 21 ? 1 : 0), textShadow: '0 4px 24px rgba(0,0,0,0.9)' }}>The cloud never learns if it was right.</div>
+      {again > 0.01 ? <div style={{ position: 'absolute', left: 760, top: 720, opacity: again, display: 'flex', alignItems: 'center', gap: 14, fontSize: 38, fontWeight: 900, color: C.green, background: 'rgba(11,11,15,0.88)', padding: '8px 18px', borderRadius: 14 }}>
         <span style={{ display: 'inline-block', transform: `rotate(${again * 360}deg)` }}>⟳</span> fix, then attack again</div> : null}
-      <div style={{ position: 'absolute', left: 560, top: 300, width: 330, fontSize: 30, fontWeight: 700, lineHeight: 1.3, color: C.muted, opacity: step === 1 ? blocksNote : 0 }}>solid blocks, never blur · hidden photo data removed</div>
-      {tagOff > 0 && tagOff < 1 ? <div style={{ position: 'absolute', left: 560, top: 420 + tagOff * 300, transform: `rotate(${tagOff * 40}deg)`, opacity: 1 - tagOff, background: '#fff8dc', color: '#333', padding: '8px 14px', fontSize: 22, fontWeight: 700, borderRadius: 6 }}>hidden photo data: place · time · camera</div> : null}
     </AbsoluteFill>
   );
 };
