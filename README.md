@@ -1,6 +1,6 @@
 # Strangers' Eyes: see your photo the way a stalker's AI would, before you post it
 
-[Live app](https://strangers-eyes.web.app) · [Demo video, under 3 min](https://youtu.be/MED_9p9uS9g) · [Source](https://github.com/PRIEST099/strangers-eyes) · [Apache-2.0](LICENSE) · Built for #BuildHybridAI 2026: Web PWA (hosted) and iOS (SwiftUI, run in the Simulator) · [USER: platforms and "Best of" category, T-172]
+[Live app](https://strangers-eyes.web.app) · [Demo video, under 3 min](https://youtu.be/_1SQMxDQpHk) · [Source](https://github.com/PRIEST099/strangers-eyes) · [Apache-2.0](LICENSE) · Built for #BuildHybridAI 2026: Web PWA (hosted) and iOS (SwiftUI, run in the Simulator) · [USER: platforms and "Best of" category, T-172]
 
 - **The cloud plays the attacker.** Gemini, through Firebase AI Logic, tries to work out where your photo was taken, from a redacted copy.
 - **Your device holds the answers.** It grades the guess against a private vault (home and work pins, your employer, your children's names), masks the clues the attacker used, and lets it try again.

@@ -35,7 +35,7 @@ Turning off location doesn't hide where a photo was taken. Strangers' Eyes lets 
 - Code: https://github.com/PRIEST099/strangers-eyes
 
 ## Video
-https://youtu.be/MED_9p9uS9g
+https://youtu.be/_1SQMxDQpHk
 
 About the footage (re-cut Nov 26, D-174): the web app was recorded in Chrome with Gemini Nano switched on, so the clue scan and the guess check show ON-DEVICE with their latencies. The steps that always run as code or a small local model (metadata, faces, text, vault match, the fix plan) show BUILT-IN; RULES-ONLY appears only when an on-device AI step falls back (re-recorded Nov 27, D-179). Judge runs replay the Nov 23 recorded attacker answers, badged CACHED SAMPLE, so no photo was sent again. iOS footage is from the Simulator.
 
@@ -137,7 +137,7 @@ An Android version with Gemini Nano, the live Gemini call on iOS, a benchmark of
 6. Optional: in desktop Chrome with on-device AI turned on (chrome://settings/ai and chrome://flags/#prompt-api-for-gemini-nano-multimodal-input), reload, and once Settings shows Nano as available, the private steps run on the device.
 7. Optional: try a photo you took yourself, with no people in it. Even with an empty private list you'll see the clues and how precise the guess was.
 
-The iOS app is shown in the video. Build steps are in the README; you'd need your own Firebase project and an App Check debug token.
+No credentials are needed. The iOS app is shown in the video; build steps are in the README (you'd need your own Firebase project and an App Check debug token).
 <!-- /testing -->
 
 ## Built during the submission period (summary field)
@@ -149,9 +149,9 @@ Strangers' Eyes is a new project, started on Nov 19, 2026, with no code from bef
 Files are in `docs/img/gallery/`, one caption each, in this order. Uploaded to the Devpost draft on Nov 25 in this order, with these captions (Devpost caps captions at 140 characters). D-174/D-176 (Nov 26): 02–07 retaken in Chrome with Gemini Nano and the new "Other network traffic" wording, captions 2–4 rewritten; the Devpost gallery needs those six files and captions re-uploaded [USER approval]. Retaken Nov 24 from the real flow on the plain-language screens (`scripts/shoot-gallery.mjs`; 02–04 replay the recorded answers with Simulate offline, so nothing was sent; 05 is the gate refusing on the device).
 
 1. `01-home.png`: "Location off isn't location hidden: the home screen, with an animated illustration of how a check works."
-2. `02-judge-run.png`: "Judge Mode in Chrome with Gemini Nano: the clue scan ran ON-DEVICE (24 s, 0 bytes sent); the always-on checks read BUILT-IN, and every step shows where it ran."
+2. `02-judge-run.png`: "Judge Mode with Gemini Nano: the clue scan ran ON-DEVICE (24 s, 0 bytes sent); the always-on checks read BUILT-IN."
 3. `03-verdict.png`: "Level crossing: a street-level guess within 5 km of the made-up home and work, as distance bands, never a pin. Checked on Nano."
-4. `04-reattack.png`: "Fix and re-attack: signs masked, the AI could only name the city. On this run Nano's check said Risk reduced (the video's run said Still exposed)."
+4. `04-reattack.png`: "Fix and re-attack: signs masked, the AI could only name the city. Nano's check said Risk reduced here; the video's run: Still exposed."
 5. `05-blocked.png`: "The Egress Gate stops an attack whose copy still shows a word from the vault (LUCAS): 0 bytes sent on that call."
 6. `06-about-routing.png`: "What leaves this device: never your vault (the private list) or your original photo."
 7. `07-capabilities.png`: "What runs where in this browser: for private steps, Nano when available, otherwise simple rules, never the cloud."
@@ -172,7 +172,7 @@ You turned location off before posting. A stranger's AI can still read the stree
 
 On your device, the app covers faces and private words with solid black boxes and strips hidden photo data. In the cloud, Google's Gemini plays the stranger and sees only that cleaned copy. Back on your device, the app checks the guess against a private list that never leaves it: how close it came to your home and work, and whether it picked up your children's names. It then covers the clues and lets the AI try again. The cloud never learns whether it guessed right.
 
-For your own photos, the private steps run on the device (Gemini Nano in Chrome, or Apple's on-device model on iOS) and the attack runs in the cloud, all through Firebase AI Logic. With no on-device AI, simple rules take over, never the cloud. The web clips were recorded in Chrome with Gemini Nano on, so the clue scan and the guess check show ON-DEVICE. The iOS clips are from the iOS Simulator.
+For your own photos, the private steps run on the device (Gemini Nano in Chrome, or Apple's on-device model on iOS) and the attack runs in the cloud, all through Firebase AI Logic. With no on-device AI, simple rules take over, never the cloud. The web clips were recorded in Chrome with Gemini Nano on, so the clue scan and the guess check show ON-DEVICE, and the checks that always run as plain code on the device show BUILT-IN. The iOS clips are from the iOS Simulator.
 
 The Judge Mode answers in this video were recorded on Nov 23 and replayed, labelled as such. The photos are openly licensed pictures of public places, and the family is made up.
 
