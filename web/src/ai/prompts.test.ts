@@ -29,6 +29,7 @@ const VARS: Record<PromptId, string[]> = {
   'nanoFix.v1': ['CLUES_JSON', 'MATCHES_JSON', 'DISTANCE_JSON'],
   'explain.v1': ['CLUE_TYPE', 'REGION', 'EVIDENCE', 'REVEALS'],
   'fmPre.v1': ['LINES_JSON', 'LABELS_JSON'],
+  'textProbe.dev1': [],
 };
 const sample = (id: PromptId) => Object.fromEntries(VARS[id].map((v) => [v, v.endsWith('_JSON') ? [{ id: 'x1', text: `<${v}>` }] : `<${v}>`]));
 

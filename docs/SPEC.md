@@ -1494,7 +1494,7 @@ Otherwise show `copy.verdict.still`, naming the worst remaining line.
 | copy.fix.maxRounds | That's 3 rounds for this photo. Export it, crop it, or keep it private. |
 | copy.receipt.line | Cloud received {images} redacted images in {requests} requests · 0 faces · 0 vault items · {k} on-device AI calls · {r} local checks. |
 | copy.ledger.counters | Faces sent: {f} · Vault items sent: {v} |
-| copy.ledger.otherTraffic | Other network traffic: App Check, anonymous sign-in and Remote Config. None of it carries your photo or vault. |
+| copy.ledger.otherTraffic | Other network traffic: App Check (with reCAPTCHA), anonymous sign-in, Remote Config, and the face detector's small usage pings to Google (library version and timings). None of it carries your photo or vault. |
 | copy.cloudSaw.empty | Nothing has left this device yet. |
 | copy.export.check | Export check: no metadata · 0 faces · 0 vault text |
 | copy.share.headline | AI found {n} location clues in my photo. I masked what I could on my own device before posting. |

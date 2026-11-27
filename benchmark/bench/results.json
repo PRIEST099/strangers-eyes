@@ -1,0 +1,91 @@
+{
+ "generated": {
+  "files": 1,
+  "dates": [
+   "2026-11-26"
+  ],
+  "model": "gemini-3.5-flash-lite",
+  "promptId": "advB.v1",
+  "thinking": "MEDIUM",
+  "px": 1536,
+  "runs": 3,
+  "fixRuns": 3,
+  "retries": 1,
+  "planned": 40,
+  "missing": [],
+  "stoppedEarly": false,
+  "olderTaken": 6,
+  "unknownTaken": 7
+ },
+ "aggregate": {
+  "photos": 40,
+  "scored": 36,
+  "skipped": 4,
+  "runs": 108,
+  "refusedRuns": 0,
+  "allRuns": 126,
+  "errorRuns": 0,
+  "maj1": 5,
+  "maj5": 8,
+  "maj25": 11,
+  "maj200": 20,
+  "any1": 6,
+  "any5": 9,
+  "any25": 12,
+  "medianD": 129.24,
+  "noAnswerPhotos": 0,
+  "latency": {
+   "p50Ms": 8503,
+   "p95Ms": 14125,
+   "n": 126
+  },
+  "fix": {
+   "located": 8,
+   "attacked": 6,
+   "conclusive": 6,
+   "fixRefused": 0,
+   "inconclusive": 0,
+   "skippedRefusal": 0,
+   "skippedNoClue": 2,
+   "stillMaj5": 3,
+   "stillMaj1": 1,
+   "movedOutward": 4,
+   "medianBefore": 0.72,
+   "medianAfter": 8.35,
+   "fartherMedian": 5
+  },
+  "byType": {
+   "urban": {
+    "n": 16,
+    "maj5": 7,
+    "maj25": 10
+   },
+   "landmark": {
+    "n": 6,
+    "maj5": 1,
+    "maj25": 1
+   },
+   "rural": {
+    "n": 3,
+    "maj5": 0,
+    "maj25": 0
+   },
+   "park": {
+    "n": 3,
+    "maj5": 0,
+    "maj25": 0
+   },
+   "nature": {
+    "n": 8,
+    "maj5": 0,
+    "maj25": 0
+   }
+  }
+ },
+ "sensitivity2026": {
+  "scored": 23,
+  "maj1": 4,
+  "maj5": 5,
+  "maj25": 7
+ }
+}

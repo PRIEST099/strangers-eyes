@@ -1,0 +1,1 @@
+Transcribe every piece of readable text in this image, exactly as written, one item per line: signs, labels, names, numbers. Do not describe the image and do not guess text you cannot read. If no text is readable, answer exactly: NONE

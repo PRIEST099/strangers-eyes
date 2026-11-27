@@ -108,9 +108,9 @@ export default defineConfig(({ mode }) => {
   },
   server: spike
     ? {
-        // Unattended spike runs only: serve PRIV/spike (not all of PRIV), and turn off HMR and the websocket so no
+        // Unattended spike runs only: serve PRIV/spike and PRIV/bench (not all of PRIV), and turn off HMR and the websocket so no
         // hot update or forced reload can restart a live run and repeat cloud calls (T-031 review blockers).
-        fs: { allow: ['..', `${PRIV}/spike`] },
+        fs: { allow: ['..', `${PRIV}/spike`, `${PRIV}/bench`] }, // D-174: + the benchmark set
         hmr: false,
         ws: false,
       }

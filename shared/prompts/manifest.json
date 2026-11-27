@@ -29,7 +29,8 @@
     "nanoPre.v1.schema.json": "bbca38933c9b0d0f0c5b710cf0200c21ecee45c4afde257a5ced339a65bc5303",
     "nanoPre.v1.user.md": "1ff6165e4938c2427189af98d560f5a615e8d1640a65b941e80b157c0fcf860e",
     "nanoRef.v1.user.md": "4955c9ee60fdfaa97c185d8765bc7881039e28cdf01a1d40e5bb4c4aa8245c34",
-    "nanoVaultText.v1.user.md": "9e0e5cb47d187d20e0b933a4351eafa1066e2e84ab22907b5140b1ab4f053c2d"
+    "nanoVaultText.v1.user.md": "9e0e5cb47d187d20e0b933a4351eafa1066e2e84ab22907b5140b1ab4f053c2d",
+    "textProbe.dev1.user.md": "289a1bf0ccee1d765584ae5fb78b4cd7541610e5dbc2fef32192558cd74b3927"
   },
   "prompts": {
     "advA.v1": {
@@ -80,6 +81,10 @@
     "fmPre.v1": {
       "user": "fmPre.v1.user.md",
       "generable": "FMPreScreen",
+      "released": false
+    },
+    "textProbe.dev1": {
+      "user": "textProbe.dev1.user.md",
       "released": false
     }
   }

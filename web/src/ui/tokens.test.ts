@@ -158,8 +158,17 @@ function sources(dir: string): string[] {
 }
 
 describe('no blur anywhere (CLAUDE.md invariant 6, docs/DESIGN.md §6.1)', () => {
+  // D-175: the ONE exception is the DEV-only adversary harness, whose solid-vs-blur experiment blurs clue boxes to measure
+  // what blur-based redaction still leaks (it is never a mask the app applies). It must carry the DEV-only marker, which
+  // check-dist proves never reaches a production build.
+  const BLUR_EXPERIMENT = join(SRC, 'dev', 'spikes', 'adversaryRun.ts');
   it('no backdrop-blur, blur-* utility or CSS blur() in web/src', () => {
-    const hits = sources(SRC).filter((p) => /\bbackdrop-blur\b|\bblur-[a-z0-9[]|\bblur\(/.test(readFileSync(p, 'utf8')));
+    const hits = sources(SRC).filter((p) => p !== BLUR_EXPERIMENT && /\bbackdrop-blur\b|\bblur-[a-z0-9[]|\bblur\(/.test(readFileSync(p, 'utf8')));
     expect(hits).toEqual([]);
+  });
+  it('the blur experiment stays DEV-only (D-175)', () => {
+    const src = readFileSync(BLUR_EXPERIMENT, 'utf8');
+    expect(src).toContain('__SE_DEV_ONLY__');
+    expect((src.match(/\bblur\(/g) ?? []).length).toBe(1); // only blurCanvas's ctx.filter
   });
 });

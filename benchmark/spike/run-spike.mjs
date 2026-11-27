@@ -7,6 +7,9 @@
 //   VITE_SPIKE=1 npm --prefix web run dev -- --port 5174 --strictPort      (separate terminal / background)
 //   node benchmark/spike/run-spike.mjs --mode dry  [--photos 01,02] [--models flash,hydrogen]
 //   node benchmark/spike/run-spike.mjs --mode live [--photos …] [--probe u12]
+//   D-177 text experiment: --set bench --textexp --photos 01,…,24 --models lite --primary lite
+//   D-174 mask experiment: --set bench --fixexp --photos … --models lite --primary lite --fixruns 3
+//   D-174 benchmark: --set bench --photos 01,…,40 --models lite --primary lite --runs 3 --fixruns 3 (PRIV/bench; always name the photos)
 //   latency experiment knobs (recorded in the raw JSON config; absent = the spike's CONFIG defaults):
 //     [--thinking LOW|MEDIUM|HIGH] [--px 768..1536] [--runs 1..3 (primary-model runs per photo)] [--retries 0|1]
 //     --models may also name lite (gemini-3.5-flash-lite); --primary flash|hydrogen|lite
@@ -23,7 +26,7 @@ import { parseArgs } from 'node:util';
 
 const PRIV_RAW = '/Users/mac/StrangersEyes-private/raw';
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const ALL = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10'];
+const SETS = { spike: ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10'], bench: Array.from({ length: 40 }, (_, i) => String(i + 1).padStart(2, '0')) }; // D-174
 
 const { values: a } = parseArgs({
   strict: true,
@@ -31,11 +34,14 @@ const { values: a } = parseArgs({
     mode: { type: 'string' }, photos: { type: 'string' }, models: { type: 'string' }, probe: { type: 'string' }, variants: { type: 'string' }, primary: { type: 'string', default: 'flash' }, adaptive: { type: 'boolean', default: false },
     port: { type: 'string', default: '5174' }, 'max-minutes': { type: 'string', default: '150' },
     thinking: { type: 'string' }, px: { type: 'string' }, runs: { type: 'string' }, retries: { type: 'string' },
+    set: { type: 'string', default: 'spike' }, fixruns: { type: 'string' }, fixexp: { type: 'boolean', default: false }, textexp: { type: 'boolean', default: false },
   },
 });
 const fail = (msg) => { console.error(`[runner] ${msg}`); process.exit(2); };
 if (a.mode !== 'dry' && a.mode !== 'live' && a.mode !== 'schema') fail('usage: --mode dry|live|schema [--photos 01,02] [--models flash,hydrogen] [--probe u12] [--port 5174]');
 const mode = a.mode;
+if (!SETS[a.set]) fail('--set must be spike or bench');
+const ALL = SETS[a.set];
 const list = (v, name) => {
   if (v === undefined) return undefined;
   const xs = [...new Set(v.split(',').map((s) => s.trim()).filter(Boolean))];
@@ -59,6 +65,7 @@ const intOpt = (name, lo, hi) => {
 const px = intOpt('px', 768, 1536);
 const runs = intOpt('runs', 1, 3);
 const retries = intOpt('retries', 0, 1);
+const fixruns = intOpt('fixruns', 1, 3);
 if (models && !models.includes(a.primary)) fail('--models must include the --primary model');
 const port = Number(a.port);
 const maxMinutes = Number(a['max-minutes']);
@@ -74,11 +81,19 @@ if (a.thinking) q.set('thinking', a.thinking);
 if (px !== undefined) q.set('px', String(px));
 if (runs !== undefined) q.set('runs', String(runs));
 if (retries !== undefined) q.set('retries', String(retries));
+if (a.set !== 'spike') q.set('set', a.set);
+if (fixruns !== undefined) q.set('fixruns', String(fixruns));
+if (a.fixexp && a.set !== 'bench') fail('--fixexp needs --set bench');
+if (a.fixexp && (a.probe || (models && models.length > 1))) fail('--fixexp runs one model and no probe');
+if (a.set === 'bench' && !photos) fail('--set bench needs --photos');
+if (a.textexp && (a.set !== 'bench' || a.fixexp || a.probe || (models && models.length > 1))) fail('--textexp needs --set bench, one model, no --fixexp/--probe');
+if (a.fixexp) q.set('fixexp', '1');
+if (a.textexp) q.set('textexp', '1'); // D-177 text experiment (PRIV/bench/textexp) // D-174 mask experiment: solid vs blur on the boxes in PRIV/<set>/fixsrc.json
 const url = `http://localhost:${port}/?${q}#/dev/adversary`;
 const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-const stem = `${PRIV_RAW}/spike-${ts}-${mode}${photos ? '-p' + photos.join('_') : ''}`;
+const stem = `${PRIV_RAW}/${a.set === 'spike' ? 'spike' : a.set}${a.fixexp ? '-maskexp' : a.textexp ? '-textexp' : ''}-${ts}-${mode}${photos ? '-p' + (photos.length > 12 ? `${photos[0]}to${photos.at(-1)}` : photos.join('_')) : ''}`;
 if (existsSync(`${stem}.json`) || existsSync(`${stem}.partial.json`)) fail(`${stem}.* already exists`);
-const planned = (photos ?? ALL).length * (models ?? ['flash', 'hydrogen']).reduce((n, m) => n + (m === a.primary ? (runs ?? 3) : 1), 0) + (a.probe ? 1 : 0);
+const planned = a.textexp ? (photos ?? ALL).length * 4 : a.fixexp ? (photos ?? ALL).length * 2 * (fixruns ?? 3) : (photos ?? ALL).length * (models ?? ['flash', 'hydrogen']).reduce((n, m) => n + (m === a.primary ? (runs ?? 3) : 1), 0) + (a.probe ? 1 : 0);
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const head = await fetch(`http://localhost:${port}/`).catch(() => null);

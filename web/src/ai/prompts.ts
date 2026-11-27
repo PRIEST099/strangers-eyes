@@ -6,7 +6,8 @@
 export type PromptSegment = { text: string; dynamic: boolean }; // static = verbatim from a manifest-hashed prompt file
 
 /** Every prompt ID in manifest.json (a test keeps this list equal to the manifest). */
-export const PROMPT_IDS = ['advA.v1', 'advB.v1', 'nanoPre.v1', 'nanoVaultText.v1', 'nanoRef.v1', 'nanoFix.v1', 'explain.v1', 'fmPre.v1'] as const;
+export const PROMPT_IDS = ['advA.v1', 'advB.v1', 'nanoPre.v1', 'nanoVaultText.v1', 'nanoRef.v1', 'nanoFix.v1', 'explain.v1', 'fmPre.v1', 'textProbe.dev1'] as const;
+// textProbe.dev1 (D-177): DEV-only research probe ("transcribe all visible text") for the text experiment; never used by the app.
 export type PromptId = (typeof PROMPT_IDS)[number];
 
 interface PromptSpec {

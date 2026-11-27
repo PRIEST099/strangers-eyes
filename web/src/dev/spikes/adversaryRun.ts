@@ -18,13 +18,24 @@ import { detectFaces, DEFAULT_FACE_MIN_CONFIDENCE } from '../../tier0/faces';
 import { applyMasks } from '../../core/mask';
 import { box2dToPx, cloudToMaster, DEFAULT_MASK_PAD_RATIO, padRect } from '../../core/boxes';
 import { bandRank, haversineMeters, pinBand } from '../../core/geo';
+import { ocrMaster } from '../../tier0/ocr';
+import { DEFAULT_FUZZY_THRESHOLD, findInText, makeTerm, termInWords } from '../../tier0/fuzzy';
 import { DISTANCE_BANDS } from '../../core/types';
 import type { DistanceBand, ImageFrame, Pin, PxRect } from '../../core/types';
 
 export const DEV_ONLY_MARKER = '__SE_DEV_ONLY__';
 export const SPIKE_VERSION = 'spikeB.1';
-const PRIV_SPIKE = '/@fs/Users/mac/StrangersEyes-private/spike'; // served only when VITE_SPIKE=1 (vite.config.ts)
+const PRIV_ROOT = '/@fs/Users/mac/StrangersEyes-private'; // PRIV/spike and PRIV/bench, served only when VITE_SPIKE=1 (vite.config.ts)
 export const ALL_PHOTOS = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10'] as const;
+/** D-174: photo sets. `spike` = the Day-1 ten; `bench` = the held-out benchmark (PRIV/bench/bench-NN.jpg + truth.csv). */
+export const PHOTO_SETS = {
+  spike: ALL_PHOTOS as readonly string[],
+  bench: Array.from({ length: 40 }, (_, i) => String(i + 1).padStart(2, '0')) as readonly string[],
+} as const;
+export type PhotoSet = keyof typeof PHOTO_SETS;
+/** The set of the current run (set once by runSpike). */
+let photoSet: PhotoSet = 'spike';
+const setDir = () => `${PRIV_ROOT}/${photoSet}`;
 export const FLASH = 'gemini-3.8-flash';
 export const HYDROGEN = 'gemini-4-hydrogen';
 export const CONFIG = {
@@ -59,6 +70,8 @@ export type RunStatus = 'ok' | 'no_location_signal' | 'declined' | 'blocked' | '
 export interface RunRec {
   model: string;
   kind: 'before' | 'fix' | 'probe';
+  /** D-174 mask experiment only: which fill hid the clues on this 'fix' run. Absent = solid (the app's only fill). */
+  variant?: 'solid' | 'blur';
   idx: number;
   status: RunStatus;
   attempts: number;
@@ -117,6 +130,13 @@ export interface SpikeResult {
   finishedAt?: string;
   mode: 'dry' | 'live' | 'schema';
   config: SpikeConfig;
+  /** D-174: the photo set and the number of re-attack runs after the fix. */
+  set?: PhotoSet;
+  fixRuns?: number;
+  fixExp?: boolean;
+  blurSigmaRatio?: number;
+  /** D-177 text experiment records (PRIV only: the answers hold the made-up names). */
+  textExp?: TextExpRec[];
   /** The 3-run adversary model (D-73). */
   primary: string;
   /** D-74: skip a primary run that can no longer change the photo's G1 classification. */
@@ -170,7 +190,7 @@ async function imgCheck(b: Blob, w?: number, h?: number, withSha = false): Promi
 
 interface Truth { lat: number; lng: number; placeType: string }
 async function loadTruth(): Promise<Map<string, Truth>> {
-  const res = await fetch(`${PRIV_SPIKE}/truth.csv`);
+  const res = await fetch(`${setDir()}/truth.csv`);
   if (!res.ok) throw new Error(`truth.csv: HTTP ${res.status} (is the dev server running with VITE_SPIKE=1?)`);
   const out = new Map<string, Truth>();
   for (const line of (await res.text()).split(/\r?\n/).slice(1)) {
@@ -326,7 +346,7 @@ async function cloudJpegOf(canvas: HTMLCanvasElement): Promise<{ blob: Blob; w: 
 }
 
 async function preparePhoto(id: string, truth: Truth): Promise<{ rec: PhotoRec; frames: Frames | null; cloud: { blob: Blob; w: number; h: number } | null }> {
-  const file = await (await fetch(`${PRIV_SPIKE}/spike-${id}.jpg`)).blob();
+  const file = await (await fetch(`${setDir()}/${photoSet}-${id}.jpg`)).blob();
   const source = await imgCheck(file);
   const clean = await reencodeClean(file, { maxDim: CONFIG.masterMaxPx, quality: 0.9 });
   await assertCleanJpeg(clean.blob);
@@ -337,7 +357,7 @@ async function preparePhoto(id: string, truth: Truth): Promise<{ rec: PhotoRec; 
   const faceMasked = applyMasks(master, faceRects);
   const afterMask = (await detectFaces(faceMasked, CONFIG.faceMinConfidence, 'full')).length; // the gate's re-check
   const rec: PhotoRec = {
-    id: `spike-${id}`, placeType: truth.placeType, source, master: masterChk,
+    id: `${photoSet}-${id}`, placeType: truth.placeType, source, master: masterChk,
     cloud: { bytes: 0, segments: [], hasGps: false },
     faces: { found: faces.length, scores: faces.map((f) => Math.round(f.score * 100) / 100), afterMask }, runs: [],
   };
@@ -367,6 +387,84 @@ function fixCanvas(frames: Frames, src: RunRec, cloud: { w: number; h: number })
       keptNonRemovable: clues.filter((c) => !c.removable).map((c) => c.type),
     },
   };
+}
+
+/**
+ * D-174 mask experiment (DEV harness only; the app never blurs, invariant 6): the same clue boxes as a fix, hidden with a
+ * Gaussian blur instead of a solid fill, the way blur-based redaction tools do it. Faces stay solid-masked. The blur
+ * sigma is 15% of each box's shorter side (at least 8 px at master scale): enough that a person can't read the text.
+ */
+export const BLUR_SIGMA_RATIO = 0.15;
+function blurCanvas(frames: Frames, rects: readonly PxRect[], ratio = BLUR_SIGMA_RATIO, minPx = 8): HTMLCanvasElement {
+  const base = frames.faceMasked;
+  const c = document.createElement('canvas');
+  c.width = base.width;
+  c.height = base.height;
+  const ctx = c.getContext('2d');
+  if (!ctx) throw new Error('2d context unavailable');
+  ctx.drawImage(base, 0, 0);
+  for (const r of rects) {
+    const sigma = Math.max(minPx, Math.round(ratio * Math.min(r.w, r.h)));
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(r.x, r.y, r.w, r.h);
+    ctx.clip();
+    ctx.filter = `blur(${sigma}px)`;
+    ctx.drawImage(base, 0, 0);
+    ctx.restore();
+  }
+  return c;
+}
+
+// ---------------------------------------------------------------- D-177 text experiment (DEV harness only)
+export const TEXT_ARMS = ['none', 'lightBlur', 'strongBlur', 'solid'] as const;
+export const LIGHT_BLUR_RATIO = 0.04;
+export interface TextArmRec { status: 'ok' | 'blocked' | 'error'; read: boolean | null; latencyMs: number; attempts: number; answer?: string; error?: string; bytes?: number }
+export interface TextExpRec { id: string; size: string; faces: number; caught: boolean | null; arms: Partial<Record<(typeof TEXT_ARMS)[number], TextArmRec>>; skipped?: string; complete?: boolean }
+
+/** One neutral transcription call (textProbe.dev1), ONLY_IN_CLOUD, no tools. One resend only for 429/5xx/network. */
+async function textProbe(model: string, jpegB64: string, log: (s: string) => void, counters: { sent: () => void }): Promise<TextArmRec> {
+  const m = getGenerativeModel(ai, {
+    mode: InferenceMode.ONLY_IN_CLOUD,
+    inCloudParams: { model, generationConfig: { maxOutputTokens: 2048, thinkingConfig: { thinkingLevel: ThinkingLevel[cfg.thinkingLevel] } } },
+  }, { timeout: CONFIG.timeoutMs });
+  const userText = segmentsText(render('textProbe.dev1'));
+  const rec: TextArmRec = { status: 'error', read: null, latencyMs: 0, attempts: 0 };
+  for (let attempt = 1; attempt <= 1 + cfg.maxRetries; attempt++) {
+    const wait = lastCallAt + CONFIG.minGapMs - performance.now();
+    if (wait > 0) await sleep(wait);
+    lastCallAt = performance.now();
+    const permitId = `${runTag}-${++permitSeq}`;
+    const unobserve = tripwire.observe((o) => { if (o.permitId === permitId) rec.bytes = o.bytes; });
+    tripwire.grantCloud({ id: permitId, scanText: true });
+    rec.attempts = attempt;
+    counters.sent();
+    const t0 = performance.now();
+    try {
+      const res = await m.generateContent([{ type: 'text', text: userText }, { type: 'inlineData', inlineData: { data: jpegB64, mimeType: 'image/jpeg' } }]);
+      rec.latencyMs = Math.round(performance.now() - t0);
+      try { rec.answer = res.response.text().slice(0, 4000); rec.status = 'ok'; } catch (e) {
+        if (e instanceof AIError && e.code === AIErrorCode.RESPONSE_ERROR) { rec.status = 'blocked'; rec.error = e.message.slice(0, 300); } else rec.error = String((e as Error)?.message ?? e).slice(0, 300);
+      }
+      return rec;
+    } catch (e) {
+      tripwire.revokeCloud(permitId);
+      rec.latencyMs = Math.round(performance.now() - t0);
+      if (e instanceof AIError && e.code === AIErrorCode.RESPONSE_ERROR) { rec.status = 'blocked'; rec.error = e.message.slice(0, 300); return rec; } // never re-prompt (invariant 7)
+      const name = (e as Error)?.name;
+      const status = e instanceof AIError ? e.customErrorData?.status : undefined;
+      rec.error = `${name === 'AbortError' ? 'timeout: ' : ''}${String((e as Error)?.message ?? e).slice(0, 300)}`;
+      const retriable = name !== 'AbortError' && (status === 429 || (status !== undefined && status >= 500)
+        || (status === undefined && e instanceof AIError && e.code === AIErrorCode.ERROR && /Failed to fetch/.test(e.message)));
+      if (!retriable || attempt > cfg.maxRetries) return rec;
+      const backoff = status === 429 ? 35_000 : 10_000;
+      log(`  text probe: transient error (${status ?? 'network'}), one identical resend in ${backoff / 1000} s`);
+      await sleep(backoff);
+    } finally {
+      unobserve();
+    }
+  }
+  return rec;
 }
 
 async function contactSheet(blobs: Blob[], cell = 360): Promise<string> {
@@ -458,6 +556,12 @@ async function probeSchema(model: string, name: string, schema: J | null, counte
 // ---------------------------------------------------------------- the run
 export interface RunOptions {
   mode: 'dry' | 'live' | 'schema'; photos: string[]; models: string[]; primary: string; probeU12: boolean; adaptive: boolean; variants?: string[];
+  /** D-174: which photo set (default spike) and how many re-attack runs after the fix (default 1; the benchmark uses 3). */
+  set?: PhotoSet; fixRuns?: number;
+  /** D-174 mask experiment: re-attack with the clue boxes of an earlier run (PRIV/<set>/fixsrc.json), solid vs blur. */
+  fixExp?: boolean;
+  /** D-177 text experiment: can the cloud read a drawn made-up name under none / light blur / strong blur / solid? */
+  textExp?: boolean;
   /** Latency experiment knobs (T-031 diagnosis); absent = CONFIG. */
   thinking?: SpikeThinking; px?: number; runs?: number; retries?: number;
 }
@@ -473,9 +577,20 @@ export function parseOptions(search: string): RunOptions | null {
   const q = new URLSearchParams(search);
   const auto = q.get('autorun');
   if (auto !== 'dry' && auto !== 'live' && auto !== 'schema') return null;
+  const rawSet = q.get('set') ?? 'spike';
+  if (rawSet !== 'spike' && rawSet !== 'bench') return null;
+  const ids = PHOTO_SETS[rawSet];
   const rawPhotos = q.get('photos');
-  const photos = [...new Set((rawPhotos ? rawPhotos.split(',') : [...ALL_PHOTOS]).map((s) => s.trim().padStart(2, '0')))]
-    .filter((p) => (ALL_PHOTOS as readonly string[]).includes(p));
+  const photos = [...new Set((rawPhotos ? rawPhotos.split(',') : [...ids]).map((s) => s.trim().padStart(2, '0')))]
+    .filter((p) => ids.includes(p));
+  const fixRuns = intKnob(q, 'fixruns', 1, 3);
+  if (Number.isNaN(fixRuns)) return null;
+  const rawTextExp = q.get('textexp');
+  if (rawTextExp !== null && (rawTextExp !== '1' || rawSet !== 'bench' || q.get('fixexp') !== null || q.get('probe') !== null || (q.get('models') ?? '').includes(','))) return null;
+  const rawFixExp = q.get('fixexp');
+  if (rawFixExp !== null && rawFixExp !== '1') return null;
+  // The mask experiment runs one model, no probe, on the benchmark set only.
+  if (rawFixExp === '1' && (rawSet !== 'bench' || q.get('probe') !== null || (q.get('models') ?? '').includes(','))) return null;
   const rawModels = q.get('models');
   const models = [...new Set((rawModels ? rawModels.split(',') : ['flash', 'hydrogen'])
     .map((m) => MODEL_IDS[m.trim()] ?? '').filter(Boolean))];
@@ -493,6 +608,7 @@ export function parseOptions(search: string): RunOptions | null {
   const retries = intKnob(q, 'retries', 0, 1);
   if ([px, runs, retries].some((v) => Number.isNaN(v))) return null;
   return { mode: auto, photos, models, primary, probeU12: q.get('probe') === 'u12', adaptive: q.get('adaptive') === '1', ...(variants?.length ? { variants } : {}),
+    ...(rawSet !== 'spike' ? { set: rawSet } : {}), ...(fixRuns !== undefined ? { fixRuns } : {}), ...(q.get('fixexp') === '1' ? { fixExp: true } : {}), ...(rawTextExp === '1' ? { textExp: true } : {}),
     ...(rawThinking !== null ? { thinking: rawThinking as SpikeThinking } : {}),
     ...(px !== undefined ? { px } : {}), ...(runs !== undefined ? { runs } : {}), ...(retries !== undefined ? { retries } : {}) };
 }
@@ -504,7 +620,10 @@ export function effectiveConfig(o: RunOptions): SpikeConfig {
 }
 
 /** Planned cloud calls before resends and G1b reruns (the runner prints it before a live run). */
-export const plannedCalls = (o: RunOptions) =>
+/** D-174: the effective number of re-attack runs after a fix (the mask experiment defaults to 3 per arm). */
+export const effectiveFixRuns = (o: Pick<RunOptions, 'fixRuns' | 'fixExp'>): number => o.fixRuns ?? (o.fixExp ? 3 : 1);
+
+export const plannedCalls = (o: RunOptions) => o.textExp ? o.photos.length * TEXT_ARMS.length : o.fixExp ? o.photos.length * 2 * effectiveFixRuns(o) :
   o.photos.length * o.models.reduce((n, m) => n + (m === o.primary ? effectiveConfig(o).primaryRuns : CONFIG.secondaryRuns), 0) + (o.probeU12 ? 1 : 0);
 
 const LIVE_FLAG = 'advSpike-live-started';
@@ -548,6 +667,7 @@ export async function runSpike(opts: RunOptions): Promise<void> {
     return;
   }
   cfg = effectiveConfig(opts);
+  photoSet = opts.set ?? 'spike';
   const st: SpikeState = { state: 'running', log: [], result: null };
   globalThis.__advSpike = st;
   const log = (s: string) => { st.log.push(`${new Date().toISOString().slice(11, 19)} ${s}`); };
@@ -559,6 +679,7 @@ export async function runSpike(opts: RunOptions): Promise<void> {
     const files = [...(spec.system ?? []), ...(Array.isArray(spec.user) ? spec.user : [spec.user]), spec.schema ?? ''].filter(Boolean);
     const result: SpikeResult = {
       spikeVersion: SPIKE_VERSION, startedAt: new Date().toISOString(), mode: opts.mode, config: cfg, models: opts.models, primary: opts.primary, adaptive: opts.adaptive,
+      set: photoSet, fixRuns: effectiveFixRuns(opts), ...(opts.fixExp ? { fixExp: true, blurSigmaRatio: BLUR_SIGMA_RATIO } : {}),
       prompt: { id: CONFIG.promptId, released: spec.released, files: Object.fromEntries(files.map((f) => [f, MANIFEST.files[f]])) },
       authUid: Boolean(await authReady), photos: [], probes: [], callsSent: 0,
     };
@@ -591,17 +712,108 @@ export async function runSpike(opts: RunOptions): Promise<void> {
     }
     const truthAll = await loadTruth();
     const sentById = new Map<string, Blob>();
+    if (opts.textExp) {
+      // D-177 (pre-registered in PRIV/bench/PROTOCOL.md): drawn made-up names on benchmark photos (PRIV/bench/textexp).
+      type TextSrc = { id: string; name: string; size: string; w: number; h: number; box: { x: number; y: number; w: number; h: number } };
+      const tres = await fetch(`${setDir()}/textexp/textexp.json`);
+      if (!tres.ok) throw new Error(`textexp.json: HTTP ${tres.status}`);
+      const all = await tres.json() as TextSrc[];
+      result.textExp = [];
+      for (const pid of opts.photos) {
+        const ts = all.find((t) => t.id === `tx-${pid}`);
+        if (!ts) { log(`tx-${pid}: no entry`); continue; }
+        const rec: TextExpRec = { id: ts.id, size: ts.size, faces: 0, caught: null, arms: {} };
+        result.textExp.push(rec);
+        const file = await (await fetch(`${setDir()}/textexp/${ts.id}.jpg`)).blob();
+        const clean = await reencodeClean(file, { maxDim: CONFIG.masterMaxPx, quality: 0.9 });
+        await assertCleanJpeg(clean.blob);
+        const master = await decodeToMaster(clean.blob, CONFIG.masterMaxPx);
+        const W = master.width;
+        const H = master.height;
+        const sc = W / ts.w;
+        const box = padRect({ x: Math.round(ts.box.x * sc), y: Math.round(ts.box.y * sc), w: Math.round(ts.box.w * sc), h: Math.round(ts.box.h * sc) }, W, H, CONFIG.fixPadRatio);
+        const faces = await detectFaces(master, CONFIG.faceMinConfidence, 'full');
+        const faceRects = faces.map((f) => padRect(f, W, H));
+        const faceMasked = applyMasks(master, faceRects);
+        rec.faces = faces.length;
+        if ((await detectFaces(faceMasked, CONFIG.faceMinConfidence, 'full')).length > 0) { rec.skipped = 'face still detected after masking'; rec.complete = true; log(`${ts.id}: SKIPPED (face)`); continue; }
+        const term = makeTerm('tx', 'child_name', ts.name);
+        rec.caught = termInWords(term, await ocrMaster(master), DEFAULT_FUZZY_THRESHOLD, 'image'); // the device's own OCR + vault match
+        const frames: Frames = { master, faceMasked, faceRects };
+        const canvases = {
+          none: faceMasked,
+          lightBlur: blurCanvas(frames, [box], LIGHT_BLUR_RATIO, 2),
+          strongBlur: blurCanvas(frames, [box]),
+          solid: applyMasks(master, [...faceRects, box]),
+        };
+        for (const arm of TEXT_ARMS) {
+          const c = await cloudJpegOf(canvases[arm]);
+          sent.push(c.blob);
+          if (opts.mode === 'dry') continue;
+          const r = await textProbe(opts.primary, await blobToBase64(c.blob), log, counters);
+          r.read = r.status === 'ok' && r.answer !== undefined ? findInText(r.answer, [term], DEFAULT_FUZZY_THRESHOLD) !== null : null;
+          rec.arms[arm] = r;
+          log(`${ts.id} [${ts.size}] ${arm}: ${r.status} read=${r.read} ${(r.latencyMs / 1000).toFixed(1)}s caught=${rec.caught}`);
+          if (r.status === 'blocked') { rec.skipped = 'refused: stopped (invariant 7)'; break; }
+        }
+        rec.complete = true;
+      }
+      result.finishedAt = new Date().toISOString();
+      st.state = 'done';
+      log('done');
+      return;
+    }
+    type FixSrc = { sourceRunIdx: number; refusedRuns: number; cloudW: number; cloudH: number; clues: { id: string; type: string; removable: boolean; box2d: [number, number, number, number] }[] };
+    let fixSrc: Record<string, FixSrc> = {};
+    if (opts.fixExp) {
+      const res = await fetch(`${setDir()}/fixsrc.json`);
+      if (!res.ok) throw new Error(`fixsrc.json: HTTP ${res.status}`);
+      fixSrc = await res.json() as Record<string, FixSrc>;
+    }
 
     try {
       for (const pid of opts.photos) {
-        const truth = truthAll.get(`spike-${pid}`);
-        if (!truth) throw new Error(`no truth row for spike-${pid}`);
+        const truth = truthAll.get(`${photoSet}-${pid}`);
+        if (!truth) throw new Error(`no truth row for ${photoSet}-${pid}`);
         const { rec, frames, cloud } = await preparePhoto(pid, truth);
         result.photos.push(rec);
-        log(`spike-${pid}: faces=${rec.faces.found} afterMask=${rec.faces.afterMask} cloud=${rec.cloud.width}x${rec.cloud.height} ${rec.cloud.bytes}B segments=${rec.cloud.segments.join('+')} gps=${rec.cloud.hasGps} source.gps=${rec.source.hasGps}`);
-        if (!frames || !cloud) { log(`spike-${pid}: SKIPPED (${rec.skipped})`); rec.complete = true; continue; }
+        log(`${photoSet}-${pid}: faces=${rec.faces.found} afterMask=${rec.faces.afterMask} cloud=${rec.cloud.width}x${rec.cloud.height} ${rec.cloud.bytes}B segments=${rec.cloud.segments.join('+')} gps=${rec.cloud.hasGps} source.gps=${rec.source.hasGps}`);
+        if (!frames || !cloud) { log(`${photoSet}-${pid}: SKIPPED (${rec.skipped})`); rec.complete = true; continue; }
         sent.push(cloud.blob);
         sentById.set(rec.id, cloud.blob);
+        if (opts.fixExp) {
+          // D-174 mask experiment: the same boxes, solid vs blur, interleaved (solid #1, blur #1, solid #2, …).
+          const fs = fixSrc[rec.id];
+          if (!fs) { rec.skipped = 'no fixsrc entry'; rec.complete = true; continue; }
+          // Invariant 7: never re-attack a photo that was ever declined or blocked. fixsrc.json must prove it (refusedRuns: 0).
+          if (fs.refusedRuns !== 0) { rec.skipped = 'a run on this photo was declined or blocked (or fixsrc does not say): no re-attack (invariant 7)'; rec.complete = true; continue; }
+          const W = frames.master.width;
+          const H = frames.master.height;
+          const frame: ImageFrame = { id: 'cloud', width: fs.cloudW, height: fs.cloudH, cropInMaster: { x: 0, y: 0, w: W, h: H } };
+          const removable = fs.clues.filter((c) => c.removable);
+          const rects = removable.map((c) => padRect(cloudToMaster(box2dToPx(c.box2d, fs.cloudW, fs.cloudH), frame), W, H, CONFIG.fixPadRatio));
+          const solid = await cloudJpegOf(applyMasks(frames.master, [...frames.faceRects, ...rects]));
+          const blur = await cloudJpegOf(blurCanvas(frames, rects));
+          fixed.push(solid.blob, blur.blob);
+          rec.fix = { sourceRunIdx: fs.sourceRunIdx, sourceBand: 'none', medianBeforeBand: 'none', maskedClueIds: removable.map((c) => c.id),
+            maskedTypes: removable.map((c) => c.type), keptNonRemovable: fs.clues.filter((c) => !c.removable).map((c) => c.type),
+            cloud: await imgCheck(solid.blob, solid.w, solid.h, true) };
+          if (opts.mode === 'dry' || !removable.length) { if (!removable.length) rec.fix.skipped = 'no removable clue'; rec.complete = true; continue; }
+          const variants = [['solid', await blobToBase64(solid.blob)], ['blur', await blobToBase64(blur.blob)]] as const;
+          let refused = false;
+          for (let k = 1; k <= effectiveFixRuns(opts) && !refused; k++) {
+            for (const [variant, vb64] of variants) {
+              const r = await passB(opts.primary, vb64, truth, 'fix', k, log, counters);
+              r.variant = variant;
+              rec.runs.push(r);
+              log(`${rec.id} MASKEXP ${variant} #${k}: ${r.status} band=${r.band ?? '-'} d≤5km=${r.dKm !== null && r.dKm <= CONFIG.locatedKm}`);
+              track(r);
+              if (r.status === 'declined' || r.status === 'blocked') { refused = true; break; } // invariant 7
+            }
+          }
+          rec.complete = true;
+          continue;
+        }
         if (opts.mode === 'dry') { rec.complete = true; continue; }
         const b64 = await blobToBase64(cloud.blob);
 
@@ -609,12 +821,12 @@ export async function runSpike(opts: RunOptions): Promise<void> {
           const n = model === opts.primary ? cfg.primaryRuns : CONFIG.secondaryRuns;
           for (let i = 1; i <= n; i++) {
             if (opts.adaptive && model === opts.primary && g1Decided(rec.runs.filter((r) => r.model === model && r.kind === 'before'), n)) {
-              log(`spike-${pid} ${model} #${i}: skipped (G1 classification already decided, D-74)`);
+              log(`${photoSet}-${pid} ${model} #${i}: skipped (G1 classification already decided, D-74)`);
               break;
             }
             const r = await passB(model, b64, truth, 'before', i, log, counters);
             rec.runs.push(r);
-            log(`spike-${pid} ${model} #${i}: ${r.status} ${(r.latencyMs / 1000).toFixed(1)}s band=${r.band ?? '-'} d≤5km=${r.dKm !== null && r.dKm <= CONFIG.locatedKm}${r.error ? ' err=' + r.error.slice(0, 80) : ''}`);
+            log(`${photoSet}-${pid} ${model} #${i}: ${r.status} ${(r.latencyMs / 1000).toFixed(1)}s band=${r.band ?? '-'} d≤5km=${r.dKm !== null && r.dKm <= CONFIG.locatedKm}${r.error ? ' err=' + r.error.slice(0, 80) : ''}`);
             track(r);
           }
         }
@@ -638,13 +850,17 @@ export async function runSpike(opts: RunOptions): Promise<void> {
             const fc = await cloudJpegOf(canvas);
             rec.fix.cloud = await imgCheck(fc.blob, fc.w, fc.h, true);
             fixed.push(fc.blob);
-            const r = await passB(opts.primary, await blobToBase64(fc.blob), truth, 'fix', 1, log, counters);
-            rec.runs.push(r);
-            rec.fix.movedOutward = STATUS_OK_FOR_BAND.includes(r.status) && r.band ? bandRank(r.band) > bandRank(medianBeforeBand) : null;
-            log(`spike-${pid} FIX (masked ${fix.maskedClueIds.length}): ${r.status} band median ${medianBeforeBand} / source ${src.band} → ${r.band ?? '-'}`);
-            track(r);
+            const fb64 = await blobToBase64(fc.blob);
+            for (let k = 1; k <= effectiveFixRuns(opts); k++) {
+              const r = await passB(opts.primary, fb64, truth, 'fix', k, log, counters);
+              rec.runs.push(r);
+              if (k === 1) rec.fix.movedOutward = STATUS_OK_FOR_BAND.includes(r.status) && r.band ? bandRank(r.band) > bandRank(medianBeforeBand) : null;
+              log(`${photoSet}-${pid} FIX #${k} (masked ${fix.maskedClueIds.length}): ${r.status} band median ${medianBeforeBand} / source ${src.band} → ${r.band ?? '-'}`);
+              track(r);
+              if (r.status === 'declined' || r.status === 'blocked') break; // never re-attack after a refusal (invariant 7)
+            }
           }
-          if (rec.fix.skipped) log(`spike-${pid} FIX skipped: ${rec.fix.skipped}`);
+          if (rec.fix.skipped) log(`${photoSet}-${pid} FIX skipped: ${rec.fix.skipped}`);
         }
         rec.complete = true;
       }

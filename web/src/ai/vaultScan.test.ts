@@ -111,7 +111,9 @@ describe('tripwireScanner: exact skip, canary, strip, scan', () => {
     const cloudStatic = staticSegments();
     for (const l of lines) expect(cloudStatic.some((c) => c.includes(l)), l).toBe(false);
     const deviceIds = Object.keys(MANIFEST.prompts).filter((id) => !CLOUD_TEXT_PROMPTS.includes(id));
-    expect(deviceIds.sort()).toEqual(['fmPre.v1', 'nanoFix.v1', 'nanoPre.v1', 'nanoRef.v1', 'nanoVaultText.v1']);
+    // textProbe.dev1 (D-177) is a DEV-harness research prompt the app never sends; as a non-cloud prompt its lines are
+    // canaries, so the app's tripwire would refuse it (stricter, not looser). The harness installs its own scanner.
+    expect(deviceIds.sort()).toEqual(['fmPre.v1', 'nanoFix.v1', 'nanoPre.v1', 'nanoRef.v1', 'nanoVaultText.v1', 'textProbe.dev1']);
     const nano = segmentsText(render('nanoVaultText.v1', { TEXTS_JSON: [{ id: 'w1', text: 'BUS' }], VAULT_JSON: [] }));
     expect(scan([nano])).toEqual({ vaultId: TEMPLATE_CANARY });
     const ref = segmentsText(render('nanoRef.v1', { CLAIMS_JSON: [], VAULT_JSON: [] }));
