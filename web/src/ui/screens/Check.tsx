@@ -45,7 +45,7 @@ import { pinsWhenReady, type GpsPinLike } from '../../tier0/gpsWarning';
 import type { ImportedPhoto } from '../../tier0/importPhoto';
 import type { EditorOp } from '../check/editor';
 import { runPrescreen } from '../check/runPrescreen';
-import { consentTo, newAttackCache, runAttack, runConsentDryRun, runReferee, type SentImage } from '../check/runSend';
+import { consentTo, newAttackCache, runAttack, runConsentDryRun, runReferee, warmReferee, type SentImage } from '../check/runSend';
 import { consentTierCopy, sendBlockedCopy, userUnmaskedBoxes, verdictOf } from '../check/sendFlow';
 import { compareRows, receiptParams } from '../check/fixFlow';
 import { FixPanel } from '../check/FixPanel';
@@ -72,6 +72,9 @@ import { caps, prefs } from '../../core/localPrefs';
 import { autoDelay, coachFor, liveUnavailable, nextAutoAction, type AutoAction } from '../judge/judgeFlow';
 import { judgeNanoStep, loadSamplePhoto, recordedAttack } from '../judge/judgeRun';
 import { JudgeCoach } from '../judge/JudgeCoach';
+import { SealedAnswer, SealStamp } from '../judge/SealedAnswer';
+import { SEAL_CLOSED, sealCounts, sealHeld, type SealState } from '../judge/seal';
+import { useOnline } from '../hooks/useOnline';
 import type { JudgeSample } from '../../vault/judgeVault';
 import type { ImportStatus } from '../importTransfer';
 import { stepLabelId, type CheckStep } from '../layout';
@@ -162,6 +165,8 @@ export interface JudgeCheck {
   sample: JudgeSample;
   vault: readonly VaultItem[];
   autoplay: boolean;
+  /** D-182 "Prove it offline": hold the first answer, unchecked, until the judge opens it (offline for the stamp). */
+  sealed?: boolean;
   onFinished?: () => void;
 }
 
@@ -287,6 +292,26 @@ export function Check({ judge = null }: { judge?: JudgeCheck | null } = {}) {
     return () => { live = false; };
   }, [attackKind, flowRun]);
   const outcome = state.flow.attack.kind === 'done' ? state.flow.attack.outcome : null;
+  // ---------- D-182: the sealed answer (Judge Mode "Prove it offline") ----------
+  // The first answer waits, unchecked, until opened. The referee's chunk is loaded at the seal, so opening with no
+  // connection cannot fail to load it (that would fall to RULES-ONLY "fallback: INTERNAL").
+  const online = useOnline();
+  const [seal, setSeal] = useState<SealState>(SEAL_CLOSED);
+  // Review fix: the switch is read once, when this sample's run starts (Check is keyed per run). Flipping it mid-run must
+  // never re-seal an answer that was already checked, and an offline stamp must never sit over an online verdict.
+  const [sealedMode] = useState(() => !!judge?.sealed);
+  const held = sealHeld(sealedMode, seal, outcome?.kind === 'result');
+  useEffect(() => { if (held) void warmReferee(); }, [held]);
+  const [backOnlineAt, setBackOnlineAt] = useState<number | null>(null);
+  useEffect(() => {
+    if (seal.kind === 'opened' && seal.offline && online && backOnlineAt === null) setBackOnlineAt(Date.now());
+  }, [seal, online, backOnlineAt]);
+  const ledgerEntries = useLedgerEntries();
+  const sealStamp = seal.kind === 'opened' && seal.offline
+    ? sealCounts(ledgerEntries, session.current.id, seal.at, backOnlineAt ?? Infinity) : null;
+  const onOpenSeal = useCallback((offline: boolean) => setSeal({ kind: 'opened', offline, at: Date.now() }), []);
+  const openedVerdict = useRef<HTMLDivElement>(null);
+  const focusedOpen = useRef(false);
   // T-074: one referee run per pass-B result and vault, on this device (Nano through the gate, else RULES-ONLY).
   const [refs, setRefs] = useState<{ vault: readonly VaultItem[] | null; by: ReadonlyMap<AttackOutcome, RefereeOutcome> }>({ vault: null, by: new Map() });
   const refPending = useRef<{ vault: readonly VaultItem[] | null; started: Set<AttackOutcome> }>({ vault: null, started: new Set() });
@@ -299,6 +324,7 @@ export function Check({ judge = null }: { judge?: JudgeCheck | null } = {}) {
     const batch = refPending.current;
     for (const o of [outcome, afterOutcome, latest]) {
       if (!o || o.kind !== 'result' || batch.started.has(o)) continue;
+      if (held && o === outcome) continue; // D-182: sealed, not opened yet
       batch.started.add(o);
       void runReferee(o.result, vault, session.current.id, vaultScan.threshold(), judgeTag).then((r) => {
         setRefs((cur) => {
@@ -309,7 +335,7 @@ export function Check({ judge = null }: { judge?: JudgeCheck | null } = {}) {
         });
       });
     }
-  }, [outcome, afterOutcome, latest, vault, judgeTag]);
+  }, [outcome, afterOutcome, latest, vault, judgeTag, held]);
   /**
    * The VerdictCard referee row: the referee's route and latency, and the honest note when the rules decided. D-179: no
    * referee ran (a declined, blocked or failed attack: nothing to grade) shows no referee badge; a referee that needed
@@ -329,6 +355,12 @@ export function Check({ judge = null }: { judge?: JudgeCheck | null } = {}) {
     const v = verdictOf(outcome, vault, candidate, { theta: vaultScan.threshold(), ...(rc ? { bands: rc.bandsM } : {}), ...(ref ? { matches: ref.matches } : {}) });
     return { v, ms: Math.round(performance.now() - t0), ref };
   }, [outcome, vault, candidate, rc, refOf]);
+  // D-182 review: after opening the seal, focus moves to the verdict (with its stamp) once it renders, not to <body>.
+  useEffect(() => {
+    if (seal.kind !== 'opened' || !verdict || focusedOpen.current) return;
+    focusedOpen.current = true;
+    openedVerdict.current?.focus();
+  }, [seal, verdict]);
   // ---------- Fix → Re-attack (T-078..T-080) ----------
   const maxRounds = rc?.maxFixRounds ?? 3;
   const blocked = fixBlocked(state, maxRounds);
@@ -441,7 +473,10 @@ export function Check({ judge = null }: { judge?: JudgeCheck | null } = {}) {
     });
   }, [judge, state.reattack.send, reAttackKind, rounds, applied, markResent, reattackDone]);
   const planHasFix = !!plan && (plan.fix.masks.length > 0 || plan.fix.crop !== null);
-  const auto: AutoAction | null = judge?.autoplay ? nextAutoAction({
+  // D-182: after an offline open, autoplay waits for the connection to come back before the next step (a fix and a
+  // re-attack), so the next attack is never a silent offline replay the judge didn't choose.
+  const sealPaused = seal.kind === 'opened' && seal.offline && !online;
+  const auto: AutoAction | null = judge?.autoplay && !sealPaused ? nextAutoAction({
     current, importReady: state.importStatus.kind === 'ready',
     canSend: !!candidate && candidate.blockedBy.length === 0 && attackKind === 'idle' && state.prescreen.kind === 'done' && state.prescreen.failed.length === 0,
     sendReady: state.flow.send.kind === 'ready' && state.flow.send.dry.failed.length === 0 && attackKind === 'idle',
@@ -555,9 +590,11 @@ export function Check({ judge = null }: { judge?: JudgeCheck | null } = {}) {
         {current === 'attack' && (
           <AttackPanel attack={state.flow.attack} model={rc?.adversaryModel ?? ''} onRetry={onRetryAttack} onToVerdict={onToVerdict} />
         )}
-        {current === 'verdict' && (
+        {current === 'verdict' && held && <SealedAnswer online={online} simulated={prefs.simulateOffline()} onOpen={onOpenSeal} />}
+        {current === 'verdict' && !held && (
           verdict && vault ? (
-            <div className="mt-4 flex flex-col gap-3">
+            <div ref={openedVerdict} tabIndex={-1} className="mt-4 flex flex-col gap-3 outline-none">
+              {sealStamp && <SealStamp counts={sealStamp} backOnline={backOnlineAt !== null} />}
               <VerdictCard
                 verdict={verdict.v} vault={vault} referee={refereeRow(verdict.ref)} headingLevel={3}
                 actions={fixAction ?? (blockedCopy ? <p className="text-small text-muted">{blockedCopy}</p> : null)}

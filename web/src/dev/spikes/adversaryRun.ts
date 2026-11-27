@@ -71,7 +71,7 @@ export interface RunRec {
   model: string;
   kind: 'before' | 'fix' | 'probe';
   /** D-174 mask experiment only: which fill hid the clues on this 'fix' run. Absent = solid (the app's only fill). */
-  variant?: 'solid' | 'blur';
+  variant?: 'solid' | 'blur' | 'lightBlur';
   idx: number;
   status: RunStatus;
   attempts: number;
@@ -135,6 +135,8 @@ export interface SpikeResult {
   fixRuns?: number;
   fixExp?: boolean;
   blurSigmaRatio?: number;
+  /** Nov 27 light-blur arm (PROTOCOL.md): only the light blur ran on these boxes. */
+  lightBlurArm?: boolean;
   /** D-177 text experiment records (PRIV only: the answers hold the made-up names). */
   textExp?: TextExpRec[];
   /** The 3-run adversary model (D-73). */
@@ -560,6 +562,8 @@ export interface RunOptions {
   set?: PhotoSet; fixRuns?: number;
   /** D-174 mask experiment: re-attack with the clue boxes of an earlier run (PRIV/<set>/fixsrc.json), solid vs blur. */
   fixExp?: boolean;
+  /** Nov 27 (PROTOCOL.md "Light-blur arm"): with fixExp, run ONLY a light blur (LIGHT_BLUR_RATIO) on the same boxes. */
+  lightBlurArm?: boolean;
   /** D-177 text experiment: can the cloud read a drawn made-up name under none / light blur / strong blur / solid? */
   textExp?: boolean;
   /** Latency experiment knobs (T-031 diagnosis); absent = CONFIG. */
@@ -608,7 +612,7 @@ export function parseOptions(search: string): RunOptions | null {
   const retries = intKnob(q, 'retries', 0, 1);
   if ([px, runs, retries].some((v) => Number.isNaN(v))) return null;
   return { mode: auto, photos, models, primary, probeU12: q.get('probe') === 'u12', adaptive: q.get('adaptive') === '1', ...(variants?.length ? { variants } : {}),
-    ...(rawSet !== 'spike' ? { set: rawSet } : {}), ...(fixRuns !== undefined ? { fixRuns } : {}), ...(q.get('fixexp') === '1' ? { fixExp: true } : {}), ...(rawTextExp === '1' ? { textExp: true } : {}),
+    ...(rawSet !== 'spike' ? { set: rawSet } : {}), ...(fixRuns !== undefined ? { fixRuns } : {}), ...(q.get('fixexp') === '1' ? { fixExp: true } : {}), ...(q.get('fixexp') === '1' && q.get('blurarm') === 'light' ? { lightBlurArm: true } : {}), ...(rawTextExp === '1' ? { textExp: true } : {}),
     ...(rawThinking !== null ? { thinking: rawThinking as SpikeThinking } : {}),
     ...(px !== undefined ? { px } : {}), ...(runs !== undefined ? { runs } : {}), ...(retries !== undefined ? { retries } : {}) };
 }
@@ -623,7 +627,7 @@ export function effectiveConfig(o: RunOptions): SpikeConfig {
 /** D-174: the effective number of re-attack runs after a fix (the mask experiment defaults to 3 per arm). */
 export const effectiveFixRuns = (o: Pick<RunOptions, 'fixRuns' | 'fixExp'>): number => o.fixRuns ?? (o.fixExp ? 3 : 1);
 
-export const plannedCalls = (o: RunOptions) => o.textExp ? o.photos.length * TEXT_ARMS.length : o.fixExp ? o.photos.length * 2 * effectiveFixRuns(o) :
+export const plannedCalls = (o: RunOptions) => o.textExp ? o.photos.length * TEXT_ARMS.length : o.fixExp ? o.photos.length * (o.lightBlurArm ? 1 : 2) * effectiveFixRuns(o) :
   o.photos.length * o.models.reduce((n, m) => n + (m === o.primary ? effectiveConfig(o).primaryRuns : CONFIG.secondaryRuns), 0) + (o.probeU12 ? 1 : 0);
 
 const LIVE_FLAG = 'advSpike-live-started';
@@ -679,7 +683,7 @@ export async function runSpike(opts: RunOptions): Promise<void> {
     const files = [...(spec.system ?? []), ...(Array.isArray(spec.user) ? spec.user : [spec.user]), spec.schema ?? ''].filter(Boolean);
     const result: SpikeResult = {
       spikeVersion: SPIKE_VERSION, startedAt: new Date().toISOString(), mode: opts.mode, config: cfg, models: opts.models, primary: opts.primary, adaptive: opts.adaptive,
-      set: photoSet, fixRuns: effectiveFixRuns(opts), ...(opts.fixExp ? { fixExp: true, blurSigmaRatio: BLUR_SIGMA_RATIO } : {}),
+      set: photoSet, fixRuns: effectiveFixRuns(opts), ...(opts.fixExp ? { fixExp: true, blurSigmaRatio: opts.lightBlurArm ? LIGHT_BLUR_RATIO : BLUR_SIGMA_RATIO, ...(opts.lightBlurArm ? { lightBlurArm: true } : {}) } : {}),
       prompt: { id: CONFIG.promptId, released: spec.released, files: Object.fromEntries(files.map((f) => [f, MANIFEST.files[f]])) },
       authUid: Boolean(await authReady), photos: [], probes: [], callsSent: 0,
     };
@@ -794,12 +798,16 @@ export async function runSpike(opts: RunOptions): Promise<void> {
           const rects = removable.map((c) => padRect(cloudToMaster(box2dToPx(c.box2d, fs.cloudW, fs.cloudH), frame), W, H, CONFIG.fixPadRatio));
           const solid = await cloudJpegOf(applyMasks(frames.master, [...frames.faceRects, ...rects]));
           const blur = await cloudJpegOf(blurCanvas(frames, rects));
-          fixed.push(solid.blob, blur.blob);
+          // Nov 27 light-blur arm: only a light blur (sigma 4% of the box's shorter side, at least 2 px), as in the text test.
+          const light = opts.lightBlurArm ? await cloudJpegOf(blurCanvas(frames, rects, LIGHT_BLUR_RATIO, 2)) : null;
+          fixed.push(solid.blob, light ? light.blob : blur.blob); // the contact sheet shows the arm(s) that run
           rec.fix = { sourceRunIdx: fs.sourceRunIdx, sourceBand: 'none', medianBeforeBand: 'none', maskedClueIds: removable.map((c) => c.id),
             maskedTypes: removable.map((c) => c.type), keptNonRemovable: fs.clues.filter((c) => !c.removable).map((c) => c.type),
             cloud: await imgCheck(solid.blob, solid.w, solid.h, true) };
           if (opts.mode === 'dry' || !removable.length) { if (!removable.length) rec.fix.skipped = 'no removable clue'; rec.complete = true; continue; }
-          const variants = [['solid', await blobToBase64(solid.blob)], ['blur', await blobToBase64(blur.blob)]] as const;
+          const variants: ReadonlyArray<readonly ['solid' | 'blur' | 'lightBlur', string]> = light
+            ? [['lightBlur', await blobToBase64(light.blob)]]
+            : [['solid', await blobToBase64(solid.blob)], ['blur', await blobToBase64(blur.blob)]];
           let refused = false;
           for (let k = 1; k <= effectiveFixRuns(opts) && !refused; k++) {
             for (const [variant, vb64] of variants) {

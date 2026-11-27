@@ -102,7 +102,7 @@ before `FirebaseApp.configure()` (`App/StrangersEyesApp.swift`, API-NOTES §3.3)
 4. The auto token changes when the app is reinstalled. For a stable one, put your own token in the git-ignored
    `ios/.appcheck-debug-token` and launch with `SIMCTL_CHILD_AppCheckDebugToken="$(cat ios/.appcheck-debug-token)"`
    (or set `AppCheckDebugToken` in a non-shared Xcode scheme); register that value instead.
-Then import your own photo (not Judge Mode) and send it; the HUD shows IN CLOUD for that call. Not yet verified (U-25).
+Then import your own photo (not Judge Mode) and send it; the HUD shows IN CLOUD for that call. **Verified Nov 27 (U-25):** a token generated into the git-ignored file was registered by the owner (Firebase console, App Check, the iOS app's ⋮ › Manage debug tokens; the app itself is not registered with an attestation provider), the app launched with `SIMCTL_CHILD_AppCheckDebugToken`, a drawn made-up street scene added with `xcrun simctl addmedia` and checked through the own-photo flow: pre-screen ON-DEVICE (Apple FM, 82.7 s cold), consent, attack IN CLOUD (`gemini-3.5-flash-lite`, 6.6 s), LOW verdict, referee BUILT-IN · code (nothing to link). The fix had nothing to mask; the fix card no longer offers a re-attack of the identical photo in that case.
 
 ## Run
 ```bash

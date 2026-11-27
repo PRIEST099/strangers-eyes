@@ -170,9 +170,12 @@ struct FixCard: View {
       if fix.cropSide != "none" { Label(Strings.t("ui.fix.cropItem", ["side": fix.cropSide]), systemImage: "crop").font(.caption) }
       if fix.unremovable { Text(Strings.t("copy.fix.unremovable")).font(.caption) }
       if fix.cropTooMuch { Text(Strings.t("copy.fix.cropTooMuch")).font(.caption) }
-      Text(Strings.t("ui.fix.expected", ["level": fix.expectedResidual])).font(.caption)
-      Button(Strings.t("copy.fix.reattack")) { Task { await model.applyFixAndPrepareReattack() } }
-        .buttonStyle(.borderedProminent).accessibilityIdentifier("reattackButton")
+      // Nothing to mask and no crop: no "expected after fix" and no re-attack of the identical photo (Nov 27 live run).
+      if !fix.masks.isEmpty || fix.cropSide != "none" {
+        Text(Strings.t("ui.fix.expected", ["level": fix.expectedResidual])).font(.caption)
+        Button(Strings.t("copy.fix.reattack")) { Task { await model.applyFixAndPrepareReattack() } }
+          .buttonStyle(.borderedProminent).accessibilityIdentifier("reattackButton")
+      }
     }
     .padding(12).frame(maxWidth: .infinity, alignment: .leading)
     .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 10))

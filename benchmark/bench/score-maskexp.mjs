@@ -26,9 +26,10 @@ export function signTest(pos, n) {
   return Math.min(1, (2 * p) / 2 ** n);
 }
 
-export function compare(photos) {
+/** `arm`: which blur arm to compare with the solid fill ('blur' = the strong blur, 'light' = the Nov 27 light blur). */
+export function compare(photos, arm = 'blur') {
   const rows = photos.map((p) => {
-    const s = p.solid; const b = p.blur;
+    const s = p.solid; const b = p[arm];
     return { id: p.id, types: p.types, s, b,
       sMaj5: maj(s.w5, s.scorable), bMaj5: maj(b.w5, b.scorable), sMaj25: maj(s.w25, s.scorable), bMaj25: maj(b.w25, b.scorable),
       // +1: blur's guess is closer. medianD counts an answered run with no location as +Infinity (score-bench, F-307).
@@ -78,6 +79,28 @@ export function report(meta, c) {
   L.push('|---|---|---|---|');
   c.rows.forEach((r, i) => L.push(`| m${String(i + 1).padStart(2, '0')}${r.stopped ? ' (stopped: refusal; not scored)' : ''} | ${r.types.join(', ')} | ${r.s.w5}/${r.s.n}, ${kmU(r.s.medianD)} | ${r.b.w5}/${r.b.n}, ${kmU(r.b.medianD)} |`));
   L.push('');
+  if (meta.light) {
+    const l = meta.light;
+    L.push('## Light blur (added Nov 27, pre-registered)');
+    L.push('');
+    L.push(`The same boxes hidden with a **light blur** (sigma = ${meta.lightPct}% of the box's shorter side, at least 2 px: the blur that let the cloud read a drawn name 23 of 23 times in the text test), ${meta.lightRuns}× per photo, compared with the solid runs above. The light-blur runs were made a day later than the solid ones.`);
+    L.push('');
+    L.push('| | Photos |');
+    L.push('|---|---|');
+    L.push(`| Located within 5 km with **light blur** but not with solid (2 of 3 runs) | **${l.blurOnly5}** |`);
+    L.push(`| Located within 5 km with **solid** but not with light blur | ${l.solidOnly5} |`);
+    L.push(`| Located within 5 km either way | ${l.both5} |`);
+    L.push(`| Within 25 km with light blur but not solid / solid but not light blur | ${l.blurOnly25} / ${l.solidOnly25} |`);
+    L.push(`| Light blur's median guess closer than solid's / farther / tied | ${l.blurCloser} / ${l.solidCloser} / ${l.ties} (sign test p = ${l.p === null ? 'n/a' : l.p.toFixed(2)}) |`);
+    L.push(`| Median distance over photos: solid → light blur | ${kmU(l.medSolid)} → ${kmU(l.medBlur)} |`);
+    L.push(`| Refused runs (light blur) | ${l.refused} |`);
+    L.push(`| Photos not scored | ${l.excluded} |`);
+    L.push('');
+    L.push('| Photo | Light blur: ≤ 5 km runs, median d |');
+    L.push('|---|---|');
+    l.rows.forEach((r, i) => L.push(`| m${String(i + 1).padStart(2, '0')}${r.stopped ? ' (stopped: refusal; not scored)' : ''} | ${r.b.w5}/${r.b.n}, ${kmU(r.b.medianD)} |`));
+    L.push('');
+  }
   L.push('**Limits.** A small set and one model; a different blur strength would give different numbers. This tests the claim behind invariant 6 ("solid fills, never blur"); it does not prove a solid fill hides everything: buildings, landscape and layout stay visible either way.');
   L.push('');
   const text = L.join('\n') + '\n';
@@ -114,22 +137,32 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const [head, ...rows] = readFileSync(`${PRIV}/truth.csv`, 'utf8').trim().split(/\r?\n/);
   const keys = head.split(',');
   const truth = new Map(rows.map((r) => { const o = Object.fromEntries(r.split(',').map((v, i) => [keys[i], v])); return [o.id, { lat: Number(o.lat), lng: Number(o.lng) }]; }));
+  // Runs are MERGED per photo across raw files (Nov 27: the light-blur arm is a separate raw file of the same photos).
   const byId = new Map();
   const raws = files.map((f) => JSON.parse(readFileSync(f, 'utf8')));
   for (const raw of raws) {
     if (raw.mode !== 'live' || !raw.fixExp || raw.set !== 'bench') throw new Error('not a live bench mask-experiment run');
-    for (const p of raw.photos) if (p.complete && !p.skipped && p.fix && !p.fix.skipped) byId.set(p.id, p);
+    for (const p of raw.photos) {
+      if (!(p.complete && !p.skipped && p.fix && !p.fix.skipped)) continue;
+      const prev = byId.get(p.id);
+      if (prev && JSON.stringify(prev.fix.maskedClueIds) !== JSON.stringify(p.fix.maskedClueIds)) throw new Error(`${p.id}: different boxes across raw files`);
+      byId.set(p.id, prev ? { ...prev, runs: [...prev.runs, ...p.runs] } : p);
+    }
   }
   const photos = [...byId.values()].sort((x, y) => x.id.localeCompare(y.id)).map((p) => {
     const t = truth.get(p.id);
     if (!t) throw new Error(`no truth for ${p.id}`);
     const fx = p.runs.filter((r) => r.kind === 'fix');
-    return { id: p.id, types: [...new Set(p.fix.maskedTypes)], solid: scoreRuns(fx.filter((r) => (r.variant ?? 'solid') === 'solid'), t), blur: scoreRuns(fx.filter((r) => r.variant === 'blur'), t) };
+    return { id: p.id, types: [...new Set(p.fix.maskedTypes)], solid: scoreRuns(fx.filter((r) => (r.variant ?? 'solid') === 'solid'), t), blur: scoreRuns(fx.filter((r) => r.variant === 'blur'), t), light: scoreRuns(fx.filter((r) => r.variant === 'lightBlur'), t) };
   });
-  const last = raws.at(-1);
+  const strongRaws = raws.filter((r) => !r.lightBlurArm);
+  const lightRaws = raws.filter((r) => r.lightBlurArm);
+  const last = strongRaws.at(-1) ?? raws.at(-1);
   // The per-arm run count comes from the data (review F-307), not from metadata.
   const perArm = Math.max(0, ...photos.map((p) => Math.max(p.solid.n, p.blur.n)));
-  const text = report({ dates: [...new Set(raws.map((r) => r.startedAt.slice(0, 10)))], sigmaPct: Math.round((last.blurSigmaRatio ?? 0.15) * 100), model: last.primary, runs: perArm }, compare(photos));
+  const lightN = Math.max(0, ...photos.map((p) => p.light.n));
+  const light = lightRaws.length ? { light: compare(photos, 'light'), lightPct: Math.round((lightRaws.at(-1).blurSigmaRatio ?? 0.04) * 100), lightRuns: lightN } : {};
+  const text = report({ dates: [...new Set(raws.map((r) => r.startedAt.slice(0, 10)))], sigmaPct: Math.round((last.blurSigmaRatio ?? 0.15) * 100), model: last.primary, runs: perArm, ...light }, compare(photos));
   writeFileSync(OUT, text);
   console.log(text);
   console.log(`score-maskexp: wrote ${OUT}`);

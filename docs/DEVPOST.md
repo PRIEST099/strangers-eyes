@@ -26,7 +26,7 @@ Strangers' Eyes
 
 ## Elevator pitch
 <!-- pitch -->
-Turning off location doesn't hide where a photo was taken. Strangers' Eyes lets a cloud AI try to place your photo, checks its guess on your own device, and never tells the cloud if it was right.
+You covered your child's face. A stranger's AI can still read the name on the lunchbox and place the street behind it. Strangers' Eyes lets it try on a masked copy and never tells it if it got close.
 <!-- /pitch -->
 
 ## Try it out (links)
@@ -48,9 +48,13 @@ firebase-ai-logic, gemini, gemini-nano, apple-foundation-models, firebase-app-ch
 ## About the project
 <!-- about -->
 ## Inspiration
-I kept seeing the same advice: turn off location before you post. But the location tag was never the main problem. A street sign, a shop name or the shape of a building is often enough for an AI to work out where a photo was taken. Privacy International's 2026 report on AI geolocation cites studies reporting street-level accuracy of up to about 60% on social-media-style photos ([Nowhere to Hide?](https://privacyinternational.org/report/5736/nowhere-hide-privacy-risks-and-policy-implications-ai-geolocation)).
+Before posting a first-day-of-school photo, careful parents do two things: they turn location off, and they put a sticker over their child's face. I wanted to know what that leaves.
 
-I wanted a way to see a photo the way a stranger's AI would, before posting it. The catch is that you can't ask a cloud AI "is this near my home?" without telling it where your home is.
+So I ran the lunchbox test. I drew a made-up child's name on a card in photos of public places and asked a cloud AI to read every word it could see. It read the name in 23 of 23. Through a light blur: 23 of 23 again. Behind a solid box: none. The same model, given photos with no location data, placed 8 of 36 within 5 km of where they were taken. The face was never the only thing in the picture.
+
+This isn't only my worry. Privacy International's 2026 report on AI geolocation cites studies reporting street-level accuracy of up to about 60% on social-media-style photos ([Nowhere to Hide?](https://privacyinternational.org/report/5736/nowhere-hide-privacy-risks-and-policy-implications-ai-geolocation)).
+
+I wanted a way to see a photo the way a stranger's AI would, before posting it. The catch is that you can't ask a cloud AI "is that my child's name?" or "is this near our home?" without telling it the name and the address.
 
 ## What it does
 Strangers' Eyes splits the job in two.
@@ -59,17 +63,17 @@ On your device, the app strips the photo's hidden data, covers faces and the pri
 
 In the cloud, Gemini plays the stranger. It gets only that cleaned copy and tries to work out where it was taken.
 
-Back on your device, the app checks that guess against a private list you keep there: your home and work, your children's names, your employer. That list never leaves the device. Plain code, not an AI, works out how close the guess came to each of your own places and shows it as a distance band, like "Home: within 1 km". It never shows the guess as a pin on a map.
+Back on your device, the app checks that guess against a private list you keep there: your home, your child's school, your children's names, your employer. That list never leaves the device. Gemini Nano in Chrome (or Apple's model on iOS) does two jobs there: it looks over the original photo for clues before anything leaves (15–24 s, nothing sent), and it reads the stranger's free-text guess against your list (3–5 s). Plain code, not an AI, then works out how close the guess came to each of your own places and shows it as a distance band, like "School: within 1 km". It never shows the guess as a pin on a map.
 
 If a clue can be removed, one tap covers it and the cloud tries again. The result says "Risk reduced" (never "safe") with the AI's confidence, or "Still exposed" with a suggestion to crop the photo or not post it.
 
-The part I like most: the cloud never learns whether it guessed right. The one answer a stalker wants ("yes, that's near where they live") only ever exists on your device.
+The part I like most: the cloud is never told whether it guessed right. The one answer a stalker wants ("yes, that's near where they live") only ever exists on your device.
 
 ## Who it's for
-These are made-up examples, not real people:
-- A parent posting a photo from the park. The AI reads the park's name board, the device sees that's within 1 km of home, and one tap covers it. Asked again, the AI only gets the city.
-- Someone who has moved to get away from an abusive partner. The new address lives only in the private list. If the view from a window still gives the place away, the app says so instead of offering false comfort.
-- A seller photographing an item at home. A parcel label with their name is covered before anything is sent, and the check then shows what the room itself gives away.
+One person, at one moment: a parent or grandparent about to post a photo of a child, on the first day of school, at a birthday, on the walk home. These are made-up examples, not real people, and no parent has tested the app yet:
+- A parent posting a first-day photo. The face is covered, but the name on the bag isn't, and the street sign behind is readable. The device covers the name before anything is sent, the stranger's AI still places the street within 1 km of the school, and one tap covers the sign. Asked again, the AI only gets the city.
+- A grandparent sharing a birthday photo in a family group. The check shows there's nothing in it a stranger's AI can use, and says so with its confidence, never "safe".
+- Someone for whom the location itself is the danger, such as a person who has moved away from a former partner. The new address lives only in the private list. If the view from a window still gives the place away, the app says so instead of offering false comfort.
 
 ## How I built it
 The one rule I stuck to: each step runs wherever is safe for the data it carries, even when another model would be faster.
@@ -83,7 +87,7 @@ Every AI call goes through one small piece of code I call the Egress Gate. A bui
 
 The web app is React and TypeScript on Firebase Hosting, with App Check, Anonymous Auth and Remote Config. Faces and text are found with MediaPipe and Tesseract.js, and distances are worked out in code. It's covered by over 3,400 automated tests.
 
-The iOS app is SwiftUI with Firebase AI Logic. Apple's on-device model runs the pre-screen and the guess check. It only sees the text and labels that Apple's Vision framework picks out of the photo, never the image itself. A Judge Mode run of the level crossing on the iOS Simulator, replaying the recorded attacker answers, ended "Risk reduced" with every private step on the device and nothing sent.
+The iOS app is SwiftUI with Firebase AI Logic. Apple's on-device model runs the pre-screen and the guess check. It only sees the text and labels that Apple's Vision framework picks out of the photo, never the image itself. A Judge Mode run of the level crossing on the iOS Simulator, replaying the recorded attacker answers, ended "Risk reduced" with every private step on the device and nothing sent. And on Nov 27 the iOS app made its first live Gemini call from the Simulator: a drawn street scene, the pre-screen on Apple's model, the attack in the cloud through Firebase AI Logic in 6.6 s.
 
 I built this with Claude Code as my coding assistant. The illustrations in the app and the video were generated with Figma's AI image tool (credited in web/public/art/SOURCES.md). The video's other animations were drawn in code, and the narration is a text-to-speech voice (Kokoro). The app footage is the real app.
 
@@ -92,17 +96,23 @@ Judge Mode uses three openly licensed (CC0) photos of public places, two in Ljub
 
 When the cloud model is available, each sample is attacked live. When it isn't (Google's free tier was often overloaded while I worked), the app replays real answers I recorded on Nov 23, clearly labelled CACHED SAMPLE. Here's what those recorded runs found:
 - Station: it read the sign and named the wrong city, about 100 km off. With the sign covered, it still found the right city from the building. Still exposed.
-- Level crossing: it read a street sign and a house-number plate and placed the photo within 5 km of the made-up home and work. With both covered, it could only name the city. Without Nano, the guess check runs in the cloud on the made-up list, merged with simple rules; my Nov 23 run on that path said "Risk reduced", and so do the rules alone when offline (and Apple's model on iOS). With Gemini Nano doing the guess check it has gone both ways: in the video's run Nano linked the made-up workplace to that city, so the app said "Still exposed" at city level; in the gallery run it didn't, and the app said "Risk reduced". Both are honest readings of a city-level guess; the app never says "safe".
+- Level crossing: it read a street sign and a house-number plate and placed the photo within 5 km of the made-up home and work. With both covered, it could only name the city. Without Nano, the guess check runs in the cloud on the made-up list, merged with simple rules; my Nov 23 run on that path said "Risk reduced", and so do the rules alone when offline (and Apple's model on iOS). With Gemini Nano doing the guess check it goes both ways: in 10 runs it said "Still exposed" 6 times (Nano linked the made-up workplace to that city) and "Risk reduced" 4 times. The video shows a "Still exposed" run and the gallery a "Risk reduced" one. Both are honest readings of a city-level guess; the app never says "safe".
 - Castle with the lunchbox: it placed the photo 0.1 km from the made-up workplace, and there was nothing a mask could remove. Crop it or don't post it.
 
 I originally used a different second photo, a bike-share path that ended "Still exposed", and swapped it for a Berlin one so there would be a sample a fix can actually help. I tried six Berlin photos. Google's model was overloaded for most of them, and the level crossing was the one that got a complete answer.
 
 ## What I measured
-I tested the attacker on 40 openly licensed photos of public places that were uploaded to Wikimedia Commons in the two weeks before the run, so the model is unlikely to have seen them. I picked them by a rule written down before I looked at any image, and the app's own face check held back 4. Each photo got the same redacted copy the app sends, three times. Free-tier Gemini placed 8 of the 36 within 5 km (95% interval 12–38%), 5 of them within 1 km, and refused none of 126 runs. Almost all of them were street scenes: 7 of 16, against 0 of 14 nature, park and rural photos. For 2 of the 8 it placed, nothing it named could be covered. Covering the clues on the other 6 moved its guess further away for 5 (median 0.7 km to 8.3 km), but 3 were still within 5 km. Then I ran those 8 placed photos through the real app, with Gemini Nano on and a made-up home pin near each one, and let the app's own fix loop (up to three rounds) do its work. Five of them started within 5 km of home on that run. The loop moved four of those five out, all ending "Risk reduced". The fifth stayed within 1 km because there was nothing it could cover, and the app said so instead of pretending. That run also caught a bug of mine: cropping could send the remaining area sharper than before. A crop now never adds detail.
+**Names: the lunchbox test.** The private list exists to catch things like your child's name on a bag, so I tested that directly. I drew a made-up first name on a card in 24 fresh photos of public places. The app's own on-device text reader caught the name in 22 of 23 (the face check held one photo back) before anything would be sent. Then I asked the cloud model to transcribe all the text it could see: it read the name in all 23 with no mask, and in all 23 again through a light blur. Through a strong blur, or the app's solid box, it read none. Blur is a dial, not a wall: it only works if it's strong enough. A solid box can't be too weak, which is why the app uses one.
 
-The private list exists to catch things like your child's name on a bag, so I tested that directly. I drew a made-up first name on a card in 24 of the photos. The app's own on-device text reader caught the name in 22 of 23 (the face check held one back) before anything would be sent. Then I asked the cloud model to transcribe all the text it could see: it read the name in all 23 with no mask, and in all 23 again through a light blur. Through a strong blur, or the app's solid box, it read none. A blur only works if it's strong enough; a solid box can't be too weak, which is why the app uses one. (For the location guess, a strong blur and a solid box made no difference.) The aggregates are in the repo (benchmark/bench/).
+**Places.** I tested the attacker on 40 openly licensed photos of public places that were uploaded to Wikimedia Commons in the two weeks before the run, so the model is unlikely to have seen them. I picked them by a rule written down before I looked at any image, and the app's own face check held back 4. Each photo got the same redacted copy the app sends, three times. Free-tier Gemini placed 8 of the 36 within 5 km (95% interval 12–38%), 5 of them within 1 km, and refused none of 126 runs. Looking back at the results afterwards, almost all of them were street scenes: 7 of 16, against 0 of 14 nature, park and rural photos.
 
-The web footage and gallery screenshots now run with Gemini Nano: the clue scan takes 15–24 s and the guess check 3–5 s on the device, and neither sends a byte.
+**Does covering help?** I ran those 8 placed photos through the real app three times, with Gemini Nano on and a made-up home pin near each one, and let the app's own fix loop (up to three rounds) do its work. In 15 of the 24 runs, the first guess landed within 5 km of home. The loop moved 9 of those 15 out (95% interval 36–80%). Split afterwards by what was possible: when the attacker's clues could be covered, the loop moved 9 of 10 out. In the other 5 there was nothing to cover, because the photo was placed from buildings or layout, and the app said so instead of pretending. This work also caught a bug of mine: cropping could send the remaining area sharper than before. A crop now never adds detail.
+
+**Blur and places.** On 15 photos I hid the same clues three ways, three runs each. With the solid box or a strong blur, 2 of the 15 were still placed within 5 km. With a light blur, 4 were, and the typical guess went from 345 km away to 15 km. Fifteen photos isn't statistically firm (p = 0.15), and the light-blur runs were made a day later, but it points the same way as the names.
+
+**How steady is the on-device AI?** I ran each of the three samples 10 times with Gemini Nano and the recorded attacker answers. Two samples ended the same way all 10 times. The level crossing ended "Still exposed" 6 times and "Risk reduced" 4 times, because Nano doesn't always link the made-up workplace to the city the attacker names. In all 30 runs every private step ran on the device, with no fallback and nothing sent. The clue scan takes 15–24 s and the guess check 3–5 s.
+
+The aggregates and scripts are in the repo (benchmark/bench/, docs/nano-stability.md, docs/fix-loop-measurement.md).
 
 I also measured what actually leaves the device during a full check, on a local build of the app: one of the benchmark street photos, a made-up private list, Gemini Nano on, the first attack, the fix and the re-attack. That photo had no faces or private words in it, so this shows what is sent, not how well the masks work (the name test above does that). Exactly two images left, one redacted 1536 × 1152 copy per attack (295 KB and 290 KB, no hidden photo data, the same bytes the consent screen showed). No word from the private list, no saved location and no part of the 2.1 MB original was in any request, and the Cloud Ledger matched the network to the kilobyte. The measurement also found one thing I hadn't disclosed: the face detector I use (Google's MediaPipe) sends small usage pings to Google, a few dozen bytes with the library version and timings and nothing from your photo. The app now says so. The script and the full report are in the repo.
 
@@ -118,13 +128,14 @@ A "where was this taken?" tool could help a stalker, so the app never shows the 
 I learned that hybrid AI makes the most sense when each side needs something the other can't have. The cloud knows the world well enough to place a photo, and only the device knows the secrets that make that dangerous. Keeping those two apart turned out to be most of the work.
 
 ## Limitations
-- The numbers come from 36 photos of public places on Commons, not from what people actually post. Recently uploaded makes it unlikely the model saw them, not impossible: famous places are known whatever the photo.
+- The names were drawn cards in clean capitals on photos of public places, not real children, name tags, uniforms or handwriting, and the name reader was a separate test, not the app's attacker (which is told not to repeat names). No family photos were tested and no parent has tried the app.
+- The location numbers come from 36 photos of public places on Commons, not from what people actually post. Recently uploaded makes it unlikely the model saw them, not impossible: famous places are known whatever the photo.
 - It runs on Google's free tier with a lighter model, so a stronger model might find more. Google may use the redacted image to improve its products, and the consent screen says so.
-- On iOS (tested in the Simulator), Judge Mode replays the recorded answers. The live Gemini call from the iOS app hasn't run yet, and iOS doesn't use Anonymous Auth or Remote Config yet: it reads the bundled defaults.
+- iOS runs in the Simulator only; I have no physical iPhone to test on. Its Judge Mode replays the recorded answers. The live Gemini call from the iOS app has run once, in the Simulator with an App Check debug token. iOS doesn't use Anonymous Auth or Remote Config yet: it reads the bundled defaults.
 - Without on-device AI, the private steps use simple rules. On a re-attack the cloud can see which areas you covered, but never why.
 
 ## What's next
-An Android version with Gemini Nano, the live Gemini call on iOS, a benchmark of photos people actually post (with their consent), and a browser extension that checks a photo right where you're about to post it.
+Testing with parents, names in handwriting and on fabric, an Android version with Gemini Nano, iOS on a physical iPhone, a benchmark of photos people actually post (with their consent), and a browser extension that checks a photo right where you're about to post it.
 <!-- /about -->
 
 ## Testing instructions
@@ -132,7 +143,7 @@ An Android version with Gemini Nano, the live Gemini call on iOS, a benchmark of
 1. Open https://strangers-eyes.web.app in any browser. There's no login and it's free.
 2. Confirm you're 18+, then choose "Open Judge Mode" (or go straight to https://strangers-eyes.web.app/?judge=1) and press "Run this sample". It plays through on its own: pre-screen, consent, attack and result, then fix and attack again when a clue can be covered.
 3. Turn on "Technical details" in Settings to see where each AI step ran (on device, in the cloud, or simple rules) and how long it took. The Cloud Ledger shows what left your device.
-4. These results aren't staged. In my Nov 23 runs the station ended "Still exposed" and the castle "Crop it or don't post it". The level crossing ends "Risk reduced" when the cloud or simple rules do the guess check (no Nano), and with Gemini Nano it has gone both ways ("Still exposed" at city level in the video, "Risk reduced" in the gallery shot), because Nano doesn't always link the made-up workplace to the city the AI names. A live run can differ.
+4. These results aren't staged. In my Nov 23 runs the station ended "Still exposed" and the castle "Crop it or don't post it". The level crossing ends "Risk reduced" when the cloud or simple rules do the guess check (no Nano), and with Gemini Nano it goes both ways ("Still exposed" 6 times and "Risk reduced" 4 times in 10 runs), because Nano doesn't always link the made-up workplace to the city the AI names. A live run can differ.
 5. If the cloud model is busy or unavailable, Judge Mode replays my recorded Nov 23 answers, labelled CACHED SAMPLE. The replay itself sends nothing, but the Ledger still counts anything that already left: a live attempt that timed out or hit a server error, and, if your browser has no Nano, Judge Mode's pre-screen and guess check, which run in the cloud for the made-up samples only. Your own photos and your own private list never take that route.
 6. Optional: in desktop Chrome with on-device AI turned on (chrome://settings/ai and chrome://flags/#prompt-api-for-gemini-nano-multimodal-input), reload, and once Settings shows Nano as available, the private steps run on the device.
 7. Optional: try a photo you took yourself, with no people in it. Even with an empty private list you'll see the clues and how precise the guess was.

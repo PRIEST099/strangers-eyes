@@ -2,6 +2,22 @@
 
 Measured on 26 Nov 2026, 07:55–08:09 UTC, with `scripts/measure-fix-loop.mjs`. This file holds aggregates only. The raw per-photo log is kept in PRIV (`raw/fixloop-*.json`). It has no coordinates, no photo titles and no attacker place names.
 
+## Update Nov 27: three runs (pre-registered extension)
+
+The protocol was extended before any new run: the same 8 photos, flow and made-up vault, two more independent runs (each photo once per run, fresh browser profile, no reruns), the Nov 26 run counted as run 1. Raw logs in PRIV (`raw/fixloop-2026-11-27T07-46-18.json`, `raw/fixloop-2026-11-27T08-00-17.json`).
+
+| | Run 1 (Nov 26) | Run 2 | Run 3 | All three |
+|---|---|---|---|---|
+| Photos whose first attack landed within 5 km of Home | 5 | 5 | 5 | **15 photo-runs** |
+| ...moved outside 5 km by the fix loop | 4 | 2 | 3 | **9 of 15** (60%, 95% interval 36–80%) |
+| ...stayed within 5 km because the app found nothing it could mask | 1 | 2 | 2 | 5 |
+| ...stayed within 5 km after the fix | 0 | 1 | 0 | 1 (still within 1 km after two fixes: "Still exposed") |
+
+- **When the attacker's clues could be masked, the loop moved the guess out of 5 km in 9 of 10 photo-runs** (95% interval 60–98%). This split was made after the runs.
+- In the 5 photo-runs with nothing to mask, the photo was placed from things a mask can't hide (buildings, layout), and the app said so ("crop it or don't post it") instead of claiming a fix.
+- The same photo can behave differently between runs: the attacker cites different clues each time (for example, one photo had a maskable clue in run 2 and none in run 3).
+- Run 2 and 3: 31 live attacker calls, all answered; 0 refusals, safety blocks or timeouts. The fix plan is deterministic code on the device (labelled BUILT-IN in the app since Nov 27).
+
 ## The question (pre-registered before any run)
 
 Through the real app (normal Check flow, Gemini Nano on, DEV server), how many of the 8 photos that the benchmark located within 5 km end the app's own fix loop outside the 5 km band, using up to the app's 3 fix rounds?
@@ -43,7 +59,7 @@ Labels p1–p8 follow the benchmark id order. Bands are the app's code-computed 
 | p7 | 0 | LOW | same city area | (first verdict) Low exposure found | Round 1: nothing to mask |
 | p8 | 3 | AMBER → LOW → LOW → LOW | within 5 km → not linked → not linked → not linked | Risk reduced: within 5 km (district) → not located nearby | 3-round cap |
 
-What each fix masked, all from the app's rules-only planner:
+What each fix masked, all from the app's deterministic planner:
 
 - **p3:** 1 area ("other").
 - **p4:** a crest or logo, then storefront text.
@@ -59,7 +75,7 @@ Every compare headline is measured against the photo's first verdict. That is ho
 | Pre-screen (photo, S1) | ON-DEVICE (Gemini Nano) | 8 | 15.9–24.8 s |
 | Attacker pass B (redacted copy, S3) | IN CLOUD (gemini-3.5-flash-lite) | 17 | 9.8–21.9 s (median 13.8 s) |
 | Referee: guesses vs vault (S0) | ON-DEVICE (Gemini Nano) | 17 | 2.9–3.7 s |
-| Fix plan | RULES-ONLY (deterministic code; it writes no HUD/Ledger line) | 15 plans shown | – |
+| Fix plan | deterministic code (shown as RULES-ONLY on Nov 26, BUILT-IN since Nov 27, D-179; it writes no HUD/Ledger line) | 15 plans shown | – |
 
 No step was BLOCKED. No S0 or S1 step fell back to rules, and none went to the cloud.
 

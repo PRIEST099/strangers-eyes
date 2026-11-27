@@ -1151,6 +1151,7 @@ Each screen lists its purpose, layout, behaviour, states (a)–(e), copy IDs and
 - **Flow:**
   - Pick a sample (or **Run all**, P1).
   - Autoplay (default from RC `judge_autoplay_default`) advances each step with **coach marks** (`copy.judge.coach.*`) that explain what ran where.
+  - **Prove it offline** (D-182; off by default; read once when a sample starts): the attacker's first answer is held, unchecked, on the Verdict step (`ui.seal.*`). "Open it offline" is enabled only while `navigator.onLine` is false; opening runs the guess check with no network (Nano if ready, else simple rules; the gate's offline path never uses the cloud) and shows a stamp of the Cloud Ledger's counts for this session while the connection was off (on-device calls, simple-rules checks, cloud AI calls). "Open it now" checks it the usual way, with no stamp. Autoplay waits at the seal, and after an offline open waits for the connection before the next step. The app's own "Simulate offline" setting does not count as offline here.
   - The consent sheet confirms automatically after 3 s in autoplay.
   - **Target:** red to green in **≤90 s per sample (goal: about 60 s)** on a judge's laptop without Nano, measured warm. For the cold start, see AC-067.
 - **Routing:**

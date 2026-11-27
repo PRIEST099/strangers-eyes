@@ -103,6 +103,8 @@ const rt = vi.hoisted(() => {
         if (!e.ran || deps === undefined || !same(deps, e.deps)) pending.push({ e, fn, deps });
       },
       useId: () => { at++; return ':r0:'; },
+      // D-182: Check reads the connection and the Ledger (store hooks): the static-render snapshot, as on a server.
+      useSyncExternalStore: (_subscribe: unknown, get: () => unknown, server?: () => unknown) => (server ?? get)(),
     },
     importPhoto: vi.fn<(file: unknown, opts: { pins: readonly GpsPinLike[] }) => Promise<ImportResult>>(),
     runPrescreen: vi.fn((..._args: unknown[]) => new Promise<never>(() => {})), // Tier-0 never settles here: the step shows its progress

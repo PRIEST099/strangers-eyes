@@ -84,6 +84,9 @@ export function newAttackCache(): AdvBCache {
   return { get: (k) => m.get(k), set: (k, v) => { m.set(k, v); } };
 }
 
+/** D-182: load the referee job's chunk ahead of time (the sealed answer opens it with no connection). Never rejects. */
+export const warmReferee = (): Promise<void> => import('../../ai/jobs/referee').then(() => undefined, () => undefined);
+
 /**
  * The referee for one pass-B result (T-074): the on-device referee through the gate (S0, ONLY_ON_DEVICE; RULES-ONLY
  * when Nano is absent, off or fails), unioned with the rules referee. Never rejects.

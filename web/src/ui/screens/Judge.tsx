@@ -60,6 +60,8 @@ export function Judge() {
 
   const [autoplayPick, setAutoplay] = useState<boolean | null>(null);
   const autoplay = autoplayPick ?? rc?.judgeAutoplayDefault ?? true;
+  // D-182: "Prove it offline", off by default so the normal run is unchanged.
+  const [sealed, setSealed] = useState(false);
   // The sample running now (null: the picker), a nonce so "run again" starts a fresh session, and the Run-all queue.
   const [run, setRun] = useState<{ index: number; nonce: number; all: boolean } | null>(null);
   // Run all's next sample, after a beat. The timer dies with the screen (D-164 review): it switches the ACTIVE vault, so
@@ -88,7 +90,7 @@ export function Judge() {
   const exit = useCallback(() => { location.hash = '#/'; }, []);
   const sample = manifest && run ? manifest.samples[run.index] ?? null : null;
   const runVault = run ? sampleVaults[run.index] ?? null : null;
-  const judgeRun = useMemo(() => (sample && runVault ? { sample, vault: runVault, autoplay, onFinished } : null), [sample, runVault, autoplay, onFinished]);
+  const judgeRun = useMemo(() => (sample && runVault ? { sample, vault: runVault, autoplay, sealed, onFinished } : null), [sample, runVault, autoplay, sealed, onFinished]);
 
   // Presentation only (docs/DESIGN.md §5.4): when a sample starts, the picker collapses to a strip and the run scrolls to
   // the top of the page (main is the scroll container at lg; scrollIntoView finds it). On the first run the scroll waits
@@ -137,8 +139,9 @@ export function Judge() {
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
               <Button variant={run ? 'secondary' : 'primary'} data-action="run-all" onClick={() => begin(0, true)}>{t('ui.judge.runAll')}</Button>
               {run?.all && <span className="text-small text-muted tabular-nums">{t('ui.judge.runningAll', { n: run.index + 1, total })}</span>}
-              <div className="min-w-0 basis-full sm:ml-auto sm:max-w-[26rem] sm:basis-auto">
+              <div className="flex min-w-0 basis-full flex-col gap-2 sm:ml-auto sm:max-w-[26rem] sm:basis-auto">
                 <Toggle label={t('ui.judge.autoplay')} hint={t('ui.judge.autoplayHint')} checked={autoplay} onChange={setAutoplay} />
+                <Toggle label={t('ui.judge.seal')} hint={t('ui.judge.sealHint')} checked={sealed} onChange={setSealed} />
               </div>
             </div>
           </section>

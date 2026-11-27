@@ -857,7 +857,7 @@ let package = Package(name: "Probe12", platforms: [.iOS("27.0")],
 - Reinstalling the app creates a new auto token, unless the env var is set.
 - Only 13.2.0 also reads `~/.config/configstore/firebase-appcheck.json` (written by `firebase appcheck:debugtokens:create`); 12.19.3 does not.
 - Real devices use App Attest. Judges can't run the iOS build against an enforced project without a registered debug token, so document a "bring your own Firebase project" path and rely on the video.
-- A cloud call with the token exchange at runtime is U-25.
+- A cloud call with the token exchange at runtime is U-25: VERIFIED Nov 27 in the Simulator (a debug token works even though the iOS app has no attestation provider registered in App Check).
 
 Source: https://firebase.google.com/docs/app-check/ios/debug-provider
 
@@ -1672,7 +1672,7 @@ Every row is still unconfirmed. **When** refers to the PLAN schedule:
 | U-22 | CSP vs grounding `renderedContent` inline styles | only if a CSP is added | if CSP |
 | U-23 | iOS 12.19.3 HybridModel on-device request in the Simulator | run `s1.respond` with networking off → expect the FM answer | Day 1 (d) |
 | U-24 | iOS `rawResponse.modelVersion` runtime values | print it for device and cloud responses | Day 1 (d) |
-| U-25 | iOS App Check debug token exchange + cloud call | register the token; call `generativeModel` | Day 1 (d) |
+| U-25 | iOS App Check debug token exchange + cloud call | register the token; call `generativeModel` | **VERIFIED Nov 27** (iOS 27 Simulator, debug token registered on the unregistered iOS app; own-photo attack IN CLOUD, `gemini-3.5-flash-lite`, 6.6 s; ios/NOTES.md) |
 | U-26 | `PhotosPicker` data keeps GPS EXIF | import a geotagged photo; `CGImageSourceCopyPropertiesAtIndex` | Day 7 |
 | U-27 | `CGImageSourceCreateThumbnailAtIndex` + transform bakes orientation | Orientation=6 test image | Day 7 |
 | U-28 | iOS `GenerationConfig(temperature:)` effect on Gemini 3.x | expect none; don't rely on it | none |
