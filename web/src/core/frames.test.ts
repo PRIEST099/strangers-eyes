@@ -61,6 +61,15 @@ describe('deriveFrame (ARCH §11.1, D-20, D-88)', () => {
 });
 
 describe('snapCrop: whole pixels, inward, inside the master', () => {
+  it('a crop never raises detail: the crop gets the whole master\'s scale at most (D-178)', () => {
+    // 2048 × 1536 master → whole frame at 0.75. A 1200 × 1536 crop alone would fit at 1.0 (1200 × 1536); it must stay at 0.75.
+    const whole = deriveFrame('cloud', 2048, 1536);
+    const f = deriveFrame('cloud', 2048, 1536, { crop: { x: 400, y: 0, w: 1200, h: 1536 } });
+    expect(f).toEqual({ id: 'cloud', width: 900, height: 1152, cropInMaster: { x: 400, y: 0, w: 1200, h: 1536 } });
+    expect(f.width / f.cropInMaster.w).toBeLessThanOrEqual(whole.width / 2048 + 1e-9);
+    // A small master is never upscaled, cropped or not.
+    expect(deriveFrame('cloud', 800, 600, { crop: { x: 0, y: 0, w: 400, h: 300 } })).toEqual({ id: 'cloud', width: 400, height: 300, cropInMaster: { x: 0, y: 0, w: 400, h: 300 } });
+  });
   it('snaps a fractional crop inward, so it never keeps a sliver it was meant to remove', () => {
     expect(snapCrop({ x: 0.2, y: 99.5, w: 799.6, h: 400.7 }, 800, 600)).toEqual({ x: 1, y: 100, w: 798, h: 400 });
   });

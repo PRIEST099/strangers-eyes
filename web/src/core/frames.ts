@@ -67,7 +67,14 @@ export function deriveFrame(id: DerivedFrameId, W: number, H: number, opts: { ma
   const maxPx = clampMaxPx(id, opts.maxPx); // export without maxPx → Infinity (master size)
   // Only `undefined` means "no crop": a null or malformed crop is a bug upstream and fails closed (D-97).
   const cropInMaster = snapCrop(opts.crop === undefined ? { x: 0, y: 0, w: W, h: H } : opts.crop, W, H);
-  const { width, height } = fitWithin(cropInMaster.w, cropInMaster.h, maxPx);
+  // D-178: a crop never raises detail. The crop is drawn at no finer a scale than the whole master would be at this
+  // maxPx, so cropping to a smaller area never sends that area at a higher resolution than the earlier, uncropped copy
+  // (found by the fix-loop measurement: a crop sent 1337 × 1536 where the uncropped copy was 1536 × 1152).
+  const whole = fitWithin(W, H, maxPx).scale;
+  const fit = fitWithin(cropInMaster.w, cropInMaster.h, maxPx);
+  const scale = Math.min(fit.scale, whole);
+  const width = Math.max(1, Math.round(cropInMaster.w * scale));
+  const height = Math.max(1, Math.round(cropInMaster.h * scale));
   return { id, width, height, cropInMaster };
 }
 
