@@ -5,7 +5,7 @@
 - **The cloud plays the attacker.** Gemini, through Firebase AI Logic, tries to work out where your photo was taken, from a redacted copy.
 - **Your device holds the answers.** It grades the guess against a private vault (home and work pins, your employer, your children's names), masks the clues the attacker used, and lets it try again.
 - **The attacker never learns whether it guessed right.** The vault and the original photo never leave the device.
-- **Measured on the hosted app** (Nov 24; Berlin sample photo through the normal Check flow, made-up vault of two pins and a child's name, no Gemini Nano; from the consent screen and Cloud Ledger): one redacted 1536 × 1024 JPEG of 338 KB (metadata stripped, 0 faces, 0 vault matches) plus fixed instructions, about 456 KB per request, was sent. The 734 KB original, the pins and the name were not (0 vault items, per the gate); the private pre-checks ran as local rules. All three attack attempts failed (two timeouts, one unreachable; two were retried once after a server error: five requests, 2,279 KB), so this covers the first attack only; a full run also sends the re-attack's copy. Details in [`docs/DEVPOST.md`](docs/DEVPOST.md).
+- **Measured on the local dev build, a full check with Gemini Nano on** (Nov 26, D-176; [`docs/egress-measurement.md`](docs/egress-measurement.md), script [`scripts/measure-egress.mjs`](scripts/measure-egress.mjs)): a benchmark street photo through the normal Check flow with a made-up vault (two pins, "City General Hospital", "LUCAS"), first attack, fix and re-attack. Exactly two images left: one redacted 1536 × 1152 JPEG per attack (295 KB and 290 KB, no metadata, the same bytes the consent sheet showed) with the fixed prompt, 399 KB and 392 KB per request. The photo had no faces or vault text, so this tests what is sent, not the masks (the text experiment in §7 tests those). No vault word, no pin coordinate (searched at 3 to 6 decimals), no true location and no byte of the 2.1 MB original appeared in any request. The Cloud Ledger matched the network (2 images, 2 requests, 791 KB). Pre-screen and both guess checks ran on Gemini Nano (22.3 s, 3.4 s, 4.2 s). One undisclosed request was found; the next deploy discloses it: the face detector (MediaPipe) sends small usage pings to Google (38–87 bytes: library version, task, timings; no image or vault data). An earlier Nov 24 check on the hosted app, without Nano, saw the same for the first attack.
 
 ![Home: the tagline and the animated hero illustration](docs/img/gallery/01-home.png)
 
@@ -17,14 +17,14 @@
 2. Confirm you are 18+, choose **Open Judge Mode** (or open `https://strangers-eyes.web.app/?judge=1`), pick a sample and press **Run this sample**. Autoplay runs pre-screen, consent, attack and verdict, then fix and re-attack when a mask can help.
 3. Turn on **Technical details** to see where each AI step ran (`ON-DEVICE`, `IN CLOUD`, `RULES-ONLY` or `CACHED SAMPLE`) and how long it took. The **Cloud Ledger** counts what left the device.
 
-No on-device AI is needed; with Gemini Nano in desktop Chrome, the private steps run on Nano instead of rules.
+No on-device AI is needed. With Gemini Nano in desktop Chrome, the private steps run on Nano. Without it, Judge Mode runs them in the cloud on the made-up vault (labelled IN CLOUD), and your own photos use built-in rules, never the cloud.
 
-**Three outcomes: a fix that works, one that isn't enough, a photo that can't be fixed.** Live attacks through the app on Nov 23, first answer kept; a live run today may differ.
+**Three outcomes: a fix that helps, one that isn't enough, a photo that can't be fixed.** Live attacks through the app on Nov 23, first answer kept; a live run today may differ.
 
 | Sample | First attack | After the fix | Verdict |
 |---|---|---|---|
 | 1. Station forecourt | read the station sign and named the **wrong** city, about 100 km away | sign masked; the re-attack found the right city from the building itself | Still exposed |
-| 2. Level crossing by a street sign (Berlin) | street level, from the street sign and its house-number plate: within 5 km of the made-up home and work pins | both masked; the re-attack got only the city | **Risk reduced** (amber → low, confidence shown) |
+| 2. Level crossing by a street sign (Berlin) | street level, from the street sign and its house-number plate: within 5 km of the made-up home and work pins | both masked; the re-attack got only the city | **Risk reduced** (amber → low) when the cloud or the rules do the guess check, and on iOS with Apple's model; **Still exposed** at city level with Gemini Nano (the made-up workplace is in the guessed city) |
 | 3. Castle courtyard + drawn "LUCAS" lunchbox | 0.1 km from the made-up work pin | only clues a mask can't remove | Red: crop or don't post |
 
 > **About the samples (please read).** The three photos are **CC0 photos of public places** from Wikimedia Commons, two in Ljubljana and one in Berlin (credits in [`web/public/samples/SOURCES.md`](web/public/samples/SOURCES.md)). We solid-masked people, adverts showing people and real number plates, and **drew in a prop** (the "LUCAS" lunchbox, which the app masks on the device before anything is sent). The vault is made up; each sample's pins sit in a park and a square near the photo. Sample 2 replaced a bike-share photo that ended "Still exposed": we tried six Berlin photos, Google's model was overloaded during most runs, and the level crossing is the one that got a complete answer. The **recorded answers** that ship with the samples are the real Nov 23 answers (`gemini-3.5-flash-lite`); they replay, labelled `CACHED SAMPLE`, only when the live attacker is unavailable (offline, quota or daily cap, kill switch, App Check failure, a timeout or a server error). A replay sends nothing itself, but the Cloud Ledger still counts what already left: a live attempt that timed out or got a server error had sent the redacted copy, and without Nano the S4 sample pre-screen and referee run in the cloud. It reads zero only when Nano ran the private steps and no live attack was tried (offline, daily cap, kill switch).
@@ -36,14 +36,14 @@ No on-device AI is needed; with Gemini Nano in desktop Chrome, the private steps
 | ![Judge Mode run](docs/img/gallery/02-judge-run.png) | ![A verdict as distance bands to the made-up pins, with the Cloud Ledger](docs/img/gallery/03-verdict.png) |
 | A Judge Mode run, each AI step labelled with where it ran | Level crossing, first verdict: distance bands to the made-up pins, never a map pin (recorded answer, CACHED SAMPLE) |
 | ![Fix and re-attack, before and after](docs/img/gallery/04-reattack.png) | ![The Egress Gate blocks an unmasked vault match](docs/img/gallery/05-blocked.png) |
-| Fix and re-attack: sign and plate masked, only the city. Risk reduced, never "safe" (CACHED SAMPLE) | The Egress Gate blocks a copy that still shows "LUCAS": 0 bytes sent |
+| Fix and re-attack: signs masked, the AI could only name the city. Work is there too, so Nano's check says Still exposed (CACHED SAMPLE) | The Egress Gate blocks a copy that still shows "LUCAS": 0 bytes sent |
 | ![About: what leaves this device](docs/img/gallery/06-about-routing.png) | ![Settings: what runs where on this browser](docs/img/gallery/07-capabilities.png) |
 | What leaves this device | What runs where on this browser |
 
 ## 2. Why it matters, and why hybrid
 
 - Turning location off strips GPS data, not the street sign. Published studies report **up to** about 60% street-level (≤1 km) accuracy on social-media-like images, much lower on Street View-style images ([Privacy International, "Nowhere to Hide?"](https://privacyinternational.org/report/5736/nowhere-hide-privacy-risks-and-policy-implications-ai-geolocation), Feb 2026), and lower again in sparsely populated regions (arXiv 2502.11163, EMNLP 2025).
-- Our small test agrees (§7): a free-tier Gemini model placed 5 of 10 GPS-free photos of public places within 5 km, two at about 200–250 m, and refused none.
+- Our held-out test confirms the risk, at the lower end of that range (§7): on 36 GPS-free photos of public places uploaded in the two weeks before the run, a free-tier Gemini model placed 8 within 5 km (95% interval 12–38%), 5 of them within 1 km, mostly street scenes, and refused none of 126 runs.
 - **Who it is for:** a parent posting a park photo, a survivor of domestic abuse who has moved, a seller photographing an item at home.
 
 **Why it has to be hybrid.** Placing a photo needs world-scale visual knowledge that only a large cloud model has. Judging the attack needs your secrets, which must never leave the device. The app splits the job at exactly that line.
@@ -132,26 +132,35 @@ A lean SwiftUI app (D-155) in [`ios/StrangersEyes/`](ios/StrangersEyes/), run in
 
 ## 7. Measured results and limitations
 
-### The adversary test (Day-1 spike, Nov 23)
+### The held-out benchmark (Nov 26, D-174)
 
-Aggregates only: [`day1-adversary.md`](benchmark/spike/day1-adversary.md). 10 openly licensed Wikimedia Commons photos of public places, re-encoded with no GPS or EXIF, faces masked; pass B only, `gemini-3.5-flash-lite`, free tier; up to 3 runs per photo (third skipped when two agreed), 20 runs; DEV-only harness [`run-spike.mjs`](benchmark/spike/run-spike.mjs), not the app.
+Aggregates only: [`benchmark/bench/results.md`](benchmark/bench/results.md) (and `results.json`). 40 openly licensed Wikimedia Commons photos of public places with a recorded camera position, **uploaded Nov 13–26, 2026**, so they are unlikely to be in the model's training data. They were chosen by a protocol written before any image was viewed (hash order, one per uploader, ≥ 25 km apart; rejected only for people, homes, schools, interiors or non-places). The same redacted copy the app sends (EXIF stripped, faces solid-masked, ≤ 1536 px), `gemini-3.5-flash-lite` on the free tier, prompt `advB.v1`, **3 runs per photo, all run**. A photo is located if the closest of its ≤ 3 guesses is within the distance in at least 2 of 3 runs; distances are code (haversine), never the model. Scorer: [`score-bench.mjs`](benchmark/bench/score-bench.mjs) (Wilson 95% intervals, self-tested).
 
-| Measure | Result |
-|---|---|
-| Photos refused (≥ 2 runs declined or blocked) | **0 / 10** (0 / 20 runs) |
-| Located within 5 km (≥ 2 runs) | **5 / 10** |
-| Located within 1 km (≥ 2 runs) | **3 / 10**; two at about 200–250 m |
-| Fix: mask the clues marked removable, re-attack | moved **3 of the 4** re-attacked located photos outward (3 / 5 counting the located photo with no removable clue) |
-| G1 gate (≤ 2 refused, ≥ 4 located) / G1b (fix moves ≥ 50%) | **PASS** / **PASS** |
-| Latency per call | median 7.0 s, p90 9.4 s, max 10.9 s |
+| Measure | Result | 95% interval |
+|---|---|---|
+| Located within 5 km | **8 / 36** (22%) | 12–38% |
+| Located within 1 km | **5 / 36** (14%) | 6–29% |
+| Located within 25 km (city) | 11 / 36 (31%) | 18–47% |
+| Refused runs | **0 / 126** | 0–3% |
+| By place type, within 5 km | street scenes 7 / 16; landmarks 1 / 6; nature, parks, rural 0 / 14 | |
+| Fix: mask the clues it cited, re-attack 3× | of the 8 located, 2 had nothing it cited that could be masked; of the 6 re-attacked, the guess moved farther for **5 / 6** (median 0.7 → 8.3 km) and **3 / 6 stayed within 5 km** | |
+| Held back by the face check (never sent) | 4 / 40 | |
+| Latency per attacker call | median 8.5 s, p95 14 s | |
 
-**Caveats:** n = 10, one model, public places only, and the photos may be in Gemini's training data, so the located counts may be optimistic. **The planned 25-photo benchmark on builder-owned photos (T-150..T-153) was not run.**
+**The app's own fix loop (D-178, pre-registered):** [`docs/fix-loop-measurement.md`](docs/fix-loop-measurement.md). The 8 photos the benchmark placed within 5 km went through the real app (normal Check flow, Gemini Nano on, made-up Home pin ~0.8 km from the camera), once each, with up to the app's 3 fix rounds: 17 live attacker calls, 0 refusals. 5 started within 5 km of Home on this run; the fix loop moved **4 of the 5 out** (all ended "Risk reduced"); the fifth stayed within 1 km because nothing it used could be masked, and the app says so. The other 3 already landed outside 5 km on this run's first attack (the attacker varies run to run). The measurement also found a crop that sent its area at a higher resolution than the uncropped copy; fixed (a crop never raises detail, D-178).
+
+**Can the cloud read a private name? (D-177, pre-registered):** [`text-experiment.md`](benchmark/bench/text-experiment.md). 24 benchmark photos each got a drawn card with a made-up first name (small, medium and large text); the face gate held one back. The app's own on-device OCR and vault match **caught the name in 22 / 23** (95% interval 79–99%) before anything would be sent. Asked to transcribe all visible text, `gemini-3.5-flash-lite` read the name in **23 / 23 with no mask and 23 / 23 through a light blur**, and in **0 / 23 through a strong blur and 0 / 23 through the app's solid fill** (0–14%). A blur only hides a name if it is strong enough; a solid fill can't be too weak. That is why masks are solid.
+
+**Solid vs blur for location (D-175, pre-registered):** on the 15 photos where the attacker cited a removable clue, the same boxes hidden with the solid fill or with the strong blur gave the same location result: no photo moved in or out of the 5 km circle; blur's guess was closer for 3, farther for 3 and tied for 9 (p = 1.0). [`mask-experiment.md`](benchmark/bench/mask-experiment.md).
+
+**Caveats:** n = 36, one cheaper model, public places on Commons (many European), not what people actually post. Recently uploaded makes training overlap unlikely, not impossible: famous places are known whatever the photo. The earlier Day-1 spike (10 photos, Nov 23: 5 / 10 within 5 km, 0 / 20 refused; [`day1-adversary.md`](benchmark/spike/day1-adversary.md)) is kept as history; the builder-owned 25-photo plan (T-150..T-153) was replaced by this benchmark.
 
 ### Other measurements
 
 | What | Result | Where |
 |---|---|---|
 | Pass B through the app's Egress Gate | the three Judge samples, attacked live (§1) | local dev server, `gemini-3.5-flash-lite`, free tier, Nov 23 (D-161) |
+| All three Judge samples with Gemini Nano (the video footage and gallery 02–05) | clue scan `ON-DEVICE` 15–23 s, guess check `ON-DEVICE` 3–5 s, 0 bytes sent by the on-device steps | Chrome 158, Apple-silicon Mac, Nov 26 (D-174) |
 | Referee (S0) on real Gemini Nano | `ON-DEVICE`, ~6.1 s warm, 15.6 s cold | Chrome 157, Apple-silicon Mac, Nov 21 (D-154) |
 | Pre-screen (S1) on real Gemini Nano | `ON-DEVICE`, 2 clues on a drawn test image, ~9.5 s warm, 13.0 s cold | same |
 | Free-tier `gemini-3.8-flash` | 80–143 s when it answered, frequent 500/503 | Nov 21–23 (T-031) |
@@ -160,10 +169,10 @@ Aggregates only: [`day1-adversary.md`](benchmark/spike/day1-adversary.md). 10 op
 
 ### Limitations
 
-- **One of three recorded Judge runs ends in "Risk reduced"**; the station and the castle stayed placed from things a mask can't hide. Sample 2 is a swap, disclosed in §1.
+- **One of three recorded Judge runs ends in "Risk reduced", and only when the cloud or the rules do the guess check, or Apple's model on iOS (Nov 24)**: with Gemini Nano doing the guess check, the level crossing ends "Still exposed" at city level (the made-up workplace is in the guessed city), because "Risk reduced" needs the level to drop or fewer high-severity lines (D-128). The station and the castle stayed placed from things a mask can't hide. Sample 2 is a swap, disclosed in §1.
 - The attacker is `gemini-3.5-flash-lite` on the free tier (D-159), nominally weaker than flash, so the app may understate what a stronger model could infer.
 - iOS Judge Mode replays the recorded answers with Apple Foundation Models on the device; the live iPhone Gemini call has not run yet. The Apple FM referee sometimes over-grades a match; the verdict keeps the stronger of the FM and rules answers.
-- Without Nano, S0/S1 run as RULES-ONLY code. Nano needs capable desktop hardware; Nano on the hosted origin is not yet verified (T-109).
+- Without Nano, S0/S1 run as RULES-ONLY code. Nano needs capable desktop hardware. Nano reported `available` and answered a prompt on the hosted origin (Nov 26, D-174); a full hosted Judge run with Nano is not recorded (headless Chrome fails App Check there, by design).
 - Public places are probably easier to locate than homes, and accuracy varies by region (arXiv 2502.11163).
 - The Cloud Ledger lives in memory and resets on reload.
 

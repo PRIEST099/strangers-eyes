@@ -16,11 +16,11 @@
   },
   {
    "id": "judge",
-   "text": "Now the real app, in Judge Mode: free-to-use photos of public places, and a made-up family with a child called Lucas."
+   "text": "Now the real app, in Judge Mode, with Gemini Nano on: free-to-use photos of public places, and a made-up family with a child called Lucas."
   },
   {
    "id": "prescreen",
-   "text": "This castle photo has a lunchbox labelled Lucas. Your device finds the name and covers it, before the photo is sent."
+   "text": "This castle photo has a lunchbox labelled Lucas. Your device finds the name and covers it, and Gemini Nano scans for clues, before anything is sent."
   },
   {
    "id": "gate",
@@ -32,23 +32,23 @@
   },
   {
    "id": "crossing",
-   "text": "This one can be fixed. The AI read a street sign and its house-number plate, and found the street, within five kilometres of home and work. The app covers both, then attacks again. Now it can only guess the city. Risk reduced, with the AI's confidence shown. Never a guarantee."
+   "text": "Here a fix helps. The AI read a street sign and its house-number plate, and found the street, within five kilometres of home and work. The app covers both, then attacks again. Now it can only guess the city. But your work is in that city, so your device still flags it: still exposed, at city level."
   },
   {
    "id": "station",
-   "text": "But covering isn't always enough. With the sign hidden, the AI still found the right city from the building itself. Still exposed."
+   "text": "And sometimes covering isn't enough. With the sign hidden, the AI found the right city from the building itself. Still exposed."
   },
   {
    "id": "results",
-   "text": "In our test of ten public-place photos, the AI placed five within five kilometres, and never refused to guess. Covering the clues it named moved its guess further from the real spot for three of four re-tested photos."
+   "text": "Then we tested thirty-six new photos of public places. The AI placed eight within five kilometres, and never refused. And a made-up name on a card? It read it every time, even through a light blur. Through the app's solid box: never."
   },
   {
    "id": "hybrid",
-   "text": "That's hybrid AI: the cloud brings world knowledge, your device keeps the secrets. Private steps run on Gemini Nano in Chrome, or on Apple's own model on iPhone, shown here in the iOS app. No on-device AI? Simple rules take over, never the cloud. Built on Firebase AI Logic."
+   "text": "That's hybrid AI: the cloud brings world knowledge, your device keeps the secrets. Private steps run on Gemini Nano in Chrome, as you just saw, or on Apple's own model on iOS, shown here in the iOS Simulator. No on-device AI? Simple rules take over, never the cloud. Built on Firebase AI Logic."
   },
   {
    "id": "design",
-   "text": "Here's the whole design on one page. Private steps stay on your device. Every request to the AI passes one gate. And whether the guess was right never leaves."
+   "text": "The whole design on one page. Private steps stay on your device. Every request to the AI passes one gate. And whether the guess was right never leaves."
   },
   {
    "id": "close",

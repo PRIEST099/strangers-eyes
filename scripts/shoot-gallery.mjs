@@ -21,7 +21,7 @@
 // scheme, with the 18+ acknowledgement set (localStorage se.ack18.v1, as shoot-ui does). Finished animations are baked
 // to their end state before each capture (see capture()). Run `node scripts/check-images.mjs` afterwards.
 import { spawn } from 'node:child_process';
-import { mkdirSync, readFileSync, rmSync, writeFileSync, mkdtempSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, writeFileSync, mkdtempSync, symlinkSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
@@ -36,6 +36,10 @@ const { values: a } = parseArgs({ options: {
   offline: { type: 'boolean', default: false },
 } });
 const ORIGIN = a.origin.replace(/\/$/, '');
+// D-174: SE_NANO=<dir holding an OptGuideOnDeviceModel folder> (an APFS clone of the model the user's own Chrome
+// downloaded) gives this profile Gemini Nano and the Prompt API flags; the shots wait until it reports 'available'.
+const NANO = process.env.SE_NANO ?? '';
+if (NANO && !existsSync(join(NANO, 'OptGuideOnDeviceModel'))) { console.error(`SE_NANO=${NANO} has no OptGuideOnDeviceModel folder`); process.exit(2); }
 if (/[?&](fake|shot)/.test(ORIGIN)) { console.error('no seams on the gallery origin'); process.exit(2); }
 const VP = { width: 1440, height: 960 };
 
@@ -125,8 +129,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 if (!(await fetch(`${ORIGIN}/`).catch(() => null))?.ok) { console.error(`${ORIGIN} not reachable`); process.exit(1); }
 
 const profile = mkdtempSync(join(tmpdir(), 'se-gallery-'));
+if (NANO) symlinkSync(join(NANO, 'OptGuideOnDeviceModel'), join(profile, 'OptGuideOnDeviceModel'));
 const chrome = spawn(CHROME, ['--headless=new', '--remote-debugging-port=0', `--user-data-dir=${profile}`, '--no-first-run',
-  '--no-default-browser-check', '--disable-extensions', '--hide-scrollbars', `--window-size=${VP.width},${VP.height}`, 'about:blank'], { stdio: 'ignore' });
+  '--no-default-browser-check', '--disable-extensions', '--hide-scrollbars', `--window-size=${VP.width},${VP.height}`,
+  ...(NANO ? ['--enable-features=OptimizationGuideOnDeviceModel:BypassPerfRequirement/true,PromptAPIForGeminiNano,PromptAPIForGeminiNanoMultimodalInput,AIPromptAPIMultimodalInput'] : []),
+  'about:blank'], { stdio: 'ignore' });
 process.on('exit', () => { try { chrome.kill('SIGKILL'); } catch { /* gone */ } try { rmSync(profile, { recursive: true, force: true }); } catch { /* ignore */ } });
 for (const [sig, code] of [['SIGINT', 130], ['SIGTERM', 143]]) process.on(sig, () => process.exit(code));
 
@@ -318,6 +325,17 @@ for (const s of shots) {
     // A clean origin state per shot (fresh storage), then the 18+ acknowledgement.
     await navigate(`${ORIGIN}/#/about`);
     await evaluate(`localStorage.clear(); sessionStorage.clear(); localStorage.setItem('se.ack18.v1','1'); ${a.offline ? "localStorage.setItem('se.dev.simulateOffline','1');" : ''} true`);
+    if (NANO) { // wait for the on-device model (it reports 'downloadable' for ~10 s after launch)
+      let av = '';
+      for (let i = 0; i < 60 && av !== 'available'; i++) { av = await evaluate(`(async()=>{ try { return await LanguageModel.availability(); } catch (e) { return 'err ' + e.message; } })()`); if (av !== 'available') await sleep(2000); }
+      if (av !== 'available') {
+        console.log(`FAILED ${s.name}: Nano not available (${av})`);
+        // The shots that continue this page (hash null) depend on it: skip them too (review F-307).
+        const at = shots.indexOf(s);
+        while (shots[at + 1]?.hash === null) console.log(`SKIPPED ${shots.splice(at + 1, 1)[0].name}: ${s.name} failed`);
+        continue;
+      }
+    }
     await navigate(`${ORIGIN}/${s.hash}`);
     await evaluate('location.reload(), true');
     await sleep(3500);

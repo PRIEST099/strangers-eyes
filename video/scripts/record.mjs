@@ -12,14 +12,20 @@
 //     Judge Mode replays the shipped live recordings, badged CACHED SAMPLE on screen, and no sample photo is sent to the
 //     attacker again (the user's rule: one live run per photo, no reruns).
 //   - The gate clip stays online (Send needs a verified cloud) but the gate refuses on the device: nothing is sent.
-//   - Headless Chrome has no Gemini Nano, so private steps show RULES-ONLY; the narration never claims Nano on screen.
+//   - Plain headless Chrome has no Gemini Nano, so private steps show RULES-ONLY. With SE_NANO=<dir holding an
+//     OptGuideOnDeviceModel folder> (an APFS clone of the model the user's own Chrome downloaded, D-174), the profile gets
+//     that model and the Prompt API flags, and each clip waits until LanguageModel.availability() is 'available' before it
+//     starts, so private steps run ON-DEVICE. The HUD shows which; the narration only claims what the HUD shows.
 import { spawn, execFileSync } from 'node:child_process';
-import { mkdirSync, readFileSync, rmSync, writeFileSync, mkdtempSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, writeFileSync, mkdtempSync, symlinkSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const ORIGIN = process.env.SE_ORIGIN ?? 'http://localhost:5173';
+const NANO = process.env.SE_NANO ?? '';
+if (NANO && !existsSync(join(NANO, 'OptGuideOnDeviceModel'))) { console.error(`SE_NANO=${NANO} has no OptGuideOnDeviceModel folder`); process.exit(1); }
+const NANO_FLAGS = NANO ? ['--enable-features=OptimizationGuideOnDeviceModel:BypassPerfRequirement/true,PromptAPIForGeminiNano,PromptAPIForGeminiNanoMultimodalInput,AIPromptAPIMultimodalInput'] : [];
 const VIEW = { width: 1280, height: 720, scale: 1.5 }; // CSS pixels drawn at 1.5x: 1920x1080 frames, larger text
 
 const CASTLE = 'Castle view with a name-tag lunchbox';
@@ -110,13 +116,24 @@ const HELPERS = `
 
 async function record(name, clip) {
   const profile = mkdtempSync(join(tmpdir(), 'se-video-'));
+  if (NANO) symlinkSync(join(NANO, 'OptGuideOnDeviceModel'), join(profile, 'OptGuideOnDeviceModel'));
   const chrome = spawn(CHROME, ['--headless=new', '--remote-debugging-port=0', `--user-data-dir=${profile}`, '--no-first-run',
-    '--no-default-browser-check', '--disable-extensions', '--hide-scrollbars', '--mute-audio', 'about:blank'], { stdio: 'ignore' });
+    '--no-default-browser-check', '--disable-extensions', '--hide-scrollbars', '--mute-audio', ...NANO_FLAGS, 'about:blank'], { stdio: 'ignore' });
+  // Any failure before the capture loop starts must not leave Chrome running or the profile (and its model symlink)
+  // behind (review F-307). rmSync removes the symlink itself, never the clone it points to.
+  let earlyWs = null;
+  const abort = (msg) => {
+    try { earlyWs?.close(); } catch { /* closed */ }
+    try { chrome.kill('SIGKILL'); } catch { /* gone */ }
+    try { rmSync(profile, { recursive: true, force: true }); } catch { /* ignore */ }
+    return new Error(msg);
+  };
   let cdpPort = null;
   for (let i = 0; i < 80 && !cdpPort; i++) { await sleep(250); try { cdpPort = Number(readFileSync(join(profile, 'DevToolsActivePort'), 'utf8').split('\n')[0]); } catch { /* not yet */ } }
-  if (!cdpPort) throw new Error('headless Chrome did not start');
+  if (!cdpPort) throw abort('headless Chrome did not start');
   const target = (await fetch(`http://127.0.0.1:${cdpPort}/json/list`).then((r) => r.json())).find((t) => t.type === 'page');
   const ws = new WebSocket(target.webSocketDebuggerUrl);
+  earlyWs = ws;
   await new Promise((r, j) => { ws.addEventListener('open', r, { once: true }); ws.addEventListener('error', j, { once: true }); });
   let id = 0;
   const pending = new Map();
@@ -146,6 +163,12 @@ async function record(name, clip) {
   const go = async (url) => { await send('Page.navigate', { url }); for (let i = 0; i < 80; i++) { await sleep(250); if ((await evaluate('document.readyState')) === 'complete') break; } };
   await go(`${ORIGIN}/#/about`);
   await evaluate(`localStorage.clear(); sessionStorage.clear(); localStorage.setItem('se.ack18.v1','1'); ${clip.offline ? "localStorage.setItem('se.dev.simulateOffline','1');" : ''} true`);
+  if (NANO) { // wait for the on-device model before the clip starts (it reports 'downloadable' for ~10 s after launch)
+    let av = '';
+    for (let i = 0; i < 60 && av !== 'available'; i++) { av = await evaluate(`(async()=>{ try { return await LanguageModel.availability(); } catch (e) { return 'err ' + e.message; } })()`); if (av !== 'available') await sleep(2000); }
+    if (av !== 'available') throw abort(`Nano not available (${av})`);
+    console.log(`${name}: Nano available`);
+  }
   await go(`${ORIGIN}/${clip.hash}`);
   await evaluate('location.reload(), true');
   await sleep(2500);

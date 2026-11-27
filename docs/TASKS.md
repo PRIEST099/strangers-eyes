@@ -1763,11 +1763,13 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
 ## M5: Benchmark (Thu Nov 26 to Sat Nov 28)
 
 - [ ] T-150 [CLAUDE] Label the clues in the 25 photos. Due: Thu Nov 26 · Deps: T-009
+  - **Superseded (D-174, Nov 26):** the held-out Commons benchmark replaced the 25 builder-owned photos; no clue labels, so no M4 recall.
   - Read: SPEC §15.3 (as fixed by R-20)
   - Do: view each photo in `PRIV/bench/` and fill the `clues` column of `PRIV/bench/truth.csv` as `type@region;…` (CLUE_TYPES, 3×3 regions). No boxes are needed. Optionally the user spot-checks 5.
   - Verify: 25 rows with clues; every type is in CLUE_TYPES.
 
 - [ ] T-151 [CLAUDE] Benchmark harness. Due: Thu Nov 26 · Deps: T-085, T-150 · AC: AC-351, AC-352
+  - **Done differently (D-174):** `run-spike.mjs --set bench` (through the app's own redaction, not the Egress Gate) + `benchmark/bench/score-bench.mjs` → `benchmark/bench/results.{md,json}`.
   - Read: SPEC §15 (with R-20); ARCH §21; RUNBOOK §5.3–5.6
   - Files: `web/src/dev/bench/{BenchPage.tsx,runner.ts,metrics.ts}` (DEV only, `#/dev/bench`, **through the gate**), `benchmark/aggregate.mjs` + its unit test (pure, tested on synthetic raw data), `benchmark/README.md` (method, metric definitions, privacy rules).
   - Do, per photo, k = 3:
@@ -1780,6 +1782,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
   - Verify: a dry run on 2 photos produces both files; `node scripts/check-images.mjs` passes (its coordinate scan covers `benchmark/`).
 
 - [ ] T-152 [CLAUDE] Run the benchmark. Due: Fri Nov 27 · Deps: T-151, T-003 · AC: AC-350
+  - **Done (D-174, Nov 26):** 40 photos, k = 3, all run, fix ×3; raw in PRIV/raw; 0 refusals in 126 runs.
   - Read: RUNBOOK §5.5
   - Do:
     - Run **unattended** in headless Chrome with the fixed debug token via the CDP harness. Pass B needs no Nano. Run overnight Thu Nov 26 → Fri Nov 27, with the Simulator shut down.
@@ -1790,6 +1793,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
   - Verify: results for all 25 photos; the run log is in PROGRESS.
 
 - [ ] T-153 [CLAUDE] Publish the results. Due: Sat Nov 28 · Deps: T-152 · AC: AC-353
+  - **Done in the work tree (D-174):** README §7, DEVPOST, About copy and video use the benchmark; awaiting the user's commit.
   - Read: SPEC §15.4
   - Do:
     - Commit the summary.

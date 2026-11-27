@@ -1,10 +1,11 @@
 // Strangers' Eyes demo video, plain-language cut (D-164; script from the writing panel: a first-time viewer and a
 // hackathon judge scored three drafts). Explainer scenes are drawn (art.tsx); proof scenes are real app footage with
 // plain callouts. Honesty: the attacker's answers in the footage are the Nov 23 live recordings, replayed (CACHED
-// SAMPLE); this browser had no Gemini Nano, so private steps show RULES-ONLY (top-right tag on every footage scene).
+// SAMPLE); D-174: recorded in Chrome with Gemini Nano, so private steps show ON-DEVICE (top-right tag on every footage scene).
 import type { ReactNode } from 'react';
 import { AbsoluteFill, Freeze, Img, interpolate, OffthreadVideo, Sequence, Series, staticFile, useCurrentFrame, useVideoConfig } from 'remotion';
 import clips from '../public/clips.json';
+import timings from '../public/timings.json';
 import { Callout, Phone, PhotoCard, RingMap, type Box } from './anim';
 import { HeroLoopArt } from './heroloop';
 import { Chip, EyeCloud, EyeLogo, Icon, StepStrip, Street, useAt, useLin, useSec, Wall } from './art';
@@ -13,6 +14,8 @@ import { C, MONO } from './theme';
 const S = (sec: number) => Math.round(sec * 30);
 const IDX = clips as unknown as { durations: Record<string, number>; marks: Record<string, Record<string, number>> };
 const mark = (clip: string, m: string, plus = 0) => (IDX.marks[clip]?.[m] ?? 0) + plus;
+/** A scene's on-screen length in seconds (Root's sceneFrames: narration + 0.6 s, whole frames), so footage fills it. */
+const sceneSec = (id: string) => Math.ceil(((timings as Record<string, number>)[id] + 0.6) * 30) / 30;
 
 // ---------------------------------------------------------------- footage helpers
 /** Full-frame real footage from..to (clip seconds), fitted to `sec` seconds on screen; optional push-in. */
@@ -30,7 +33,7 @@ const Full = ({ clip, from, to, sec, z0 = 1, z1 = z0, origin = '50% 50%' }: { cl
   );
 };
 /** The honesty tag on every footage scene. */
-const RealTag = ({ text = "REAL APP · AI answers recorded Nov 23, replayed (CACHED SAMPLE) · no on-device AI in this browser: rules" }: { text?: string }) => (
+const RealTag = ({ text = "REAL APP · on-device AI steps: Gemini Nano in this browser · attacker answers recorded Nov 23, replayed (CACHED SAMPLE)" }: { text?: string }) => (
   <div style={{ position: 'absolute', right: 24, top: 18, maxWidth: 1100, background: 'rgba(10,11,15,0.88)', border: `1px solid ${C.line}`, borderRadius: 10,
     padding: '8px 14px', fontFamily: MONO, fontSize: 18, color: C.muted }}>{text}</div>
 );
@@ -231,10 +234,12 @@ export const Judge = () => {
 // ---------------------------------------------------------------- 5 the device covers the name
 export const Prescreen = () => (
   <AbsoluteFill>
-    <Full clip="castle" from={2.0} to={12.7} sec={8.2} />
+    <Full clip="castle" from={mark('castle', 'prescreen', -1.5)} to={mark('castle', 'consent', -0.8)} sec={sceneSec('prescreen')} />
     <RealTag />
     <StepCorner active={1} />
     <Sequence from={S(3.0)} durationInFrames={S(3.4)}><Callout x={1150} y={640} tx={930} ty={540} w={620} text="Child's name found → covered on your device" color={C.device} /></Sequence>
+    {/* D-177: the app is set to Offline here (top bar), yet Nano's clue scan still runs: the on-device steps need no network. */}
+    <Sequence from={S(6.6)}><div style={{ position: 'absolute', left: 120, top: 880 }}><Chip color={C.device} bg="rgba(10,11,15,0.92)" size={28}>App set to offline: the on-device steps still run</Chip></div></Sequence>
   </AbsoluteFill>
 );
 
@@ -263,13 +268,13 @@ export const Castle = () => {
   return (
     <AbsoluteFill>
       <Sequence durationInFrames={S(8.9)}>
-        <Full clip="castle" from={12.7} to={22.0} sec={8.9} z0={1} z1={1.1} origin="30% 45%" />
+        <Full clip="castle" from={mark('castle', 'consent', -0.8)} to={mark('castle', 'verdict', 2.94)} sec={8.9} z0={1} z1={1.1} origin="30% 45%" />
         <Sequence from={S(3.4)}><div style={{ position: 'absolute', left: 560, top: 110 }}><Chip color={C.cloud} bg="rgba(10,11,15,0.92)" size={30}>Real Gemini answer · recorded Nov 23 · replayed</Chip></div></Sequence>
       </Sequence>
       <Sequence from={S(8.9)} durationInFrames={S(7.3)}>
         <AbsoluteFill style={{ background: C.bg }}>
           <div style={{ position: 'absolute', left: 40, top: 120, width: 1060, height: 600, borderRadius: 18, overflow: 'hidden', transform: `scale(${1 - 0.0 * split})` }}>
-            <Freeze frame={0}><div style={{ width: 1920, height: 1080, transform: 'scale(0.75)', transformOrigin: 'top left', marginLeft: -60 }}><Full clip="castle" from={21.6} to={22.6} sec={1} /></div></Freeze>
+            <Freeze frame={0}><div style={{ width: 1920, height: 1080, transform: 'scale(0.75)', transformOrigin: 'top left', marginLeft: -60 }}><Full clip="castle" from={mark('castle', 'verdict', 2.54)} to={mark('castle', 'verdict', 3.54)} sec={1} /></div></Freeze>
           </div>
           <div style={{ position: 'absolute', left: 1160, top: 130 }}>
             <RingMap w={680} h={460} rings={[{ r: 70, label: '1 km', color: C.red }, { r: 150, label: '5 km', color: C.amber }]} highlight={0} />
@@ -281,7 +286,7 @@ export const Castle = () => {
         </AbsoluteFill>
       </Sequence>
       <Sequence from={S(16.2)}>
-        <Full clip="castle" from={28.5} to={34.2} sec={5.0} z0={1.08} z1={1.14} origin="0% 62%" />
+        <Full clip="castle" from={mark('castle', 'nofix', -0.78)} to={mark('castle', 'nofix', 4.92)} sec={5.0} z0={1.08} z1={1.14} origin="0% 62%" />
         <Stamp text="Crop it, or don't post it" color={C.red} at={0.6} x={980} y={840} rot={-4} />
       </Sequence>
       <RealTag />
@@ -289,7 +294,7 @@ export const Castle = () => {
   );
 };
 
-// ---------------------------------------------------------------- 8 the level crossing: a fix that works
+// ---------------------------------------------------------------- 8 the level crossing: a fix that helps, not enough (D-174: Nano's guess check)
 const C1: Box = [415, 230, 560, 629];
 const C3: Box = [553, 373, 598, 472];
 export const Crossing = () => (
@@ -313,7 +318,7 @@ export const Crossing = () => (
     <Sequence from={S(10.8)}>
       <Full clip="crossing" from={mark('crossing', 'after', -0.3)} sec={7.1} />
       <Sequence from={S(0.9)}><div style={{ position: 'absolute', left: 150, top: 920 }}><Chip color={C.green} bg="rgba(10,11,15,0.92)" size={32}>Attacked again: city level only</Chip></div></Sequence>
-      <Stamp text="Risk reduced · not a guarantee" color={C.green} at={2.2} x={1040} y={150} rot={-3} />
+      <Stamp text="Still exposed · your work is in that city" color={C.amber} at={4.9} x={900} y={150} rot={-3} />
     </Sequence>
     <RealTag />
     <StepCorner active={4} />
@@ -337,50 +342,65 @@ export const Station = () => {
   );
 };
 
-// ---------------------------------------------------------------- 10 the ten-photo test
+// ---------------------------------------------------------------- 10 the held-out test (D-174; numbers from benchmark/bench/results.json)
+const BENCH = { scored: 36, located5: 8, refusedRuns: 0, runs: 126, ci5: '12–38%', textN: 23, readBlur: 23, readSolid: 0, deviceCaught: 22 } as const;
+/** A drawn name card (the text experiment's stimulus): plain, lightly blurred, or the app's solid fill. */
+const NameCard = ({ mode, w = 360 }: { mode: 'blur' | 'solid'; w?: number }) => (
+  <div style={{ width: w, height: w * 0.34, borderRadius: 10, background: mode === 'solid' ? '#000' : '#F4F2EC', border: `3px solid ${mode === 'solid' ? '#6B7280' : '#9A968C'}`, boxShadow: mode === 'solid' ? '0 0 0 6px rgba(244,242,236,0.12)' : 'none',
+    display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    {mode === 'blur' ? <span style={{ fontSize: w * 0.2, fontWeight: 900, color: '#1E2A3A', letterSpacing: 2, filter: 'blur(2.2px)' }}>MAYA</span> : null}
+  </div>
+);
 export const Results = () => {
   const t = useSec();
-  const count = Math.min(5, Math.floor(interpolate(t, [2.4, 4.6], [0, 5.99], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' })));
-  const zero = useAt(5.6, 10);
-  const second = useAt(7.3, 15);
-  const moves = [useAt(8.6, 12), useAt(9.2, 12), useAt(9.8, 12), 0];
-  const verdict3 = useAt(10.6, 12);
+  const count = Math.min(BENCH.located5, Math.floor(interpolate(t, [3.8, 6.0], [0, BENCH.located5 + 0.99], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' })));
+  const zero = useAt(7.7, 8);
+  const second = useAt(9.3, 15);
+  const blurRead = useAt(10.8, 12);
+  const solid = useAt(12.6, 12);
+  const device = useAt(13.6, 12);
+  // Which tiles turn red: spread over the grid (illustrative positions, not photo ids).
+  const RED = [2, 7, 11, 16, 20, 25, 29, 33];
   return (
     <AbsoluteFill style={{ padding: '70px 120px' }}>
-      <Title y={50}>Our test: 10 photos of public places</Title>
-      <div style={{ position: 'absolute', left: 120, right: 120, top: 200, display: 'flex', gap: 22, justifyContent: 'center', transform: `translateY(${-second * 40}px) scale(${1 - second * 0.15})` }}>
-        {Array.from({ length: 10 }, (_, i) => {
-          const p = useAt(0.4 + i * 0.1, 14);
-          const red = i < 5 && t > 2.4 + i * 0.42;
-          return <div key={i} style={{ width: 130, height: 170, borderRadius: 14, opacity: p, transform: `translateY(${(1 - p) * 60}px) rotateY(${red ? 0 : 0}deg)`,
-            background: red ? `${C.red}33` : C.card, border: `3px solid ${red ? C.red : C.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <svg width="70" height="70" viewBox="0 0 70 70"><circle cx="35" cy="35" r="26" fill="none" stroke={red ? C.red : '#3a3f4b'} strokeWidth="4" /><circle cx="35" cy="35" r="12" fill="none" stroke={red ? C.red : '#3a3f4b'} strokeWidth="4" /></svg>
-          </div>;
-        })}
+      <Title y={40}>{`Our test: ${BENCH.scored} new photos of public places`}</Title>
+      <div style={{ position: 'absolute', left: 0, right: 0, top: 128, textAlign: 'center', fontSize: 22, color: C.muted }}>uploaded Nov 13–26, so unlikely to be in the AI's training · gemini-3.5-flash-lite · distances worked out by code, not by the AI</div>
+      <div style={{ position: 'absolute', left: 0, right: 0, top: 190, display: 'flex', justifyContent: 'center', transform: `translateY(${-second * 30}px) scale(${1 - second * 0.25})`, transformOrigin: '50% 0%' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 92px)', gap: 14 }}>
+          {Array.from({ length: BENCH.scored }, (_, i) => {
+            const p = useAt(0.3 + i * 0.04, 14);
+            const order = RED.indexOf(i);
+            const red = order >= 0 && t > 3.8 + order * 0.25;
+            return <div key={i} style={{ width: 92, height: 92, borderRadius: 12, opacity: p, transform: `translateY(${(1 - p) * 40}px)`,
+              background: red ? `${C.red}33` : C.card, border: `3px solid ${red ? C.red : C.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="48" height="48" viewBox="0 0 70 70"><circle cx="35" cy="35" r="26" fill="none" stroke={red ? C.red : '#3a3f4b'} strokeWidth="5" /><circle cx="35" cy="35" r="12" fill="none" stroke={red ? C.red : '#3a3f4b'} strokeWidth="5" /></svg>
+            </div>;
+          })}
+        </div>
       </div>
-      <div style={{ position: 'absolute', left: 0, right: 0, top: 420, display: 'flex', justifyContent: 'center', gap: 40, opacity: 1 - second * 0.25 }}>
-        <div style={{ fontSize: 64, fontWeight: 900, color: C.red }}>{count} of 10 <span style={{ fontSize: 40, color: C.fg }}>placed within 5 km</span></div>
-        <div style={{ opacity: zero, transform: `scale(${1.3 - 0.3 * zero})` }}><Chip color={C.amber} size={40}>0 refusals</Chip></div>
+      <div style={{ position: 'absolute', left: 0, right: 0, top: 560, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 36, opacity: 1 - second, transform: `translateY(${-second * 40}px)` }}>
+        <div style={{ fontSize: 60, fontWeight: 900, color: C.red }}>{count} of {BENCH.scored} <span style={{ fontSize: 38, color: C.fg }}>placed within 5 km</span></div>
+        <div style={{ opacity: zero, transform: `scale(${1.3 - 0.3 * zero})` }}><Chip color={C.amber} size={36}>{`${BENCH.refusedRuns} refusals in ${BENCH.runs} tries`}</Chip></div>
       </div>
+      <div style={{ position: 'absolute', left: 0, right: 0, top: 640, textAlign: 'center', fontSize: 24, color: C.muted, opacity: zero * (1 - second) }}>{`95% interval ${BENCH.ci5} · mostly street scenes`}</div>
       {second > 0.01 ? (
-        <div style={{ position: 'absolute', left: 0, right: 0, top: 560, opacity: second, textAlign: 'center' }}>
-          <div style={{ fontSize: 40, fontWeight: 800, marginBottom: 26 }}>Re-tested after covering the clues it named</div>
-          <div style={{ display: 'flex', gap: 40, justifyContent: 'center' }}>
-            {Array.from({ length: 4 }, (_, i) => {
-              const moved = moves[i];
-              return <div key={i} style={{ width: 210, height: 210, borderRadius: 18, background: C.card, border: `3px solid ${moved > 0.5 ? C.green : C.line}`, position: 'relative' }}>
-                <svg width="210" height="210" viewBox="0 0 210 210">
-                  <circle cx="105" cy="105" r="30" fill="none" stroke="#3a3f4b" strokeWidth="3" /><circle cx="105" cy="105" r="62" fill="none" stroke="#3a3f4b" strokeWidth="3" /><circle cx="105" cy="105" r="92" fill="none" stroke="#3a3f4b" strokeWidth="3" />
-                  <circle cx="105" cy="105" r="6" fill={C.device} />
-                  <circle cx={105 + 22 + moved * 58} cy={105 - 10 - moved * 26} r="11" fill={moved > 0.5 ? C.green : C.amber} />
-                </svg>
-              </div>;
-            })}
+        <div style={{ position: 'absolute', left: 0, right: 0, top: 470, opacity: second, textAlign: 'center' }}>
+          <div style={{ fontSize: 40, fontWeight: 800, marginBottom: 28 }}>{`A made-up name, tested on ${BENCH.textN} of the photos`}</div>
+          <div style={{ display: 'flex', gap: 120, justifyContent: 'center', alignItems: 'flex-start' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18 }}>
+              <NameCard mode="blur" />
+              <div style={{ fontSize: 28, color: C.muted }}>light blur</div>
+              <div style={{ fontSize: 40, fontWeight: 900, color: C.red, opacity: blurRead }}>{`AI read it ${BENCH.readBlur} of ${BENCH.textN}`}</div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, opacity: Math.max(0.25, solid) }}>
+              <NameCard mode="solid" />
+              <div style={{ fontSize: 28, color: C.muted }}>the app's solid box</div>
+              <div style={{ fontSize: 40, fontWeight: 900, color: C.green, opacity: solid }}>{`AI read it ${BENCH.readSolid} of ${BENCH.textN}`}</div>
+            </div>
           </div>
-          <div style={{ fontSize: 40, fontWeight: 900, color: C.green, marginTop: 22, opacity: verdict3 }}>3 of 4: the guess moved further away</div>
+          <div style={{ fontSize: 26, color: C.device, marginTop: 26, opacity: device }}>{`Your device's own text reader caught the name first in ${BENCH.deviceCaught} of ${BENCH.textN}`}</div>
         </div>
       ) : null}
-      <div style={{ position: 'absolute', left: 0, right: 0, top: 150, textAlign: 'center', fontSize: 22, color: C.muted }}>Day-1 test, re-run Nov 23 · gemini-3.5-flash-lite · distances worked out by code, not by the AI</div>
     </AbsoluteFill>
   );
 };
@@ -412,7 +432,7 @@ export const Hybrid = () => {
             <div style={{ width: 240, height: 440, borderRadius: 36, border: `8px solid #2b2f39`, overflow: 'hidden', background: '#000', margin: '0 auto' }}>
               <Img src={staticFile('img/ios-judge-10-compare.png')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: '50% 40%' }} />
             </div>
-            <div style={{ marginTop: 14 }}><Chip color={C.device}>Apple's model on iPhone</Chip></div>
+            <div style={{ marginTop: 14 }}><Chip color={C.device}>Apple's model on iOS</Chip></div>
             <div style={{ fontSize: 18, color: C.muted, marginTop: 8, width: 380 }}>iOS Simulator · Apple's model on the device · recorded attacker answer</div>
           </div>
         </div>
