@@ -396,7 +396,7 @@ async function runPhoto(photoId) {
     await waitFor('the fix plan', `!!document.querySelector('[data-action=apply-fix]') || document.body.innerText.includes('None of the clues the attacker used can be masked') || document.body.innerText.includes("Fixing needs the attacker's clues")`, 240000);
     if (!(await evaluate(enabled('[data-action=apply-fix]')))) { out.outcome = 'nothing-to-fix'; return out; }
     const ft = await bodyText();
-    out.fix = { rulesOnly: ft.includes('Rules-only fix'), line: scrubNumbers((ft.match(/Masking \d+ details[^\n]*/) ?? [''])[0]).slice(0, 200) };
+    out.fix = { rulesOnly: ft.includes('Rules-only fix') || ft.includes('Planned by plain code'), line: scrubNumbers((ft.match(/Masking \d+ details[^\n]*/) ?? [''])[0]).slice(0, 200) };
     await click('[data-action=apply-fix]');
     await waitFor('the re-attack button', enabled('[data-action=reattack]'), 60000);
     out.fix.applied = scrubNumbers(((await bodyText()).match(/Fix applied on this device[^\n]*/) ?? [''])[0]);
@@ -544,7 +544,7 @@ for (const photo of PHOTOS) {
         facesSent: num(/Faces sent: (\d+) · Vault items sent: (\d+)/)?.[0] ?? null,
         vaultItemsSent: num(/Faces sent: (\d+) · Vault items sent: (\d+)/)?.[1] ?? null,
         traffic: num(/Images: (\d+) · Requests: (\d+) · Bytes: ([^\n]+)/),
-        local: num(/On-device AI calls: (\d+) · Local rule checks: (\d+) · Blocked: (\d+)/),
+        local: num(/On-device AI calls: (\d+) · (?:Local rule checks|Rules-only fallbacks): (\d+) · Blocked: (\d+)/), // wording before / after D-179
         text: scrubNumbers(ledgerText),
       },
       hud: scrubNumbers(hudText).split('\n').filter(Boolean),

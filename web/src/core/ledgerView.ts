@@ -63,7 +63,7 @@ export const jobName = (job: JobName, tech = true): string => t((tech ? JOB_NAME
 
 /**
  * The engine as SCR-14 shows it: `Gemini Nano`, `rules`, or the exact cloud model id. Without `tech` a cloud model id
- * reads `Gemini` and rules read `built-in rules` (the route badge beside it still says where it ran).
+ * reads `Gemini` and rules read `simple rules` (the route badge beside it still says where it ran).
  */
 export function engineName(model: string, tech = true): string {
   if (model === 'gemini-nano') return t('ui.hud.engine.nano');

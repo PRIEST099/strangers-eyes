@@ -444,7 +444,7 @@ export const Hybrid = () => {
             <div style={{ position: 'absolute', left: 0, top: 18, width: 420 * Math.min(1, crash * 1.4), height: 4, background: C.red, opacity: 1 - Math.max(0, crash - 0.75) * 4 }} />
             {crash > 0.7 ? <div style={{ position: 'absolute', left: 400, top: -14, fontSize: 52, color: C.red, fontWeight: 900 }}>✕</div> : null}
           </div>
-          {crash > 0.8 ? <Chip color={C.teal} size={30}><Icon kind="gear" color={C.teal} /> simple built-in rules · never the cloud</Chip> : null}
+          {crash > 0.8 ? <Chip color={C.teal} size={30}><Icon kind="gear" color={C.teal} /> simple rules · never the cloud</Chip> : null}
         </div>
       ) : null}
       {fire > 0.01 ? <div style={{ position: 'absolute', left: 1180, top: 600, opacity: fire, transform: `scale(${0.9 + 0.1 * fire})`, transformOrigin: 'left center' }}>

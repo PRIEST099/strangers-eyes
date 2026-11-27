@@ -15,16 +15,16 @@
 
 1. Open **https://strangers-eyes.web.app** in any browser. No login, no cost.
 2. Confirm you are 18+, choose **Open Judge Mode** (or open `https://strangers-eyes.web.app/?judge=1`), pick a sample and press **Run this sample**. Autoplay runs pre-screen, consent, attack and verdict, then fix and re-attack when a mask can help.
-3. Turn on **Technical details** to see where each AI step ran (`ON-DEVICE`, `IN CLOUD`, `RULES-ONLY` or `CACHED SAMPLE`) and how long it took. The **Cloud Ledger** counts what left the device.
+3. Turn on **Technical details** to see where each AI step ran (`ON-DEVICE`, `IN CLOUD`, `RULES-ONLY` or `CACHED SAMPLE`) and how long it took. Steps that always run as code or a small local model on the device (metadata, MediaPipe faces, Tesseract text, the vault match, the fix plan, distance bands) read `BUILT-IN`; `RULES-ONLY` means an on-device AI step fell back (D-179). The **Cloud Ledger** counts what left the device.
 
-No on-device AI is needed. With Gemini Nano in desktop Chrome, the private steps run on Nano. Without it, Judge Mode runs them in the cloud on the made-up vault (labelled IN CLOUD), and your own photos use built-in rules, never the cloud.
+No on-device AI is needed. With Gemini Nano in desktop Chrome, the private steps run on Nano. Without it, Judge Mode runs them in the cloud on the made-up vault (labelled IN CLOUD), and your own photos use simple rules (RULES-ONLY), never the cloud.
 
 **Three outcomes: a fix that helps, one that isn't enough, a photo that can't be fixed.** Live attacks through the app on Nov 23, first answer kept; a live run today may differ.
 
 | Sample | First attack | After the fix | Verdict |
 |---|---|---|---|
 | 1. Station forecourt | read the station sign and named the **wrong** city, about 100 km away | sign masked; the re-attack found the right city from the building itself | Still exposed |
-| 2. Level crossing by a street sign (Berlin) | street level, from the street sign and its house-number plate: within 5 km of the made-up home and work pins | both masked; the re-attack got only the city | **Risk reduced** (amber → low) when the cloud or the rules do the guess check, and on iOS with Apple's model; **Still exposed** at city level with Gemini Nano (the made-up workplace is in the guessed city) |
+| 2. Level crossing by a street sign (Berlin) | street level, from the street sign and its house-number plate: within 5 km of the made-up home and work pins | both masked; the re-attack got only the city | **Risk reduced** (amber → low) when the cloud or the rules do the guess check, and on iOS with Apple's model; with Gemini Nano it varies: **Still exposed** at city level in the video's run (Nano linked the made-up workplace to the guessed city), **Risk reduced** in the gallery run |
 | 3. Castle courtyard + drawn "LUCAS" lunchbox | 0.1 km from the made-up work pin | only clues a mask can't remove | Red: crop or don't post |
 
 > **About the samples (please read).** The three photos are **CC0 photos of public places** from Wikimedia Commons, two in Ljubljana and one in Berlin (credits in [`web/public/samples/SOURCES.md`](web/public/samples/SOURCES.md)). We solid-masked people, adverts showing people and real number plates, and **drew in a prop** (the "LUCAS" lunchbox, which the app masks on the device before anything is sent). The vault is made up; each sample's pins sit in a park and a square near the photo. Sample 2 replaced a bike-share photo that ended "Still exposed": we tried six Berlin photos, Google's model was overloaded during most runs, and the level crossing is the one that got a complete answer. The **recorded answers** that ship with the samples are the real Nov 23 answers (`gemini-3.5-flash-lite`); they replay, labelled `CACHED SAMPLE`, only when the live attacker is unavailable (offline, quota or daily cap, kill switch, App Check failure, a timeout or a server error). A replay sends nothing itself, but the Cloud Ledger still counts what already left: a live attempt that timed out or got a server error had sent the redacted copy, and without Nano the S4 sample pre-screen and referee run in the cloud. It reads zero only when Nano ran the private steps and no live attack was tried (offline, daily cap, kill switch).
@@ -36,7 +36,7 @@ No on-device AI is needed. With Gemini Nano in desktop Chrome, the private steps
 | ![Judge Mode run](docs/img/gallery/02-judge-run.png) | ![A verdict as distance bands to the made-up pins, with the Cloud Ledger](docs/img/gallery/03-verdict.png) |
 | A Judge Mode run, each AI step labelled with where it ran | Level crossing, first verdict: distance bands to the made-up pins, never a map pin (recorded answer, CACHED SAMPLE) |
 | ![Fix and re-attack, before and after](docs/img/gallery/04-reattack.png) | ![The Egress Gate blocks an unmasked vault match](docs/img/gallery/05-blocked.png) |
-| Fix and re-attack: signs masked, the AI could only name the city. Work is there too, so Nano's check says Still exposed (CACHED SAMPLE) | The Egress Gate blocks a copy that still shows "LUCAS": 0 bytes sent |
+| Fix and re-attack: signs masked, the AI could only name the city. Risk reduced on this Nano run; the video's run said Still exposed (CACHED SAMPLE) | The Egress Gate blocks a copy that still shows "LUCAS": 0 bytes sent |
 | ![About: what leaves this device](docs/img/gallery/06-about-routing.png) | ![Settings: what runs where on this browser](docs/img/gallery/07-capabilities.png) |
 | What leaves this device | What runs where on this browser |
 
@@ -58,7 +58,7 @@ Every request is sorted by **what it carries**, and each class gets one inferenc
 
 | Class | What it carries | Web (`firebase/ai`) | iOS (`FirebaseAILogic` 12.19.3) | No on-device model |
 |---|---|---|---|---|
-| **S0** | anything touching the vault (referee, fix plan, vault-text match) | `ONLY_ON_DEVICE`, after a fresh availability check | on-device-only session (`FirebaseAI.SystemLanguageModel.default`, never a `HybridModel`) | deterministic code, labelled RULES-ONLY. **Never the cloud.** |
+| **S0** | anything touching the vault (the referee; the fix plan and the vault-text match are always code, `BUILT-IN`) | `ONLY_ON_DEVICE`, after a fresh availability check | on-device-only session (`FirebaseAI.SystemLanguageModel.default`, never a `HybridModel`) | deterministic code, labelled RULES-ONLY. **Never the cloud.** |
 | **S1** | the original photo (pre-screen) | `ONLY_ON_DEVICE`, after a fresh availability check | on-device-only session: Apple FM reads Vision's OCR text and scene labels (text only, never the image) | rules (RULES-ONLY). **Never the cloud.** |
 | **S2** | public explanations of clue types | `PREFER_ON_DEVICE`, real cloud fallback | `HybridModel` planned (T-129) | cloud, labelled IN CLOUD |
 | **S3** | the attacker (pass B, re-attack) | `ONLY_IN_CLOUD` | `generativeModel` (built, not yet run) | n/a |
@@ -169,7 +169,7 @@ Aggregates only: [`benchmark/bench/results.md`](benchmark/bench/results.md) (and
 
 ### Limitations
 
-- **One of three recorded Judge runs ends in "Risk reduced", and only when the cloud or the rules do the guess check, or Apple's model on iOS (Nov 24)**: with Gemini Nano doing the guess check, the level crossing ends "Still exposed" at city level (the made-up workplace is in the guessed city), because "Risk reduced" needs the level to drop or fewer high-severity lines (D-128). The station and the castle stayed placed from things a mask can't hide. Sample 2 is a swap, disclosed in §1.
+- **One of three recorded Judge runs can end in "Risk reduced"**: always when the cloud or the rules do the guess check, or Apple's model on iOS (Nov 24); with Gemini Nano it has gone both ways. When Nano links the made-up workplace to the guessed city, the level crossing stays "Still exposed" at city level, because "Risk reduced" needs the level to drop or fewer high-severity lines (D-128); the video shows that run, the gallery a run where it said "Risk reduced". The station and the castle stayed placed from things a mask can't hide. Sample 2 is a swap, disclosed in §1.
 - The attacker is `gemini-3.5-flash-lite` on the free tier (D-159), nominally weaker than flash, so the app may understate what a stronger model could infer.
 - iOS Judge Mode replays the recorded answers with Apple Foundation Models on the device; the live iPhone Gemini call has not run yet. The Apple FM referee sometimes over-grades a match; the verdict keeps the stronger of the FM and rules answers.
 - Without Nano, S0/S1 run as RULES-ONLY code. Nano needs capable desktop hardware. Nano reported `available` and answered a prompt on the hosted origin (Nov 26, D-174); a full hosted Judge run with Nano is not recorded (headless Chrome fails App Check there, by design).

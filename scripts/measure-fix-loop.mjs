@@ -351,7 +351,7 @@ async function runPhoto(photoId) {
       rk.fix = {
         applyEnabled: !!(await evaluate(enabled('[data-action=apply-fix]'))),
         nothingToMask: ft.includes('None of the clues the attacker used can be masked'),
-        rulesOnly: ft.includes('Rules-only fix'),
+        rulesOnly: ft.includes('Rules-only fix') || ft.includes('Planned by plain code'), // copy.fix.rules before / after D-179
         unremovable: ft.includes("can't be masked. Cropping or not posting"),
         cropTooMuch: ft.includes('Cropping would remove too much'),
         roundChip: (ft.match(/Round \d of \d/i) ?? [null])[0],

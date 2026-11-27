@@ -6,6 +6,7 @@
 import { bandWords } from '../../../core/geo';
 import { t } from '../../../core/strings';
 import { Badge } from '../Badge';
+import { BuiltInBadge } from '../BuiltInBadge';
 import { Button } from '../Button';
 import type { LineView } from './model';
 import { BandRuler } from './BandRuler';
@@ -94,7 +95,7 @@ export function VerdictLineItem({ line, idBase, open, onToggle, onExplain, tech 
           {line.why.clues !== null && <p className="break-all text-muted">{line.why.clues}</p>}
           <p className="flex flex-wrap items-center gap-2">
             <span className="text-muted">{t(tech ? 'ui.verdict.referee' : 'ui.verdict.refereePlain')}</span>{' '}
-            <Badge route={line.why.route} />
+            {line.why.builtIn ? <BuiltInBadge engine="code" /> : <Badge route={line.why.route} />}
           </p>
           {onExplain && line.why.clueIds.length > 0 && (
             <Button size="compact" className="self-start" onClick={() => onExplain(line.why?.clueIds ?? [])}>

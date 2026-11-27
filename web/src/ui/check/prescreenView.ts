@@ -42,19 +42,31 @@ export function lineCopy(step: Tier0StepId, line: ProgressLine): { id: StringId;
 /**
  * The "Looking for clues" line before the Nano pre-screen has answered (SPEC SCR-06 states): (a) Nano is ready, so it
  * is running (ui.prescreen.nanoRunning); (a′) copy.prescreen.textOnly; (b) and (c) copy.prescreen.rulesOnly. Unknown
- * (the first availability check has not returned) reads as (c), like the capability chip.
+ * (the first availability check has not returned) says it is still checking (D-179), never "no on-device AI".
  */
 export function nanoLineCopy(state: CapState | null): StringId {
   if (state === 'a') return 'ui.prescreen.nanoRunning';
   if (state === 'a-prime') return 'copy.prescreen.textOnly';
+  if (state === null) return 'ui.prescreen.nanoChecking';
   return 'copy.prescreen.rulesOnly';
 }
 
-/** T-066: the Nano line once the pre-screen finished: what the gate actually did, not what the chip expected. */
+/**
+ * T-066: the Nano line once the pre-screen finished: what the gate actually did, not what the chip expected. D-179:
+ * before it answers, never RULES-ONLY for a model job that may still run: (a), an unknown state, and Judge Mode (S4 has
+ * a real cloud fallback) get no badge; `pending` (show "running…") only once Tier-0 is done, since the Nano step runs
+ * after it. Outside Judge Mode, (a′), (b) and (c) are certain to fall back (S1 fails closed), so RULES-ONLY is honest.
+ */
 export function nanoResultLine(
-  nano: PrescreenNanoLine | undefined, state: CapState | null,
-): { id: StringId; params?: StringParams; route: 'ON_DEVICE' | 'IN_CLOUD' | 'RULES_ONLY'; ms?: number } {
-  if (!nano) return { id: nanoLineCopy(state), route: 'RULES_ONLY' };
+  nano: PrescreenNanoLine | undefined, state: CapState | null, opts: { judge?: boolean; tier0Done?: boolean } = {},
+): { id: StringId; params?: StringParams; route: 'ON_DEVICE' | 'IN_CLOUD' | 'RULES_ONLY' | null; ms?: number; pending?: boolean } {
+  if (!nano) {
+    const started = opts.tier0Done ?? true;
+    if (state === 'a') return { id: started ? 'ui.prescreen.nanoRunning' : 'ui.prescreen.nanoNext', route: null, pending: started };
+    if (opts.judge) return { id: started ? 'ui.prescreen.judgeRunning' : 'ui.prescreen.judgeNext', route: null, pending: started };
+    if (state === null) return { id: 'ui.prescreen.nanoChecking', route: null };
+    return { id: nanoLineCopy(state), route: 'RULES_ONLY' };
+  }
   if (nano.route === 'ON_DEVICE') return { id: 'ui.prescreen.nanoDone', params: { n: nano.count }, route: 'ON_DEVICE', ms: nano.latencyMs };
   if (nano.route === 'IN_CLOUD') return { id: 'ui.prescreen.judgeCloudDone', params: { n: nano.count }, route: 'IN_CLOUD', ms: nano.latencyMs }; // Judge Mode S4
   if (nano.fallback === 'device_failed') return { id: 'ui.prescreen.nanoFailed', route: 'RULES_ONLY' };

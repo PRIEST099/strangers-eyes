@@ -1,20 +1,23 @@
 // web/src/ui/components/PrescreenPanel.tsx: the Pre-screen step (SPEC SCR-06; T-068). The progress list (each line with
-// its route badge and latency: Tier-0 is RULES-ONLY), then the photo with its masks and the side list. T-066: the
+// a badge and latency), then the photo with its masks and the side list. D-179: the four Tier-0 lines carry BUILT-IN
+// with their engine (code, MediaPipe, Tesseract), never RULES-ONLY: they always run on this device, with or without
+// Nano, so RULES-ONLY (a model fallback, D-25) stays for the Nano line when Nano is missing. T-066: the
 // "Looking for clues" line is the Nano pre-screen's: ON-DEVICE with its count and latency when Gemini Nano answered,
 // else RULES-ONLY and why (prescreenView.nanoResultLine; before it answers, by capability state). A failed
 // reader blocks the photo (fail closed, D-123) and offers Try again; after it, focus goes to the progress list, which
 // stays mounted (all pending) while the run restarts (D-132). "Check with the cloud attacker" opens the Send step
 // (T-069) when the candidate may be sent; Export stays disabled until T-079. Nothing here sends anything.
-// TODO(T-064): each line also becomes a Router HUD entry once the HUD has its store.
+// The Tier-0 lines make no model call and are not HUD entries (D-179); the Nano line's gate call is.
 import { useRef } from 'react';
 import { t } from '../../core/strings';
-import { TIER0_STEPS } from '../../tier0/tier0';
+import { TIER0_STEPS, type Tier0StepId } from '../../tier0/tier0';
 import type { EditorOp } from '../check/editor';
 import { lineCopy, nanoResultLine } from '../check/prescreenView';
 import { PENDING_LINES, type PrescreenState, type ProgressLine } from '../checkState';
 import { useOnline } from '../hooks/useOnline';
 import { useShell } from '../shellContext';
 import { Badge } from './Badge';
+import { BuiltInBadge, type BuiltInEngine } from './BuiltInBadge';
 import { Button } from './Button';
 import { ClueList } from './ClueList';
 import { Icon } from './Icon';
@@ -30,7 +33,12 @@ export interface PrescreenPanelProps {
   canSend?: boolean;
   /** Opens the Send step (SCR-07). */
   onCloud?: () => void;
+  /** Judge Mode: the clue step is S4 (may run in the cloud on the sample), so nothing is predicted before it answers. */
+  judge?: boolean;
 }
+
+/** What each always-on Tier-0 step runs on (D-179). */
+const ENGINE: Record<Tier0StepId, BuiltInEngine> = { metadata: 'code', faces: 'mediapipe', text: 'tesseract', vault: 'code' };
 
 function LineMark({ line }: { line: ProgressLine }) {
   if (line.status === 'done') return <Icon name="check" className="size-4 text-fg" />;
@@ -38,7 +46,9 @@ function LineMark({ line }: { line: ProgressLine }) {
   return <span aria-hidden="true" className={`inline-block size-2 rounded-full bg-muted ${line.status === 'running' ? 'motion-safe:animate-pulse' : 'opacity-40'}`} />;
 }
 
-export function PrescreenPanel({ master, state, onOp, onRetry, canSend = false, onCloud }: PrescreenPanelProps) {
+const NOTE_ID = 'prescreen-builtin-note';
+
+export function PrescreenPanel({ master, state, onOp, onRetry, canSend = false, onCloud, judge = false }: PrescreenPanelProps) {
   const shell = useShell();
   const online = useOnline();
   const progressRef = useRef<HTMLUListElement>(null);
@@ -47,8 +57,10 @@ export function PrescreenPanel({ master, state, onOp, onRetry, canSend = false, 
   // idle (just opened, or after Try again) shows the same list, all pending, so the focus target stays mounted
   const lines = state.kind === 'idle' ? PENDING_LINES : state.lines;
   const running = state.kind !== 'done';
+  const anyDone = TIER0_STEPS.some((st) => lines[st].status === 'done');
   const capState = shell?.caps.checked ? shell.caps.capability.state : null;
-  const nanoLine = nanoResultLine(state.kind === 'done' ? state.nano : undefined, capState);
+  const tier0Done = TIER0_STEPS.every((st) => lines[st].status === 'done' || lines[st].status === 'failed');
+  const nanoLine = nanoResultLine(state.kind === 'done' ? state.nano : undefined, capState, { judge, tier0Done });
   const retry = () => {
     onRetry();
     progressRef.current?.focus(); // the alert and its button go away: focus stays on the step, never on <body>
@@ -62,6 +74,7 @@ export function PrescreenPanel({ master, state, onOp, onRetry, canSend = false, 
         aria-label={t('ui.prescreen.progress')}
         aria-live="polite"
         aria-busy={running}
+        aria-describedby={anyDone ? NOTE_ID : undefined}
         className="flex flex-col divide-y divide-line rounded-card border border-line bg-surface-2 px-3 text-small"
       >
         {TIER0_STEPS.map((step) => {
@@ -72,22 +85,24 @@ export function PrescreenPanel({ master, state, onOp, onRetry, canSend = false, 
             <li key={step} data-step={step} data-status={line.status} className="flex min-h-10 flex-wrap items-center gap-2 py-1.5">
               <span className="inline-flex size-4 items-center justify-center"><LineMark line={line} /></span>
               <span className={line.status === 'failed' ? 'text-verdict-red' : undefined}>{text}</span>{' '}
-              {/* real spaces between the parts, so the line reads "Finding faces (1) RULES-ONLY 38 ms" (F-177) */}
+              {/* real spaces between the parts, so the line reads "Finding faces (1) BUILT-IN · MediaPipe 38 ms" (F-177) */}
               <span className="inline-flex items-center gap-2 whitespace-nowrap">
-                {line.status !== 'pending' && <Badge route="RULES_ONLY" />}{' '}
+                {line.status !== 'pending' && <BuiltInBadge engine={ENGINE[step]} dataKey={step} />}{' '}
                 {line.ms !== undefined && <span className="font-mono text-small tabular-nums text-muted">{t('ui.prescreen.ms', { ms: line.ms })}</span>}
               </span>
             </li>
           );
         })}
-        <li data-step="nano" data-route={nanoLine.route} className="flex items-start gap-2 py-2">
+        <li data-step="nano" data-route={nanoLine.route ?? undefined} className="flex items-start gap-2 py-2">
           <span className="inline-flex h-5 w-4 shrink-0 items-center justify-center"><Icon name="chip" className="size-4 text-muted" /></span>
           <span className="min-w-0">
-            {t(nanoLine.id, nanoLine.params)} <Badge route={nanoLine.route} className="align-middle" />{' '}
+            {t(nanoLine.id, nanoLine.params)}{' '}
+            {nanoLine.route ? <Badge route={nanoLine.route} className="align-middle" /> : nanoLine.pending ? <span className="text-muted" data-pending="">{t('ui.hud.running')}</span> : null}{' '}
             {nanoLine.ms !== undefined && <span className="font-mono text-small tabular-nums text-muted">{t('ui.prescreen.ms', { ms: nanoLine.ms })}</span>}
           </span>
         </li>
       </ul>
+      {anyDone && <p id={NOTE_ID} className="-mt-2 text-caption text-muted" data-testid="builtin-note">{t('ui.prescreen.builtinNote')}</p>}
 
       {state.kind === 'done' && (
         <>

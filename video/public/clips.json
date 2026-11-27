@@ -1,42 +1,42 @@
 {
  "durations": {
-  "judge-home": 6.24,
-  "crossing": 76.03,
-  "station": 56.48,
-  "castle": 55.31,
-  "gate": 41.4
+  "judge-home": 6.27,
+  "crossing": 75.39,
+  "station": 58.87,
+  "castle": 53.64,
+  "gate": 41.45
  },
  "marks": {
   "judge-home": {
    "shown": 0
   },
   "crossing": {
-   "picked": 0.33,
-   "verdict": 38.74,
-   "verdictShown": 40.26,
-   "fix": 46.32,
-   "applied": 48.86,
-   "after": 64.2,
-   "compare": 71.62
+   "picked": 0.32,
+   "verdict": 38.13,
+   "verdictShown": 39.64,
+   "fix": 45.68,
+   "applied": 48.2,
+   "after": 63.5,
+   "compare": 70.93
   },
   "station": {
    "picked": 0.33,
-   "after": 50.22
+   "after": 52.6
   },
   "castle": {
-   "picked": 0.35,
-   "prescreen": 19.92,
-   "consent": 29.95,
-   "attack": 32.98,
-   "verdict": 38.2,
-   "nofix": 48.38
+   "picked": 0.36,
+   "prescreen": 20.06,
+   "consent": 30.09,
+   "attack": 33.11,
+   "verdict": 36.52,
+   "nofix": 46.7
   },
   "gate": {
-   "mask": 21.99,
-   "unticked": 23.82,
-   "consent": 28.17,
-   "send": 32.38,
-   "blocked": 35.74
+   "mask": 22.01,
+   "unticked": 23.84,
+   "consent": 28.19,
+   "send": 32.45,
+   "blocked": 35.79
   }
  },
  "aiRequests": {

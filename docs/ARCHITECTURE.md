@@ -541,13 +541,13 @@ The explainer (S2) runs on demand from any clue's "Explain" button, `PREFER_ON_D
 
 | Step | Class | What happens | Badge |
 |---|---|---|---|
-| Tier-0 | none | same as §5.1 | `RULES_ONLY (MediaPipe)` / `RULES_ONLY (Tesseract)` |
+| Tier-0 | none | same as §5.1 | `BUILT-IN · MediaPipe` / `BUILT-IN · Tesseract` / `BUILT-IN · code` (not a Route, not a HUD entry; D-179) |
 | preScreen | S1 | availability ≠ available → `deterministic()` returns `[]` | RULES_ONLY, `copy.prescreen.rulesOnly` |
-| vaultTextMatch | S0 | fuzzy matcher over OCR lines | RULES_ONLY |
+| vaultTextMatch | S0 | fuzzy matcher over OCR lines | RULES_ONLY (the Nano job has no web caller; the Tier-0 fuzzy matcher itself reads `BUILT-IN · code`, D-179) |
 | preflight, consent, attack | S3 | same as §5.1 | IN_CLOUD |
 | referee | S0 | `rulesReferee` | RULES_ONLY, `copy.ref.rules` |
 | bands | none | code | none |
-| fixPlan | S0 | `deterministicFix` | RULES_ONLY, `copy.fix.rules` |
+| fixPlan | S0 | `deterministicFix` (the only planner on web, D-142) | `BUILT-IN · code` (not a Route; D-179), `copy.fix.rules` |
 | explain | S2 | `PREFER_ON_DEVICE` with no adapter → the SDK goes to the cloud with public text | IN_CLOUD, note `fallback: no on-device model` |
 | Judge Mode device jobs | S4 | `PREFER_ON_DEVICE` with the synthetic vault → cloud | IN_CLOUD |
 
@@ -1477,13 +1477,13 @@ installTripwire();
 - **Counters (SPEC SCR-13):**
   - `Faces sent: {f} · Vault items sent: {v}`;
   - `Images: {unique} · Requests: {n} · Bytes: {kb}`;
-  - `On-device AI calls: {k} · Local rule checks: {r} · Blocked: {b}`.
+  - `On-device AI calls: {k} · Rules-only fallbacks: {r} · Blocked: {b}` (D-179).
   - Judge entries are tagged and kept separate from real sessions.
 - **Receipt:** `copy.receipt.line`, rendered from the counters. "Copy receipt" puts text on the clipboard; "Download receipt" (P1, SPEC D-33) saves JSON of the entries.
 - **"What the cloud saw" (SCR-15):** reads `CheckSession.sentImages`, which holds the exact consented JPEG blobs in memory. The displayed blob's sha256 equals the Ledger entry's (AC-230).
 - **Router HUD** line format (SPEC SCR-14 owns it): `{time} {job} [{class}] › {ROUTE} ({engine}) {latency} {bytes}`, for example `14:02:11 preScreen [S1] › ON_DEVICE (Gemini Nano) 2.1 s 0 B`. `ROUTE` is one of the six `Route` values; for S2/S4 it comes from `inferenceSource`.
   - Event lines (SPEC SCR-14): `BLOCKED`, `QUEUED`, `CACHED`, `RECLASSIFIED S2→S0`, `fallback: model downloading`, `fallback: no on-device model`, `policy rejected`, `+rules`.
-  - Tier-0 steps appear as `RULES_ONLY (MediaPipe)` and `RULES_ONLY (Tesseract)`.
+  - Tier-0 steps make no model call and are not HUD entries; the pre-screen list shows them as `BUILT-IN` (D-179).
 - Firebase AI monitoring cannot see on-device calls, so the Ledger is the evidence.
 
 ### 8.7 Block reasons → SPEC copy
@@ -2994,7 +2994,7 @@ export type GateErrorCode = 'DEVICE_UNAVAILABLE' | 'DEVICE_BUSY' | 'DEVICE_INPUT
 
 | Code | Detected by | Retry | Then | User sees |
 |---|---|---|---|---|
-| DEVICE_UNAVAILABLE | pre-check false; `AIError` `api-not-enabled` or `unsupported` on ONLY_ON_DEVICE; iOS `assetsUnavailable` | none | deterministic (S0/S1) | RULES_ONLY badge (`copy.prescreen.rulesOnly`, `copy.ref.rules`, `copy.fix.rules`) |
+| DEVICE_UNAVAILABLE | pre-check false; `AIError` `api-not-enabled` or `unsupported` on ONLY_ON_DEVICE; iOS `assetsUnavailable` | none | deterministic (S0/S1) | RULES_ONLY badge (`copy.prescreen.rulesOnly`, `copy.ref.rules`) |
 | DEVICE_BUSY | iOS `GenerationError.concurrentRequests`; a Chrome DOMException while another device call is in flight (shouldn't happen, given single-flight) | wait 1 s, up to 2, identical prompt | deterministic | spinner, then RULES_ONLY |
 | DEVICE_INPUT_TOO_LARGE | Chrome `QuotaExceededError`; iOS token count > 4,096 (pre-checked) | 1, after trimming lists (claims ≤ 8, vault ≤ 12, texts ≤ 20) | deterministic | none |
 | DEVICE_FAILED / PARSE_FAILED (device) | other device errors; JSON or validation failure | 1, identical | deterministic | HUD `fallback: invalid output` |

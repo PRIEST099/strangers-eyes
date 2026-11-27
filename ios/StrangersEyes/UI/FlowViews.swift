@@ -83,11 +83,21 @@ struct VerdictCard: View {
         Text(Strings.t("copy.judge.cached", ["date": j.sample.recordedAt, "model": j.sample.model])).font(.caption2).foregroundStyle(.secondary)
           .accessibilityIdentifier("recordedNote")
       }
-      HStack(spacing: 6) {
-        Text(Strings.t("ui.verdict.referee")).font(.caption)
-        RouteBadge(route: round.referee.route)
-        if round.referee.route == .onDevice { Text(Strings.t("ui.hud.engine.fm")).font(.caption2).foregroundStyle(.secondary) }
-        if round.referee.route == .rulesOnly { Text(Strings.t("copy.ref.rules")).font(.caption2).foregroundStyle(.secondary) }
+      // D-179 (as on the web): no referee row when nothing was graded (a declined attack); a referee that needed no model
+      // ("skipped") reads BUILT-IN · code; RULES-ONLY only for a real fallback, with the reason (no model vs it failed).
+      if round.adv.status != "declined" {
+        HStack(spacing: 6) {
+          Text(Strings.t("ui.verdict.referee")).font(.caption)
+          if round.referee.route == .rulesOnly && round.referee.notes == ["skipped"] {
+            BuiltInBadge(engine: "code")
+          } else {
+            RouteBadge(route: round.referee.route)
+            if round.referee.route == .onDevice { Text(Strings.t("ui.hud.engine.fm")).font(.caption2).foregroundStyle(.secondary) }
+            if round.referee.route == .rulesOnly {
+              Text(Strings.t(model.fmState == .available ? "ui.verdict.refFallback" : "copy.ref.rules")).font(.caption2).foregroundStyle(.secondary)
+            }
+          }
+        }
       }
       if model.techDetails && !round.referee.notes.isEmpty {
         Text(round.referee.notes.joined(separator: " · ")).font(.caption2.monospaced()).foregroundStyle(.secondary)
@@ -147,7 +157,7 @@ struct FixCard: View {
   let fix: RulesFix
   var body: some View {
     VStack(alignment: .leading, spacing: 8) {
-      Text(Strings.t("copy.fix.title")).font(.headline)
+      HStack(spacing: 6) { Text(Strings.t("copy.fix.title")).font(.headline); BuiltInBadge(engine: "code") } // D-179: always plain code
       Text(Strings.t("copy.fix.rules")).font(.caption).foregroundStyle(.secondary)
       Text(fix.explanation).font(.callout)
       ForEach(fix.masks, id: \.clueId) { m in

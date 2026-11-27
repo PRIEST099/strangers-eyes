@@ -166,14 +166,28 @@ describe('prescreenView', () => {
     expect(nanoResultLine({ route: 'RULES_ONLY', latencyMs: 5, count: 0, fallback: 'device_failed' }, 'a')).toMatchObject({ id: 'ui.prescreen.nanoFailed', route: 'RULES_ONLY' });
     expect(nanoResultLine({ route: 'RULES_ONLY', latencyMs: 1, count: 0, fallback: 'no_device' }, 'a').id).toBe('ui.prescreen.nanoUnavailable');
     expect(nanoResultLine({ route: 'RULES_ONLY', latencyMs: 1, count: 0, fallback: 'no_device' }, 'c').id).toBe('copy.prescreen.rulesOnly');
-    expect(nanoResultLine(undefined, 'a')).toEqual({ id: 'ui.prescreen.nanoRunning', route: 'RULES_ONLY' });
+    // D-179: still running (a) or not known yet: no route badge at all, never RULES-ONLY
+    expect(nanoResultLine(undefined, 'a')).toEqual({ id: 'ui.prescreen.nanoRunning', route: null, pending: true });
+    // Nano runs after Tier-0: before that it says "Next", with no running marker
+    expect(nanoResultLine(undefined, 'a', { tier0Done: false })).toEqual({ id: 'ui.prescreen.nanoNext', route: null, pending: false });
+    // Judge Mode: S4 may still run in the cloud, so b/c/a′ predict nothing before it answers
+    for (const st of ['b', 'c', 'a-prime', null] as const) {
+      expect(nanoResultLine(undefined, st, { judge: true })).toEqual({ id: 'ui.prescreen.judgeRunning', route: null, pending: true });
+      expect(nanoResultLine(undefined, st, { judge: true, tier0Done: false })).toEqual({ id: 'ui.prescreen.judgeNext', route: null, pending: false });
+    }
+    expect(nanoResultLine(undefined, 'a', { judge: true }).id).toBe('ui.prescreen.nanoRunning');
+    // an answered Judge step shows what happened
+    expect(nanoResultLine({ route: 'IN_CLOUD', latencyMs: 900, count: 3, fallback: null }, 'c', { judge: true })).toMatchObject({ id: 'ui.prescreen.judgeCloudDone', route: 'IN_CLOUD' });
+    expect(nanoResultLine(undefined, null)).toEqual({ id: 'ui.prescreen.nanoChecking', route: null });
+    expect(nanoResultLine(undefined, 'c')).toEqual({ id: 'copy.prescreen.rulesOnly', route: 'RULES_ONLY' });
+    expect(nanoResultLine(undefined, 'a-prime')).toEqual({ id: 'copy.prescreen.textOnly', route: 'RULES_ONLY' });
   });
   it('nanoLineCopy: honest per capability state before Nano answers', () => {
     expect(nanoLineCopy('a')).toBe('ui.prescreen.nanoRunning');
     expect(nanoLineCopy('a-prime')).toBe('copy.prescreen.textOnly');
     expect(nanoLineCopy('b')).toBe('copy.prescreen.rulesOnly');
     expect(nanoLineCopy('c')).toBe('copy.prescreen.rulesOnly');
-    expect(nanoLineCopy(null)).toBe('copy.prescreen.rulesOnly');
+    expect(nanoLineCopy(null)).toBe('ui.prescreen.nanoChecking');
   });
 
   it('labels: type (phone has its own), reader, severity', () => {

@@ -166,7 +166,8 @@ struct PrescreenSummary: View {
     VStack(alignment: .leading, spacing: 4) {
       HStack(spacing: 6) {
         Text(Strings.t("ui.step.prescreen")).font(.caption.bold())
-        RouteBadge(route: outcome.route)
+        // D-179: "nothing to read" means no model job ran (Vision found no text), so no route badge, never RULES-ONLY
+        if outcome.note != PrescreenJob.nothingToRead { RouteBadge(route: outcome.route) }
         if outcome.route == .onDevice { Text(Strings.t("ui.hud.engine.fm")).font(.caption2).foregroundStyle(.secondary) }
       }
       if outcome.route != .onDevice && outcome.note != PrescreenJob.nothingToRead {
@@ -254,6 +255,17 @@ struct SettingsView: View {
       .navigationTitle(Strings.t("ui.screen.settings"))
       .toolbar { ToolbarItem(placement: .confirmationAction) { Button(Strings.t("ui.close")) { dismiss() } } }
     }
+  }
+}
+
+/// BUILT-IN badge (D-179): a step that always runs as code on this device, not a fallback. Neutral outline, text label.
+struct BuiltInBadge: View {
+  let engine: String
+  var body: some View {
+    Text(Strings.t("ui.prescreen.builtin", ["engine": Strings.t("ui.prescreen.engine.\(engine)")]))
+      .font(.caption2.bold()).padding(.horizontal, 6).padding(.vertical, 2)
+      .overlay(Capsule().stroke(Color.gray.opacity(0.6), lineWidth: 1)).foregroundStyle(.secondary)
+      .accessibilityIdentifier("builtInBadge")
   }
 }
 

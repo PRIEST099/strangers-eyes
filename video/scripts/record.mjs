@@ -238,6 +238,14 @@ async function record(name, clip) {
         if (!ok) console.log(`  (nothing shows "${[].concat(st.scroll)[0]}" to scroll to)`);
       }
     }
+    // SE_DUMP=<dir>: after the clip, save the Cloud Ledger panel's text (every entry's job and route) for a check of
+    // what ran where. Text only, written outside the repo; it never contains the vault or the photo.
+    if (process.env.SE_DUMP) {
+      const txt = await evaluate(`(() => { const h = [...document.querySelectorAll('h2,h3')].find((e) => e.innerText.trim() === 'Cloud Ledger');
+        const box = h ? h.closest('aside,section,div') : null; return box ? box.innerText : '(no Cloud Ledger panel)'; })()`);
+      mkdirSync(process.env.SE_DUMP, { recursive: true });
+      writeFileSync(join(process.env.SE_DUMP, `${name}-ledger.txt`), String(txt) + '\n');
+    }
   } finally {
     capturing = false;
     await loop;

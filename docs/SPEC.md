@@ -145,7 +145,7 @@ These are deviations from and clarifications of `research/winner-spec.md`. The P
 | D-22 (RN-18) | The benchmark scores **pass B only**, on **public-place photos only**. Its synthetic "home" pin is the capture point. | Grounding terms; no real homes. |
 | D-23 (amended by D-79) | The vault holds **at most 20 items**, each label and each alias is **at most 40 characters** (Unicode code points of the string as given, no normalisation: web `[...s].length`, iOS `unicodeScalars.count`), and an item has **at most 5 aliases**, on both platforms. | iOS on-device prompts must stay under 4,096 tokens. |
 | D-24 | The re-attack image, masks included, is visible to the cloud. The cloud can see **which regions** were hidden, never **why**. Disclosed in About and in the README. | Honesty. |
-| D-25 | Deterministic fallbacks are labelled **RULES-ONLY** everywhere and are never called "on-device AI". | Honest badges. |
+| D-25 | Deterministic fallbacks are labelled **RULES-ONLY** everywhere and are never called "on-device AI". The always-on Tier-0 steps are not fallbacks: they are labelled **BUILT-IN** (D-179). | Honest badges. |
 | D-26 | **Demo location disclosure [USER].** Before Judge Mode samples are recorded (T-105) and before the rehearsal, the user accepts in chat that the city or neighbourhood of the shoot becomes public, through the committed samples, the cached fixtures and the video. Shoots happen a few km or more from home, work and any school. Sample pins are rounded to 3 decimals (about 100 m). Coordinate scans allowlist only `web/public/samples/*.json`. | Judge Mode needs pins near the real scene to produce a red band. The org rule says PII is included only at the Primary Owner's request. |
 | D-27 | **Hash routes** (`#/…`, §8.1). The deep link `?judge=1` redirects to `#/judge`. | Simplest with the service worker and the SPA rewrite. |
 | D-28 | Pass A notes live **in memory only**, for the current session. They are never persisted, including in recent checks. | Grounding terms; simplest. Replaces the earlier "encrypted local history" wording. |
@@ -305,7 +305,7 @@ Where the definitions overlap (D-86): Nano off or no `LanguageModel` is (c); tex
 | W3b vault text match (S0, P1) | ON-DEVICE + Tier-0 | Tier-0 | Tier-0 | as (a) or (c) | already ran |
 | C1/C2 adversary (S3) | IN_CLOUD | IN_CLOUD | IN_CLOUD | QUEUED | stopped, never retried |
 | W4 referee (S0) | ON-DEVICE | RULES-ONLY | RULES-ONLY | runs if pass B already exists | skipped (no claims) |
-| W5 fix planner (S0) | ON-DEVICE | RULES-ONLY | RULES-ONLY | as (a) or (c) | RULES-ONLY over pre-screen clues |
+| W5 fix planner (S0) | BUILT-IN (code) | BUILT-IN (code) | BUILT-IN (code) | BUILT-IN (code) | BUILT-IN (code) over pre-screen clues |
 | W8 explainer (S2) | ON-DEVICE | IN_CLOUD (fallback) | IN_CLOUD (fallback) | ON-DEVICE if ready, else template | allowed (public text only, SCR-16) |
 | S4 Judge Mode AI steps | ON-DEVICE | IN_CLOUD | IN_CLOUD | ON-DEVICE or RULES-ONLY; adversary from the CACHED fixture | n/a |
 | Leak Atlas write (P1) | if opted in | if opted in | if opted in | buffered by the Firestore cache | nothing (a declined pass B has no clue types) |
@@ -317,7 +317,7 @@ Where the definitions overlap (D-86): Nano off or no `LanguageModel` is (c); tex
   - the full loop completes (import → verdict → fix → re-attack → export);
   - every S0/S1 HUD entry reads RULES-ONLY;
   - **no** S0/S1 network request is made (checked in the network log).
-- **AC-003 (P0) [manual]** In Chrome with Nano ready, the pre-screen, referee and fix entries read `ON-DEVICE · Gemini Nano`, and the adversary entries read `IN CLOUD`.
+- **AC-003 (P0) [manual]** In Chrome with Nano ready, the pre-screen and referee entries read `ON-DEVICE · Gemini Nano`, the adversary entries read `IN CLOUD`, and the Tier-0 lines and the fix plan read `BUILT-IN` (always code; D-179). No step reads RULES-ONLY.
 - **AC-004 (P0) [e2e]** With the network forced offline after the first load, the app loads, the vault opens, Tier-0 and the pre-screen run, and the cloud step shows `copy.queue.queued` (nothing is queued: T-084 deferred, D-163).
 - **AC-005 (P0) [unit]** When availability is `downloadable` or `downloading`, S0/S1 jobs call the deterministic fallback and never call `generateContent`.
 - **AC-006 (P1) [manual]** Settings › Developer › "Simulate: no Nano / offline" can only **downgrade** capability, and the HUD shows `(simulated)` on the affected entries.
@@ -334,7 +334,7 @@ The classes come from RC `routing_policy` (nested shape; ARCHITECTURE §7) and a
 | Class | Covers | Web mode | iOS | If no on-device model | Cloud can see |
 |---|---|---|---|---|---|
 | **S0** | Anything that touches the vault: vault-text match, referee, fix plan, vault-string scans, an S2 payload reclassified by D-15 | `ONLY_ON_DEVICE`, and only after the D-03 pre-check | On-device-only session (`FirebaseAI.SystemLanguageModel.default`, never inside a `HybridModel`) | Deterministic code (RULES-ONLY). **Never the cloud.** | Nothing |
-| **S1** | The original, unredacted photo (pre-screen) | `ONLY_ON_DEVICE`, after the D-03 pre-check | On-device-only session over Vision text | Tier-0 (RULES-ONLY). **Never the cloud.** | Nothing |
+| **S1** | The original, unredacted photo (pre-screen) | `ONLY_ON_DEVICE`, after the D-03 pre-check | On-device-only session over Vision text | Tier-0 only (BUILT-IN); the Nano line shows RULES-ONLY. **Never the cloud.** | Nothing |
 | **S2** | Public content: explanations of clue *types* and of clue text that came from the cloud | `PREFER_ON_DEVICE` | `HybridModel(primary: system, secondary: Gemini)` | The SDK's real automatic fallback to the cloud, shown as IN CLOUD | The clue type and 3×3 region, plus pass-B evidence text. Never text read on the device. |
 | **S3** | The adversary: pass A, pass B, re-attack | `ONLY_IN_CLOUD` | Cloud-only (`generativeModel`) | n/a | The consented, redacted JPEG plus a fixed prompt |
 | **S4** | Judge Mode's synthetic samples with the fake vault | `PREFER_ON_DEVICE` | `HybridModel` (used only by the P2 iOS sample scenes) | Cloud, so judges see every AI step | Sample images and the fake vault, all synthetic |
@@ -572,7 +572,7 @@ The Cloud Ledger is a rail or a sheet, not a route (§8.2).
   - The streaming notes, the HUD and the toasts use `aria-live`: `polite` for the notes and the HUD, `assertive` for gate blocks.
 - **AC-062 (P0) [manual]** Verdict lines never rely on colour alone: each has an icon and text. Text contrast meets WCAG AA.
 - **AC-063 (P1) [manual]** With `prefers-reduced-motion`, the mask-fill animations and the streaming shimmer are off.
-- **AC-064 (P0) [manual]** Tier-0 on a 12 MP photo (downscaled to the 2048 px master) finishes in ≤3 s on the M1 with warm workers. The time is recorded in the HUD. The ARCHITECTURE budget target is 1.5 s.
+- **AC-064 (P0) [manual]** Tier-0 on a 12 MP photo (downscaled to the 2048 px master) finishes in ≤3 s on the M1 with warm workers. The time is shown on the pre-screen lines (Tier-0 makes no model call, so no HUD entry; D-179). The ARCHITECTURE budget target is 1.5 s.
 - **AC-065 (P0) [e2e]** Every product route in §8.1 exists in the production build. `#/dev/*` routes and their code are absent from it.
 - **AC-066 (P0) [manual]** **By Nov 22**, the Tier-0 selftest (EXIF strip, face detection on a no-face image, OCR word boxes, vault round trip) passes in current Safari and Firefox on macOS, not only Chrome. [UNVERIFIED: Safari lacks relaxed SIMD; Tesseract should fall back to the `simd` core.]
 - **AC-067 (P0) [manual]** A cold Judge Mode start on the hosted URL is measured in a fresh profile with DevTools "Fast 4G" throttling, and the time to first verdict is recorded in PROGRESS. Meanwhile, row 2 of the capability panel shows asset-loading progress (`copy.cap.assetsLoading`).
@@ -721,7 +721,7 @@ Each screen lists its purpose, layout, behaviour, states (a)–(e), copy IDs and
 
 ### SCR-06 Pre-screen and mask editor · P0 (W2, W3)
 - **Purpose:** catch and mask what must never leave *before* the cloud sees anything, and show what a stranger might use.
-- **Progress list.** Each line carries its route badge and latency, and also produces a HUD entry:
+- **Progress list.** Each line carries a badge and its latency (D-179). The four Tier-0 lines carry `BUILT-IN · {engine}` (`ui.prescreen.builtin`: code, MediaPipe, Tesseract, code), never RULES-ONLY: they always run on this device, with or without Nano, and make no model call, so they are not HUD entries. A note under them (`ui.prescreen.builtinNote`) says so. The Nano line carries its route badge (ON-DEVICE, or RULES-ONLY when Nano is missing) and a HUD entry:
   - "Removing metadata"
   - "Finding faces (n)"
   - "Reading text (n words)"
@@ -973,7 +973,7 @@ Each screen lists its purpose, layout, behaviour, states (a)–(e), copy IDs and
 
 ### SCR-11 Fix, re-attack and before/after · P0 (W5, C3)
 - **Fix:**
-  - **Fix it on this device** runs the fix planner (S0).
+  - **Fix it on this device** runs the fix planner (S0). As built (D-142, D-179) it is `deterministicFix`, always plain code on the device, labelled `BUILT-IN · code`; the model planner described below (input, output, explanation) is not built.
   - **Input:**
     - clues `{id, type, region, reveals, evidence, severity, removable}`: every removable clue, plus the non-removable clues cited by a match or by the closest-band hypothesis, so the planner can pick a crop side (D-64);
     - matches `{claim, what it points to (generic phrase), strength, clue_ids}`;
@@ -986,7 +986,7 @@ Each screen lists its purpose, layout, behaviour, states (a)–(e), copy IDs and
     - the explanation (≤2 sentences, ≤40 words, using generic phrases such as "your workplace", never vault labels);
     - "Expected after fix: {level}".
   - Buttons: **Apply fix** · **Adjust** (toggle individual masks) · **Cancel**.
-  - The rules-only plan (`copy.fix.rules`) is §10.4.
+  - The code plan (`copy.fix.rules`) is §10.4.
   - Non-removable clues cited by red or amber lines show `copy.fix.unremovable`.
 - **Apply:**
   - Solid fills animate in.
@@ -1053,7 +1053,7 @@ Each screen lists its purpose, layout, behaviour, states (a)–(e), copy IDs and
 - **Counters**, at the top and always visible:
   - `Faces sent: {f} · Vault items sent: {v}`. These come from the gate's re-checks on payloads that were actually sent, so by construction they stay 0. The panel says "checked on every request".
   - `Images: {unique} · Requests: {n} · Bytes: {kb}`.
-  - `On-device AI calls: {k} · Local rule checks: {r} · Blocked: {b}`.
+  - `On-device AI calls: {k} · Rules-only fallbacks: {r} · Blocked: {b}` (D-179).
 - **Entries**, newest first, per session, with a session filter. Each entry shows:
   - time · job (friendly name) · class · requested mode · route badge;
   - engine or model · raw `inferenceSource` value · latency;
@@ -1089,7 +1089,7 @@ Each screen lists its purpose, layout, behaviour, states (a)–(e), copy IDs and
   - **Calls:** a log (`role="log"`), newest at the bottom.
     - Line format: `{time} {job} [{class}] › {ROUTE} ({engine}) {latency} {bytes}`.
     - Event lines: `BLOCKED`, `QUEUED`, `CACHED`, `RECLASSIFIED S2→S0`, `fallback: model downloading`, `fallback: no on-device model`, `policy rejected`, `+rules`.
-    - Tier-0 steps appear as `RULES_ONLY (MediaPipe)` and `RULES_ONLY (Tesseract)`.
+    - Tier-0 steps (metadata, MediaPipe faces, Tesseract text, vault match) make no model call and are not HUD entries; the pre-screen list shows them as `BUILT-IN` (D-179).
   - **Policy:** the S0–S4 table as loaded (AC-026), the capability state, and the model names and prompt versions.
 - **Routes:** `ON_DEVICE`, `IN_CLOUD`, `RULES_ONLY`, `BLOCKED`, `QUEUED`, `CACHED`. For S2 and S4, the route comes from `response.inferenceSource`, not from the mode.
 - **Visibility:** shown by default. It can be hidden in Settings (P1), and always stays visible in Judge Mode.
@@ -1351,7 +1351,7 @@ Worked examples (these are the AC-165 vectors):
 
 The generic-word list, synonym classes, artefact terms and word folds live in `shared/prompts/enums.v1.json` (`GENERIC_WORDS`, `SYNONYM_CLASSES`, `ARTEFACT_TERMS`, `WORD_FOLDS`; ARCHITECTURE §10.3), with vectors in `shared/testvectors/referee.json`.
 
-### 10.4 Rules-only fix plan
+### 10.4 Fix plan (code)
 - **Targets** are:
   - every match that is exact, likely or possible;
   - for each pin whose band is district or closer, the hypothesis that gives it.
@@ -1402,10 +1402,10 @@ Otherwise show `copy.verdict.still`, naming the worst remaining line.
 | copy.cap.title | What runs where on this browser |
 | copy.cap.invariant | Your vault and your original photo never leave this device, whatever this panel shows. |
 | copy.cap.nanoReady | Gemini Nano is ready. Private checks run on this device. |
-| copy.cap.nanoTextOnly | Gemini Nano is ready for text but not images in this browser. The photo pre-screen uses built-in rules; checking the attacker's guesses and planning the fix use Nano. |
-| copy.cap.nanoDownloadable | Gemini Nano can be downloaded (about 4 GB). Until then, private checks use built-in rules. |
-| copy.cap.nanoDownloading | Downloading Gemini Nano… {pct}%. Private checks use built-in rules until it's ready. |
-| copy.cap.nanoNone | No on-device AI in this browser. Private checks use built-in rules (rules-only). Nothing private goes to the cloud instead. |
+| copy.cap.nanoTextOnly | Gemini Nano is ready for text but not images in this browser. The photo pre-screen uses simple rules; checking the attacker's guesses uses Nano. The fix plan is always plain code. |
+| copy.cap.nanoDownloadable | Gemini Nano can be downloaded (about 4 GB). Until then, private checks use simple rules. |
+| copy.cap.nanoDownloading | Downloading Gemini Nano… {pct}%. Private checks use simple rules until it's ready. |
+| copy.cap.nanoNone | No on-device AI in this browser. Private checks use simple rules (rules-only). Nothing private goes to the cloud instead. |
 | copy.cap.assetsLoading | Loading the on-device checks (face and text readers)… {pct}% |
 | copy.cap.cloudReady | Cloud attacker ready (Gemini via Firebase AI Logic). It only ever sees a redacted copy you approve. |
 | copy.cap.cloudPaused | Cloud checks are paused right now. On-device checks still work. |
@@ -1431,7 +1431,7 @@ Otherwise show `copy.verdict.still`, naming the worst remaining line.
 | copy.import.gpsFound | This file carries GPS coordinates. They're removed before anything else happens. |
 | copy.import.gpsNear | That GPS point is {band words} of your {KIND}. It has been removed. |
 | copy.prescreen.rulesOnly | Rules-only pre-screen: no on-device AI in this browser. Faces, text and your vault are still checked here. |
-| copy.prescreen.textOnly | On-device AI can't read images in this browser, so the photo pre-screen uses built-in rules. |
+| copy.prescreen.textOnly | On-device AI can't read images in this browser, so the photo pre-screen uses simple rules. |
 | copy.prescreen.vaultHit | "{TEXT}" matches your {kind}. Masked on this device. |
 | copy.prescreen.possible | Possible identifier: {type}. Not masked. You decide. |
 | copy.prescreen.approximate | Approximate area: on-device AI saw a {type} here but couldn't pin it down. Draw a mask if you want it hidden. |
@@ -1460,7 +1460,7 @@ Otherwise show `copy.verdict.still`, naming the worst remaining line.
 | copy.adv.truncated | The attacker's answer was cut off. Try again. |
 | copy.adv.timeout | The attacker didn't answer in time. Nothing was queued; try again in a minute. On-device findings are still shown. |
 | copy.ref.running | Checking the attacker's guesses against your vault… on this device |
-| copy.ref.rules | Guesses checked by built-in rules (no on-device AI). Your vault still stays here. |
+| copy.ref.rules | Guesses checked by simple rules (no on-device AI). Your vault still stays here. |
 | copy.verdict.red | A stranger could find you from this photo |
 | copy.verdict.amber | This photo narrows things down |
 | copy.verdict.low | Low exposure found. This isn't a guarantee. |
@@ -1484,15 +1484,15 @@ Otherwise show `copy.verdict.still`, naming the worst remaining line.
 | copy.gate.blockedPrompt | Blocked: one of your private items ({KIND}) was in a cloud request. |
 | copy.gate.blockedConsent | Blocked: this isn't the image you approved. Review it again. |
 | copy.gate.reclassified | Kept on this device: the request contained vault text. |
-| copy.gate.tripwire | Stopped: a private step tried to reach the network. Private steps now use built-in rules only, and cloud checks are off until you reload. |
+| copy.gate.tripwire | Stopped: a private step tried to reach the network. Private steps now use simple rules only, and cloud checks are off until you reload. |
 | copy.fix.button | Fix it on this device |
 | copy.fix.title | Smallest fix found on this device |
-| copy.fix.rules | Rules-only fix: masking every removable clue the attacker used. |
+| copy.fix.rules | Planned by plain code on this device: masking every removable clue the attacker used. |
 | copy.fix.unremovable | Some clues (like architecture or paving) can't be masked. Cropping or not posting are the remaining options. |
 | copy.fix.cropTooMuch | Cropping would remove too much of this photo. Consider not posting it. |
 | copy.fix.reattack | Re-attack the fixed photo |
 | copy.fix.maxRounds | That's 3 rounds for this photo. Export it, crop it, or keep it private. |
-| copy.receipt.line | Cloud received {images} redacted images in {requests} requests · 0 faces · 0 vault items · {k} on-device AI calls · {r} local checks. |
+| copy.receipt.line | Cloud received {images} redacted images in {requests} requests · 0 faces · 0 vault items · {k} on-device AI calls · {r} rules-only fallbacks. |
 | copy.ledger.counters | Faces sent: {f} · Vault items sent: {v} |
 | copy.ledger.otherTraffic | Other network traffic: App Check (with reCAPTCHA), anonymous sign-in, Remote Config, and the face detector's small usage pings to Google (library version and timings). None of it carries your photo or vault. |
 | copy.cloudSaw.empty | Nothing has left this device yet. |
@@ -1523,9 +1523,9 @@ Otherwise show `copy.verdict.still`, naming the worst remaining line.
 | copy.about.reattackDisclosure | When you re-attack, the cloud sees which areas you masked, but never why. |
 | copy.about.support | If you're worried someone is tracking you, contact a local domestic-violence or victim-support service. |
 | copy.hud.policyRejected | Policy update rejected: private classes must stay on this device. |
-| copy.ios.fmNotReady | Apple Intelligence is still getting ready. Private checks use built-in rules until then. |
-| copy.ios.fmOff | Turn on Apple Intelligence in Settings to run private checks with on-device AI. Built-in rules are used meanwhile. |
-| copy.ios.ineligible | This device can't run Apple's on-device model. Private checks use built-in rules. |
+| copy.ios.fmNotReady | Apple Intelligence is still getting ready. Private checks use simple rules until then. |
+| copy.ios.fmOff | Turn on Apple Intelligence in Settings to run private checks with on-device AI. Simple rules are used meanwhile. |
+| copy.ios.ineligible | This device can't run Apple's on-device model. Private checks use simple rules. |
 | copy.ios.slow | On-device AI is thinking… this can take up to 30 s in the Simulator. |
 | copy.judge.coach.{step} | One coach mark per step: pre-screen, consent, attack, referee, verdict, fix, re-attack. Each says what ran where and why. |
 

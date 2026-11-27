@@ -52,7 +52,7 @@ export interface LineView {
    * Whether the line has a "Why?" expansion (it had a referee reason or supporting clues). `clues`: "Clues: r1:c4" with
    * Technical details, else "Based on 2 clues the attacker found". The reason text itself is never shown.
    */
-  why: { clues: string | null; clueIds: readonly string[]; route: Route } | null;
+  why: { clues: string | null; clueIds: readonly string[]; route: Route; builtIn: boolean } | null;
   /**
    * The code-computed distance band (pin, pin_match), for the BandRuler; null otherwise. Presentation only: a band
    * name, NEVER a distance, effectiveKm or coordinates (SR-07, invariant 5; verdictCard.test pins the keys).
@@ -99,6 +99,11 @@ export interface CardOptions {
   tr?: Translate;
   /** Settings › Technical details: clue ids in "Why?" (default true here; the card passes the setting). */
   tech?: boolean;
+  /**
+   * D-179: a model (or no model needed) graded this result, so a line the code found (a distance band, or a link from
+   * the always-on rules floor) reads BUILT-IN, not RULES-ONLY. False when the whole referee fell back (RULES-ONLY).
+   */
+  rulesAreFloor?: boolean;
 }
 
 const appT: Translate = (id, params) => appLookup(id as StringId, params);
@@ -168,7 +173,7 @@ export function lineSegments(line: VerdictLine, label: string | null, tr: Transl
   return seg.before + seg.kind + seg.after === full ? seg : { before: full, kind: '', label: null, after: '' };
 }
 
-export function lineView(line: VerdictLine, vault: readonly VaultItem[], show: boolean, tr: Translate = appT, tech = true): LineView {
+export function lineView(line: VerdictLine, vault: readonly VaultItem[], show: boolean, tr: Translate = appT, tech = true, rulesAreFloor = false): LineView {
   const hasReason = !!line.reason?.trim();
   const hasWhy = (line.kind === 'match' || line.kind === 'pin_match' || line.kind === 'pin') && (hasReason || line.clueIds.length > 0);
   const n = line.clueIds.length;
@@ -187,6 +192,8 @@ export function lineView(line: VerdictLine, vault: readonly VaultItem[], show: b
           clues: n === 0 ? null : tech ? tr('ui.verdict.clues', { ids: line.clueIds.join(', ') }) : tr('ui.verdict.cluesCount', { n }),
           clueIds: line.clueIds,
           route: line.route,
+          // a distance band is always code (invariant 5); a rules-floor link under a model referee is not a fallback
+          builtIn: line.route === 'RULES_ONLY' && (line.kind === 'pin' || rulesAreFloor),
         }
       : null,
     band: line.band ?? null,
@@ -232,7 +239,7 @@ export function verdictCardView(verdict: Verdict, vault: readonly VaultItem[], o
     tone: LEVEL_TONE[v.level],
     icon: LEVEL_ICON[v.level],
     compare,
-    lines: v.lines.map((l) => lineView(l, vault, opts.showVaultLabels, tr, opts.tech ?? true)),
+    lines: v.lines.map((l) => lineView(l, vault, opts.showVaultLabels, tr, opts.tech ?? true, opts.rulesAreFloor ?? false)),
     notLinked: nl ? tr(nl.copyId, nl.params) : null,
     bestGuess: bg ? tr(bg.copyId, bg.params) : null,
     noVault: v.noVault || hasNoPins(v) ? tr('copy.verdict.noVault') : null,

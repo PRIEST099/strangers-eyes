@@ -99,6 +99,32 @@ describe('PrescreenPanel', () => {
     expect(html).toMatch(/<ul[^>]*tabindex="-1"[^>]*aria-busy="true"/);
     expect(html.match(/data-status="pending"/g)).toHaveLength(4);
   });
+
+  it('D-179: finished Tier-0 lines say BUILT-IN with their engine, never RULES-ONLY; the note says they always run', () => {
+    const lines = { metadata: { status: 'done', ms: 3 }, faces: { status: 'done', count: 0, ms: 271 },
+      text: { status: 'done', count: 12, ms: 2826 }, vault: { status: 'done', count: 1, ms: 7 } } as const;
+    const html = panel({ kind: 'done', run: 1, sha256: 'a', lines, failed: [], editor: editor([]) });
+    const cut = html.indexOf('data-step="nano"');
+    expect(cut).toBeGreaterThan(0);
+    const tier0 = html.slice(0, cut);
+    expect(tier0).not.toContain(esc(S['ui.route.RULES_ONLY']));
+    expect(tier0).not.toContain('data-route="RULES_ONLY"');
+    expect(tier0.match(/data-builtin="/g)).toHaveLength(4);
+    for (const [step, engine] of [['metadata', 'code'], ['faces', 'mediapipe'], ['text', 'tesseract'], ['vault', 'code']] as const) {
+      const label = esc(S['ui.prescreen.builtin'].replace('{engine}', S[`ui.prescreen.engine.${engine}`]));
+      expect(html).toMatch(new RegExp(`data-builtin="${step}"[^>]*>(?:<span[^>]*></span>)?${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}</span>`));
+    }
+    expect(has(html, 'ui.prescreen.builtinNote')).toBe(true);
+    expect(html).toMatch(/<ul[^>]*aria-describedby="prescreen-builtin-note"/);
+    // pending lines carry no badge and no note yet; the Nano line before an answer (capability not known in this
+    // render) says it is checking, with no route badge: never RULES-ONLY while Nano may still be running
+    const idle = panel({ kind: 'idle' });
+    expect(idle).not.toContain('data-builtin=');
+    expect(has(idle, 'ui.prescreen.builtinNote')).toBe(false);
+    expect(idle).not.toContain('data-route="RULES_ONLY"');
+    expect(has(idle, 'ui.prescreen.nanoChecking')).toBe(true);
+    expect(idle).not.toContain('data-pending=""'); // nothing is running yet: no "running…" marker before Tier-0 ends
+  });
 });
 
 describe('paintPreview: only the rendered copy is drawn; a failure is solid black (fail closed)', () => {

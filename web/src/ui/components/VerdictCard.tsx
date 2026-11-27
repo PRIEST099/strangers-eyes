@@ -19,6 +19,7 @@ import type { Route, VaultItem, Verdict, VerdictComparison } from '../../core/ty
 import { useSettings } from '../hooks/usePrefs';
 import { hrefFor } from '../router';
 import { Badge } from './Badge';
+import { BuiltInBadge } from './BuiltInBadge';
 import { ButtonLink } from './Button';
 import { secondsText, verdictCardView } from './verdict/model';
 import { VerdictIcon } from './verdict/VerdictIcon';
@@ -61,9 +62,10 @@ export interface VerdictCardProps {
   showVaultLabels?: boolean;
   /**
    * Who graded the attacker and how long it took (SCR-09 "Referee: ON-DEVICE 1.3 s"). `note`: the honest line under a
-   * RULES-ONLY referee (copy.ref.rules, or why on-device AI did not decide this time; T-074).
+   * RULES-ONLY referee (copy.ref.rules, or why on-device AI did not decide this time; T-074). `builtIn` (D-179): no
+   * model was needed (nothing to check against a model), so the row reads BUILT-IN · code, not RULES-ONLY.
    */
-  referee?: { route: Route; latencyMs: number | null; note?: string | null } | null;
+  referee?: { route: Route; latencyMs: number | null; note?: string | null; builtIn?: boolean } | null;
   /** Fix / Export buttons (the Check screen owns the flow). */
   actions?: ReactNode;
   /** Called with the open line's clue IDs (to highlight them on the image), or null when no "Why?" is open. */
@@ -90,9 +92,11 @@ export function VerdictCard({
   const settings = useSettings();
   const show = showVaultLabels ?? settings.showVaultLabels;
   const tech = givenTech ?? settings.techDetails;
+  // D-179: under a model referee (or none needed) the code-found lines are the always-on floor, not a fallback
+  const rulesAreFloor = !!referee && (referee.builtIn === true || referee.route === 'ON_DEVICE' || referee.route === 'IN_CLOUD');
   const view = useMemo(
-    () => verdictCardView(verdict, vault, { showVaultLabels: show, comparison, tech }),
-    [verdict, vault, show, comparison, tech],
+    () => verdictCardView(verdict, vault, { showVaultLabels: show, comparison, tech, rulesAreFloor }),
+    [verdict, vault, show, comparison, tech, rulesAreFloor],
   );
   const uid = useId();
   const headingId = `${uid}-headline`;
@@ -253,7 +257,7 @@ export function VerdictCard({
             {referee && (
               <>
                 <span>{t(tech ? 'ui.verdict.referee' : 'ui.verdict.refereePlain')}</span>{' '}
-                <Badge route={referee.route} />{' '}
+                {referee.builtIn ? <BuiltInBadge engine="code" /> : <Badge route={referee.route} />}{' '}
                 {referee.latencyMs !== null && (
                   <>
                     <span className="font-mono tabular-nums">{secondsText(referee.latencyMs)}</span>{' '}

@@ -1,5 +1,5 @@
 // web/src/ui/check/FixPanel.tsx: the Fix step (SPEC SCR-11 "Fix" and "Apply"; T-078, T-079; D-142).
-// The RULES-ONLY plan card (copy.fix.title, copy.fix.rules): a checklist of the masks to add (type and ID) and the
+// The plan card (copy.fix.title, copy.fix.rules; BUILT-IN · code, D-179: the plan is always plain code, never a model): a checklist of the masks to add (type and ID) and the
 // optional crop, each highlighted on the photo (dashed outline while planned), the template explanation, "Expected
 // after fix: {level}" recomputed from what is ticked (D-51), copy.fix.unremovable / copy.fix.cropTooMuch. Unticking is
 // SCR-11's "Adjust". Apply paints solid fills (invariant 6: never blur) on a copy of the master: the master is never
@@ -10,7 +10,7 @@ import { t } from '../../core/strings';
 import { deriveFrame, renderFrame } from '../../core/frames';
 import type { RulesFix, Residual } from '../../core/fixPlan';
 import type { PxRect } from '../../core/types';
-import { Badge } from '../components/Badge';
+import { BuiltInBadge } from '../components/BuiltInBadge';
 import { Button } from '../components/Button';
 import { Icon } from '../components/Icon';
 import { EYEBROW } from '../components/surface';
@@ -110,7 +110,7 @@ export function FixPanel(p: FixPanelProps) {
       {roundLine}
       <div className="flex flex-wrap items-center gap-2">
         <p className="text-title font-semibold">{t('copy.fix.title')}</p>
-        <Badge route={fix.plan.route} />
+        <BuiltInBadge engine="code" />
       </div>
       <p className="text-small text-muted">{t('copy.fix.rules')}</p>
       <FixPreview master={master} masks={p.baseMasks} crop={p.baseCrop} planned={planned} />

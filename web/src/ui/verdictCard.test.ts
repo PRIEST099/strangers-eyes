@@ -234,7 +234,10 @@ describe('vault labels, "Why?", referee row, announcement', () => {
     // Misuse hardening: the referee's free-text reason is never rendered (it can restate the attacker's guessed place).
     if (open.reason) expect(text(li)).not.toContain(open.reason);
     if (open.clueIds.length) expect(text(li)).toContain(`Clues: ${open.clueIds.join(', ')}`);
-    expect(li).toContain(`data-route="${open.route}"`);
+    // D-179: with no model referee, a distance-band (pin) line is code: BUILT-IN, not RULES-ONLY
+    const builtIn = open.route === 'RULES_ONLY' && open.kind === 'pin';
+    const badge = builtIn ? 'data-builtin="code"' : `data-route="${open.route}"`;
+    expect(li).toContain(badge);
     // Technical details off (the default): a count instead of the ids, "Guess check:" instead of "Referee:".
     const plainLi = (html({ ...demo, defaultOpenLineId: open.id }).match(/<li[\s\S]*?<\/li>/g) ?? []).find((x) => x.includes(`data-line-id="${open.id}"`)) ?? '';
     if (open.clueIds.length) {
@@ -242,7 +245,35 @@ describe('vault labels, "Why?", referee row, announcement', () => {
       expect(text(plainLi)).not.toContain('Clues:');
     }
     expect(text(plainLi)).toContain(S('ui.verdict.refereePlain'));
-    expect(plainLi).toContain(`data-route="${open.route}"`);
+    expect(plainLi).toContain(badge);
+  });
+
+  it('D-179: code-found lines read BUILT-IN under a model referee, RULES-ONLY only when the whole referee fell back', () => {
+    const base = demo.verdict.lines.find((l) => l.clueIds.length > 0 && l.kind !== 'caught');
+    expect(base).toBeDefined();
+    const m = { ...base!, kind: 'match' as const, route: 'RULES_ONLY' as const };
+    const p = { ...base!, kind: 'pin' as const, route: 'RULES_ONLY' as const };
+    const nano = { ...base!, kind: 'match' as const, route: 'ON_DEVICE' as const };
+    expect(lineView(m, demo.vault, true, tr, true, true).why?.builtIn).toBe(true); // rules floor under Nano/cloud
+    expect(lineView(m, demo.vault, true, tr, true, false).why?.builtIn).toBe(false); // the referee fell back
+    expect(lineView(p, demo.vault, true, tr, true, false).why?.builtIn).toBe(true); // distances: always code
+    expect(lineView(nano, demo.vault, true, tr, true, true).why?.builtIn).toBe(false); // Nano linked it
+    // the card derives the floor from its referee row
+    const v = { ...demo.verdict, lines: [m] };
+    const card = (referee: VerdictCardProps['referee']) => html({ verdict: v, vault: demo.vault, referee, defaultOpenLineId: m.id, tech: true });
+    expect(card({ route: 'ON_DEVICE', latencyMs: 900 })).toMatch(/data-line-id[\s\S]*data-builtin="code"/);
+    expect(card({ route: 'IN_CLOUD', latencyMs: 900 })).toMatch(/data-line-id[\s\S]*data-builtin="code"/);
+    const fell = card({ route: 'RULES_ONLY', latencyMs: 9, note: 'x' });
+    expect(fell).not.toContain('data-builtin=');
+    expect(fell).toContain('data-route="RULES_ONLY"');
+    // a referee that needed no model: the row itself reads BUILT-IN · code, and so do the lines
+    const skipped = card({ route: 'RULES_ONLY', latencyMs: 3, builtIn: true });
+    expect(skipped).not.toContain('data-route="RULES_ONLY"');
+    expect(text(skipped)).toContain(`Referee: ${S('ui.prescreen.builtin', { engine: S('ui.prescreen.engine.code') })}`);
+    // no referee row at all (nothing was graded): no referee badge, and "Distances: code" stays
+    const none = text(card(null));
+    expect(none).toContain('Distances: code');
+    expect(none).not.toContain('· Distances: code'); // the referee half of the row ("… 0.9 s · Distances: code") is gone
   });
 
   it('caught, echo and found-on-device lines have no "Why?"', () => {

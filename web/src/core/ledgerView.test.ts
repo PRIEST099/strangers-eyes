@@ -52,7 +52,7 @@ describe('ledgerCounters (ARCH §8.6)', () => {
     const l = createMemoryLedger();
     demo(l);
     const r = receiptText(ledgerCounters(l.entries()));
-    expect(r).toBe('Cloud received 1 redacted images in 1 requests · 0 faces · 0 vault items · 2 on-device AI calls · 0 local checks.');
+    expect(r).toBe('Cloud received 1 redacted images in 1 requests · 0 faces · 0 vault items · 2 on-device AI calls · 0 rules-only fallbacks.');
   });
 });
 

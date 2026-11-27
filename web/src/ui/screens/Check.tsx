@@ -21,7 +21,7 @@
 // (Referee: ON-DEVICE + latency), or RULES-ONLY when Nano is absent, off or fails (an honest note says which). Each photo is one session (a fresh sessionId per import epoch) with its own pass-B cache. The sent image
 // and its token stay in a ref (memory only).
 // T-078..T-080 (D-142..D-144): from a verdict built on a pass-B result, "Fix it on this device" opens the Fix step: the
-// RULES-ONLY plan (core/fixPlan over the NEWEST pass-B result and the verdict built from it) as a checklist; Apply adds
+// plan (BUILT-IN · code, D-179: core/fixPlan over the NEWEST pass-B result and the verdict built from it) as a checklist; Apply adds
 // solid fix masks (and an optional crop) on top of the masks already sent. "Re-attack the fixed photo" runs the SAME
 // dry run, a NEW consent for the new bytes, the gate and pass B ('r2', 'r3'…), then the referee: buildVerdict
 // ('after_fix') vs the first verdict → compareVerdicts → VerdictCard's compare header (green only when riskReduced),
@@ -310,9 +310,14 @@ export function Check({ judge = null }: { judge?: JudgeCheck | null } = {}) {
       });
     }
   }, [outcome, afterOutcome, latest, vault, judgeTag]);
-  /** The VerdictCard referee row: the referee's route and latency, and the honest note when the rules decided. */
-  const refereeRow = useCallback((r: RefereeOutcome | undefined, rulesMs: number) => {
-    if (!r) return { route: 'RULES_ONLY' as const, latencyMs: rulesMs };
+  /**
+   * The VerdictCard referee row: the referee's route and latency, and the honest note when the rules decided. D-179: no
+   * referee ran (a declined, blocked or failed attack: nothing to grade) shows no referee badge; a referee that needed
+   * no model ('skipped': nothing a model could add) reads BUILT-IN · code. RULES-ONLY stays for a real fallback.
+   */
+  const refereeRow = useCallback((r: RefereeOutcome | undefined) => {
+    if (!r) return null;
+    if (r.route === 'RULES_ONLY' && r.fallback === 'skipped') return { route: r.route, latencyMs: r.latencyMs, builtIn: true };
     const note = r.route === 'ON_DEVICE' ? null : r.fallback === 'device_failed' ? t('ui.verdict.refFallback') : r.fallback === 'no_device' ? t('copy.ref.rules') : null;
     return { route: r.route, latencyMs: r.latencyMs, note };
   }, []);
@@ -532,7 +537,7 @@ export function Check({ judge = null }: { judge?: JudgeCheck | null } = {}) {
         {current === 'prescreen' && (
           <PrescreenPanel
             master={master.current?.canvas ?? null} state={state.prescreen} onOp={onOp} onRetry={onRetry}
-            canSend={!!candidate && candidate.blockedBy.length === 0 && attackKind === 'idle'} onCloud={onCloud}
+            canSend={!!candidate && candidate.blockedBy.length === 0 && attackKind === 'idle'} onCloud={onCloud} judge={judgeTag !== undefined}
           />
         )}
         {devFake && (current === 'send' || current === 'attack' || current === 'reattack') && (
@@ -554,7 +559,7 @@ export function Check({ judge = null }: { judge?: JudgeCheck | null } = {}) {
           verdict && vault ? (
             <div className="mt-4 flex flex-col gap-3">
               <VerdictCard
-                verdict={verdict.v} vault={vault} referee={refereeRow(verdict.ref, verdict.ms)} headingLevel={3}
+                verdict={verdict.v} vault={vault} referee={refereeRow(verdict.ref)} headingLevel={3}
                 actions={fixAction ?? (blockedCopy ? <p className="text-small text-muted">{blockedCopy}</p> : null)}
               />
               <p className="text-small text-muted">{t('ui.verdict.nextSoon')}</p>
@@ -591,7 +596,7 @@ export function Check({ judge = null }: { judge?: JudgeCheck | null } = {}) {
             <div className="mt-4 flex flex-col gap-4" data-testid="compare">
               <p className={`${EYEBROW} self-start rounded-chip border border-line px-2 py-1`}>{t('ui.fix.round', { n: rounds, max: maxRounds })}</p>
               <VerdictCard
-                verdict={compare.cmp.after} comparison={compare.cmp} vault={vault} referee={refereeRow(compare.ref, compare.ms)} headingLevel={3}
+                verdict={compare.cmp.after} comparison={compare.cmp} vault={vault} referee={refereeRow(compare.ref)} headingLevel={3}
                 actions={fixAction ?? (blockedCopy ? <p className="text-small text-muted">{blockedCopy}</p> : null)}
               />
               {compareRows(compare.cmp.before, compare.cmp.after, vault).length > 0 && (
