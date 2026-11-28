@@ -1309,7 +1309,7 @@ All file paths follow ARCH §3. If a path here differs from ARCH §3, fix both i
     - **Nothing is written to the Leak Atlas here** (D-11, R-02).
   - Verify: an end-to-end run on the test photo; unit test of the compare rule.
 
-- [ ] T-081 [CLAUDE] Export and share card. Due: Tue Nov 24 · Deps: T-079 · AC: AC-260, AC-262 (P1: AC-261, AC-263)
+- [x] T-081 [CLAUDE] Export and share card. Due: Tue Nov 24 · Deps: T-079 · AC: AC-260, AC-262 (P1: AC-261, AC-263) · **P0 DONE Nov 28 (D-185)**: "Save a covered copy" on web (export dry run, Web Share or download, AC-260/262 unit tests, browser check) and iOS (gate precheck, ShareLink, UI test). The P1 share card (AC-261) is not built; AC-263 checked only for the download fallback (this Chrome cannot share files).
   - Read: SPEC SCR-12
   - Files: `web/src/core/shareCard.ts`, export in `web/src/core/pipeline.ts`.
   - Do:

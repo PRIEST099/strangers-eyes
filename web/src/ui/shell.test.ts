@@ -85,9 +85,9 @@ describe("every product route renders App's screen for it, with one <h1> (AC-065
 });
 
 describe('check stepper', () => {
-  it('lists the eight steps and marks the current one', () => {
+  it('lists the seven steps and marks the current one', () => {
     const out = html(StepperNav, { current: 'import', reached: 'import', onSelect: () => {} });
-    expect(out.match(/<li /g)?.length).toBe(8);
+    expect(out.match(/<li /g)?.length).toBe(7);
     expect(out).toContain('<span aria-current="step"');
     expect(out).toMatch(/aria-current="step"[^>]*>Import</);
   });

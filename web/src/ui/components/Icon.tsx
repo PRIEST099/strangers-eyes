@@ -17,6 +17,8 @@ const PATHS = {
   alert: 'M12 3.5 2.5 20h19L12 3.5Z M12 10v4.5 M12 17.5h.01',
   info: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z M12 11v5.5 M12 7.5h.01',
   shield: 'M12 3 4.5 6v5.5c0 4.6 3.2 8.4 7.5 9.5 4.3-1.1 7.5-4.9 7.5-9.5V6L12 3Z',
+  download: 'M12 4v11 M7.5 10.5 12 15l4.5-4.5 M5 19.5h14',
+  share: 'M12 15V4 M8 8l4-4 4 4 M6 12v7.5h12V12',
 } as const;
 
 export type IconName = keyof typeof PATHS;

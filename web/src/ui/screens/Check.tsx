@@ -63,6 +63,7 @@ import { VerdictCard } from '../components/VerdictCard';
 import { ImportDropzone } from '../components/ImportDropzone';
 import { PrescreenPanel } from '../components/PrescreenPanel';
 import { StepperNav } from '../components/StepperNav';
+import { ExportCard, maskKey, nearAPin } from '../check/ExportCard';
 import { BUILT_STEPS, CHECK_START, checkReducer, fixBlocked, latestResult, maskedCandidate, settledReattack } from '../checkState';
 import { useOcrWarm } from '../hooks/useOcrWarm';
 import { useLedgerEntries } from '../hud/useLedger';
@@ -441,6 +442,8 @@ export function Check({ judge = null }: { judge?: JudgeCheck | null } = {}) {
   }, [afterOutcome, vault, verdict, candidate, rc, refOf]);
   const allOutcomes = useMemo(() => (outcome ? [outcome, ...re.history] : [...re.history]), [outcome, re.history]);
   const onDeviceCalls = allOutcomes.filter((o) => refOf(o)?.route === 'ON_DEVICE').length;
+  // F-332: a guess check that ran as simple rules because the model was missing or failed ('skipped' had nothing to check).
+  const rulesFallbacks = allOutcomes.filter((o) => { const r = refOf(o); return r?.route === 'RULES_ONLY' && r.fallback !== 'skipped'; }).length;
   const prevSentMasks = re.lastSentMasks;
   const fixAction = blocked === null && latest ? (
     <Button variant="primary" data-action="fix" onClick={onToFix}>{state.reattack.rounds > 0 ? t('ui.fix.again') : t('copy.fix.button')}</Button>
@@ -573,6 +576,7 @@ export function Check({ judge = null }: { judge?: JudgeCheck | null } = {}) {
           <PrescreenPanel
             master={master.current?.canvas ?? null} state={state.prescreen} onOp={onOp} onRetry={onRetry}
             canSend={!!candidate && candidate.blockedBy.length === 0 && attackKind === 'idle'} onCloud={onCloud} judge={judgeTag !== undefined}
+            exportCard={candidate && candidate.blockedBy.length === 0 ? <ExportCard key={`p${maskKey(candidate.masks, null)}`} master={master.current?.canvas ?? null} masks={candidate.masks} crop={null} noCloud /> : null}
           />
         )}
         {devFake && (current === 'send' || current === 'attack' || current === 'reattack') && (
@@ -599,7 +603,7 @@ export function Check({ judge = null }: { judge?: JudgeCheck | null } = {}) {
                 verdict={verdict.v} vault={vault} referee={refereeRow(verdict.ref)} headingLevel={3}
                 actions={fixAction ?? (blockedCopy ? <p className="text-small text-muted">{blockedCopy}</p> : null)}
               />
-              <p className="text-small text-muted">{t('ui.verdict.nextSoon')}</p>
+              <ExportCard key={`v${maskKey(fixMasks, applied?.crop ?? null)}`} master={master.current?.canvas ?? null} masks={fixMasks} crop={applied?.crop ?? null} stillNear={nearAPin(compare?.cmp.after ?? verdict.v)} />
             </div>
           ) : (
             <p className="mt-3 text-body text-muted">{outcome?.kind === 'result' && vault ? t('copy.ref.running') : t('ui.verdict.loading')}</p>
@@ -644,15 +648,14 @@ export function Check({ judge = null }: { judge?: JudgeCheck | null } = {}) {
                   </ul>
                 </div>
               )}
-              <ReceiptTiles {...receiptParams(allOutcomes, onDeviceCalls)} />
-              <p className="border-t border-dashed border-line-strong pt-3 font-mono text-small text-muted" data-testid="receipt">{t('copy.receipt.line', receiptParams(allOutcomes, onDeviceCalls))}</p>
-              <p className="text-small text-muted">{t('ui.verdict.nextSoon')}</p>
+              <ReceiptTiles {...receiptParams(allOutcomes, onDeviceCalls, rulesFallbacks)} />
+              <p className="border-t border-dashed border-line-strong pt-3 font-mono text-small text-muted" data-testid="receipt">{t('copy.receipt.line', receiptParams(allOutcomes, onDeviceCalls, rulesFallbacks))}</p>
+              <ExportCard key={`r${rounds}:${maskKey(fixMasks, applied?.crop ?? null)}`} master={master.current?.canvas ?? null} masks={fixMasks} crop={applied?.crop ?? null} stillNear={nearAPin(compare.cmp.after)} />
             </div>
           ) : (
             <p className="mt-3 text-body text-muted">{t('ui.verdict.loading')}</p>
           )
         )}
-        {current === 'export' && <p className="mt-2 text-body text-muted">{t('ui.placeholder')}</p>}
       </section>
       </Stage>
     </div>

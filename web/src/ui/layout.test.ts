@@ -73,9 +73,9 @@ describe('connectivity chip (SPEC §8.2)', () => {
 });
 
 describe('check stepper (SPEC §8.2)', () => {
-  it('has the eight steps in order with SPEC labels', () => {
+  it('has the seven steps in order with SPEC labels (D-185: no Export step)', () => {
     expect(CHECK_STEPS.map((s) => t(stepLabelId(s))).join(' › ')).toBe(
-      'Import › Pre-screen › Send › Attack › Verdict › Fix › Re-attack › Export',
+      'Import › Pre-screen › Send › Attack › Verdict › Fix › Re-attack',
     );
   });
 

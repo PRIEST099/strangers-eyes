@@ -33,12 +33,26 @@ async function sha256Hex(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
  * the same dry run, consent and gate as the first send). Never rejects: a failure is `failed: ['check']`.
  */
 export async function runConsentDryRun(master: HTMLCanvasElement, masks: readonly PxRect[], userUnmasked: readonly PxRect[], crop: PxRect | null = null): Promise<DryRun> {
+  return dryRunFrame('cloud', master, masks, userUnmasked, crop);
+}
+
+/**
+ * SCR-12 export check (T-081, D-185): the SAME readers on the covered copy the user saves, built as the export frame
+ * (master size, JPEG q 0.92). Nothing the user un-ticked is spared here (`userUnmasked` is empty): every face and vault
+ * word the readers still find is solid-masked before the bytes are offered, and a reader failure means nothing is
+ * offered. Local only: nothing here sends anything.
+ */
+export async function runExportCheck(master: HTMLCanvasElement, masks: readonly PxRect[], crop: PxRect | null = null): Promise<DryRun> {
+  return dryRunFrame('export', master, masks, [], crop);
+}
+
+async function dryRunFrame(id: 'cloud' | 'export', master: HTMLCanvasElement, masks: readonly PxRect[], userUnmasked: readonly PxRect[], crop: PxRect | null): Promise<DryRun> {
   const c = await rc();
   const decode = await import('../../tier0/decode');
   return runPreflight(
     { masks, width: master.width, height: master.height, userUnmasked, faceMinConfidence: c?.faceMinConfidence ?? 0.3, padRatio: c?.maskPadRatio ?? 0.15 },
     {
-      build: (m) => buildFrameJpeg('cloud', master, { masks: m, ...(crop ? { crop } : {}), ...(c ? { maxPx: c.cloudImageMaxPx } : {}) }),
+      build: (m) => buildFrameJpeg(id, master, { masks: m, ...(crop ? { crop } : {}), ...(c && id === 'cloud' ? { maxPx: c.cloudImageMaxPx } : {}) }),
       checkClean: async (jpeg) => (await import('../../tier0/exif')).checkCleanJpeg(jpeg),
       decode: async (bytes) => {
         const bmp = await decode.decodeOriented(new Blob([bytes], { type: 'image/jpeg' }));

@@ -171,7 +171,7 @@ describe('checkReducer: the step and the import status are independent', () => {
   it('selectStep never jumps ahead of the furthest step reached (D-121)', () => {
     for (const importStatus of [IMPORT_IDLE, BUSY, HEIC_ERROR, READY]) {
       const s: CheckState = { pos: STEPPER_START, importStatus, prescreen: PRESCREEN_IDLE, epoch: 0, flow: FLOW_IDLE, fix: FIX_IDLE, reattack: REATTACK_IDLE };
-      for (const step of ['prescreen', 'send', 'attack', 'export'] as const) expect(checkReducer(s, { type: 'selectStep', step })).toBe(s);
+      for (const step of ['prescreen', 'send', 'attack'] as const) expect(checkReducer(s, { type: 'selectStep', step })).toBe(s);
     }
   });
 

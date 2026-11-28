@@ -20,7 +20,14 @@ struct StrangersEyesApp: App {
 
   var body: some Scene {
     WindowGroup {
-      ContentView().environment(model)
+      ContentView().environment(model).task { await Self.devTasks(model) }
     }
+  }
+
+  /// DEBUG only: the iOS parity measurement harness (Dev/BenchRunner.swift, launch argument -iosBench); a no-op otherwise.
+  @MainActor private static func devTasks(_ model: AppModel) async {
+    #if DEBUG
+    await BenchRunner.runIfRequested(model)
+    #endif
   }
 }

@@ -5,6 +5,8 @@
 // type, what it reveals and its severity. In Judge Mode the consent sheet says plainly that nothing is sent: the
 // recorded answer is replayed (CACHED SAMPLE) after the same pre-send checks.
 import SwiftUI
+import CoreTransferable
+import UniformTypeIdentifiers
 
 struct ConsentView: View {
   @Environment(AppModel.self) private var model
@@ -193,5 +195,54 @@ struct CompareCard: View {
       if let r = model.second { VerdictCard(round: r) }
       Text(Strings.t("copy.about.notGuarantee")).font(.caption).foregroundStyle(.secondary)
     }
+  }
+}
+
+/// SCR-12 (D-185): "Save a covered copy". Made and checked on this device; shared through the system share sheet.
+struct CoveredCopyCard: View {
+  @Environment(AppModel.self) private var model
+  var stillNear: Bool
+  /// No cloud check ran (the pre-screen's "Just clean and export").
+  var noCloud = false
+  var body: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      Label(Strings.t("ui.export.title"), systemImage: "square.and.arrow.down").font(.headline)
+      Text(Strings.t(noCloud ? "ui.export.bodyNoCloud" : "ui.export.body")).font(.callout)
+      if stillNear { Label(Strings.t("ui.export.stillNear"), systemImage: "exclamationmark.triangle").font(.callout) }
+      if let c = model.coveredCopy {
+        if model.coveredCopyOk {
+          Image(uiImage: c.image).resizable().scaledToFit().frame(maxHeight: 240).clipShape(RoundedRectangle(cornerRadius: 8))
+            .accessibilityLabel(Strings.t("ui.export.imageAlt"))
+          Label(Strings.t("copy.export.check"), systemImage: "checkmark.circle").font(.caption)
+          ShareLink(item: CoveredJPEG(data: c.jpeg, name: c.name), preview: SharePreview(Strings.t("ui.export.title"), image: Image(uiImage: c.image))) {
+            Label(Strings.t("ui.export.share"), systemImage: "square.and.arrow.up")
+          }
+          .buttonStyle(.borderedProminent).accessibilityIdentifier("shareCopy")
+        } else {
+          Text(Strings.t("ui.export.failed")).foregroundStyle(.red)
+          Button(Strings.t("ui.prescreen.retry")) { Task { await model.makeCoveredCopy() } }
+            .buttonStyle(.bordered).accessibilityIdentifier("retryCopy")
+        }
+      } else if model.coveredCopyBusy {
+        HStack { ProgressView(); Text(Strings.t("ui.export.checking")) }
+      } else {
+        Button(Strings.t("ui.export.make")) { Task { await model.makeCoveredCopy() } }
+          .buttonStyle(.bordered).accessibilityIdentifier("makeCopy")
+      }
+      Text(Strings.t("ui.export.note")).font(.caption).foregroundStyle(.secondary)
+    }
+    .padding(12).background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 12))
+  }
+
+  /// Within 5 km of one of the user's pins (code bands, never the model).
+  static func near(_ v: Verdict) -> Bool { v.pinBands.contains { ["street", "neighbourhood", "district"].contains($0.band) } }
+}
+
+/// The covered JPEG for ShareLink (Save Image, Messages, …), named strangers-eyes-<6 chars>.jpg.
+struct CoveredJPEG: Transferable {
+  let data: Data
+  let name: String
+  static var transferRepresentation: some TransferRepresentation {
+    DataRepresentation(exportedContentType: .jpeg) { $0.data }.suggestedFileName { $0.name }
   }
 }

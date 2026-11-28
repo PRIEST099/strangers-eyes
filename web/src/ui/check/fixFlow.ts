@@ -47,8 +47,12 @@ export function compareRows(before: Verdict, after: Verdict, vault: readonly Vau
  * IN_CLOUD; cached and blocked calls sent nothing), k = on-device AI calls (the Nano referee runs that answered ON_DEVICE,
  * T-074: `onDevice`), r = local checks (the pre-screen, one consent dry run per send, one referee pass per result).
  */
-export function receiptParams(outcomes: readonly AttackOutcome[], onDevice = 0): { images: number; requests: number; k: number; r: number } {
+/**
+ * F-332 (D-185, after D-179): `r` counts only real fallbacks, the guess checks that ran as simple rules because the
+ * on-device model was missing or failed (`rulesFallbacks`). It used to be a fixed 1 + outcomes + results, which called
+ * the always-on built-in steps "rules-only fallbacks" even with Gemini Nano on.
+ */
+export function receiptParams(outcomes: readonly AttackOutcome[], onDevice = 0, rulesFallbacks = 0): { images: number; requests: number; k: number; r: number } {
   const sent = outcomes.filter((o) => o.call.route === 'IN_CLOUD').length;
-  const referee = outcomes.filter((o) => o.kind === 'result').length;
-  return { images: sent, requests: sent, k: Math.max(0, Math.floor(onDevice)), r: 1 + outcomes.length + referee };
+  return { images: sent, requests: sent, k: Math.max(0, Math.floor(onDevice)), r: Math.max(0, Math.floor(rulesFallbacks)) };
 }

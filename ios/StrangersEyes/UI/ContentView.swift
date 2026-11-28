@@ -139,17 +139,19 @@ struct ContentView: View {
     case .prescreened, .consent:
       Button(Strings.t("ui.prescreen.cloud")) { Task { await model.prepareConsent() } }
         .buttonStyle(.borderedProminent).accessibilityIdentifier("cloudButton")
+      if model.stage == .prescreened { CoveredCopyCard(stillNear: false, noCloud: true) }
     case .verdict:
       if let r = model.first { VerdictCard(round: r) }
       Button(Strings.t("copy.fix.button")) { model.planFix() }.buttonStyle(.borderedProminent).accessibilityIdentifier("fixButton")
+      if let r = model.first { CoveredCopyCard(stillNear: CoveredCopyCard.near(r.verdict)) }
     case .fixPlanned, .reattackConsent:
       if let r = model.first { VerdictCard(round: r) }
       if let f = model.fix { FixCard(fix: f) }
     case .compared:
-      if let c = model.comparison { CompareCard(cmp: c) }
+      if let c = model.comparison { CompareCard(cmp: c); CoveredCopyCard(stillNear: CoveredCopyCard.near(c.after)) }
     case .refused:
-      Text(Strings.t("copy.adv.declined")).font(.callout)
-      if let r = model.second ?? model.first { VerdictCard(round: r) }
+      Text(Strings.t(AppModel.refusalCopyId(cloudFailed: model.cloudFailed))).font(.callout)
+      if let r = model.second ?? model.first { VerdictCard(round: r); CoveredCopyCard(stillNear: CoveredCopyCard.near(r.verdict)) }
     case let .failed(msg):
       Text(msg).foregroundStyle(.red)
     }

@@ -68,6 +68,16 @@ final class DemoFlowUITests: XCTestCase {
     app.swipeUp()
     shot("ios-judge-11-after-verdict")
 
+    // D-185: the covered copy, made and checked on this device, then offered through the share sheet.
+    let make = app.buttons["makeCopy"]
+    reveal(make)
+    XCTAssertTrue(make.waitForExistence(timeout: 10), "covered-copy card")
+    make.tap()
+    let share = app.buttons["shareCopy"]
+    XCTAssertTrue(share.waitForExistence(timeout: 120), "covered copy passed the local check")
+    reveal(share)
+    shot("ios-judge-11b-covered-copy")
+
     app.buttons["hudToggle"].tap()
     XCTAssertTrue(app.staticTexts["ledgerCounters"].waitForExistence(timeout: 5))
     shot("ios-judge-12-hud")

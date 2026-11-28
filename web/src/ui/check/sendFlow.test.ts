@@ -245,6 +245,9 @@ describe('fixFlow helpers (AC-194)', () => {
     expect(rows.join(' ')).not.toMatch(/Lucas|City General/);
     expect(compareRows(before, verdictOf({ kind: 'refused', why: 'declined', call }, VAULT, c), VAULT)).toEqual([]);
     const cached = { ...call, route: 'CACHED' as const };
-    expect(receiptParams([{ kind: 'result', result: result(), call }, { kind: 'result', result: fixed, call: cached }])).toEqual({ images: 1, requests: 1, k: 0, r: 5 });
+    expect(receiptParams([{ kind: 'result', result: result(), call }, { kind: 'result', result: fixed, call: cached }])).toEqual({ images: 1, requests: 1, k: 0, r: 0 });
+    // F-332: only real fallbacks are counted (two guess checks on Nano, none on rules → 0; one rules fallback → 1)
+    expect(receiptParams([{ kind: 'result', result: result(), call }], 2, 0).r).toBe(0);
+    expect(receiptParams([{ kind: 'result', result: result(), call }], 0, 1).r).toBe(1);
   });
 });

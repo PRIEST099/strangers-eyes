@@ -55,7 +55,16 @@ final class AppModel {
   private(set) var judge: JudgeSession?
   var inJudgeMode: Bool { judge != nil }
   /// The vault every step uses: the fake one in Judge Mode (the real store is not read), else the user's.
-  var activeVault: [VaultItem] { judge?.vault ?? vault.items }
+  var activeVault: [VaultItem] {
+    #if DEBUG
+    if judge == nil, let b = benchVault { return b }
+    #endif
+    return judge?.vault ?? vault.items
+  }
+  #if DEBUG
+  /// Dev/BenchRunner.swift only (-iosBench): a made-up in-memory vault for the measurement; never written or logged.
+  var benchVault: [VaultItem]?
+  #endif
   private(set) var prescreen: PrescreenOutcome?
   private(set) var photo: DecodedPhoto?
   private(set) var tier0: Tier0Result?
@@ -68,6 +77,18 @@ final class AppModel {
   private(set) var fix: RulesFix?
   private(set) var second: Round?
   private(set) var comparison: VerdictComparison?
+  /// SCR-12 (D-185): the covered copy the user may save or share: master + every mask + crop, JPEG q 0.92, no metadata,
+  /// re-checked by the gate's own local readers (no network). Offered only when the check passes (fail closed).
+  private(set) var coveredCopy: CoveredCopy?
+  private(set) var coveredCopyBusy = false
+  /// The last attack got no answer (network error or the gate's deadline), as opposed to a model decline (F-330).
+  private(set) var cloudFailed = false
+  /// The words for an on-device-only result: no answer (failure or timeout) vs a model decline (F-330).
+  nonisolated static func refusalCopyId(cloudFailed: Bool) -> String { cloudFailed ? "ui.adv.noAnswerIOS" : "copy.adv.declined" }
+  var coveredCopyOk: Bool {
+    guard let c = coveredCopy?.check else { return false }
+    return c.metadataClean && c.faces == 0 && c.vaultHits == 0 && !c.failed
+  }
   var usingFake: Bool { gate.transport is FakeMarker && judge == nil }
   /// The current run's generation. `reset()` (a new import, entering or leaving Judge Mode) bumps it, and every async
   /// step re-checks it after each `await`: a step from a superseded run drops its result instead of writing it into the
@@ -111,7 +132,25 @@ final class AppModel {
   func reset() {
     runGen &+= 1
     photo = nil; tier0 = nil; prescreen = nil; masks = []; crop = nil; preview = nil; outgoing = nil
-    first = nil; fix = nil; second = nil; comparison = nil; stage = .idle
+    first = nil; fix = nil; second = nil; comparison = nil; coveredCopy = nil; coveredCopyBusy = false; cloudFailed = false; stage = .idle
+  }
+
+  // ---------- 5. the covered copy (SCR-12, D-185) ----------
+  /// Built on this device from the master; checked by `gate.precheck` (Vision faces + OCR vault words + metadata), which
+  /// makes no network call. Nothing here is sent anywhere: the user shares it through the system share sheet.
+  func makeCoveredCopy() async {
+    guard let p = photo, !coveredCopyBusy else { return }
+    let gen = runGen
+    let usedMasks = masks, usedCrop = crop
+    coveredCopyBusy = true
+    coveredCopy = nil
+    defer { if gen == runGen { coveredCopyBusy = false } }
+    let cg = ImagePipeline.crop(ImagePipeline.applySolidMasks(p.master, usedMasks), usedCrop)
+    guard let jpeg = ImagePipeline.jpeg(cg, quality: 0.92), let img = UIImage(data: jpeg) else { return }
+    let pc = await gate.precheck(jpeg)
+    // A fix applied meanwhile changed the masks or the crop: this copy is stale, never offer it.
+    guard gen == runGen, usedMasks == masks, usedCrop == crop else { return }
+    coveredCopy = CoveredCopy(jpeg: jpeg, image: img, check: pc, name: CoveredCopy.filename())
   }
 
   // ---------- Judge Mode ----------
@@ -232,6 +271,8 @@ final class AppModel {
                              via: replay)
     guard gen == runGen else { return }
     if let b = r.blocked { stage = .failed(Strings.t(b.copyId, ["KIND": "-"])); return }
+    // F-330: a call that failed or timed out is not a decline: same on-device-only result, different words.
+    cloudFailed = r.value == nil
     guard let reply = r.value, !reply.declined, let text = reply.text, var adv = try? AdvBParser.parse(data: Data(text.utf8)), adv.status != "declined" else {
       // A decline, a safety block or unreadable output: on-device findings only. Never retried or rephrased (inv. 7).
       var input = VerdictInput(adv: nil, matches: [], vault: runVault, caught: caught, refused: true, phase: isReattack ? "reattack" : "initial")
@@ -292,9 +333,23 @@ final class AppModel {
 
   func applyFixAndPrepareReattack() async {
     guard let f = fix else { return }
+    coveredCopy = nil
     masks += f.masks.map(\.box)
     if let c = f.crop { crop = crop.map { Boxes.intersect($0, c) } ?? c }
     await prepareConsent()
+  }
+}
+
+/// The covered copy (D-185): its bytes, a preview, the local check and a `strangers-eyes-<6 chars>.jpg` name (AC-262).
+struct CoveredCopy: @unchecked Sendable {
+  let jpeg: Data
+  let image: UIImage
+  let check: EgressGate.Precheck
+  let name: String
+  static func filename() -> String {
+    let a = Array("abcdefghijkmnpqrstuvwxyz23456789")
+    var g = SystemRandomNumberGenerator()
+    return "strangers-eyes-" + String((0..<6).map { _ in a[Int(g.next() % UInt64(a.count))] }) + ".jpg"
   }
 }
 

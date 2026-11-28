@@ -90,7 +90,8 @@ export function connectivityChipCopy(c: Connectivity): StringId | null {
 
 // ---------- check stepper (SPEC §8.2) ----------
 
-export const CHECK_STEPS = ['import', 'prescreen', 'send', 'attack', 'verdict', 'fix', 'reattack', 'export'] as const;
+// D-185: no separate Export step; "Save a covered copy" is a card under the result (and in the pre-screen).
+export const CHECK_STEPS = ['import', 'prescreen', 'send', 'attack', 'verdict', 'fix', 'reattack'] as const;
 export type CheckStep = (typeof CHECK_STEPS)[number];
 /**
  * done: behind the furthest step, so finished · current: on screen · reached: the furthest step, not on screen

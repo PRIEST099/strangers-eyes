@@ -11,7 +11,9 @@
 		0850DDAE9DDCBF9E38773CF9 /* FirebaseAppCheck in Frameworks */ = {isa = PBXBuildFile; productRef = 720C5939F8F1B7A058C23E4A /* FirebaseAppCheck */; };
 		0C5666FFAD024E59461F1D83 /* Fuzzy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FB6455BB8470E0D75468C0E /* Fuzzy.swift */; };
 		16E7E92D247DF7779105F2B1 /* JudgeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86C12F13EF61219537EE70F9 /* JudgeTests.swift */; };
+		1D963B17A4513804AE095CFC /* BenchRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99423033E27DE2B0C964673D /* BenchRunner.swift */; };
 		26E440DD1C43D3DA2DFC73CF /* VaultView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0BBABF31F98D340F3589721 /* VaultView.swift */; };
+		2B47EF63041E2901B0CF8633 /* ExportTimeoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1898E9A5043DF20BEBA910B /* ExportTimeoutTests.swift */; };
 		306D260B2F44FBC749ED2677 /* samples in Resources */ = {isa = PBXBuildFile; fileRef = 62AD59ACB6BA662580D2329B /* samples */; };
 		393C286D42134733FACC7781 /* VaultScan.swift in Sources */ = {isa = PBXBuildFile; fileRef = F06835AE21BED5E8E0192765 /* VaultScan.swift */; };
 		3A3281D7F26629BA43CD775D /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 404CB8537CD6A08E70C8620B /* GoogleService-Info.plist */; };
@@ -102,6 +104,7 @@
 		86C12F13EF61219537EE70F9 /* JudgeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JudgeTests.swift; sourceTree = "<group>"; };
 		93B3DBDFB94E2AAB4665515D /* FixPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FixPlan.swift; sourceTree = "<group>"; };
 		9839579A64172D02E906C8DB /* RouterHUD.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouterHUD.swift; sourceTree = "<group>"; };
+		99423033E27DE2B0C964673D /* BenchRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BenchRunner.swift; sourceTree = "<group>"; };
 		9E34909F6F201BC1A0E182F7 /* Generables.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Generables.swift; sourceTree = "<group>"; };
 		A2536DB38A6D337C421B07F6 /* JudgeViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JudgeViews.swift; sourceTree = "<group>"; };
 		A61A26356EB1F5296129FCF0 /* Ledger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Ledger.swift; sourceTree = "<group>"; };
@@ -113,6 +116,7 @@
 		EF971138E8E97F332A0C93F7 /* Strings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Strings.swift; sourceTree = "<group>"; };
 		F06835AE21BED5E8E0192765 /* VaultScan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultScan.swift; sourceTree = "<group>"; };
 		F0BBABF31F98D340F3589721 /* VaultView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultView.swift; sourceTree = "<group>"; };
+		F1898E9A5043DF20BEBA910B /* ExportTimeoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportTimeoutTests.swift; sourceTree = "<group>"; };
 		FBA3E689CAA97B4E4C58DE82 /* CoreParityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreParityTests.swift; sourceTree = "<group>"; };
 		FE6C8F453FF76AEC4A74511D /* EgressGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EgressGate.swift; sourceTree = "<group>"; };
 		FEB7F65308DF6622FDD5E96A /* VaultStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultStore.swift; sourceTree = "<group>"; };
@@ -224,6 +228,7 @@
 			children = (
 				D8A748692F4D7F3447D89A93 /* BundleResourcesTests.swift */,
 				FBA3E689CAA97B4E4C58DE82 /* CoreParityTests.swift */,
+				F1898E9A5043DF20BEBA910B /* ExportTimeoutTests.swift */,
 				B47ED236D06E3E7395D81AD0 /* GateTests.swift */,
 				86C12F13EF61219537EE70F9 /* JudgeTests.swift */,
 				3F14C5EDC8C60AA2992EB73A /* VectorSupport.swift */,
@@ -242,6 +247,7 @@
 		64A532FF827994CA71334DFD /* Dev */ = {
 			isa = PBXGroup;
 			children = (
+				99423033E27DE2B0C964673D /* BenchRunner.swift */,
 				146112582AE7C6576E38A980 /* FakeAdversary.swift */,
 			);
 			path = Dev;
@@ -459,6 +465,7 @@
 			files = (
 				4EE81AF51C99DE3D0525E141 /* BundleResourcesTests.swift in Sources */,
 				E22B477BA60A6D1E36AD0D2B /* CoreParityTests.swift in Sources */,
+				2B47EF63041E2901B0CF8633 /* ExportTimeoutTests.swift in Sources */,
 				E4077DB1F30849BDAE2C0AFB /* GateTests.swift in Sources */,
 				16E7E92D247DF7779105F2B1 /* JudgeTests.swift in Sources */,
 				97A18847E49B7BFC3C471784 /* VectorSupport.swift in Sources */,
@@ -471,6 +478,7 @@
 			files = (
 				F4E8D89913B9D01006D4C149 /* AdvBParser.swift in Sources */,
 				C2E5C624483F170FB9B87C09 /* AppModel.swift in Sources */,
+				1D963B17A4513804AE095CFC /* BenchRunner.swift in Sources */,
 				EDA5902C6E35CB4B556FB704 /* Boxes.swift in Sources */,
 				80F1C53461ED9A8DDCCCB7AD /* ContentView.swift in Sources */,
 				C3929CB554BC7B3A9DDA3453 /* EgressGate.swift in Sources */,

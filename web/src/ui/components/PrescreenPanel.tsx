@@ -6,9 +6,9 @@
 // else RULES-ONLY and why (prescreenView.nanoResultLine; before it answers, by capability state). A failed
 // reader blocks the photo (fail closed, D-123) and offers Try again; after it, focus goes to the progress list, which
 // stays mounted (all pending) while the run restarts (D-132). "Check with the cloud attacker" opens the Send step
-// (T-069) when the candidate may be sent; Export stays disabled until T-079. Nothing here sends anything.
+// (T-069) when the candidate may be sent; "Just clean and export" opens the covered-copy card (D-185). Nothing here sends anything.
 // The Tier-0 lines make no model call and are not HUD entries (D-179); the Nano line's gate call is.
-import { useRef } from 'react';
+import { useRef, type ReactNode } from 'react';
 import { t } from '../../core/strings';
 import { TIER0_STEPS, type Tier0StepId } from '../../tier0/tier0';
 import type { EditorOp } from '../check/editor';
@@ -35,6 +35,8 @@ export interface PrescreenPanelProps {
   onCloud?: () => void;
   /** Judge Mode: the clue step is S4 (may run in the cloud on the sample), so nothing is predicted before it answers. */
   judge?: boolean;
+  /** "Just clean and export" (SCR-12, D-185): the covered-copy card, when the candidate may be exported. */
+  exportCard?: ReactNode;
 }
 
 /** What each always-on Tier-0 step runs on (D-179). */
@@ -48,7 +50,7 @@ function LineMark({ line }: { line: ProgressLine }) {
 
 const NOTE_ID = 'prescreen-builtin-note';
 
-export function PrescreenPanel({ master, state, onOp, onRetry, canSend = false, onCloud, judge = false }: PrescreenPanelProps) {
+export function PrescreenPanel({ master, state, onOp, onRetry, canSend = false, onCloud, judge = false, exportCard }: PrescreenPanelProps) {
   const shell = useShell();
   const online = useOnline();
   const progressRef = useRef<HTMLUListElement>(null);
@@ -123,9 +125,11 @@ export function PrescreenPanel({ master, state, onOp, onRetry, canSend = false, 
                 <Icon name="cloud" className="size-5" />
                 {t(online ? 'ui.prescreen.cloud' : 'ui.prescreen.queue')}
               </Button>
-              <Button disabled aria-describedby="prescreen-next">{t('ui.prescreen.export')}</Button>
+              {!exportCard && <Button disabled aria-describedby="prescreen-next">{t('ui.prescreen.export')}</Button>}
             </div>
-            <p id="prescreen-next" className="text-small text-muted">{t('ui.prescreen.exportSoon')}</p>
+            {exportCard
+              ? <details className="group" data-testid="prescreen-export"><summary className="cursor-pointer text-body font-medium">{t('ui.prescreen.export')}</summary><p className="mt-1 text-small text-muted">{t('ui.prescreen.exportSoon')}</p><div className="mt-3">{exportCard}</div></details>
+              : <p id="prescreen-next" className="text-small text-muted">{t('ui.prescreen.exportBlocked')}</p>}
           </div>
         </>
       )}

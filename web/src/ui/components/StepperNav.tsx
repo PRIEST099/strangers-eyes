@@ -1,6 +1,6 @@
 // web/src/ui/components/StepperNav.tsx: the check stepper (SPEC §8.2): Import › Pre-screen › Send › Attack ›
 // Verdict › Fix › Re-attack › Export, as a 4×2 grid on phones and one row of 8 from md (DESIGN §5.2). Each step has an
-// aria-hidden marker (a 3 px bar and "01"…"08") above its control. The current step is highlighted (and
+// aria-hidden marker (a 3 px bar and "01"…"07") above its control. The current step is highlighted (and
 // aria-current="step") with an accent bar, not the focus colour, so it never looks like keyboard focus. Steps already reached are buttons that
 // revisit them without re-running any call: finished ones are marked done, the furthest one is not (it may still
 // be in progress). Later steps are plain text, never buttons: screen readers hear "(not reached yet)", and a step that

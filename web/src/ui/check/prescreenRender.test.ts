@@ -39,10 +39,7 @@ describe('StepperNav: unbuilt steps are never "not reached yet" (D-121)', () => 
   it('Import current: Pre-screen is not reached yet, every unbuilt step is not available yet, none is a button', () => {
     const html = renderToStaticMarkup(createElement(StepperNav, { current: 'import', reached: 'import', available: BUILT_STEPS, onSelect: () => {} }));
     for (const name of ['Pre-screen', 'Send', 'Attack', 'Verdict', 'Fix', 'Re-attack']) expect(has(html, 'ui.stepper.upcoming', { name }), name).toBe(true);
-    for (const name of ['Export']) {
-      expect(has(html, 'ui.stepper.unavailable', { name }), name).toBe(true);
-      expect(has(html, 'ui.stepper.upcoming', { name }), name).toBe(false);
-    }
+    expect(html).not.toContain('Export'); // D-185: no separate Export step (the covered-copy card replaces it)
     expect(html.match(/<button/g)).toBeNull();
   });
 });

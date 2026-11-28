@@ -229,7 +229,9 @@ final class EgressGate {
     guard check.faces == 0 else { return block(.face) }
     guard Tier0.vaultHits(check.words, VaultScan.termsOf(vault())).isEmpty else { return block(.vaultTextInImage) }
     do {
-      let reply = try await transport.passB(system: system, user: user, jpeg: jpeg)
+      // F-330 (D-185): the gate's own deadline (RC timeouts_ms.advB, bundled default 45 s). Without it a hung request
+      // held the user for up to 15 min in the Nov 28 iOS runs. A timeout is never retried (invariant 7, web D-158).
+      let reply = try await Self.withDeadline(Self.advBTimeout) { try await transport.passB(system: system, user: user, jpeg: jpeg) }
       let lat = Self.ms(since: t0)
       // A simulated transport (Judge Mode's recorded replay, the DEBUG fake) sends nothing: CACHED, 0 bytes, 0 requests.
       let route: Route = transport.simulated ? .cached : .inCloud
@@ -241,9 +243,52 @@ final class EgressGate {
       // A failed real call counts the copy as sent (it may have left before the error; overcounting is the safe side).
       // A failed simulated replay sent nothing (F-297).
       let route: Route = transport.simulated ? .cached : .inCloud
-      ledger.finish(id, route: route, engine: transport.engine, latencyMs: lat, status: "failed", note: "\(type(of: error))",
+      let timedOut = error is DeadlineError
+      ledger.finish(id, route: route, engine: transport.engine, latencyMs: lat, status: "failed", note: timedOut ? "timeout" : "\(type(of: error))",
                     bytes: transport.simulated ? 0 : jpeg.count)
-      return GateResult(value: nil, route: route, latencyMs: lat, engine: transport.engine, note: "failed")
+      return GateResult(value: nil, route: route, latencyMs: lat, engine: transport.engine, note: timedOut ? "timeout" : "failed")
+    }
+  }
+
+  struct DeadlineError: Error {}
+
+  /// RC `timeouts_ms.advB` from the bundled template defaults (ARCH §13.4), else 45 s; clamped to 10–120 s.
+  nonisolated static let advBTimeout: Duration = {
+    var ms = 45_000.0
+    if let url = Bundle.main.url(forResource: "remoteconfig.template", withExtension: "json"),
+       let d = try? Data(contentsOf: url), let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
+       let p = (o["parameters"] as? [String: Any])?["timeouts_ms"] as? [String: Any],
+       let v = (p["defaultValue"] as? [String: Any])?["value"] as? String,
+       let t = try? JSONSerialization.jsonObject(with: Data(v.utf8)) as? [String: Any], let n = t["advB"] as? NSNumber {
+      ms = n.doubleValue
+    }
+    return .milliseconds(Int(min(max(ms, 10_000), 120_000)))
+  }()
+
+  /// Runs `op`, or throws DeadlineError once `d` has passed, even if `op` ignores cancellation: the result is delivered
+  /// exactly once by whichever finishes first; the loser is cancelled and never awaited.
+  nonisolated static func withDeadline<T: Sendable>(_ d: Duration, _ op: @escaping @Sendable () async throws -> T) async throws -> T {
+    let once = Once<T>()
+    return try await withCheckedThrowingContinuation { (c: CheckedContinuation<T, Error>) in
+      once.set(c)
+      let work = Task { do { once.finish(.success(try await op())) } catch { once.finish(.failure(error)) } }
+      Task { try? await Task.sleep(for: d); if once.finish(.failure(DeadlineError())) { work.cancel() } }
+    }
+  }
+
+  /// Resumes a continuation exactly once (thread-safe).
+  private final class Once<T: Sendable>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var c: CheckedContinuation<T, Error>?
+    private var done = false
+    func set(_ c: CheckedContinuation<T, Error>) { lock.lock(); self.c = c; lock.unlock() }
+    @discardableResult func finish(_ r: Result<T, Error>) -> Bool {
+      lock.lock()
+      guard !done, let c else { lock.unlock(); return false }
+      done = true; self.c = nil
+      lock.unlock()
+      c.resume(with: r)
+      return true
     }
   }
 }

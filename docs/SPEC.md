@@ -524,7 +524,7 @@ The Cloud Ledger is a rail or a sheet, not a route (§8.2).
 - **Judge banner** across the top whenever Judge Mode is active (`copy.judge.banner`).
 - **Router HUD:** floating at the bottom-left, collapsible (SCR-14).
 - **Cloud Ledger:** a right rail at widths of 1024 px or more; below that, a bottom sheet opened from the header's Ledger button (SCR-13).
-- **Check stepper:** `Import › Pre-screen › Send › Attack › Verdict › Fix › Re-attack › Export`. The current step is highlighted. Completed steps can be revisited without re-running any calls.
+- **Check stepper:** `Import › Pre-screen › Send › Attack › Verdict › Fix › Re-attack` (D-185: Export is the "Save a covered copy" card under the result, not a step). The current step is highlighted. Completed steps can be revisited without re-running any calls.
 
 ```
 +------------------------------------------------------------------------------------------+
@@ -1027,6 +1027,7 @@ Each screen lists its purpose, layout, behaviour, states (a)–(e), copy IDs and
   - **AC-198 (P0) [unit]** The fixed image passes the re-OCR check: 0 vault hits.
 
 ### SCR-12 Export and share card · P0 export, P1 share card (W6)
+- **Built Nov 28 (D-185), web and iOS:** "Save a covered copy" is an inline card under the verdict, under the compare view and (as "Just clean and export", no cloud check) in the pre-screen, not a separate stepper step. Web: the export frame (master size, q 0.92) goes through the consent dry run's readers with nothing spared (every face or vault word still found is solid-masked first; a reader failure offers nothing); the exact bytes are shown, then Web Share (files) or a download. iOS: master + masks + crop, JPEG q 0.92, `EgressGate.precheck` (local Vision faces, OCR vault words, metadata); offered only when it passes; `ShareLink`. A caution shows when the latest guess is still within 5 km of a pin. The share card (P1) is not built.
 - **Export the cleaned photo (P0):**
   - The master plus all masks (and the crop), re-encoded as JPEG at quality 0.92 at master resolution (≤2048 px).
     - P2: original resolution up to 4096 px, with the masks scaled.
@@ -1497,7 +1498,7 @@ Otherwise show `copy.verdict.still`, naming the worst remaining line.
 | copy.ledger.counters | Faces sent: {f} · Vault items sent: {v} |
 | copy.ledger.otherTraffic | Other network traffic: App Check (with reCAPTCHA), anonymous sign-in, Remote Config, and the face detector's small usage pings to Google (library version and timings). None of it carries your photo or vault. |
 | copy.cloudSaw.empty | Nothing has left this device yet. |
-| copy.export.check | Export check: no metadata · 0 faces · 0 vault text |
+| copy.export.check | Checked on this device: no hidden data · 0 faces · 0 private words |
 | copy.share.headline | AI found {n} location clues in my photo. I masked what I could on my own device before posting. |
 | copy.share.headlineNear | AI found my neighbourhood. I reduced the risk before posting. |
 | copy.share.footer | The attacker never learned it was right. · Strangers' Eyes |
