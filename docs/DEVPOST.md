@@ -147,7 +147,7 @@ Testing with parents, names in handwriting and on fabric, an Android version wit
 ## Testing instructions
 <!-- testing -->
 1. Open https://strangers-eyes.web.app in any browser. There's no login and it's free.
-2. Confirm you're 18+, then choose "Open Judge Mode" (or go straight to https://strangers-eyes.web.app/?judge=1) and press "Run this sample". It plays through on its own: pre-screen, consent, attack and result, then fix and attack again when a clue can be covered.
+2. Confirm you're 18+, then choose "Open Judge Mode" (or go straight to https://strangers-eyes.web.app/?judge=1) and press "Run this sample". It plays through on its own: pre-screen, consent, attack and result, then fix and attack again when a clue can be covered. At the end, "Save a covered copy" makes the copy you would post, rebuilt and checked again on the device.
 3. Turn on "Technical details" in Settings to see where each AI step ran (on device, in the cloud, or simple rules) and how long it took. The Cloud Ledger shows what left your device.
 4. To see that the guess check happens on your device: switch on "Prove it offline" in Judge Mode, then run a sample. When the sealed answer appears, turn your Wi-Fi off (or DevTools › Network › Offline) and press "Open it offline". The stamp shows what the Cloud Ledger recorded while you were offline. Turn Wi-Fi back on and the run continues. Settings › "Simulate offline" doesn't count, because it doesn't cut the network.
 5. These results aren't staged. In my Nov 23 runs the station ended "Still exposed" and the castle "Crop it or don't post it". The level crossing ends "Risk reduced" when the cloud or simple rules do the guess check (no Nano), and with Gemini Nano it goes both ways ("Still exposed" 6 times and "Risk reduced" 4 times in 10 runs), because Nano doesn't always link the made-up workplace to the city the AI names. A live run can differ.
@@ -158,6 +158,17 @@ Testing with parents, names in handwriting and on fabric, an Android version wit
 No credentials are needed. The iOS app is shown in the video; build steps are in the README (you'd need your own Firebase project and an App Check debug token).
 <!-- /testing -->
 
+## Technology requirement (Additional info field, D-186 update)
+<!-- tech -->
+Every AI call in Strangers' Eyes goes through Firebase AI Logic.
+
+On the web I use the hybrid SDK (firebase/ai), and each step picks its mode by what it carries. Steps that touch the user's private list or the original photo run ONLY_ON_DEVICE on Gemini Nano in Chrome. If Nano isn't there they fall back to simple rules (labelled RULES-ONLY), never to the cloud, and the app checks that Nano is really available right before each of those calls. The attacker runs ONLY_IN_CLOUD on gemini-3.5-flash-lite with a JSON schema. The made-up Judge Mode samples use PREFER_ON_DEVICE, so they run on Nano when it's there and in the cloud when it isn't.
+
+On iOS, Apple's on-device Foundation Models run the same private steps through FirebaseAILogic, and Gemini is called through the same SDK. I ran that live loop in the iOS Simulator (App Check debug token) on 8 benchmark photos: 14 Gemini calls, none refused, with Apple's model doing every pre-screen and guess check that had something to work on. iOS Judge Mode replays recorded answers. I have no physical iPhone to test on.
+
+Alongside AI Logic the web app uses App Check (reCAPTCHA Enterprise), Remote Config (the routing rules, with a minimum built into the code), Anonymous Auth and Hosting. iOS uses App Check.
+<!-- /tech -->
+
 ## Built during the submission period (summary field)
 <!-- built -->
 Strangers' Eyes is a new project, started on Nov 19, 2026, with no code from before the submission period. I wrote it during the hackathon with Claude Code as my coding assistant, starting from the standard Vite template, and made the product and design decisions myself. Third-party libraries (the Firebase JS and iOS SDKs, MediaPipe, Tesseract.js, exifr, idb-keyval, React, Vite, Tailwind) are listed with their licences in THIRD_PARTY_NOTICES.md. The Judge Mode photos are CC0 images from Wikimedia Commons, credited in web/public/samples/SOURCES.md, with masks and drawn props added by me.
@@ -166,7 +177,7 @@ Strangers' Eyes is a new project, started on Nov 19, 2026, with no code from bef
 ## Gallery (T-166; no third-party logos, no real home or school)
 Files are in `docs/img/gallery/`, one caption each, in this order. Uploaded to the Devpost draft on Nov 25 in this order, with these captions (Devpost caps captions at 140 characters). D-174/D-176 (Nov 26): 02–07 retaken in Chrome with Gemini Nano and the new "Other network traffic" wording, captions 2–4 rewritten; the Devpost gallery needs those six files and captions re-uploaded [USER approval]. Retaken Nov 24 from the real flow on the plain-language screens (`scripts/shoot-gallery.mjs`; 02–04 replay the recorded answers with Simulate offline, so nothing was sent; 05 is the gate refusing on the device).
 
-1. `01-home.png`: "Location off isn't location hidden: the home screen, with an animated illustration of how a check works."
+1. `01-home.png`: "Before you post your child's photo: the home screen, with an animated illustration of how a check works." (Nov 28, D-186: lunchbox wording)
 2. `02-judge-run.png`: "Judge Mode with Gemini Nano: the clue scan ran ON-DEVICE (24 s, 0 bytes sent); the always-on checks read BUILT-IN."
 3. `03-verdict.png`: "Level crossing: a street-level guess within 5 km of the made-up home and work, as distance bands, never a pin. Checked on Nano."
 4. `04-reattack.png`: "Fix and re-attack: signs masked, the AI could only name the city. Nano's check said Risk reduced here; the video's run: Still exposed."
