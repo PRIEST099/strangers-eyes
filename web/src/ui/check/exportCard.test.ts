@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { STRINGS } from '../../core/strings';
 import type { DryRun } from '../../ai/preflight';
 import { ExportCard, exportOk, maskKey, nearAPin } from './ExportCard';
-import { canShareFile, exportFilename, shareFile } from './exportFile';
+import { canShareFile, coveredCopyMaxPx, exportFilename, shareFile } from './exportFile';
 
 const S = STRINGS as Record<string, string>;
 const esc = (x: string) => x.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#x27;');
@@ -85,5 +85,14 @@ describe('ExportCard', () => {
     expect(plain).not.toContain(esc(S['ui.export.stillNear']!));
     const noCloud = renderToStaticMarkup(createElement(ExportCard, { master: null, masks: [], crop: null, noCloud: true }));
     expect(noCloud).toContain(esc(S['ui.export.bodyNoCloud']!));
+  });
+});
+
+describe('coveredCopyMaxPx (D-187)', () => {
+  it('never more detail than the attacker copy: the cloud cap, else 1536', () => {
+    expect(coveredCopyMaxPx(1536)).toBe(1536);
+    expect(coveredCopyMaxPx(1024)).toBe(1024);
+    expect(coveredCopyMaxPx(undefined)).toBe(1536);
+    expect(coveredCopyMaxPx(Number.NaN)).toBe(1536);
   });
 });

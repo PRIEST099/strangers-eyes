@@ -53,3 +53,8 @@ export function downloadBlob(blob: Blob, name: string, doc: Document = document)
     setTimeout(() => URL.revokeObjectURL(url), 10_000);
   }
 }
+
+/** D-187: the covered copy's longest side: the attacker copy's cap (RC cloud_image_max_px), never more. */
+export function coveredCopyMaxPx(cloudImageMaxPx: number | undefined, fallback = 1536): number {
+  return Number.isFinite(cloudImageMaxPx) && (cloudImageMaxPx as number) > 0 ? (cloudImageMaxPx as number) : fallback;
+}

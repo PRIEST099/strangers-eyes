@@ -8,6 +8,7 @@
 //   node benchmark/spike/run-spike.mjs --mode dry  [--photos 01,02] [--models flash,hydrogen]
 //   node benchmark/spike/run-spike.mjs --mode live [--photos …] [--probe u12]
 //   D-177 text experiment: --set bench --textexp --photos 01,…,24 --models lite --primary lite
+//   Nov 28 covered copy, stage 2: --set bench --coverexp names|places --photos … --models lite --primary lite
 //   D-174 mask experiment: --set bench --fixexp --photos … --models lite --primary lite --fixruns 3
 //   Nov 27 light-blur arm (PROTOCOL.md): the same plus --lightblur (only a light blur on the same boxes)
 //   D-174 benchmark: --set bench --photos 01,…,40 --models lite --primary lite --runs 3 --fixruns 3 (PRIV/bench; always name the photos)
@@ -35,7 +36,7 @@ const { values: a } = parseArgs({
     mode: { type: 'string' }, photos: { type: 'string' }, models: { type: 'string' }, probe: { type: 'string' }, variants: { type: 'string' }, primary: { type: 'string', default: 'flash' }, adaptive: { type: 'boolean', default: false },
     port: { type: 'string', default: '5174' }, 'max-minutes': { type: 'string', default: '150' },
     thinking: { type: 'string' }, px: { type: 'string' }, runs: { type: 'string' }, retries: { type: 'string' },
-    set: { type: 'string', default: 'spike' }, fixruns: { type: 'string' }, fixexp: { type: 'boolean', default: false }, lightblur: { type: 'boolean', default: false }, textexp: { type: 'boolean', default: false },
+    set: { type: 'string', default: 'spike' }, fixruns: { type: 'string' }, fixexp: { type: 'boolean', default: false }, lightblur: { type: 'boolean', default: false }, textexp: { type: 'boolean', default: false }, coverexp: { type: 'string' },
   },
 });
 const fail = (msg) => { console.error(`[runner] ${msg}`); process.exit(2); };
@@ -91,12 +92,14 @@ if (a.textexp && (a.set !== 'bench' || a.fixexp || a.probe || (models && models.
 if (a.lightblur && !a.fixexp) fail('--lightblur needs --fixexp');
 if (a.fixexp) q.set('fixexp', '1');
 if (a.lightblur) q.set('blurarm', 'light');
+if (a.coverexp !== undefined && (!['names', 'places'].includes(a.coverexp) || a.set !== 'bench' || a.textexp || a.fixexp || a.probe || (models && models.length > 1))) fail('--coverexp names|places needs --set bench, one model, no --textexp/--fixexp/--probe');
+if (a.coverexp) q.set('coverexp', a.coverexp); // Nov 28 covered-copy attack, stage 2 (PRIV/bench/coverexp)
 if (a.textexp) q.set('textexp', '1'); // D-177 text experiment (PRIV/bench/textexp) // D-174 mask experiment: solid vs blur on the boxes in PRIV/<set>/fixsrc.json
 const url = `http://localhost:${port}/?${q}#/dev/adversary`;
 const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-const stem = `${PRIV_RAW}/${a.set === 'spike' ? 'spike' : a.set}${a.fixexp ? (a.lightblur ? '-maskexp-light' : '-maskexp') : a.textexp ? '-textexp' : ''}-${ts}-${mode}${photos ? '-p' + (photos.length > 12 ? `${photos[0]}to${photos.at(-1)}` : photos.join('_')) : ''}`;
+const stem = `${PRIV_RAW}/${a.set === 'spike' ? 'spike' : a.set}${a.fixexp ? (a.lightblur ? '-maskexp-light' : '-maskexp') : a.textexp ? '-textexp' : a.coverexp ? `-coverexp-${a.coverexp}` : ''}-${ts}-${mode}${photos ? '-p' + (photos.length > 12 ? `${photos[0]}to${photos.at(-1)}` : photos.join('_')) : ''}`;
 if (existsSync(`${stem}.json`) || existsSync(`${stem}.partial.json`)) fail(`${stem}.* already exists`);
-const planned = a.textexp ? (photos ?? ALL).length * 4 : a.fixexp ? (photos ?? ALL).length * (a.lightblur ? 1 : 2) * (fixruns ?? 3) : (photos ?? ALL).length * (models ?? ['flash', 'hydrogen']).reduce((n, m) => n + (m === a.primary ? (runs ?? 3) : 1), 0) + (a.probe ? 1 : 0);
+const planned = a.coverexp ? (photos ?? ALL).length : a.textexp ? (photos ?? ALL).length * 4 : a.fixexp ? (photos ?? ALL).length * (a.lightblur ? 1 : 2) * (fixruns ?? 3) : (photos ?? ALL).length * (models ?? ['flash', 'hydrogen']).reduce((n, m) => n + (m === a.primary ? (runs ?? 3) : 1), 0) + (a.probe ? 1 : 0);
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const head = await fetch(`http://localhost:${port}/`).catch(() => null);

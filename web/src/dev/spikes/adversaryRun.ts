@@ -139,6 +139,8 @@ export interface SpikeResult {
   lightBlurArm?: boolean;
   /** D-177 text experiment records (PRIV only: the answers hold the made-up names). */
   textExp?: TextExpRec[];
+  /** Nov 28 (PROTOCOL "The covered copy, attacked"): the exact saved covered copies, sent once each. */
+  coverExp?: CoverExpRec[];
   /** The 3-run adversary model (D-73). */
   primary: string;
   /** D-74: skip a primary run that can no longer change the photo's G1 classification. */
@@ -422,6 +424,8 @@ function blurCanvas(frames: Frames, rects: readonly PxRect[], ratio = BLUR_SIGMA
 export const TEXT_ARMS = ['none', 'lightBlur', 'strongBlur', 'solid'] as const;
 export const LIGHT_BLUR_RATIO = 0.04;
 export interface TextArmRec { status: 'ok' | 'blocked' | 'error'; read: boolean | null; latencyMs: number; attempts: number; answer?: string; error?: string; bytes?: number }
+/** One saved covered copy (PRIV/bench/coverexp/<arm>/<id>.jpg) sent byte for byte: names → textProbe, places → pass B. */
+export interface CoverExpRec { arm: 'names' | 'places'; id: string; check: ImgCheck | null; clean: boolean; text?: TextArmRec; run?: RunRec; skipped?: string; complete?: boolean }
 export interface TextExpRec { id: string; size: string; faces: number; caught: boolean | null; arms: Partial<Record<(typeof TEXT_ARMS)[number], TextArmRec>>; skipped?: string; complete?: boolean }
 
 /** One neutral transcription call (textProbe.dev1), ONLY_IN_CLOUD, no tools. One resend only for 429/5xx/network. */
@@ -566,6 +570,8 @@ export interface RunOptions {
   lightBlurArm?: boolean;
   /** D-177 text experiment: can the cloud read a drawn made-up name under none / light blur / strong blur / solid? */
   textExp?: boolean;
+  /** Nov 28: send the saved covered copies (stage 2 of "The covered copy, attacked"): names | places. */
+  coverExp?: 'names' | 'places';
   /** Latency experiment knobs (T-031 diagnosis); absent = CONFIG. */
   thinking?: SpikeThinking; px?: number; runs?: number; retries?: number;
 }
@@ -593,6 +599,8 @@ export function parseOptions(search: string): RunOptions | null {
   if (rawTextExp !== null && (rawTextExp !== '1' || rawSet !== 'bench' || q.get('fixexp') !== null || q.get('probe') !== null || (q.get('models') ?? '').includes(','))) return null;
   const rawFixExp = q.get('fixexp');
   if (rawFixExp !== null && rawFixExp !== '1') return null;
+  const rawCover = q.get('coverexp');
+  if (rawCover !== null && (!['names', 'places'].includes(rawCover) || rawSet !== 'bench' || rawTextExp !== null || rawFixExp !== null || q.get('probe') !== null || (q.get('models') ?? '').includes(','))) return null;
   // The mask experiment runs one model, no probe, on the benchmark set only.
   if (rawFixExp === '1' && (rawSet !== 'bench' || q.get('probe') !== null || (q.get('models') ?? '').includes(','))) return null;
   const rawModels = q.get('models');
@@ -612,7 +620,7 @@ export function parseOptions(search: string): RunOptions | null {
   const retries = intKnob(q, 'retries', 0, 1);
   if ([px, runs, retries].some((v) => Number.isNaN(v))) return null;
   return { mode: auto, photos, models, primary, probeU12: q.get('probe') === 'u12', adaptive: q.get('adaptive') === '1', ...(variants?.length ? { variants } : {}),
-    ...(rawSet !== 'spike' ? { set: rawSet } : {}), ...(fixRuns !== undefined ? { fixRuns } : {}), ...(q.get('fixexp') === '1' ? { fixExp: true } : {}), ...(q.get('fixexp') === '1' && q.get('blurarm') === 'light' ? { lightBlurArm: true } : {}), ...(rawTextExp === '1' ? { textExp: true } : {}),
+    ...(rawSet !== 'spike' ? { set: rawSet } : {}), ...(fixRuns !== undefined ? { fixRuns } : {}), ...(q.get('fixexp') === '1' ? { fixExp: true } : {}), ...(q.get('fixexp') === '1' && q.get('blurarm') === 'light' ? { lightBlurArm: true } : {}), ...(rawTextExp === '1' ? { textExp: true } : {}), ...(rawCover !== null ? { coverExp: rawCover as 'names' | 'places' } : {}),
     ...(rawThinking !== null ? { thinking: rawThinking as SpikeThinking } : {}),
     ...(px !== undefined ? { px } : {}), ...(runs !== undefined ? { runs } : {}), ...(retries !== undefined ? { retries } : {}) };
 }
@@ -627,7 +635,7 @@ export function effectiveConfig(o: RunOptions): SpikeConfig {
 /** D-174: the effective number of re-attack runs after a fix (the mask experiment defaults to 3 per arm). */
 export const effectiveFixRuns = (o: Pick<RunOptions, 'fixRuns' | 'fixExp'>): number => o.fixRuns ?? (o.fixExp ? 3 : 1);
 
-export const plannedCalls = (o: RunOptions) => o.textExp ? o.photos.length * TEXT_ARMS.length : o.fixExp ? o.photos.length * (o.lightBlurArm ? 1 : 2) * effectiveFixRuns(o) :
+export const plannedCalls = (o: RunOptions) => o.coverExp ? o.photos.length : o.textExp ? o.photos.length * TEXT_ARMS.length : o.fixExp ? o.photos.length * (o.lightBlurArm ? 1 : 2) * effectiveFixRuns(o) :
   o.photos.length * o.models.reduce((n, m) => n + (m === o.primary ? effectiveConfig(o).primaryRuns : CONFIG.secondaryRuns), 0) + (o.probeU12 ? 1 : 0);
 
 const LIVE_FLAG = 'advSpike-live-started';
@@ -716,6 +724,54 @@ export async function runSpike(opts: RunOptions): Promise<void> {
     }
     const truthAll = await loadTruth();
     const sentById = new Map<string, Blob>();
+    if (opts.coverExp) {
+      // Nov 28 (PROTOCOL "The covered copy, attacked", stage 2): the covered copies the app saved in stage 1
+      // (scripts/measure-covered.mjs), each sent ONCE byte for byte: no re-encode, no resize. A copy that fails the gate's
+      // metadata check is not sent. Names: the text experiment's transcription prompt; places: pass B, scored against the
+      // made-up Home pin (0.0072 deg north of the true camera position), distances in code.
+      const arm = opts.coverExp;
+      result.coverExp = [];
+      type TextSrc = { id: string; name: string };
+      const names = arm === 'names' ? await (await fetch(`${setDir()}/textexp/textexp.json`)).json() as TextSrc[] : [];
+      for (const pid of opts.photos) {
+        const id = arm === 'names' ? `tx-${pid}` : `bench-${pid}`;
+        const rec: CoverExpRec = { arm, id, check: null, clean: false };
+        result.coverExp.push(rec);
+        const res = await fetch(`${setDir()}/coverexp/${arm}/${id}.jpg`);
+        // A missing file can come back as the dev server's HTML fallback: only a real JPEG counts as a saved copy.
+        const type = res.headers.get('content-type') ?? '';
+        if (!res.ok || !type.includes('image/jpeg')) { rec.skipped = `no saved covered copy (HTTP ${res.status}, ${type || 'no type'})`; rec.complete = true; log(`${id}: skipped (${rec.skipped})`); continue; }
+        const blob = await res.blob();
+        try {
+          rec.check = await imgCheck(blob, undefined, undefined, true);
+          rec.clean = (await checkCleanJpeg(blob)).clean && !rec.check.hasGps;
+        } catch (e) { rec.skipped = `not a readable JPEG: ${String((e as Error)?.message ?? e).slice(0, 80)}`; rec.complete = true; log(`${id}: skipped (${rec.skipped})`); continue; }
+        if (!rec.clean) { rec.skipped = 'the saved copy is not clean: not sent'; rec.complete = true; log(`${id}: NOT SENT (not clean)`); continue; }
+        sent.push(blob);
+        if (opts.mode === 'dry') { rec.complete = true; log(`${id}: dry (${rec.check.bytes} B, ${rec.check.width}x${rec.check.height})`); continue; }
+        const b64 = await blobToBase64(blob);
+        if (arm === 'names') {
+          const src = names.find((t) => t.id === id);
+          if (!src) { rec.skipped = 'no textexp entry'; rec.complete = true; continue; }
+          const term = makeTerm('tx', 'child_name', src.name);
+          const r = await textProbe(opts.primary, b64, log, counters);
+          r.read = r.status === 'ok' && r.answer !== undefined ? findInText(r.answer, [term], DEFAULT_FUZZY_THRESHOLD) !== null : null;
+          rec.text = r;
+          log(`${id}: ${r.status} read=${r.read} ${(r.latencyMs / 1000).toFixed(1)}s`);
+        } else {
+          const truth = truthAll.get(id);
+          if (!truth) { rec.skipped = 'no truth row'; rec.complete = true; continue; }
+          const home = { ...truth, lat: truth.lat + 0.0072 };
+          rec.run = await passB(opts.primary, b64, home, 'fix', 0, log, counters);
+          log(`${id}: ${rec.run.status} Home band=${rec.run.band} ${(rec.run.latencyMs / 1000).toFixed(1)}s`);
+        }
+        rec.complete = true;
+      }
+      result.finishedAt = new Date().toISOString();
+      st.state = 'done';
+      log('done');
+      return;
+    }
     if (opts.textExp) {
       // D-177 (pre-registered in PRIV/bench/PROTOCOL.md): drawn made-up names on benchmark photos (PRIV/bench/textexp).
       type TextSrc = { id: string; name: string; size: string; w: number; h: number; box: { x: number; y: number; w: number; h: number } };

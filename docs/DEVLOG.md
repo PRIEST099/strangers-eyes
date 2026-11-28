@@ -350,6 +350,8 @@ How a flaw was found:
 | F-330 | Nov 28 | D-185 | iOS parity runs 2 and 3 (D-184) | major | The iOS gate had no deadline on the attack: two calls hung about 15 minutes, and a failed call was shown as "the attacker declined" | 45 s deadline from the bundled RC `timeouts_ms.advB`; a failed or timed-out call says the attacker didn't answer; unit tests |
 | F-331 | Nov 28 | D-185 | Claude (own mistake, browser check) | minor | The new export card set its "still mounted" flag false in an effect cleanup and never back, so under React StrictMode (development) the finished copy was dropped and the card stayed on "Making the copy…" | The flag is set on every mount; re-verified in the preview |
 | F-332 | Nov 28 | D-186 | Claude (watching a re-recorded clip) | minor | The result screen's receipt said "5 rules-only fallbacks" with Gemini Nano on while the Ledger said 0: it counted a fixed 1 + attacks + results, a leftover the D-179 relabelling missed | `receiptParams` takes the real count (guess checks on rules because the model was missing or failed); test updated; crossing clip re-recorded |
+| F-333 | Nov 28 | D-187 | the pre-registered covered-copy attack | major | "Save a covered copy" saved the full photo (up to 2,048 px) while the app had only tested the attacker on a copy of at most 1,536 px; two photos the loop showed as out of 5 km were placed at district level from the saved copy | The covered copy is capped at the attacker copy's size on web and iOS (never more detail than was checked); unit test; re-tested in D-188 on the same 8 photos: 2 of 7 within 5 km (from 5 of 8), not credited to the cap alone |
+| F-334 | Nov 28 | D-188 | Claude (own mistake, pre-registered places re-test) | minor | `scripts/measure-covered.mjs` looked for the save card only under the Re-attack step on multi-round photos; after a blocked re-attack consent that step shows the consent sheet, so bench-40 timed out with no copy | The harness tries Re-attack, then Verdict; bench-40 reported as a harness timeout and not re-run (protocol) |
 
 ---
 
@@ -500,6 +502,16 @@ How a flaw was found:
 - The HUD at the bottom left now lists every AI call as it happens: which job, its privacy class, where it ran (ON-DEVICE, IN CLOUD, RULES-ONLY, BLOCKED), the engine, how long it took, how many bytes left, and tags such as "fallback: no on-device model" or "Nano off". Collapsed, the pill shows the last call. Everything comes from the Ledger, which only holds ids, kinds, hashes and numbers.
 - The Cloud Ledger rail shows live counters and "What the cloud saw": the exact redacted JPEG of the last cloud send, kept in memory and shown only when the hash of its own bytes equals the hash the gate recorded, with the same 8-character prefix the consent sheet shows. The original photo is never registered. It all lives in memory for this page; nothing is stored or sent.
 - No real AI call was made. Browser check with the DEV fake Nano and fake adversary on a synthetic image: pre-screen and referee ON-DEVICE, pass B IN CLOUD, matching hashes. Found F-220..F-222.
+
+### Nov 28 (late afternoon): the places re-test (D-188)
+- The size cap was a fix nobody had measured, so the 8 place photos went through the same test again, written down first and labelled a re-test on the same photos. With every saved copy now at most 1,536 px, the stranger's AI placed 2 of 7 within 5 km, down from 5 of 8.
+- I can't give the cap all the credit. Two photos that got no different fix moved out too, one from within 1 km to "same country", which is how much single attacks swing. One photo stays the honest worry: the app's own attack called it "not linked" twice, and the attack on the saved copy placed it at district level twice.
+- My own slip: the harness looked for the save card in the wrong step after the app had blocked a send, so one photo has no copy. It is reported as a harness timeout, not re-run.
+
+### Nov 28 (afternoon): attacking the copy a parent would post (D-187)
+- I wanted one number for what a parent actually posts. So the app made its covered copies exactly as a parent would save them, and those files went to the cloud untouched. In 22 copies of photos with a drawn child's name, the AI read the name zero times. For the 23rd, the app refused to make a copy, because it found a face it couldn't cover.
+- For places, the honest result is mixed. Three photos placed from their buildings stayed placed, as the app had warned. Two came back at district level although the loop had shown them out, and the saved copy was larger than the copy the app had tested. The saved copy is now capped at the tested size.
+- Two more iOS runs, now with the timeout, both finished: 42 calls in three runs, none hung. Agreement with the web over three runs is 5 of 8, one less than the single run suggested, and that is what the write-up now says.
 
 ### Nov 28: a video that tells the lunchbox story (D-186)
 - The blind panel now puts the entry 2nd of 18. Its critic's first suggestion was to show in the video what the write-up now leads with, so the video was re-cut.

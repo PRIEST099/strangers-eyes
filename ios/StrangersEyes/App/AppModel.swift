@@ -145,7 +145,9 @@ final class AppModel {
     coveredCopyBusy = true
     coveredCopy = nil
     defer { if gen == runGen { coveredCopyBusy = false } }
-    let cg = ImagePipeline.crop(ImagePipeline.applySolidMasks(p.master, usedMasks), usedCrop)
+    let masked = ImagePipeline.crop(ImagePipeline.applySolidMasks(p.master, usedMasks), usedCrop)
+    // D-187: the same size cap as the attacker copy, so the covered copy never carries more detail than was checked.
+    let (cg, _) = ImagePipeline.cloudFrame(masked, cropInMaster: usedCrop ?? PxRect(x: 0, y: 0, w: p.width, h: p.height))
     guard let jpeg = ImagePipeline.jpeg(cg, quality: 0.92), let img = UIImage(data: jpeg) else { return }
     let pc = await gate.precheck(jpeg)
     // A fix applied meanwhile changed the masks or the crop: this copy is stale, never offer it.

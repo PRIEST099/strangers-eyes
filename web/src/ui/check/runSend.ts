@@ -9,7 +9,8 @@ import type { RefereeOutcome } from '../../ai/jobs/referee';
 import { runPreflight, type DryRun } from '../../ai/preflight';
 import { vaultScan } from '../../ai/vaultScan';
 import type { OutgoingImage } from '../../ai/egressGate';
-import { buildFrameJpeg } from '../../core/frames';
+import { buildFrameJpeg, FRAME_MAX_PX } from '../../core/frames';
+import { coveredCopyMaxPx } from './exportFile';
 import { sentImages } from '../../core/ledgerImages';
 import { refereeClaims, refereeVaultItems, rulesReferee } from '../../core/referee';
 import type { AdversaryResult, ConsentToken, PxRect, VaultItem } from '../../core/types';
@@ -38,7 +39,7 @@ export async function runConsentDryRun(master: HTMLCanvasElement, masks: readonl
 
 /**
  * SCR-12 export check (T-081, D-185): the SAME readers on the covered copy the user saves, built as the export frame
- * (master size, JPEG q 0.92). Nothing the user un-ticked is spared here (`userUnmasked` is empty): every face and vault
+ * (JPEG q 0.92), capped at the attacker copy's size (D-187: never more detail than the copy the attacker was tested on). Nothing the user un-ticked is spared here (`userUnmasked` is empty): every face and vault
  * word the readers still find is solid-masked before the bytes are offered, and a reader failure means nothing is
  * offered. Local only: nothing here sends anything.
  */
@@ -52,7 +53,8 @@ async function dryRunFrame(id: 'cloud' | 'export', master: HTMLCanvasElement, ma
   return runPreflight(
     { masks, width: master.width, height: master.height, userUnmasked, faceMinConfidence: c?.faceMinConfidence ?? 0.3, padRatio: c?.maskPadRatio ?? 0.15 },
     {
-      build: (m) => buildFrameJpeg(id, master, { masks: m, ...(crop ? { crop } : {}), ...(c && id === 'cloud' ? { maxPx: c.cloudImageMaxPx } : {}) }),
+      // D-187: the covered copy is capped at the attacker copy's size, so it never carries more detail than was checked.
+      build: (m) => buildFrameJpeg(id, master, { masks: m, ...(crop ? { crop } : {}), maxPx: coveredCopyMaxPx(c?.cloudImageMaxPx, FRAME_MAX_PX.cloud) }),
       checkClean: async (jpeg) => (await import('../../tier0/exif')).checkCleanJpeg(jpeg),
       decode: async (bytes) => {
         const bmp = await decode.decodeOriented(new Blob([bytes], { type: 'image/jpeg' }));

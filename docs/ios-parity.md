@@ -51,6 +51,30 @@ There aren't enough completed photos to compare the platforms run by run, so the
 
 Raw logs: private (`raw/iosparity-2026-11-27T22-48-58.json`, `raw/iosparity-2026-11-27T23-40-10.json`).
 
+## Update Nov 28 (afternoon): runs 4 and 5, complete, after the timeout fix
+
+Two more runs were pre-registered after the F-330 fix: the same 8 photos and rules, each photo once per run, with a 40-minute harness limit. Both finished. Runs 2 and 3 above stay reported as cut short. With run 1, iOS now has **three complete runs**.
+
+| | Run 1 | Run 4 | Run 5 | All three |
+|---|---|---|---|---|
+| Cloud calls / answered / timed out at 45 s | 14 / 14 / 0 | 14 / 14 / 0 | 14 / 14 / 0 | **42 / 42 / 0** |
+| Refused | 0 | 0 | 0 | 0 |
+| First attack within 5 km of Home | 7 of 8 | 6 of 8 | 6 of 8 | **19 of 24 photo-runs** (95% interval 60–91%) |
+| ...and the app had something to cover | 6 | 5 | 5 | 16 |
+| ...moved outside 5 km by the one fix round | 5 | 4 | 4 | **13 of 16** (57–93%) |
+| Apple FM pre-screen, on the device (photos with text to read) | 4 of 4 | 4 of 4 | 4 of 4 | 12 of 12 |
+| Apple FM guess check, on the device (checks with a guess) | 12 of 12 | 11 of 11 | 13 of 13 | 36 of 36 |
+
+**Agreement with the web, over three runs each:** the iOS majority and the web majority agree on "first attack within 5 km of Home" for **5 of 8 photos**, one fewer than the single-run figure above.
+- bench-07 and bench-21 landed within 5 km on iOS in all three runs, but on the web in 0 and 1 of 3.
+- bench-32 went the other way: within 5 km on iOS in 1 of 3 runs, on the web in 2 of 3.
+
+The two apps redact differently: iOS uses Apple's Vision framework, the web uses MediaPipe and Tesseract, and the copies sent differ. That may explain the gap, but this run doesn't test it.
+
+**The fix, on both platforms.** When there was something to cover, iOS moved the guess out of 5 km in 13 of 16 photo-runs and the web in 9 of 10. Photos placed from buildings alone stay exposed on both, and the app says so.
+
+Raw logs: private (`raw/iosparity-2026-11-28T09-15-18.json`, `raw/iosparity-2026-11-28T09-25-16.json`).
+
 ## What this does and doesn't show
 
 It shows the iOS app doing the whole hybrid loop for real, with the same split as the web:
@@ -58,8 +82,8 @@ It shows the iOS app doing the whole hybrid loop for real, with the same split a
 - the attack in the cloud through Firebase AI Logic;
 - the distance bands in code;
 
-and landing where the web lands on 6 of 8 photos.
+landing where the web lands on 5 of 8 photos over three runs each.
 
-It is one run per photo, in the Simulator on a Mac, not on a physical iPhone. It uses 8 public-place photos chosen because the benchmark had placed them, so it is not a random sample. The attacker varies between runs on both platforms, so one iOS run can't separate a platform difference from run-to-run variation.
+It is three complete runs per photo, in the Simulator on a Mac, not on a physical iPhone. It uses 8 public-place photos chosen because the benchmark had placed them, so it is not a random sample. The attacker varies between runs on both platforms, so one iOS run can't separate a platform difference from run-to-run variation.
 
 Raw log: private (`raw/iosparity-2026-11-27T19-43-06.json`: bands, levels, routes and latencies only).

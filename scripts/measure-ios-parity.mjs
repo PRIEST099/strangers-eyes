@@ -28,7 +28,7 @@ const PHOTOS = ['bench-02', 'bench-07', 'bench-10', 'bench-21', 'bench-31', 'ben
 const HOME_DLAT = 0.0072; // ~0.80 km, as in measure-fix-loop.mjs
 const WORK_KM = 3;
 const DRY = process.argv.includes('--dry');
-const TIMEOUT_MS = 30 * 60_000;
+const TIMEOUT_MS = 40 * 60_000; // runs 4 and 5 (PROTOCOL "iOS parity runs 4 and 5")
 const log = (...a) => console.log(`[${new Date().toISOString().slice(11, 19)}]`, ...a);
 
 function truthFor(id) {
