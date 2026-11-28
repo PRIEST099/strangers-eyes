@@ -8,7 +8,7 @@ import clips from '../public/clips.json';
 import timings from '../public/timings.json';
 import { Callout, Phone, PhotoCard, RingMap, type Box } from './anim';
 import { HeroLoopArt } from './heroloop';
-import { Chip, EyeCloud, EyeLogo, Icon, StepStrip, Street, useAt, useLin, useSec, Wall } from './art';
+import { Chip, EyeCloud, EyeLogo, Icon, KidStreet, StepStrip, Street, useAt, useLin, useSec, Wall } from './art';
 import { C, MONO } from './theme';
 
 const S = (sec: number) => Math.round(sec * 30);
@@ -65,86 +65,89 @@ const Backdrop = ({ src, opacity, dim = 0.55, z0 = 1.04, z1 = 1.12 }: { src: str
   );
 };
 
+// D-186 (Lunchbox re-cut): cue seconds from the narration's pauses (ffmpeg silencedetect on public/audio/post.wav).
+const POST_CUE = { shot: 0.9, sticker: 3.2, post: 4.3, ask: 5.4 };
 export const Post = () => {
   const t = useSec();
   const rise = useAt(0, 13);
-  const flash = t > 1.2 && t < 1.32 ? 1 : 0;
-  const sheet = useAt(1.8, 15) - useAt(3.7, 15);
-  const off = useAt(2.6, 12);
-  const card = useAt(3.9, 14);
-  const q = useAt(4.6, 10);
+  const flash = t > POST_CUE.shot && t < POST_CUE.shot + 0.12 ? 1 : 0;
+  const sticker = useAt(POST_CUE.sticker, 11);
+  const sheet = useAt(POST_CUE.sticker - 0.4, 15) - useAt(POST_CUE.post - 0.2, 15);
+  const card = useAt(POST_CUE.post, 14);
+  const q = useAt(POST_CUE.ask, 10);
   return (
     <AbsoluteFill>
       <div style={{ position: 'absolute', left: 0, top: 0, transform: `translateY(${(1 - rise) * 900}px)` }}>
         <Phone x={300} y={90} scale={1.0} glow={C.device}>
-          <div style={{ position: 'absolute', left: 0, top: 210 }}><Street w={358} /></div>
-          <div style={{ position: 'absolute', left: 0, right: 0, top: 70, textAlign: 'center', color: C.muted, fontSize: 22 }}>{t < 1.3 ? 'Camera' : 'Photo'}</div>
+          <div style={{ position: 'absolute', left: 0, top: 210 }}><KidStreet w={358} sticker={sticker} /></div>
+          <div style={{ position: 'absolute', left: 0, right: 0, top: 70, textAlign: 'center', color: C.muted, fontSize: 22 }}>{t < POST_CUE.shot + 0.1 ? 'Camera' : 'First day of school'}</div>
           <div style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, background: '#fff', opacity: flash }} />
-          <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 300, background: '#1d212b', borderRadius: '28px 28px 0 0', transform: `translateY(${(1 - sheet) * 320}px)`, padding: 28 }}>
+          <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 260, background: '#1d212b', borderRadius: '28px 28px 0 0', transform: `translateY(${(1 - sheet) * 300}px)`, padding: 28 }}>
             <div style={{ fontSize: 26, fontWeight: 800 }}>Before you post</div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 34 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 28 }}><Icon kind="pin" size={34} color={off > 0.5 ? C.muted : C.teal} /> Location</div>
-              <div style={{ width: 86, height: 46, borderRadius: 99, background: off > 0.5 ? '#4a4f5c' : C.teal, position: 'relative' }}>
-                <div style={{ position: 'absolute', top: 5, left: 5 + (1 - off) * 40, width: 36, height: 36, borderRadius: 99, background: '#fff' }} />
-              </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 30, fontSize: 28 }}>
+              <span style={{ width: 40, height: 40, borderRadius: 10, background: sticker > 0.5 ? C.teal : '#4a4f5c', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#0b0d12', fontWeight: 900 }}>{sticker > 0.5 ? '✓' : ''}</span>
+              Face covered
             </div>
-            <div style={{ marginTop: 22, fontSize: 24, color: off > 0.5 ? C.fg : C.muted, fontWeight: 800 }}>{off > 0.5 ? 'Location: OFF' : 'Location: ON'}</div>
           </div>
         </Phone>
       </div>
-      {/* the post, on the right */}
       <div style={{ position: 'absolute', left: 900, top: 150, width: 820, opacity: card, transform: `translate(${(1 - card) * -260}px, ${(1 - card) * 120}px) scale(${0.8 + 0.2 * card})`, transformOrigin: 'left center',
         background: C.card, border: `1px solid ${C.line}`, borderRadius: 26, padding: 22, boxShadow: '0 30px 80px rgba(0,0,0,0.5)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
           <div style={{ width: 52, height: 52, borderRadius: 99, background: C.device }} />
-          <div style={{ fontSize: 28, fontWeight: 800 }}>you</div>
-          <div style={{ marginLeft: 'auto' }}><Chip color={C.muted} size={22}><Icon kind="pin" size={22} color={C.muted} /> location off</Chip></div>
+          <div style={{ fontSize: 28, fontWeight: 800 }}>a proud parent</div>
+          <div style={{ marginLeft: 'auto' }}><Chip color={C.teal} size={22}>face covered ✓</Chip></div>
         </div>
-        <div style={{ borderRadius: 16, overflow: 'hidden' }}><Street w={776} /></div>
-        <div style={{ display: 'flex', gap: 20, marginTop: 16, fontSize: 28, color: C.muted }}><span style={{ color: C.red }}>♥</span> Posted</div>
+        <div style={{ borderRadius: 16, overflow: 'hidden' }}><KidStreet w={776} /></div>
+        <div style={{ display: 'flex', gap: 20, marginTop: 16, fontSize: 28, color: C.muted }}><span style={{ color: C.red }}>♥</span> First day of school!</div>
       </div>
-      <div style={{ position: 'absolute', left: 900, top: 760, fontSize: 84, fontWeight: 900, opacity: q, transform: `translateY(${(1 - q) * 30}px) rotate(${t > 5 && t < 5.6 ? Math.sin((t - 5) * 12) * 2 : 0}deg)` }}>Private, right?</div>
+      <div style={{ position: 'absolute', left: 900, top: 800, fontSize: 84, fontWeight: 900, opacity: q, transform: `translateY(${(1 - q) * 30}px) rotate(${t > POST_CUE.ask + 0.4 && t < POST_CUE.ask + 1 ? Math.sin((t - POST_CUE.ask - 0.4) * 12) * 2 : 0}deg)` }}>Private, right?</div>
     </AbsoluteFill>
   );
 };
 
-// ---------------------------------------------------------------- 2 the stranger's AI
+// ---------------------------------------------------------------- 2 the stranger's AI reads what the sticker left
+const STRANGER_CUE = { scan: 1.3, name: 4.3, sign: 6.1, leak: 7.7, title: 9.5 };
 export const Stranger = () => {
   const t = useSec();
   const inP = useAt(0, 14);
-  const shrink = useAt(7.2, 15);
-  const beam = useLin(1.2, 2.6);
-  const title = useAt(10.2, 14);
-  const gone = useAt(9.9, 16);
-  const boxes = { sign: useAt(4.2, 12), shop: useAt(5.0, 12), tower: useAt(5.8, 12) };
-  const levels = ['the world', 'a country', 'a city', 'a street'];
+  const beam = useLin(STRANGER_CUE.scan, STRANGER_CUE.scan + 1.4);
+  const title = useAt(STRANGER_CUE.title, 14);
+  const gone = useAt(STRANGER_CUE.title - 0.3, 16);
+  const boxes = { name: useAt(STRANGER_CUE.name, 12), sign: useAt(STRANGER_CUE.sign, 12) };
+  const found = [
+    { at: STRANGER_CUE.name + 0.3, k: "a child's name", v: 'LUCAS', c: C.red },
+    { at: STRANGER_CUE.sign + 0.3, k: 'a street', v: 'Elm Hollow Rd', c: C.red },
+  ];
+  const leak = useAt(STRANGER_CUE.leak, 12);
   return (
     <AbsoluteFill>
       <div style={{ opacity: 1 - gone }}>
-        <div style={{ position: 'absolute', left: 410 - shrink * 300, top: 150 + shrink * 90, transform: `scale(${(0.9 + 0.1 * inP) * (1 - shrink * 0.32)})`, transformOrigin: 'top left' }}>
+        <div style={{ position: 'absolute', left: 110, top: 190, transform: `scale(${0.92 + 0.08 * inP})`, transformOrigin: 'top left' }}>
           <div style={{ position: 'relative', borderRadius: 20, overflow: 'hidden', boxShadow: '0 30px 80px rgba(0,0,0,0.6)' }}>
-            <Street w={1100} boxes={boxes} />
+            <KidStreet w={1060} boxes={boxes} />
             <div style={{ position: 'absolute', left: 0, right: 0, top: `${beam * 100 - 12}%`, height: '12%', background: `linear-gradient(180deg, transparent, ${C.cloud}55, transparent)`, opacity: beam > 0 && beam < 1 ? 1 : 0 }} />
           </div>
         </div>
-        <div style={{ position: 'absolute', left: 1560, top: 40, opacity: inP }}>
+        <div style={{ position: 'absolute', left: 1500, top: 40, opacity: inP }}>
           <EyeCloud w={300} look={Math.sin(t * 2) * 0.8} />
           <div style={{ textAlign: 'center', fontSize: 28, fontWeight: 800, color: C.cloud }}>the stranger's AI</div>
         </div>
-        <div style={{ position: 'absolute', left: 1040, top: 330, width: 760 }}>
-          {levels.map((l, i) => {
-            const p = useAt(7.6 + i * 0.6, 14);
-            const w = 760 - i * 150;
-            return <div key={l} style={{ width: w, marginLeft: (760 - w) / 2, height: 84, marginBottom: 14, borderRadius: 14, opacity: p, transform: `translateX(${(1 - p) * 60}px)`,
-              background: i === 3 ? `${C.red}33` : 'rgba(255,255,255,0.06)', border: `2px solid ${i === 3 ? C.red : C.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 34, fontWeight: 800, color: i === 3 ? C.red : C.fg }}>{l}</div>;
+        <div style={{ position: 'absolute', left: 1240, top: 380, width: 600 }}>
+          {found.map((f) => {
+            const p = useAt(f.at, 14);
+            return <div key={f.k} style={{ opacity: p, transform: `translateX(${(1 - p) * 60}px)`, marginBottom: 22, borderRadius: 16, border: `2px solid ${f.c}`, background: `${f.c}22`, padding: '16px 22px' }}>
+              <div style={{ fontSize: 26, color: C.muted, fontWeight: 700 }}>it read {f.k}</div>
+              <div style={{ fontFamily: MONO, fontSize: 44, fontWeight: 900, color: C.fg }}>{f.v}</div>
+            </div>;
           })}
+          <div style={{ opacity: leak, transform: `scale(${1.15 - 0.15 * leak})`, transformOrigin: 'left center', fontSize: 44, fontWeight: 900, color: C.amber, marginTop: 12 }}>The face was never the leak.</div>
         </div>
       </div>
       <Backdrop src="art-hero.webp" opacity={title} dim={0.6} />
       <AbsoluteFill style={{ justifyContent: 'center', alignItems: 'center', opacity: title }}>
         <div style={{ transform: `scale(${0.9 + 0.1 * title})`, textAlign: 'center', marginTop: -80 }}>
-          <EyeLogo size={260} from={10.2} blinkAt={12.2} />
+          <EyeLogo size={260} from={STRANGER_CUE.title} blinkAt={STRANGER_CUE.title + 2} />
           <div style={{ fontSize: 120, fontWeight: 900, letterSpacing: -3, marginTop: 10 }}>Strangers' Eyes</div>
           <div style={{ fontSize: 42, color: C.muted, marginTop: 8 }}>See what a stranger's AI sees, before you post.</div>
         </div>
@@ -216,7 +219,7 @@ export const Judge = () => {
   const rows = [['home', 'Home'], ['work', 'Work: City General Hospital'], ['child', 'Child: Lucas'], ['car', 'Car plate: SE 1234']] as const;
   return (
     <AbsoluteFill>
-      <Full clip="judge-home" from={0} sec={8.4} z0={1} z1={1.05} origin="30% 40%" />
+      <Full clip="judge-home" from={0} sec={sceneSec("judge")} z0={1} z1={1.05} origin="30% 40%" />
       <RealTag text="REAL APP · Judge Mode: openly licensed photos of public places, made-up data" />
       <div style={{ position: 'absolute', left: 30, top: 18 }}><Chip color={C.teal} bg="rgba(10,11,15,0.9)">REAL APP</Chip></div>
       <div style={{ position: 'absolute', right: 60, top: 200, width: 620, opacity: card, transform: `translateX(${(1 - card) * 120}px)`, background: 'rgba(21,23,29,0.96)', borderTop: `6px solid ${C.device}`, borderRadius: 22, padding: 30, boxShadow: '0 30px 80px rgba(0,0,0,0.6)' }}>
@@ -342,6 +345,54 @@ export const Station = () => {
   );
 };
 
+// ---------------------------------------------------------------- 9a the sealed answer, opened offline (D-182)
+export const Sealed = () => {
+  const sec = sceneSec('sealed');
+  const card = useAt(0, 14) - useAt(1.3, 16);
+  // sealed card (2.6 s) → network cut (≈3 s) → opened → the stamp
+  const a = mark('sealed', 'sealed', -0.4), b = mark('sealed', 'off', -0.6), c = mark('sealed', 'stamp', -0.2);
+  const t1 = 4.4, t2 = 7.0; // on-screen seconds where each part starts (narration pauses in sealed.wav)
+  return (
+    <AbsoluteFill>
+      <Sequence from={S(1.3)} durationInFrames={S(t1 - 1.3)}><Full clip="sealed" from={a} to={a + 3.1} sec={t1 - 1.3} z0={1.02} z1={1.06} origin="30% 40%" /><RealTag /></Sequence>
+      <Sequence from={S(t1)} durationInFrames={S(t2 - t1)}>
+        <Full clip="sealed" from={b} to={mark('sealed', 'open', 0.4)} sec={t2 - t1} z0={1.04} z1={1.08} origin="30% 45%" />
+        <Sequence from={S(0.5)}><Callout x={1150} y={760} tx={270} ty={672} w={620} text="Network cut: the page sees no connection" color={C.amber} /></Sequence>
+        <RealTag text="REAL APP · network cut with Chrome's own offline mode · guess checked by Gemini Nano in this browser" />
+      </Sequence>
+      <Sequence from={S(t2)}>
+        <Full clip="sealed" from={c} sec={Math.max(1, sec - t2)} z0={1.0} z1={1.06} origin="30% 25%" />
+        <Sequence from={S(2.2)}><Stamp text="0 cloud calls" color={C.teal} at={0} x={1180} y={760} /></Sequence>
+        <RealTag text="REAL APP · the stamp counts the Cloud Ledger while the connection was off" />
+      </Sequence>
+      <AbsoluteFill style={{ justifyContent: 'center', alignItems: 'center', background: C.bg, opacity: Math.max(0, card) }}>
+        <div style={{ fontSize: 72, fontWeight: 900 }}>Prove it offline</div>
+      </AbsoluteFill>
+    </AbsoluteFill>
+  );
+};
+
+// ---------------------------------------------------------------- 9b the covered copy (D-185)
+export const Export = () => {
+  const sec = sceneSec('export');
+  const card = useAt(0, 14) - useAt(0.8, 16);
+  const a = mark('export', 'card', -0.3), b = mark('export', 'ready', -0.3);
+  const t1 = 2.5;
+  return (
+    <AbsoluteFill>
+      <Sequence from={S(0.8)} durationInFrames={S(t1 - 0.8)}><Full clip="export" from={a} to={a + 2.4} sec={t1 - 0.8} z0={1.02} z1={1.05} origin="30% 30%" /><RealTag /></Sequence>
+      <Sequence from={S(t1)}>
+        <Full clip="export" from={b} sec={Math.max(1, sec - t1)} z0={1.02} z1={1.08} origin="30% 30%" />
+        <Sequence from={S(0.8)}><Callout x={1180} y={780} tx={420} ty={950} w={620} text="Re-checked: no hidden data, 0 faces, 0 private words" color={C.teal} /></Sequence>
+        <RealTag text="REAL APP · made on this device, nothing is sent · about 10 s of checking cut" />
+      </Sequence>
+      <AbsoluteFill style={{ justifyContent: 'center', alignItems: 'center', background: C.bg, opacity: Math.max(0, card) }}>
+        <div style={{ fontSize: 72, fontWeight: 900 }}>The copy to post</div>
+      </AbsoluteFill>
+    </AbsoluteFill>
+  );
+};
+
 // ---------------------------------------------------------------- 10 the held-out test (D-174; numbers from benchmark/bench/results.json)
 const BENCH = { scored: 36, located5: 8, refusedRuns: 0, runs: 126, ci5: '12–38%', textN: 23, readBlur: 23, readSolid: 0, deviceCaught: 22 } as const;
 /** A drawn name card (the text experiment's stimulus): plain, lightly blurred, or the app's solid fill. */
@@ -351,54 +402,67 @@ const NameCard = ({ mode, w = 360 }: { mode: 'blur' | 'solid'; w?: number }) => 
     {mode === 'blur' ? <span style={{ fontSize: w * 0.2, fontWeight: 900, color: '#1E2A3A', letterSpacing: 2, filter: 'blur(2.2px)' }}>MAYA</span> : null}
   </div>
 );
+// D-186: names first (the lunchbox test), then places, then the fix. Cues from the narration's pauses (results.wav).
+const RES_CUE = { names: 0.2, blur: 3.0, solid: 7.9, grid: 8.7, count: 9.6, fix: 12.6 };
+const FIXLOOP = { maskable: 10, movedMaskable: 9 } as const; // docs/fix-loop-measurement.md (3 runs)
 export const Results = () => {
   const t = useSec();
-  const count = Math.min(BENCH.located5, Math.floor(interpolate(t, [3.8, 6.0], [0, BENCH.located5 + 0.99], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' })));
-  const zero = useAt(7.7, 8);
-  const second = useAt(9.3, 15);
-  const blurRead = useAt(10.8, 12);
-  const solid = useAt(12.6, 12);
-  const device = useAt(13.6, 12);
-  // Which tiles turn red: spread over the grid (illustrative positions, not photo ids).
+  const namesIn = useAt(RES_CUE.names, 14);
+  const blurRead = useAt(RES_CUE.blur, 12);
+  const solid = useAt(RES_CUE.solid, 12);
+  const device = useAt(RES_CUE.solid, 12);
+  const grid = useAt(RES_CUE.grid, 15);
+  const count = Math.min(BENCH.located5, Math.floor(interpolate(t, [RES_CUE.count, RES_CUE.count + 2.2], [0, BENCH.located5 + 0.99], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' })));
+  const fix = useAt(RES_CUE.fix, 12);
   const RED = [2, 7, 11, 16, 20, 25, 29, 33];
+  // Hooks run on every frame (never inside a conditional block): one entrance per tile.
+  const tileP = Array.from({ length: BENCH.scored }, (_, k) => useAt(RES_CUE.grid + 0.1 + k * 0.02, 14));
   return (
     <AbsoluteFill style={{ padding: '70px 120px' }}>
-      <Title y={40}>{`Our test: ${BENCH.scored} new photos of public places`}</Title>
-      <div style={{ position: 'absolute', left: 0, right: 0, top: 128, textAlign: 'center', fontSize: 22, color: C.muted }}>uploaded Nov 13–26, so unlikely to be in the AI's training · gemini-3.5-flash-lite · distances worked out by code, not by the AI</div>
-      <div style={{ position: 'absolute', left: 0, right: 0, top: 190, display: 'flex', justifyContent: 'center', transform: `translateY(${-second * 30}px) scale(${1 - second * 0.25})`, transformOrigin: '50% 0%' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 92px)', gap: 14 }}>
-          {Array.from({ length: BENCH.scored }, (_, i) => {
-            const p = useAt(0.3 + i * 0.04, 14);
-            const order = RED.indexOf(i);
-            const red = order >= 0 && t > 3.8 + order * 0.25;
-            return <div key={i} style={{ width: 92, height: 92, borderRadius: 12, opacity: p, transform: `translateY(${(1 - p) * 40}px)`,
-              background: red ? `${C.red}33` : C.card, border: `3px solid ${red ? C.red : C.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg width="48" height="48" viewBox="0 0 70 70"><circle cx="35" cy="35" r="26" fill="none" stroke={red ? C.red : '#3a3f4b'} strokeWidth="5" /><circle cx="35" cy="35" r="12" fill="none" stroke={red ? C.red : '#3a3f4b'} strokeWidth="5" /></svg>
-            </div>;
-          })}
-        </div>
-      </div>
-      <div style={{ position: 'absolute', left: 0, right: 0, top: 560, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 36, opacity: 1 - second, transform: `translateY(${-second * 40}px)` }}>
-        <div style={{ fontSize: 60, fontWeight: 900, color: C.red }}>{count} of {BENCH.scored} <span style={{ fontSize: 38, color: C.fg }}>placed within 5 km</span></div>
-        <div style={{ opacity: zero, transform: `scale(${1.3 - 0.3 * zero})` }}><Chip color={C.amber} size={36}>{`${BENCH.refusedRuns} refusals in ${BENCH.runs} tries`}</Chip></div>
-      </div>
-      <div style={{ position: 'absolute', left: 0, right: 0, top: 640, textAlign: 'center', fontSize: 24, color: C.muted, opacity: zero * (1 - second) }}>{`95% interval ${BENCH.ci5} · mostly street scenes`}</div>
-      {second > 0.01 ? (
-        <div style={{ position: 'absolute', left: 0, right: 0, top: 470, opacity: second, textAlign: 'center' }}>
-          <div style={{ fontSize: 40, fontWeight: 800, marginBottom: 28 }}>{`A made-up name, tested on ${BENCH.textN} of the photos`}</div>
-          <div style={{ display: 'flex', gap: 120, justifyContent: 'center', alignItems: 'flex-start' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18 }}>
-              <NameCard mode="blur" />
-              <div style={{ fontSize: 28, color: C.muted }}>light blur</div>
-              <div style={{ fontSize: 40, fontWeight: 900, color: C.red, opacity: blurRead }}>{`AI read it ${BENCH.readBlur} of ${BENCH.textN}`}</div>
+      {grid < 0.99 ? (
+        <div style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, opacity: namesIn * (1 - grid) }}>
+          <Title y={70}>{`The lunchbox test: a made-up name in ${BENCH.textN} photos`}</Title>
+          <div style={{ position: 'absolute', left: 0, right: 0, top: 300, display: 'flex', gap: 160, justifyContent: 'center', alignItems: 'flex-start' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 22 }}>
+              <NameCard mode="blur" w={440} />
+              <div style={{ fontSize: 32, color: C.muted }}>light blur</div>
+              <div style={{ fontSize: 50, fontWeight: 900, color: C.red, opacity: blurRead }}>{`AI read it ${BENCH.readBlur} of ${BENCH.textN}`}</div>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, opacity: Math.max(0.25, solid) }}>
-              <NameCard mode="solid" />
-              <div style={{ fontSize: 28, color: C.muted }}>the app's solid box</div>
-              <div style={{ fontSize: 40, fontWeight: 900, color: C.green, opacity: solid }}>{`AI read it ${BENCH.readSolid} of ${BENCH.textN}`}</div>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 22, opacity: Math.max(0.25, solid) }}>
+              <NameCard mode="solid" w={440} />
+              <div style={{ fontSize: 32, color: C.muted }}>the app's solid box</div>
+              <div style={{ fontSize: 50, fontWeight: 900, color: C.green, opacity: solid }}>{`AI read it ${BENCH.readSolid} of ${BENCH.textN}`}</div>
             </div>
           </div>
-          <div style={{ fontSize: 26, color: C.device, marginTop: 26, opacity: device }}>{`Your device's own text reader caught the name first in ${BENCH.deviceCaught} of ${BENCH.textN}`}</div>
+          <div style={{ position: 'absolute', left: 0, right: 0, top: 820, textAlign: 'center', fontSize: 30, color: C.device, opacity: device }}>{`Your device's own text reader caught the name first in ${BENCH.deviceCaught} of ${BENCH.textN} · drawn names, not real children`}</div>
+        </div>
+      ) : null}
+      {grid > 0.01 ? (
+        <div style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, opacity: grid }}>
+          <Title y={40}>{`Places: ${BENCH.scored} new photos of public places`}</Title>
+          <div style={{ position: 'absolute', left: 0, right: 0, top: 128, textAlign: 'center', fontSize: 22, color: C.muted }}>uploaded Nov 13–26, so unlikely to be in the AI's training · rule written before looking · distances by code, not the AI</div>
+          <div style={{ position: 'absolute', left: 0, right: 0, top: 190, display: 'flex', justifyContent: 'center' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 92px)', gap: 14 }}>
+              {Array.from({ length: BENCH.scored }, (_, k) => {
+                const p = tileP[k] ?? 1;
+                const order = RED.indexOf(k);
+                const red = order >= 0 && t > RES_CUE.count + order * 0.25;
+                return <div key={k} style={{ width: 92, height: 92, borderRadius: 12, opacity: p, background: red ? `${C.red}33` : C.card, border: `3px solid ${red ? C.red : C.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="48" height="48" viewBox="0 0 70 70"><circle cx="35" cy="35" r="26" fill="none" stroke={red ? C.red : '#3a3f4b'} strokeWidth="5" /><circle cx="35" cy="35" r="12" fill="none" stroke={red ? C.red : '#3a3f4b'} strokeWidth="5" /></svg>
+                </div>;
+              })}
+            </div>
+          </div>
+          <div style={{ position: 'absolute', left: 0, right: 0, top: 560, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 36 }}>
+            <div style={{ fontSize: 60, fontWeight: 900, color: C.red }}>{count} of {BENCH.scored} <span style={{ fontSize: 38, color: C.fg }}>placed within 5 km</span></div>
+            <Chip color={C.amber} size={32}>{`${BENCH.refusedRuns} refusals in ${BENCH.runs} tries`}</Chip>
+          </div>
+          <div style={{ position: 'absolute', left: 0, right: 0, top: 650, textAlign: 'center', fontSize: 24, color: C.muted }}>{`95% interval ${BENCH.ci5} · mostly street scenes (looked at afterwards)`}</div>
+          <div style={{ position: 'absolute', left: 0, right: 0, top: 740, display: 'flex', justifyContent: 'center', opacity: fix, transform: `scale(${1.15 - 0.15 * fix})` }}>
+            <div style={{ border: `3px solid ${C.green}`, background: `${C.green}18`, borderRadius: 18, padding: '18px 34px', fontSize: 44, fontWeight: 900 }}>
+              {`When a clue could be covered, the fix moved ${FIXLOOP.movedMaskable} of ${FIXLOOP.maskable} out of 5 km`}
+            </div>
+          </div>
         </div>
       ) : null}
     </AbsoluteFill>
@@ -505,7 +569,7 @@ export const Close = () => {
       <Backdrop src="art-gate.webp" opacity={off} dim={0.7} />
       <div style={{ marginTop: -40, position: 'relative' }}>
         <EyeLogo size={200} from={0.4} blinkAt={2.6} />
-        <div style={{ fontSize: 52, fontWeight: 800, color: C.muted, marginTop: 10, opacity: off }}>Location off isn't location hidden.</div>
+        <div style={{ fontSize: 52, fontWeight: 800, color: C.muted, marginTop: 10, opacity: off }}>A covered face isn't a hidden child.</div>
         <div style={{ fontSize: 112, fontWeight: 900, letterSpacing: -3, marginTop: 8, opacity: useAt(2.2), transform: `scale(${0.92 + 0.08 * useAt(2.2)})` }}>Strangers' Eyes</div>
         <div style={{ fontSize: 40, marginTop: 4, opacity: useAt(2.6) }}>See what a stranger's AI sees, before you post.</div>
       </div>
@@ -515,5 +579,5 @@ export const Close = () => {
 
 export const SCENES: Record<string, () => JSX.Element> = {
   post: Post, stranger: Stranger, how: How, judge: Judge, prescreen: Prescreen, gate: Gate, castle: Castle,
-  crossing: Crossing, station: Station, results: Results, hybrid: Hybrid, design: Design, close: Close,
+  crossing: Crossing, station: Station, sealed: Sealed, export: Export, results: Results, hybrid: Hybrid, design: Design, close: Close,
 };

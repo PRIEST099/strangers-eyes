@@ -1,15 +1,17 @@
 {
- "post": 5.9,
+ "post": 6.63,
  "stranger": 13.75,
  "how": 22.33,
- "judge": 9.43,
+ "judge": 6.78,
  "prescreen": 9.88,
  "gate": 9.9,
  "castle": 20.63,
  "crossing": 17.88,
  "station": 8,
- "results": 15.13,
+ "results": 16.15,
  "hybrid": 20.53,
- "close": 7.4,
- "design": 9.78
+ "close": 7.13,
+ "design": 9.78,
+ "sealed": 10.6,
+ "export": 6.33
 }

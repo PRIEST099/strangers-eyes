@@ -188,3 +188,54 @@ export const Chip = ({ children, color = C.fg, bg = 'rgba(255,255,255,0.06)', si
   <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, padding: '8px 18px', borderRadius: 999, border: `2px solid ${color}`, color, background: bg,
     fontSize: size, fontWeight: 800, whiteSpace: 'nowrap', ...style }}>{children}</div>
 );
+
+/**
+ * D-186 (Lunchbox re-cut): the opening photo. The drawn street (no real place) with a child in front: the face is
+ * covered by a sticker (`sticker` 0..1 drops it on), but the lunchbox label (a made-up name) and the street sign
+ * (a made-up street) stay readable. `boxes` frame what the stranger's AI reads; `masks` are the app's solid fills.
+ */
+export const KidStreet = ({ w, sticker = 1, boxes = {}, masks = {}, style }: {
+  w: number; sticker?: number; boxes?: Partial<Record<'name' | 'sign', number>>; masks?: Partial<Record<'name' | 'sign', number>>; style?: CSSProperties;
+}) => {
+  const BOX = { name: [458, 352, 548, 382], sign: [70, 240, 210, 275] } as const;
+  const s = Math.min(1, Math.max(0, sticker));
+  return (
+    <div style={{ position: 'relative', width: w, height: (w * 9) / 16, ...style }}>
+      <Street w={w} />
+      <svg width={w} height={(w * 9) / 16} viewBox="0 0 800 450" style={{ position: 'absolute', left: 0, top: 0 }}>
+        {/* the street sign, readable */}
+        <rect x="72" y="242" width="136" height="31" rx="4" fill="#2e7d46" />
+        <text x="140" y="263" textAnchor="middle" fontFamily={MONO} fontSize="15" fontWeight="800" fill="#e8f5ec">ELM HOLLOW RD</text>
+        {/* the child: school uniform, backpack straps, a lunchbox with a name label */}
+        <rect x="388" y="300" width="76" height="98" rx="22" fill="#2f5ea8" />
+        <rect x="398" y="300" width="10" height="70" fill="#1f3f73" /><rect x="444" y="300" width="10" height="70" fill="#1f3f73" />
+        <rect x="392" y="396" width="26" height="40" rx="8" fill="#28324a" /><rect x="434" y="396" width="26" height="40" rx="8" fill="#28324a" />
+        <circle cx="426" cy="270" r="34" fill="#c8906b" />
+        <path d="M392 262 q34 -44 68 0" fill="#3a2a20" />
+        <rect x="462" y="318" width="10" height="44" rx="5" fill="#c8906b" />
+        <rect x="452" y="346" width="102" height="62" rx="12" fill="#e2483d" />
+        <rect x="474" y="338" width="56" height="12" rx="6" fill="none" stroke="#b8322a" strokeWidth="5" />
+        <rect x="460" y="354" width="86" height="26" rx="5" fill="#fffdf6" />
+        <text x="503" y="373" textAnchor="middle" fontFamily={MONO} fontSize="17" fontWeight="900" fill="#111">LUCAS</text>
+        {/* the parent's sticker over the face */}
+        {s > 0 ? (
+          <g transform={`translate(426 270) scale(${1.6 - 0.6 * s}) rotate(${(1 - s) * -30})`} opacity={Math.min(1, s * 1.4)}>
+            <circle r="40" fill="#ffd34d" stroke="#e0a800" strokeWidth="4" />
+            <circle cx="-13" cy="-8" r="5" fill="#3a2a20" /><circle cx="13" cy="-8" r="5" fill="#3a2a20" />
+            <path d="M-17 10 q17 16 34 0" stroke="#3a2a20" strokeWidth="5" fill="none" strokeLinecap="round" />
+          </g>
+        ) : null}
+        {(['name', 'sign'] as const).map((k) => {
+          const p = masks[k] ?? 0; if (p <= 0) return null;
+          const [x0, y0, x1, y1] = BOX[k];
+          return <rect key={`m${k}`} x={x0 - 4} y={y0 - 4} width={x1 - x0 + 8} height={y1 - y0 + 8} fill="#141414" opacity={Math.min(1, p * 1.5)} />;
+        })}
+        {(['name', 'sign'] as const).map((k) => {
+          const p = boxes[k] ?? 0; if (p <= 0) return null;
+          const [x0, y0, x1, y1] = BOX[k];
+          return <rect key={`b${k}`} x={x0 - 7} y={y0 - 7} width={x1 - x0 + 14} height={y1 - y0 + 14} rx="6" fill="none" stroke={C.amber} strokeWidth="4" strokeDasharray="10 6" opacity={Math.min(1, p * 1.4)} />;
+        })}
+      </svg>
+    </div>
+  );
+};

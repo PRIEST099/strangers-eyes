@@ -96,6 +96,30 @@ const CLIPS = {
     { clickHas: 'Attack (done)', optional: true }, { waitText: 'would have left this device', timeout: 20000 }, { mark: 'blocked' },
     { scroll: 'would have left this device', block: 'center', ms: 1200 }, { wait: 4500 },
   ] },
+  // D-182, the sealed answer: judge-02 with "Prove it offline" on. At the sealed card the page's network is cut with
+  // Chrome's own offline emulation (navigator.onLine false, as with Wi-Fi off), "Open it offline" is pressed, and the
+  // guess is checked on the device; the stamp shows what the Cloud Ledger saw meanwhile. The network comes back at the end.
+  sealed: { offline: true, hash: '#/judge', steps: [
+    { waitText: 'Run all' }, { toggle: 'Autoplay', on: true }, { toggle: 'Prove it offline', on: true }, { wait: 300 }, { click: CROSSING }, { mark: 'picked' },
+    { waitText: 'Its answer is sealed', timeout: 180000 }, { mark: 'sealed' }, { wait: 300 },
+    { scroll: 'Its answer is sealed', block: 'center', ms: 1200 }, { wait: 2500 },
+    { net: 'off' }, { waitText: 'CONNECTION: OFF', timeout: 10000 }, { mark: 'off' }, { wait: 2000 },
+    { clickHas: 'Open it offline' }, { mark: 'open' },
+    { waitText: 'Opened with the connection off', timeout: 90000 }, { mark: 'stamp' }, { wait: 300 },
+    { scroll: 'Opened with the connection off', block: 'start', ms: 1200 }, { wait: 6000 },
+    { net: 'on' }, { wait: 500 },
+  ] },
+  // D-185, the covered copy: judge-02 to "Risk reduced", then "Make the covered copy": rebuilt and re-checked on the
+  // device, the exact bytes shown with the check line and Save.
+  export: { offline: true, hash: '#/judge', steps: [
+    { waitText: 'Run all' }, { toggle: 'Autoplay', on: true }, { wait: 300 }, { click: CROSSING }, { mark: 'picked' },
+    { waitText: ['Risk reduced', 'Still exposed'], timeout: 240000 }, { mark: 'after' }, { wait: 300 },
+    { waitText: 'Make the covered copy', timeout: 30000 },
+    { scroll: 'Save a covered copy', block: 'start', ms: 1400 }, { mark: 'card' }, { wait: 2000 },
+    { clickHas: 'Make the covered copy' }, { mark: 'make' },
+    { waitText: '0 private words', timeout: 240000 }, { mark: 'ready' }, { wait: 300 },
+    { scroll: 'Save a covered copy', block: 'start', ms: 1400 }, { wait: 6000 },
+  ] },
 };
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -206,6 +230,9 @@ async function record(name, clip) {
           if (!b || b.disabled) return false; b.scrollIntoView({ block: 'center', behavior: 'smooth' }); b.click(); return true; })()`);
         if (!ok && !st.optional) throw new Error(`no control "${st.click ?? st.clickHas}"`);
         if (!ok) console.log(`  (optional "${st.click ?? st.clickHas}" not there)`);
+      }
+      if (st.net) {
+        await send('Network.emulateNetworkConditions', { offline: st.net === 'off', latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
       }
       if (st.toggle) {
         await evaluate(`(() => { const b = [...document.querySelectorAll('input[type=checkbox],[role=switch]')].find((e) => __g.rowText(e).includes(${JSON.stringify(st.toggle)}));

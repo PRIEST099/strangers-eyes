@@ -1,42 +1,58 @@
 {
  "durations": {
-  "judge-home": 6.27,
-  "crossing": 75.39,
+  "judge-home": 6.25,
+  "crossing": 84.89,
   "station": 58.87,
-  "castle": 53.64,
-  "gate": 41.45
+  "castle": 55.08,
+  "gate": 40.45,
+  "sealed": 59.67,
+  "export": 85.84
  },
  "marks": {
   "judge-home": {
-   "shown": 0
+   "shown": 0.01
   },
   "crossing": {
-   "picked": 0.32,
-   "verdict": 38.13,
-   "verdictShown": 39.64,
-   "fix": 45.68,
-   "applied": 48.2,
-   "after": 63.5,
-   "compare": 70.93
+   "picked": 0.36,
+   "verdict": 42.23,
+   "verdictShown": 43.75,
+   "fix": 49.79,
+   "applied": 52.38,
+   "after": 73,
+   "compare": 80.45
   },
   "station": {
    "picked": 0.33,
    "after": 52.6
   },
   "castle": {
-   "picked": 0.36,
-   "prescreen": 20.06,
-   "consent": 30.09,
-   "attack": 33.11,
-   "verdict": 36.52,
-   "nofix": 46.7
+   "picked": 0.35,
+   "prescreen": 20.87,
+   "consent": 31.21,
+   "attack": 34.24,
+   "verdict": 37.97,
+   "nofix": 48.16
   },
   "gate": {
-   "mask": 22.01,
-   "unticked": 23.84,
-   "consent": 28.19,
-   "send": 32.45,
-   "blocked": 35.79
+   "mask": 20.75,
+   "unticked": 22.57,
+   "consent": 27.26,
+   "send": 31.47,
+   "blocked": 34.83
+  },
+  "sealed": {
+   "picked": 0.34,
+   "sealed": 38.09,
+   "off": 42.13,
+   "open": 44.15,
+   "stamp": 51.66
+  },
+  "export": {
+   "picked": 0.35,
+   "after": 63.99,
+   "card": 65.71,
+   "make": 67.71,
+   "ready": 78.18
   }
  },
  "aiRequests": {
@@ -44,6 +60,8 @@
   "crossing": 0,
   "station": 0,
   "castle": 0,
-  "gate": 0
+  "gate": 0,
+  "sealed": 0,
+  "export": 0
  }
 }

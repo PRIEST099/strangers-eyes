@@ -4,11 +4,11 @@
  "scenes": [
   {
    "id": "post",
-   "text": "You take a photo a few streets from home. You switch location off, and post it. Private, right?"
+   "text": "You photograph your son on his first day of school. You cover his face with a sticker, and post it. Private, right?"
   },
   {
    "id": "stranger",
-   "text": "Not quite. A stranger can give your photo to an AI that reads what's in it: a street sign, a shop name, a building. Clues like these give you away. Strangers' Eyes shows you what that AI sees, before you post."
+   "text": "Not quite. A stranger can give it to an AI that reads what's left: the name on his lunchbox. The street sign behind him. The face was never the leak. Strangers' Eyes shows you what that AI sees, before you post."
   },
   {
    "id": "how",
@@ -16,7 +16,7 @@
   },
   {
    "id": "judge",
-   "text": "Now the real app, in Judge Mode, with Gemini Nano on: free-to-use photos of public places, and a made-up family with a child called Lucas."
+   "text": "Now the real app, in Judge Mode, with Gemini Nano on, and a made-up family with a son called Lucas."
   },
   {
    "id": "prescreen",
@@ -35,24 +35,24 @@
    "text": "Here a fix helps. The AI read a street sign and its house-number plate, and found the street, within five kilometres of home and work. The app covers both, then attacks again. Now it can only guess the city. But your work is in that city, so your device still flags it: still exposed, at city level."
   },
   {
-   "id": "station",
-   "text": "And sometimes covering isn't enough. With the sign hidden, the AI found the right city from the building itself. Still exposed."
+   "id": "sealed",
+   "text": "Don't take our word for it. Prove it offline keeps the stranger's answer sealed. We cut the connection and open it: the guess is checked on this device. Zero cloud calls."
+  },
+  {
+   "id": "export",
+   "text": "Last step: save a covered copy, rebuilt and checked again on your device. That's the copy you post."
   },
   {
    "id": "results",
-   "text": "Then we tested thirty-six new photos of public places. The AI placed eight within five kilometres, and never refused. And a made-up name on a card? It read it every time, even through a light blur. Through the app's solid box: never."
+   "text": "We measured it. A made-up name on a card: the AI read it every time, even through a light blur. Under the solid box: never. On thirty-six new photos, it placed eight within five kilometres. And when a clue could be covered, the fix moved nine in ten out."
   },
   {
    "id": "hybrid",
    "text": "That's hybrid AI: the cloud brings world knowledge, your device keeps the secrets. Private steps run on Gemini Nano in Chrome, as you just saw, or on Apple's own model on iOS, shown here in the iOS Simulator. No on-device AI? Simple rules take over, never the cloud. Built on Firebase AI Logic."
   },
   {
-   "id": "design",
-   "text": "The whole design on one page. Private steps stay on your device. Every request to the AI passes one gate. And whether the guess was right never leaves."
-  },
-  {
    "id": "close",
-   "text": "Location off isn't location hidden. See what a stranger's AI sees, before you post. Strangers' Eyes."
+   "text": "A covered face isn't a hidden child. See what a stranger's AI sees, before you post. Strangers' Eyes."
   }
  ]
 }
