@@ -35,7 +35,7 @@ You covered your child's face. A stranger's AI can still read the name on the lu
 - Code: https://github.com/PRIEST099/strangers-eyes
 
 ## Video
-https://youtu.be/_1SQMxDQpHk
+https://youtu.be/D333Y8rzGSQ
 
 About the footage (re-cut Nov 26, D-174): the web app was recorded in Chrome with Gemini Nano switched on, so the clue scan and the guess check show ON-DEVICE with their latencies. The steps that always run as code or a small local model (metadata, faces, text, vault match, the fix plan) show BUILT-IN; RULES-ONLY appears only when an on-device AI step falls back (re-recorded Nov 27, D-179). Judge runs replay the Nov 23 recorded attacker answers, badged CACHED SAMPLE, so no photo was sent again. iOS footage is from the Simulator.
 

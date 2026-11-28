@@ -1,6 +1,6 @@
 # Strangers' Eyes: see your photo the way a stalker's AI would, before you post it
 
-[Live app](https://strangers-eyes.web.app) · [Demo video, under 3 min](https://youtu.be/_1SQMxDQpHk) · [Source](https://github.com/PRIEST099/strangers-eyes) · [Apache-2.0](LICENSE) · Built for #BuildHybridAI 2026: Web PWA (hosted) and iOS (SwiftUI, run in the Simulator) · [USER: platforms and "Best of" category, T-172]
+[Live app](https://strangers-eyes.web.app) · [Demo video, under 3 min](https://youtu.be/D333Y8rzGSQ) · [Source](https://github.com/PRIEST099/strangers-eyes) · [Apache-2.0](LICENSE) · Built for #BuildHybridAI 2026: Web PWA (hosted) and iOS (SwiftUI, run in the Simulator) · [USER: platforms and "Best of" category, T-172]
 
 - **The lunchbox test.** Careful parents cover their child's face before posting. We drew a made-up name on a card in fresh photos of public places: a cloud model asked to read them read the name in 23 of 23, and in 23 of 23 again through a light blur. Behind the app's solid box: 0 of 23 (§7).
 - **The cloud plays the attacker.** Gemini, through Firebase AI Logic, tries to work out where your photo was taken, from a redacted copy.
